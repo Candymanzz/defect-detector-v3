@@ -40,6 +40,10 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
         return bus;
     }
 
+    public IoInputMonitorUdpTriggerTransport ioInputTransport() {
+        return ioInputTransport;
+    }
+
     /** Конвейер в «Работа» (DI work=1). Если IoInputMonitor выключен — {@code true}. */
     public boolean isLineWorkActive() {
         return ioInputTransport == null || ioInputTransport.isLineWorkActive();

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("IoInputMonitor.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3e5fcc4d6c214a400ad097323d44ae2119292efd")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d57d9fb808ad7dbb223a442b6c21b48a31668760")]
 [assembly: System.Reflection.AssemblyProductAttribute("IoInputMonitor.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("IoInputMonitor.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

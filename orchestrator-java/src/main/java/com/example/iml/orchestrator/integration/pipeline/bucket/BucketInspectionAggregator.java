@@ -81,6 +81,10 @@ public final class BucketInspectionAggregator implements AutoCloseable {
         return groupIdByPhaseAndCamera.keySet().stream().anyMatch(key -> key.cameraId() == cameraId);
     }
 
+    public Integer groupIdFor(int phaseId, int cameraId) {
+        return groupIdByPhaseAndCamera.get(new PhaseCameraKey(phaseId, cameraId));
+    }
+
     /** Пиры той же bucket-группы (включая саму камеру). */
     public List<Integer> peerCameraIds(int cameraId) {
         Integer groupId = groupIdByPhaseAndCamera.get(new PhaseCameraKey(0, cameraId));

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   compareInspectResults,
   createDefaultInspectionProducts,
+  createModalInspectionSnapshot,
   upsertInspectionHistoryItem,
 } from "./MainController";
 import type { InspectResultPayload } from "../../shared/ws";
@@ -72,5 +73,20 @@ describe("MainController helpers", () => {
 
     expect(updated).toHaveLength(1);
     expect(updated[0].result).toBe("fail");
+  });
+
+  it("opens a camera modal with the latest frame even without an inspect result", () => {
+    const snapshot = createModalInspectionSnapshot(
+      { cameraId: 2, objectName: "Объект 1" },
+      { productKey: "0:0", phaseId: 0, groupId: 0 },
+      undefined,
+      undefined,
+      "42",
+      "/api/frames/2.jpg",
+      [],
+    );
+
+    expect(snapshot.inspectResult).toBeUndefined();
+    expect(snapshot.cameraImageUrl).toBe("/api/frames/2.jpg");
   });
 });

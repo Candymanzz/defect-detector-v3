@@ -30,9 +30,19 @@ public final class TwoPhaseCaptureDiagnostics {
     private final ConcurrentHashMap<Long, TriggerMark> triggerByRawSequence = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, WaitFrameFlight> waitFrameInFlightByCamera = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, TriggerMark> phaseZeroByParentCycle = new ConcurrentHashMap<>();
+    private volatile CaptureOkListener captureOkListener;
 
     public TwoPhaseCaptureDiagnostics(Logger log) {
         this.log = log;
+    }
+
+    @FunctionalInterface
+    public interface CaptureOkListener {
+        void onCaptureOk(int cameraId, int phaseId, long parentCycleId);
+    }
+
+    public void setCaptureOkListener(CaptureOkListener captureOkListener) {
+        this.captureOkListener = captureOkListener;
     }
 
     /**
@@ -129,6 +139,14 @@ public final class TwoPhaseCaptureDiagnostics {
                 orchestratorElapsedMs,
                 workerLatencyMs
         );
+        CaptureOkListener listener = captureOkListener;
+        if (listener != null) {
+            try {
+                listener.onCaptureOk(cameraId, phaseId, parentCycleId);
+            } catch (RuntimeException e) {
+                log.warn("capture_ok listener failed cam={} phase={}: {}", cameraId, phaseId, e.getMessage());
+            }
+        }
     }
 
     public void onCaptureFail(

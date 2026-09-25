@@ -184,4 +184,33 @@ public class IoCaptureGateTests
         Assert.Equal(IoCaptureDecision.DirectionArmed, gate.Evaluate(2, true, risingEdge: true));
         Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
     }
+
+    [Fact]
+    public void TwoChannels_Di3AndDi5_FireIndependentlyInSameDi2Window()
+    {
+        var gate = new IoCaptureGate(new IoCaptureOptions
+        {
+            Enabled = true,
+            DirectionPort = 2,
+            TriggerPort = 3,
+            WorkPort = 1,
+            RequireDirection = true,
+            DirectionLatch = false,
+            MaxDi3CapturesPerDi2Window = 1,
+            Channels =
+            [
+                new IoCaptureChannel { TriggerPort = 3, OutputPort = 5, TimerIndex = 5 },
+                new IoCaptureChannel { TriggerPort = 5, OutputPort = 7, TimerIndex = 7 }
+            ]
+        });
+
+        Assert.Equal(IoCaptureDecision.DirectionArmed, gate.Evaluate(2, true, risingEdge: true));
+        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
+        Assert.Equal(3, gate.LastFiredTriggerPort);
+        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(5, true, risingEdge: true));
+        Assert.Equal(5, gate.LastFiredTriggerPort);
+        // Лимит на канал: второй DI3 в том же окне — skip; DI5 уже сработал.
+        Assert.Equal(IoCaptureDecision.SkipAlreadyFired, gate.Evaluate(3, true, risingEdge: true));
+        Assert.Equal(IoCaptureDecision.SkipAlreadyFired, gate.Evaluate(5, true, risingEdge: true));
+    }
 }

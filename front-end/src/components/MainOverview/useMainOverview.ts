@@ -414,11 +414,6 @@ export function useMainOverview(inspectionResetVersion = 0) {
       if (message.type === "server.hello" || message.type === "server.state") {
         const nextHasReference = message.payload.session_state !== "NO_REFERENCE";
         setHasReference(nextHasReference);
-        if (!nextHasReference) {
-          setInspectionProducts(clearInspectionProductResults);
-          setInspectionHistoryByProductKey({});
-          setProductStatsByKey({});
-        }
         const hasDisabledInspection = Object.values(inspectionEnabledByCameraIdRef.current).some(
           (enabled) => !enabled,
         );
@@ -461,9 +456,6 @@ export function useMainOverview(inspectionResetVersion = 0) {
       }
 
       if (message.type === "server.inspect_bucket_result") {
-        if (message.payload.session_state === "NO_REFERENCE") {
-          return;
-        }
         setInspectionProducts((current) => updateInspectionProducts(current, message.payload));
         setInspectionHistoryByProductKey((current) => updateProductHistoryFromBucket(current, message.payload));
         setProductStatsByKey((current) => updateProductStats(current, message.payload));
@@ -547,6 +539,9 @@ export function useMainOverview(inspectionResetVersion = 0) {
           setInspectionHistoryByCameraId,
           setInspectionStatsByCameraId,
         );
+        setInspectionProducts((current) => applyInspectResultToProducts(current, inspectResult));
+        setInspectionHistoryByProductKey((current) => upsertProductHistoryItem(current, inspectResult));
+        addModalInspectionItem(setModalSnapshot, inspectResult);
         return;
       }
 
@@ -845,6 +840,60 @@ function applyBucketResult(
     });
     addInspectionStatsItem(setStats, inspectResult);
   }
+}
+
+function applyInspectResultToProducts(
+  current: InspectionProduct[],
+  inspectResult: InspectResultPayload,
+): InspectionProduct[] {
+  const phaseId = inspectResult.phase_id ?? 0;
+  const matched =
+    inspectResult.group_id != null && inspectResult.group_id >= 0
+      ? current.find((product) => product.phaseId === phaseId && product.groupId === inspectResult.group_id)
+      : current.find((product) => product.phaseId === phaseId && product.cameraIds.includes(inspectResult.camera_id));
+  if (!matched || !matched.cameraIds.includes(inspectResult.camera_id)) {
+    return current;
+  }
+
+  const resultsByCameraId = {
+    ...matched.resultsByCameraId,
+    [inspectResult.camera_id]: inspectResult,
+  };
+  const captureOnly = Object.values(resultsByCameraId).every((result) => isCaptureOnlyInspectResult(result));
+  const triggerSequence = Number(inspectResult.inspection_id);
+  return current.map((product) =>
+    product.key === matched.key
+      ? {
+          ...product,
+          triggerSequence: Number.isFinite(triggerSequence) && triggerSequence > 0 ? triggerSequence : product.triggerSequence,
+          overallPass: captureOnly ? undefined : product.overallPass,
+          serverTsMs: inspectResult.server_ts_ms,
+          resultsByCameraId,
+        }
+      : product,
+  );
+}
+
+function upsertProductHistoryItem(
+  current: Record<string, Record<number, InspectionHistoryItem[]>>,
+  inspectResult: InspectResultPayload,
+) {
+  const phaseId = inspectResult.phase_id ?? 0;
+  const groupId = inspectResult.group_id;
+  if (groupId == null || groupId < 0) {
+    return current;
+  }
+
+  const productKey = `${phaseId}:${groupId}`;
+  const result = resolveInspectionResultState(inspectResult) ?? "capture";
+  const productHistory = { ...(current[productKey] ?? {}) };
+  productHistory[inspectResult.camera_id] = upsertInspectionHistoryItem(productHistory[inspectResult.camera_id] ?? [], {
+    frameId: inspectResult.frame_id,
+    inspectionId: resolveInspectionId(inspectResult),
+    result,
+    inspectResult,
+  });
+  return { ...current, [productKey]: productHistory };
 }
 
 function updateInspectionProducts(current: InspectionProduct[], bucket: InspectBucketResultPayload): InspectionProduct[] {

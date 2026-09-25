@@ -170,7 +170,8 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
                                 triggerSequence,
                                 cameraId,
                                 worker,
-                                phaseId
+                                phaseId,
+                                parentCycleId
                         );
                     } else {
                         captureHolder[0] = worker.command(Map.of("op", "capture", "sync", true));

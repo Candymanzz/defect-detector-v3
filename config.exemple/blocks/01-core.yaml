@@ -15,17 +15,18 @@ capture_source: "hik"
 capture_trigger_mode: "line0"
 line0_trigger_activation: "RisingEdge"
 line0_line_inverter: false
-frame_timeout_ms: 15000
+frame_timeout_ms: 800
 # GigE-топология: 5 коммутаторов, на каждом 2 камеры (пары id: 0+1, 2+3, … 8+9).
+# DI3→камеры по железу, два импульса подряд при DI2=1: ждать кадр коротко, не 15 с.
 # gige_switch_buffer_kb — физический egress коммутатора (448 КБ). Должен совпадать с железом.
 gige_switch_count: 5
 gige_cameras_per_switch: 2
 gige_switch_buffer_kb: 448
 # GevSCPD (тики ~8 нс): при 448 КБ можно ниже, чем на 48 КБ. Для BGR8 трафик ~3× Mono8 — при resend поднять delay.
 # Если resend/потери — поднять до 15000–20000; если медленно — снизить до 8000.
-gige_inter_packet_delay: 10000
+gige_inter_packet_delay: 4000
 # 0 = авто (~13 мс слот GevSCFTD на 1224×1024 при 448 КБ); разнесение 2 камер на коммутаторе.
-gige_frame_transfer_delay_step: 0
+gige_frame_transfer_delay_step: 2500000
 # 2 = две камеры на коммутатор; передача волнами 0,2,4,6,8 затем 1,3,5,7,9.
 gige_ftd_cameras_per_link: 2
 
@@ -108,16 +109,24 @@ integration:
   # Внешний триггер инспекции (когда dev_auto_trigger_stub и continuous_inspection выключены).
   inspection_trigger:
     two_phase:
-      # Пока DI2=1: первый DI3↑ = phase0, второй = phase1, остальные игнорируются.
-      # DI2↓ завершает цикл и сбрасывает счётчик; интервал между двумя DI3 не используется.
+      # DI3→Line0 по железу: два DI3↑ пока DI2=1 → phase0 и phase1.
+      # Без single_di3_burst: не стартуем wait_frame phase1 по таймеру (иначе ловим поздний DI3 при DI2=0).
       enabled: true
+      single_di3_burst: false
+      burst_delay_ms: 20
+      auto_second_phase_delay_ms: 0
+      expected_delay_ms: 20
+      tolerance_ms: 40
+      fallback_physical_grace_ms: 0
+      io_control_http_host: 127.0.0.1
+      io_control_http_port: 9101
     udp:
       enabled: true
       bind_host: "0.0.0.0"
       bind_port: 9100
       # io_input: UDP от IoInputMonitor {"di":N,"value":0|1}; DI1=работа, DI2=направление, DI3=триггер, DI4=shutdown
       format: io_input
-      debounce_ms: 20
+      debounce_ms: 0
       # allowed_remote_hosts: ["127.0.0.1"]
     io_input:
       work_port: 1
@@ -127,13 +136,14 @@ integration:
       shutdown_port: 4
       direction_latch_on_work: false
       di3_only: true
-      # Съёмка только при DI2=1: DI3↑ → wait_frame; без DI2 — skip.
+      # DI2↑ заранее ставит обе фазы в wait_frame; кадры физически дают DI3→DO5 и DI5→DO7.
+      arm_on_direction: true
       repeat_di3_capture: true
       direction_latch: false
       capture_delay_ms: 0
       trigger_edge: rising
       payload_format: json
-      debounce_ms: 20
+      debounce_ms: 0
       require_direction: true
       require_work: false
       external_hardware_capture: true

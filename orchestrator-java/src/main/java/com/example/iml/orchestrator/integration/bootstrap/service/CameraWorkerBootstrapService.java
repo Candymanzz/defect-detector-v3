@@ -107,6 +107,19 @@ public final class CameraWorkerBootstrapService {
             log.error("No camera workers started successfully; integration pipeline skipped.");
             return false;
         }
+        if (workersByCamera.size() != cameras.size()) {
+            List<Integer> missingCameraIds = cameras.stream()
+                    .map(camera -> ((Number) camera.get("id")).intValue())
+                    .filter(cameraId -> !workersByCamera.containsKey(cameraId))
+                    .toList();
+            log.error(
+                    "Camera set is incomplete: started={}/{} missing={}; inspection pipeline will not start",
+                    workersByCamera.size(),
+                    cameras.size(),
+                    missingCameraIds
+            );
+            return false;
+        }
 
         SimultaneousLineCaptureConfig lineCaptureCfg =
                 SimultaneousLineCaptureConfig.parse(ctx.integration(), ctx.root());

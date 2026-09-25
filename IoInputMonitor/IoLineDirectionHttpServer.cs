@@ -6,33 +6,46 @@ namespace IoInputMonitor;
 
 /// <summary>
 /// HTTP API IoInputMonitor (только направление съёмки, без DO reject):
-/// GET/PUT /line-direction; POST /capture-disarm.
+/// GET/PUT /line-direction; POST /capture-disarm; POST /synthetic-di3-capture; POST /line0-pulse.
 /// </summary>
 internal sealed class IoLineDirectionHttpServer : IDisposable
 {
     private readonly IoCaptureGate _gate;
+    private readonly Func<Task<(bool Ok, string Detail)>>? _syntheticDi3Capture;
+    private readonly Func<Task<(bool Ok, string Detail)>>? _line0PulseOnly;
     private readonly HttpListener _listener;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _loop;
     private readonly object _consoleLock;
     private bool _disposed;
 
-    private IoLineDirectionHttpServer(IoCaptureGate gate, string prefix, object consoleLock)
+    private IoLineDirectionHttpServer(
+        IoCaptureGate gate,
+        string prefix,
+        object consoleLock,
+        Func<Task<(bool Ok, string Detail)>>? syntheticDi3Capture,
+        Func<Task<(bool Ok, string Detail)>>? line0PulseOnly)
     {
         _gate = gate;
+        _syntheticDi3Capture = syntheticDi3Capture;
+        _line0PulseOnly = line0PulseOnly;
         _consoleLock = consoleLock;
         _listener = new HttpListener();
         _listener.Prefixes.Add(prefix);
         _listener.Start();
         _loop = Task.Run(ListenLoopAsync);
         Console.WriteLine(
-            $"IO control HTTP ← {prefix}line-direction (GET/PUT), capture-disarm (POST)");
+            $"IO control HTTP ← {prefix}line-direction (GET/PUT), capture-disarm (POST)"
+            + (syntheticDi3Capture != null ? ", synthetic-di3-capture (POST)" : "")
+            + (line0PulseOnly != null ? ", line0-pulse (POST)" : ""));
     }
 
     public static IoLineDirectionHttpServer? TryStart(
         IoCaptureGate? gate,
         IoDirectionHttpOptions? directionHttp,
-        object consoleLock)
+        object consoleLock,
+        Func<Task<(bool Ok, string Detail)>>? syntheticDi3Capture = null,
+        Func<Task<(bool Ok, string Detail)>>? line0PulseOnly = null)
     {
         if (gate == null || directionHttp is not { Enabled: true })
             return null;
@@ -44,7 +57,7 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
         string prefix = $"http://{host}:{directionHttp.Port}/";
         try
         {
-            return new IoLineDirectionHttpServer(gate, prefix, consoleLock);
+            return new IoLineDirectionHttpServer(gate, prefix, consoleLock, syntheticDi3Capture, line0PulseOnly);
         }
         catch (Exception ex)
         {
@@ -101,6 +114,18 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
             if (path is "/capture-disarm" or "/api/client/capture-disarm" or "/disarm")
             {
                 HandleCaptureDisarm(ctx);
+                return;
+            }
+
+            if (path is "/synthetic-di3-capture" or "/api/client/synthetic-di3-capture")
+            {
+                HandleSyntheticDi3Capture(ctx);
+                return;
+            }
+
+            if (path is "/line0-pulse" or "/api/client/line0-pulse")
+            {
+                HandleLine0Pulse(ctx);
                 return;
             }
 
@@ -179,6 +204,54 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
                 // ignore
             }
         }
+    }
+
+    private void HandleSyntheticDi3Capture(HttpListenerContext ctx)
+    {
+        if (!ctx.Request.HttpMethod.Equals("POST", StringComparison.OrdinalIgnoreCase))
+        {
+            WriteJson(ctx.Response, 405, new { error = "method not allowed" });
+            return;
+        }
+
+        if (_syntheticDi3Capture == null)
+        {
+            WriteJson(ctx.Response, 503, new { error = "synthetic capture not available" });
+            return;
+        }
+
+        (bool ok, string detail) = _syntheticDi3Capture().GetAwaiter().GetResult();
+        if (!ok)
+        {
+            WriteJson(ctx.Response, 409, new { ok = false, error = detail });
+            return;
+        }
+
+        WriteJson(ctx.Response, 200, new { ok = true, detail });
+    }
+
+    private void HandleLine0Pulse(HttpListenerContext ctx)
+    {
+        if (!ctx.Request.HttpMethod.Equals("POST", StringComparison.OrdinalIgnoreCase))
+        {
+            WriteJson(ctx.Response, 405, new { error = "method not allowed" });
+            return;
+        }
+
+        if (_line0PulseOnly == null)
+        {
+            WriteJson(ctx.Response, 503, new { error = "line0 pulse not available" });
+            return;
+        }
+
+        (bool ok, string detail) = _line0PulseOnly().GetAwaiter().GetResult();
+        if (!ok)
+        {
+            WriteJson(ctx.Response, 409, new { ok = false, error = detail });
+            return;
+        }
+
+        WriteJson(ctx.Response, 200, new { ok = true, detail });
     }
 
     private void HandleCaptureDisarm(HttpListenerContext ctx)

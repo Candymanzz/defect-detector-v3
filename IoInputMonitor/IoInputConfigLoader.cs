@@ -134,6 +134,19 @@ public static class IoInputConfigLoader
         if (inputs.Length == 0)
             inputs = [3];
 
+        IoCaptureOptions capture = ParseCapture(section.Capture);
+        inputs = MergeTriggerInputs(inputs, capture);
+
+        IoInputUdpPublishOptions udp = ParseUdpPublish(section.Publish?.Udp, inputs);
+        udp.PublishInputs = MergeTriggerInputs(udp.PublishInputs, capture);
+        // Не слать стартовое состояние всех capture-триггеров (ложный FIRE).
+        if (!udp.SendInitialTriggerState && capture.Enabled)
+        {
+            int[] triggers = capture.ResolveTriggerPorts();
+            if (triggers.Length > 0 && udp.TriggerPort is < 1 or > 8)
+                udp.TriggerPort = triggers[0];
+        }
+
         return new IoInputOptions
         {
             ComPort = string.IsNullOrWhiteSpace(section.ComPort) ? "COM3" : section.ComPort.Trim(),
@@ -141,9 +154,24 @@ public static class IoInputConfigLoader
             EdgeMode = ParseEdgeMode(section.Edge),
             ConfigureSdk = section.ConfigureSdk ?? true,
             DebounceMs = section.DebounceMs is >= 0 and <= 1000 ? section.DebounceMs.Value : 50,
-            UdpPublish = ParseUdpPublish(section.Publish?.Udp, inputs),
-            Capture = ParseCapture(section.Capture),
+            UdpPublish = udp,
+            Capture = capture,
         };
+    }
+
+    private static int[] MergeTriggerInputs(int[] inputs, IoCaptureOptions capture)
+    {
+        if (!capture.Enabled)
+            return inputs;
+
+        var list = new List<int>(inputs ?? []);
+        foreach (int di in capture.ResolveTriggerPorts())
+        {
+            if (!list.Contains(di))
+                list.Add(di);
+        }
+
+        return list.ToArray();
     }
 
 
@@ -152,22 +180,37 @@ public static class IoInputConfigLoader
         if (raw == null)
             return new IoCaptureOptions();
 
-        // Только DO5 → Line0. Любые другие output_ports в YAML игнорируются.
-        const int captureDo = 5;
-        int[] outputPorts = [captureDo];
-        int primary = captureDo;
+        var strategy = IoCaptureStrategyFactory.Parse(raw.CaptureStrategy ?? raw.Strategy);
+        var outputMode = ParseOutputMode(raw.OutputMode);
+        int timerIndex = raw.TimerIndex is >= 1 and <= 8 ? raw.TimerIndex.Value : 5;
+        if (strategy == IoCaptureStrategyKind.Timer)
+        {
+            // Soft Line0 всегда через Timer Software.
+            outputMode = IoCaptureOutputMode.Timer;
+            if (raw.TimerIndex is null)
+                timerIndex = 5;
+        }
+        else if (strategy == IoCaptureStrategyKind.Direct)
+        {
+            outputMode = IoCaptureOutputMode.Direct;
+        }
+
+        IoCaptureChannel[] channels = ParseChannels(raw, timerIndex);
+        IoCaptureChannel primary = channels[0];
 
         return new IoCaptureOptions
         {
             Enabled = raw.Enabled ?? false,
             DirectionPort = raw.DirectionPort is >= 1 and <= 8 ? raw.DirectionPort.Value : 2,
-            TriggerPort = raw.TriggerPort is >= 1 and <= 8 ? raw.TriggerPort.Value : 3,
-            OutputPort = outputPorts[0],
-            OutputPorts = outputPorts,
-            OutputMode = ParseOutputMode(raw.OutputMode),
-            TimerIndex = raw.TimerIndex is >= 1 and <= 8 ? raw.TimerIndex.Value : 1,
+            TriggerPort = primary.TriggerPort,
+            OutputPort = primary.OutputPort,
+            OutputPorts = channels.Select(static c => c.OutputPort).Distinct().ToArray(),
+            Channels = channels,
+            OutputMode = outputMode,
+            Strategy = strategy,
+            TimerIndex = primary.TimerIndex,
             PulseDurationMs = raw.PulseDurationMs is >= 1 and <= 65535 ? raw.PulseDurationMs.Value : 50,
-            PulseDelayMs = raw.PulseDelayMs is >= 0 and <= 5000 ? raw.PulseDelayMs.Value : 250,
+            PulseDelayMs = raw.PulseDelayMs is >= 0 and <= 5000 ? raw.PulseDelayMs.Value : 0,
             PulseRepeat = raw.PulseRepeat is >= 1 and <= 20 ? raw.PulseRepeat.Value : 1,
             PulseRepeatGapMs = raw.PulseRepeatGapMs is >= 0 and <= 2000 ? raw.PulseRepeatGapMs.Value : 80,
             ActiveHigh = ResolveActiveHigh(raw),
@@ -184,6 +227,53 @@ public static class IoInputConfigLoader
                 : 0,
             DirectionHttp = ParseDirectionHttp(raw.DirectionHttp)
         };
+    }
+
+    private static IoCaptureChannel[] ParseChannels(IoInputCaptureYaml raw, int defaultTimerIndex)
+    {
+        if (raw.Channels is { Count: > 0 })
+        {
+            var list = new List<IoCaptureChannel>(raw.Channels.Count);
+            var seenDi = new HashSet<int>();
+            foreach (IoCaptureChannelYaml? ch in raw.Channels)
+            {
+                if (ch == null)
+                    continue;
+                int di = ch.TriggerPort is >= 1 and <= 8 ? ch.TriggerPort.Value : 0;
+                int dout = ch.OutputPort is >= 1 and <= 8 ? ch.OutputPort.Value : 0;
+                if (di == 0 || dout == 0 || !seenDi.Add(di))
+                    continue;
+                int timer = ch.TimerIndex is >= 1 and <= 8
+                    ? ch.TimerIndex.Value
+                    : dout;
+                list.Add(new IoCaptureChannel
+                {
+                    TriggerPort = di,
+                    OutputPort = dout,
+                    TimerIndex = timer
+                });
+            }
+
+            if (list.Count > 0)
+                return list.ToArray();
+        }
+
+        int trigger = raw.TriggerPort is >= 1 and <= 8 ? raw.TriggerPort.Value : 3;
+        int output = raw.OutputPort is >= 1 and <= 8
+            ? raw.OutputPort.Value
+            : (raw.OutputPorts is { Length: > 0 } && raw.OutputPorts[0] is >= 1 and <= 8
+                ? raw.OutputPorts[0]
+                : 5);
+        int timerIx = raw.TimerIndex is >= 1 and <= 8 ? raw.TimerIndex.Value : defaultTimerIndex;
+        return
+        [
+            new IoCaptureChannel
+            {
+                TriggerPort = trigger,
+                OutputPort = output,
+                TimerIndex = timerIx
+            }
+        ];
     }
 
     /// <summary>
@@ -368,10 +458,19 @@ public static class IoInputConfigLoader
 
         public int? OutputPort { get; set; }
 
-        /// <summary>Несколько DO на один DI3↑ (напр. [5, 6]).</summary>
+        /// <summary>Legacy: несколько DO на один DI↑. Предпочтительнее channels.</summary>
         public int[]? OutputPorts { get; set; }
 
+        /// <summary>Независимые пары DI→DO (DI3→DO5, DI5→DO7, …).</summary>
+        public List<IoCaptureChannelYaml>? Channels { get; set; }
+
         public string? OutputMode { get; set; }
+
+        /// <summary>timer | hardware — стратегия Line0 (см. IoCaptureStrategyKind).</summary>
+        public string? CaptureStrategy { get; set; }
+
+        /// <summary>Синоним capture_strategy.</summary>
+        public string? Strategy { get; set; }
 
         public int? TimerIndex { get; set; }
 
@@ -407,6 +506,15 @@ public static class IoInputConfigLoader
         public int? MaxDi3CapturesPerDi2Window { get; set; }
 
         public IoDirectionHttpYaml? DirectionHttp { get; set; }
+    }
+
+    private sealed class IoCaptureChannelYaml
+    {
+        public int? TriggerPort { get; set; }
+
+        public int? OutputPort { get; set; }
+
+        public int? TimerIndex { get; set; }
     }
 
     private sealed class IoDirectionHttpYaml

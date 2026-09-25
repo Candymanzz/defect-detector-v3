@@ -115,3 +115,63 @@
 2026-08-06 15:24:32.850 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
 2026-08-06 15:24:35.861 INFO  [main] c.e.i.o.i.c.LineSynchronizedCaptureCoordinator - line synchronized capture enabled expected_cameras=10 barrier_wait_ms=0 post_trigger_settle_ms=0 inter_wait_frame_ms=0 parallel_wait_frame=true transfer_wait_waves=1 transfer_wave_gap_ms=0 immediate_prefire=false hardware_line_trigger=true
 2026-08-06 15:24:35.862 INFO  [main] c.e.i.o.i.c.LineSynchronizedCaptureCoordinator - line capture: hardware_line_trigger — ?????????? ?? DI3?Line0, Java ?????? wait_frame (capture_trigger_mode=line0)
+2026-09-17 04:17:25.760 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit10892697494228156376\geometry_runtime_settings.json profiles=2
+2026-09-17 04:17:25.766 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit7240615544562634729\geometry_runtime_settings.json profiles=1
+2026-09-17 04:17:25.766 INFO  [main] c.e.i.o.i.c.GeometryRuntimeConfig - geometry runtime overrides restored from store profiles=1
+2026-09-17 04:17:25.770 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit4212419285183378401\geometry_runtime_settings.json profiles=0
+2026-09-17 04:17:25.880 INFO  [uitest-ut] c.e.i.o.i.c.UiTestAnalyzeServiceTest - ui test-analyze done jobId=db3e2ab1c37c491f95c0a4f371335e68 cam=0 frame=42 pass=true python=OK geometry=OK
+2026-09-17 04:17:25.957 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins disabled (plc_fins.enabled=false)
+2026-09-17 04:17:25.960 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-09-17 04:17:25.960 WARN  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result client_ws unavailable — bucket verdict will not be sent to UI
+2026-09-17 04:17:25.961 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-09-17 04:17:25.962 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-09-17 04:17:25.962 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=false unhealthy=[io_input_monitor])
+2026-09-17 04:17:25.962 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-09-17 04:40:10.418 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit11581319808666656791\geometry_runtime_settings.json profiles=2
+2026-09-17 04:40:10.426 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit12543977264514973547\geometry_runtime_settings.json profiles=1
+2026-09-17 04:40:10.426 INFO  [main] c.e.i.o.i.c.GeometryRuntimeConfig - geometry runtime overrides restored from store profiles=1
+2026-09-17 04:40:10.429 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit15104000387068639876\geometry_runtime_settings.json profiles=0
+2026-09-17 04:40:10.507 INFO  [uitest-ut] c.e.i.o.i.c.UiTestAnalyzeServiceTest - ui test-analyze done jobId=7b9af0a2be7741bdadf9da6ce38bff82 cam=0 frame=42 pass=true python=OK geometry=OK
+2026-09-17 04:40:10.597 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins disabled (plc_fins.enabled=false)
+2026-09-17 04:40:10.600 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-09-17 04:40:10.601 WARN  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result client_ws unavailable — bucket verdict will not be sent to UI
+2026-09-17 04:40:10.602 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-09-17 04:40:10.603 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-09-17 04:40:10.603 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=false unhealthy=[io_input_monitor])
+2026-09-17 04:40:10.603 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-09-24 06:11:45.874 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit13017712728542976294\geometry_runtime_settings.json profiles=2
+2026-09-24 06:11:45.880 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit13623141842496110614\geometry_runtime_settings.json profiles=1
+2026-09-24 06:11:45.881 INFO  [main] c.e.i.o.i.c.GeometryRuntimeConfig - geometry runtime overrides restored from store profiles=1
+2026-09-24 06:11:45.885 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit7827511816280348906\geometry_runtime_settings.json profiles=0
+2026-09-24 06:11:45.963 INFO  [uitest-ut] c.e.i.o.i.c.UiTestAnalyzeServiceTest - ui test-analyze done jobId=4938040a588b4da09a90ca96912f66fb cam=0 frame=42 pass=true python=OK geometry=OK
+2026-09-24 06:11:46.053 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins disabled (plc_fins.enabled=false)
+2026-09-24 06:11:46.057 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-09-24 06:11:46.057 WARN  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result client_ws unavailable — bucket verdict will not be sent to UI
+2026-09-24 06:11:46.058 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-09-24 06:11:46.059 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-09-24 06:11:46.059 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=false unhealthy=[io_input_monitor])
+2026-09-24 06:11:46.060 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-09-24 22:45:08.460 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit554012085524681604\geometry_runtime_settings.json profiles=2
+2026-09-24 22:45:08.468 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit17442205584269905409\geometry_runtime_settings.json profiles=1
+2026-09-24 22:45:08.468 INFO  [main] c.e.i.o.i.c.GeometryRuntimeConfig - geometry runtime overrides restored from store profiles=1
+2026-09-24 22:45:08.473 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit15784209593193106833\geometry_runtime_settings.json profiles=0
+2026-09-24 22:45:08.567 WARN  [uitest-ut] c.e.i.o.i.c.UiTestAnalyzeServiceTest - ui test-analyze failed jobId=f23eedd668a041288fd09e2ebee49bd6 cam=0 frame=42: C:\Users\Administrator\AppData\Local\iml_shm\iml_uitest_cam0_f23eedd6
+2026-09-24 22:45:13.663 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins disabled (plc_fins.enabled=false)
+2026-09-24 22:45:13.667 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-09-24 22:45:13.667 WARN  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result client_ws unavailable — bucket verdict will not be sent to UI
+2026-09-24 22:45:13.669 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-09-24 22:45:13.669 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-09-24 22:45:13.670 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=false unhealthy=[io_input_monitor])
+2026-09-24 22:45:13.670 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-09-25 04:00:15.526 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit15429433167900090503\geometry_runtime_settings.json profiles=2
+2026-09-25 04:00:15.534 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit14373494565675837528\geometry_runtime_settings.json profiles=1
+2026-09-25 04:00:15.535 INFO  [main] c.e.i.o.i.c.GeometryRuntimeConfig - geometry runtime overrides restored from store profiles=1
+2026-09-25 04:00:15.539 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit6123207840707575726\geometry_runtime_settings.json profiles=0
+2026-09-25 04:00:15.622 WARN  [uitest-ut] c.e.i.o.i.c.UiTestAnalyzeServiceTest - ui test-analyze failed jobId=0c8f4a6f110b4d5ab743a303116e4e24 cam=0 frame=42: C:\Users\Administrator\AppData\Local\iml_shm\iml_uitest_cam0_0c8f4a6f
+2026-09-25 04:00:20.694 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins disabled (plc_fins.enabled=false)
+2026-09-25 04:00:20.698 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-09-25 04:00:20.698 WARN  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result client_ws unavailable — bucket verdict will not be sent to UI
+2026-09-25 04:00:20.699 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-09-25 04:00:20.700 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-09-25 04:00:20.700 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=false unhealthy=[io_input_monitor])
+2026-09-25 04:00:20.700 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])

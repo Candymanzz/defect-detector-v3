@@ -38,6 +38,8 @@ public final class PerCameraInspectionGate {
     private final ConcurrentHashMap<Integer, AtomicLong> inspectionSequence = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicLong> activeTriggerSequence = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicLong> resumeAfterTriggerSequence = new ConcurrentHashMap<>();
+    /** When true, phase N+1 may start while phase N is still in-flight (DI2 window / dual Line0). */
+    private volatile boolean awaitPriorPhase = true;
 
     private PerCameraInspectionGate(
             Map<Integer, AtomicBoolean> enabled,
@@ -82,6 +84,17 @@ public final class PerCameraInspectionGate {
 
     public boolean isKnownCamera(int cameraId) {
         return inspectionEnabled.containsKey(cameraId);
+    }
+
+    /**
+     * {@code false} — phase1 не ждёт конца phase0 (оба wait_frame могут стартовать в одном DI2-окне).
+     */
+    public void setAwaitPriorPhase(boolean awaitPriorPhase) {
+        this.awaitPriorPhase = awaitPriorPhase;
+    }
+
+    public boolean awaitPriorPhase() {
+        return awaitPriorPhase;
     }
 
     public Set<Integer> cameraIds() {
@@ -181,6 +194,27 @@ public final class PerCameraInspectionGate {
         Set<Integer> cancelled = new LinkedHashSet<>();
         for (Integer cameraId : cameraIds()) {
             if (disableInspectionAndRequestCancel(cameraId)) {
+                cancelled.add(cameraId);
+            }
+        }
+        return Set.copyOf(cancelled);
+    }
+
+    /**
+     * Отмена in-flight wait_frame без disable: кадры после закрытия окна DI2 не публикуем/не архивируем.
+     * Phase1+ не трогаем — второй Line0 часто приходит/добивается уже при DI2=0.
+     */
+    public Set<Integer> requestCancelAllInFlight() {
+        return requestCancelAllInFlight(true);
+    }
+
+    /**
+     * @param keepPhase1 if true, cameras with only phase≥1 in-flight are left running (DI2↓).
+     */
+    public Set<Integer> requestCancelAllInFlight(boolean keepPhase1) {
+        Set<Integer> cancelled = new LinkedHashSet<>();
+        for (Integer cameraId : cameraIds()) {
+            if (requestCancel(cameraId, keepPhase1)) {
                 cancelled.add(cameraId);
             }
         }
@@ -378,7 +412,7 @@ public final class PerCameraInspectionGate {
             AtomicBoolean flight,
             Set<PhaseKey> phases
     ) {
-        if (phaseId <= 0) {
+        if (!awaitPriorPhase || phaseId <= 0) {
             return;
         }
         PhaseKey prior = new PhaseKey(Math.max(0L, parentCycleId), phaseId - 1);
@@ -426,6 +460,14 @@ public final class PerCameraInspectionGate {
     }
 
     public boolean requestCancel(int cameraId) {
+        return requestCancel(cameraId, false);
+    }
+
+    /**
+     * @param keepPhase1 when true, do not cancel if the only in-flight phases are phase≥1
+     *                   (phase1 must still wait for Line0 after DI2↓).
+     */
+    public boolean requestCancel(int cameraId, boolean keepPhase1) {
         AtomicBoolean flight = inFlight.get(cameraId);
         AtomicBoolean cancelFlag = cancelRequested.get(cameraId);
         if (flight == null || cancelFlag == null) {
@@ -435,9 +477,25 @@ public final class PerCameraInspectionGate {
             if (!flight.get()) {
                 return false;
             }
+            if (keepPhase1 && onlyPhase1OrLaterInFlight(cameraId)) {
+                return false;
+            }
             cancelFlag.set(true);
             return true;
         }
+    }
+
+    private boolean onlyPhase1OrLaterInFlight(int cameraId) {
+        Set<PhaseKey> phases = inFlightPhases.get(cameraId);
+        if (phases == null || phases.isEmpty()) {
+            return false;
+        }
+        for (PhaseKey phase : phases) {
+            if (phase.phaseId() <= 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public boolean isCancelRequested(int cameraId) {

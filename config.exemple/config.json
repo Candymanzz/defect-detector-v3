@@ -13,12 +13,12 @@
   "capture_trigger_mode": "line0",
   "line0_trigger_activation": "RisingEdge",
   "line0_line_inverter": false,
-  "frame_timeout_ms": 15000,
+  "frame_timeout_ms": 1500,
   "gige_switch_count": 5,
   "gige_cameras_per_switch": 2,
   "gige_switch_buffer_kb": 448,
-  "gige_inter_packet_delay": 10000,
-  "gige_frame_transfer_delay_step": 0,
+  "gige_inter_packet_delay": 4000,
+  "gige_frame_transfer_delay_step": 2500000,
   "gige_ftd_cameras_per_link": 2,
   "orchestrator": {
     "control_pipe": "\\\\.\\pipe\\iml-orchestrator",
@@ -278,15 +278,21 @@
     "inspection_trigger": {
       "two_phase": {
         "enabled": true,
-        "expected_delay_ms": 700,
-        "tolerance_ms": 150
+        "single_di3_burst": true,
+        "burst_delay_ms": 20,
+        "auto_second_phase_delay_ms": 20,
+        "expected_delay_ms": 20,
+        "tolerance_ms": 40,
+        "fallback_physical_grace_ms": 0,
+        "io_control_http_host": "127.0.0.1",
+        "io_control_http_port": 9101
       },
       "udp": {
         "enabled": true,
         "bind_host": "0.0.0.0",
         "bind_port": 9100,
         "format": "io_input",
-        "debounce_ms": 20
+        "debounce_ms": 0
       },
       "io_input": {
         "work_port": 1,
@@ -300,7 +306,7 @@
         "capture_delay_ms": 0,
         "trigger_edge": "rising",
         "payload_format": "json",
-        "debounce_ms": 20,
+        "debounce_ms": 0,
         "require_direction": true,
         "require_work": false,
         "external_hardware_capture": true,

@@ -827,3 +827,33 @@
 2026-08-06 15:24:35.813 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=8 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
 2026-08-06 15:24:35.836 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera settings updated camera=9 keys=[op, gamma, frame_timeout_ms, black_level, exposure_us, gain_db] persisted=false
 2026-08-06 15:24:35.836 INFO  [main] c.e.i.o.i.c.CameraSettingsService - camera persisted settings applied camera=9 keys=[gamma, frame_timeout_ms, black_level, exposure_us, gain_db]
+2026-09-17 04:17:25.719 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit12477783084646832096\camera_runtime_settings.json cameras=2
+2026-09-17 04:17:25.728 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit8437594744951808566\camera_runtime_settings.json cameras=1
+2026-09-17 04:17:39.859 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-unexpected pid=10396 command=[cmd.exe, /c, exit /b 0]
+2026-09-17 04:17:39.877 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-close pid=1336 command=[cmd.exe, /c, ping -n 30 127.0.0.1 >nul]
+2026-09-17 04:17:39.877 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service exit-test-close pid=1336
+2026-09-17 04:17:39.885 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service exit-test-close stopped
+2026-09-17 04:40:10.384 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit12100174917389997603\camera_runtime_settings.json cameras=2
+2026-09-17 04:40:10.393 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit9388519912962947999\camera_runtime_settings.json cameras=1
+2026-09-17 04:40:24.429 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-unexpected pid=6508 command=[cmd.exe, /c, exit /b 0]
+2026-09-17 04:40:24.445 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-close pid=9652 command=[cmd.exe, /c, ping -n 30 127.0.0.1 >nul]
+2026-09-17 04:40:24.446 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service exit-test-close pid=9652
+2026-09-17 04:40:24.455 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service exit-test-close stopped
+2026-09-24 06:11:45.837 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit9119295344297063852\camera_runtime_settings.json cameras=2
+2026-09-24 06:11:45.845 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit8211293515079694186\camera_runtime_settings.json cameras=1
+2026-09-24 06:11:59.900 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-unexpected pid=11460 command=[cmd.exe, /c, exit /b 0]
+2026-09-24 06:11:59.917 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-close pid=2288 command=[cmd.exe, /c, ping -n 30 127.0.0.1 >nul]
+2026-09-24 06:11:59.917 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service exit-test-close pid=2288
+2026-09-24 06:11:59.925 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service exit-test-close stopped
+2026-09-24 22:45:08.419 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit13275813411766646298\camera_runtime_settings.json cameras=2
+2026-09-24 22:45:08.429 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit8475132953015705768\camera_runtime_settings.json cameras=1
+2026-09-24 22:45:27.509 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-unexpected pid=15532 command=[cmd.exe, /c, exit /b 0]
+2026-09-24 22:45:27.529 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-close pid=4032 command=[cmd.exe, /c, ping -n 30 127.0.0.1 >nul]
+2026-09-24 22:45:27.530 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service exit-test-close pid=4032
+2026-09-24 22:45:27.538 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service exit-test-close stopped
+2026-09-25 04:00:15.487 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit11643842389983345384\camera_runtime_settings.json cameras=2
+2026-09-25 04:00:15.495 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit5024316532993830471\camera_runtime_settings.json cameras=1
+2026-09-25 04:00:34.508 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-unexpected pid=13148 command=[cmd.exe, /c, exit /b 0]
+2026-09-25 04:00:34.528 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-close pid=15640 command=[cmd.exe, /c, ping -n 30 127.0.0.1 >nul]
+2026-09-25 04:00:34.528 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service exit-test-close pid=15640
+2026-09-25 04:00:34.536 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service exit-test-close stopped

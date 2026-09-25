@@ -3,16 +3,19 @@ package com.example.iml.orchestrator.integration.trigger.config;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.trigger.gpio.TriggerEdgeMode;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
- * Маппинг DI из {@code IoInputMonitor} (UDP): DI1=работа, DI2=направление, DI3=триггер,
+ * Маппинг DI из {@code IoInputMonitor} (UDP): DI1=работа, DI2=направление, DI3/DI5=триггеры,
  * DI4=безопасное выключение ({@code shutdown_port}, 0 = выкл).
  */
 public record IoInputDiscreteConfig(
         int workPort,
         int directionPort,
         int triggerPort,
+        List<Integer> triggerPorts,
         int shutdownPort,
         int debounceMs,
         String payloadFormat,
@@ -28,15 +31,47 @@ public record IoInputDiscreteConfig(
         int directionWaitMs,
         int directionPollMs,
         int captureDelayMs,
-        boolean externalHardwareCapture
+        boolean externalHardwareCapture,
+        /**
+         * Временно: DI2↑ → сразу wait_frame; софтовый DI3/DI5 не стартует цикл.
+         * Экспозиция по-прежнему с железа (Line0); Java только ждёт кадры в окне DI2=1.
+         */
+        boolean armOnDirection
 ) {
+
+    public List<Integer> resolveTriggerPorts() {
+        if (triggerPorts != null && !triggerPorts.isEmpty()) {
+            return List.copyOf(triggerPorts);
+        }
+        return List.of(triggerPort);
+    }
+
+    public boolean isTriggerPort(int port) {
+        for (int p : resolveTriggerPorts()) {
+            if (p == port) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public String formatTriggerPorts() {
+        StringBuilder sb = new StringBuilder();
+        for (int p : resolveTriggerPorts()) {
+            if (sb.length() > 0) {
+                sb.append('/');
+            }
+            sb.append(p);
+        }
+        return sb.toString();
+    }
 
     public static IoInputDiscreteConfig defaults() {
         // Согласовано с config/blocks/01-core.yaml integration.inspection_trigger.io_input
         return new IoInputDiscreteConfig(
-                1, 2, 3, 4, 0, "json", false, TriggerEdgeMode.RISING,
+                1, 2, 3, List.of(3), 4, 0, "json", false, TriggerEdgeMode.RISING,
                 true, false, false, false, false, false, true,
-                5000, 1, 0, true
+                5000, 1, 0, true, false
         );
     }
 
@@ -60,6 +95,7 @@ public record IoInputDiscreteConfig(
         int workPort = clampDiPort(YamlScalars.toInt(io.get("work_port"), defaults.workPort()));
         int directionPort = clampDiPort(YamlScalars.toInt(io.get("direction_port"), defaults.directionPort()));
         int triggerPort = clampDiPort(YamlScalars.toInt(io.get("trigger_port"), defaults.triggerPort()));
+        List<Integer> triggerPorts = parseTriggerPorts(io.get("trigger_ports"), triggerPort);
         int shutdownPort = clampOptionalDiPort(YamlScalars.toInt(io.get("shutdown_port"), defaults.shutdownPort()));
         int debounceMs = Math.max(0, YamlScalars.toInt(io.get("debounce_ms"), udpDebounceMs));
         String payloadFormat = io.get("payload_format") != null
@@ -89,10 +125,12 @@ public record IoInputDiscreteConfig(
                 io.get("external_hardware_capture"),
                 defaults.externalHardwareCapture()
         );
+        boolean armOnDirection = YamlScalars.toBool(io.get("arm_on_direction"), defaults.armOnDirection());
         return new IoInputDiscreteConfig(
                 workPort,
                 directionPort,
-                triggerPort,
+                triggerPorts.get(0),
+                triggerPorts,
                 shutdownPort,
                 debounceMs,
                 payloadFormat,
@@ -108,8 +146,28 @@ public record IoInputDiscreteConfig(
                 directionWaitMs,
                 directionPollMs,
                 captureDelayMs,
-                externalHardwareCapture
+                externalHardwareCapture,
+                armOnDirection
         );
+    }
+
+    private static List<Integer> parseTriggerPorts(Object raw, int primary) {
+        List<Integer> out = new ArrayList<>();
+        if (raw instanceof List<?> list) {
+            for (Object item : list) {
+                int p = clampDiPort(YamlScalars.toInt(item, 0));
+                if (p >= 1 && p <= 8 && !out.contains(p)) {
+                    out.add(p);
+                }
+            }
+        }
+        if (out.isEmpty()) {
+            out.add(clampDiPort(primary));
+        } else if (!out.contains(primary) && primary >= 1 && primary <= 8) {
+            // primary первым, если задан отдельно и не в списке
+            out.add(0, clampDiPort(primary));
+        }
+        return List.copyOf(out);
     }
 
     private static IoInputDiscreteConfig withDebounce(IoInputDiscreteConfig defaults, int udpDebounceMs) {
@@ -118,6 +176,7 @@ public record IoInputDiscreteConfig(
                 defaults.workPort(),
                 defaults.directionPort(),
                 defaults.triggerPort(),
+                defaults.resolveTriggerPorts(),
                 defaults.shutdownPort(),
                 debounceMs,
                 defaults.payloadFormat(),
@@ -133,7 +192,8 @@ public record IoInputDiscreteConfig(
                 defaults.directionWaitMs(),
                 defaults.directionPollMs(),
                 defaults.captureDelayMs(),
-                defaults.externalHardwareCapture()
+                defaults.externalHardwareCapture(),
+                defaults.armOnDirection()
         );
     }
 

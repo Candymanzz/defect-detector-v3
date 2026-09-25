@@ -9,7 +9,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 class TwoPhaseTriggerCorrelatorTest {
-    private static final TwoPhaseTriggerConfig ENABLED = new TwoPhaseTriggerConfig(true, 700, 150);
+    private static final TwoPhaseTriggerConfig ENABLED =
+            new TwoPhaseTriggerConfig(true, 700, 150, 0, 90, false, "127.0.0.1", 9101);
+    private static final TwoPhaseTriggerConfig BURST =
+            new TwoPhaseTriggerConfig(true, 76, 40, 76, 0, true, "127.0.0.1", 9101);
     private static final Instant T0 = Instant.parse("2026-08-19T07:00:00Z");
 
     @Test
@@ -39,6 +42,16 @@ class TwoPhaseTriggerCorrelatorTest {
         correlator.resetDirectionWindow();
         assertAssignment(correlator.correlate(22, T0.plusMillis(2_000)), 0, 22, 22);
         assertAssignment(correlator.correlate(23, T0.plusMillis(2_050)), 1, 22, 23);
+    }
+
+    @Test
+    void singleDi3BurstAcceptsOnePulseThenAssignsScheduledPhase1() {
+        TwoPhaseTriggerCorrelator correlator = new TwoPhaseTriggerCorrelator(BURST);
+
+        assertAssignment(correlator.correlate(50, T0), 0, 50, 50);
+        assertNull(correlator.correlate(51, T0.plusMillis(200)));
+        assertAssignment(correlator.assignBurstPhase1(52, T0.plusMillis(76)), 1, 50, 52);
+        assertNull(correlator.assignBurstPhase1(53, T0.plusMillis(80)));
     }
 
     @Test

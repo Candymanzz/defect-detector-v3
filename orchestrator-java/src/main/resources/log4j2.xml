@@ -62,6 +62,16 @@
             </Policies>
             <DefaultRolloverStrategy max="10"/>
         </RollingFile>
+        <!-- DI + IoInputMonitor + кадры (съёмка / sync_diag) в одном месте для разбора циклов -->
+        <RollingFile name="DiCaptureTimelineFile"
+                     fileName="${logDir}/di-capture-timeline.log"
+                     filePattern="${logDir}/di-capture-timeline-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${logPattern}"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="20 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
     </Appenders>
     <Loggers>
         <Logger name="com.example.iml.orchestrator.integration.plc" level="info" additivity="true">
@@ -94,9 +104,20 @@
         <Logger name="com.example.iml.orchestrator.integration.camera" level="info" additivity="true">
             <AppenderRef ref="SubprocessFile"/>
         </Logger>
+        <Logger name="com.example.iml.orchestrator.integration.ioinput.external" level="info" additivity="false">
+            <AppenderRef ref="DiCaptureTimelineFile"/>
+        </Logger>
+        <Logger name="com.example.iml.orchestrator.integration.pipeline.session" level="info" additivity="true">
+            <AppenderRef ref="DiCaptureTimelineFile"/>
+        </Logger>
         <Logger name="com.example.iml" level="info" additivity="false">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="OrchestratorFile"/>
+            <AppenderRef ref="DiCaptureTimelineFile">
+                <RegexFilter regex=".*(sync_diag channel=inspect|io_input_trigger|io_input synthetic|auto phase1|event=phase_capture_wait|integration cam=.*(?:capture started|capture-only frame).*(?:io_input|phase=)|client_ws sent type=server\.inspect_result).*"
+                             onMatch="ACCEPT"
+                             onMismatch="DENY"/>
+            </AppenderRef>
         </Logger>
         <Root level="warn">
             <AppenderRef ref="Console"/>

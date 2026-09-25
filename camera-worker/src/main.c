@@ -49,6 +49,7 @@
 #define STREAM_FPS_DEFAULT 20
 #define STREAM_FPS_MIN 1
 #define STREAM_FPS_MAX 30
+#define HIK_RX_QUEUE_SLOTS 8
 typedef struct {
     int camera_id;
     const char *detector;
@@ -109,6 +110,32 @@ typedef struct {
     void *hik_handle;
     unsigned char *hik_raw_frame;
     unsigned int hik_raw_capacity;
+    /** Prefetch: 2-й Line0 кадр (BGR), пока phase0 возвращает 1-й. */
+    uint8_t *hik_pending_bgr;
+    int hik_pending_valid;
+    unsigned int hik_pending_frame_num;
+    unsigned int hik_pending_trigger_index;
+    unsigned int hik_pending_frame_counter;
+    /** 1 = Counter0 configured for Line0/Line1; GenICam CounterCurrentValue readable. */
+    int hik_line_counter_enabled;
+    int64_t hik_counter_before;
+    int64_t hik_counter_after;
+    unsigned int hik_frame_num;
+    unsigned int hik_trigger_index;
+    unsigned int hik_frame_counter;
+    /* Dedicated MVS receive thread.  It is the only owner of GetOneFrameTimeout;
+     * command handling only pops already received frames from this FIFO. */
+    HANDLE hik_rx_thread;
+    volatile LONG hik_rx_stop;
+    CRITICAL_SECTION hik_rx_lock;
+    CONDITION_VARIABLE hik_rx_ready;
+    uint8_t *hik_rx_frames;
+    unsigned int hik_rx_frame_num[HIK_RX_QUEUE_SLOTS];
+    unsigned int hik_rx_trigger_index[HIK_RX_QUEUE_SLOTS];
+    unsigned int hik_rx_frame_counter[HIK_RX_QUEUE_SLOTS];
+    int hik_rx_head;
+    int hik_rx_count;
+    uint64_t hik_rx_dropped;
 #endif
     volatile int stream_active;
     int stream_fps;
@@ -131,6 +158,15 @@ static void stream_lock_enter(worker_state_t *st);
 static void stream_lock_leave(worker_state_t *st);
 #if defined(_WIN32) && defined(HAVE_HIK_MVS)
 static void hik_configure_trigger_mode(worker_state_t *st);
+static void hik_configure_line_trigger_counter(worker_state_t *st, const char *line);
+static int hik_read_int_value(void *handle, const char *name, int64_t *out);
+static int hik_read_line_trigger_counter(worker_state_t *st, int64_t *out);
+static void hik_log_line_trigger_counters(worker_state_t *st, const char *event, uint64_t frame_id, int wait_only,
+                                          int clear_buffer, int grab_ok, int grab_ret);
+static int hik_rx_start(worker_state_t *st, char *err, size_t err_len);
+static void hik_rx_stop(worker_state_t *st);
+static void hik_rx_clear(worker_state_t *st);
+static int hik_rx_pop(worker_state_t *st, uint8_t *frame, MV_FRAME_OUT_INFO_EX *info, unsigned int timeout_ms);
 #endif
 
 static int jsoneq(const char *json, const jsmntok_t *tok, const char *s) {
@@ -1082,31 +1118,213 @@ static void hik_configure_trigger_mode(worker_state_t *st) {
         return;
     }
     if (st->trigger_mode == TRIGGER_MODE_SOFTWARE) {
+        st->hik_line_counter_enabled = 0;
         (void)MV_CC_SetEnumValue(st->hik_handle, "TriggerMode", 1);
         (void)MV_CC_SetEnumValueByString(st->hik_handle, "TriggerSource", "Software");
         fprintf(stderr, "hik: TriggerMode=On TriggerSource=Software (sync with flash)\n");
     } else if (st->trigger_mode == TRIGGER_MODE_LINE0 || st->trigger_mode == TRIGGER_MODE_LINE1) {
-        const char *line = st->trigger_mode == TRIGGER_MODE_LINE1 ? "Line1" : "Line0";
-        (void)MV_CC_SetEnumValue(st->hik_handle, "TriggerMode", 1);
-        (void)MV_CC_SetEnumValueByString(st->hik_handle, "TriggerSource", line);
-        (void)MV_CC_SetEnumValueByString(st->hik_handle, "LineSelector", line);
-        (void)MV_CC_SetEnumValueByString(st->hik_handle, "LineMode", "Input");
-        (void)MV_CC_SetBoolValue(st->hik_handle, "LineInverter", st->line_inverter ? 1 : 0);
-        {
-            const char *activation = st->trigger_activation[0] != '\0'
-                    ? st->trigger_activation
-                    : "RisingEdge";
-            int act_ret = MV_CC_SetEnumValueByString(st->hik_handle, "TriggerActivation", activation);
-            fprintf(stderr,
-                    "hik: TriggerMode=On TriggerSource=%s LineMode=Input TriggerActivation=%s LineInverter=%d (set=%d)\n",
-                    line,
-                    activation,
-                    st->line_inverter,
-                    act_ret);
+        const char *counter_line = st->trigger_mode == TRIGGER_MODE_LINE1 ? "Line1" : "Line0";
+        const char *activation = st->trigger_activation[0] != '\0'
+                ? st->trigger_activation
+                : "RisingEdge";
+
+        /* MV-CS050-10GC exposes FrameBurstStart (not FrameStart). Both DI events
+         * are converted to DO5 pulses, so the camera listens only to Line0. */
+        int mode_off_ret = MV_CC_SetEnumValue(st->hik_handle, "TriggerMode", 0);
+        int line0_sel_ret = MV_CC_SetEnumValueByString(st->hik_handle, "LineSelector", "Line0");
+        int line0_mode_ret = line0_sel_ret == MV_OK
+                ? MV_CC_SetEnumValueByString(st->hik_handle, "LineMode", "Input")
+                : line0_sel_ret;
+        int line0_inv_ret = line0_mode_ret == MV_OK
+                ? MV_CC_SetBoolValue(st->hik_handle, "LineInverter", st->line_inverter ? 1 : 0)
+                : line0_mode_ret;
+        int selector_ret = MV_CC_SetEnumValueByString(st->hik_handle, "TriggerSelector", "FrameBurstStart");
+        int burst_count_ret = selector_ret == MV_OK
+                ? MV_CC_SetIntValue(st->hik_handle, "AcquisitionBurstFrameCount", 1)
+                : selector_ret;
+        int source_ret = selector_ret == MV_OK
+                ? MV_CC_SetEnumValueByString(st->hik_handle, "TriggerSource", "Line0")
+                : selector_ret;
+        int activation_ret = source_ret == MV_OK
+                ? MV_CC_SetEnumValueByString(st->hik_handle, "TriggerActivation", activation)
+                : source_ret;
+        /* Minimise the hardware re-arm interval between the DI3 and DI5
+         * rising edges.  Node availability differs between firmware builds,
+         * therefore these are best-effort and must not disable triggering. */
+        int overlap_ret = MV_CC_SetEnumValueByString(st->hik_handle, "TriggerOverlap", "ReadOut");
+        if (overlap_ret != MV_OK) {
+            overlap_ret = MV_CC_SetEnumValueByString(st->hik_handle, "TriggerOverlap", "PreviousFrame");
         }
+        int trigger_delay_ret = MV_CC_SetFloatValue(st->hik_handle, "TriggerDelay", 0.0f);
+        int debounce_ret = MV_CC_SetFloatValue(st->hik_handle, "LineDebouncerTime", 0.0f);
+        int frame_rate_limit_ret = MV_CC_SetBoolValue(st->hik_handle, "AcquisitionFrameRateEnable", 0);
+        /* Leave LineSelector on Line0 for predictable MVS status display.  This
+         * must also happen before TriggerMode=On because the node may lock. */
+        int display_line_ret = MV_CC_SetEnumValueByString(st->hik_handle, "LineSelector", "Line0");
+        int setup_ok = mode_off_ret == MV_OK
+                && line0_sel_ret == MV_OK && line0_mode_ret == MV_OK
+                && selector_ret == MV_OK && burst_count_ret == MV_OK
+                && source_ret == MV_OK && activation_ret == MV_OK
+                && display_line_ret == MV_OK;
+        /* TriggerMode must not remain Off just because an auxiliary line/node
+         * is unsupported.  TriggerSource is configured above; always arm the
+         * camera and report the individual setup failures in the diagnostic. */
+        int mode_on_ret = MV_CC_SetEnumValue(st->hik_handle, "TriggerMode", 1);
+
+        fprintf(stderr,
+                "hik: TriggerSelector=FrameBurstStart(%d) TriggerSource=Line0(%d) TriggerMode=Off(%d)/On(%d) "
+                "Line0=Input(sel=%d mode=%d inv=%d) "
+                "TriggerActivation=%s(%d) AcquisitionBurstFrameCount=1(%d) display_line0=%d setup_ok=%d "
+                "rearm[overlap=%d trigger_delay_0=%d debounce_0=%d frame_rate_limit_off=%d]\n",
+                selector_ret,
+                source_ret,
+                mode_off_ret,
+                mode_on_ret,
+                line0_sel_ret,
+                line0_mode_ret,
+                line0_inv_ret,
+                activation,
+                activation_ret,
+                burst_count_ret,
+                display_line_ret,
+                setup_ok,
+                overlap_ret,
+                trigger_delay_ret,
+                debounce_ret,
+                frame_rate_limit_ret);
+        if (!setup_ok || mode_on_ret != MV_OK) {
+            fprintf(stderr,
+                    "hik: ERROR hardware trigger setup failed; expected FrameBurstStart + Line0 Input\n");
+        }
+        hik_configure_line_trigger_counter(st, counter_line);
     } else {
+        st->hik_line_counter_enabled = 0;
         (void)MV_CC_SetEnumValue(st->hik_handle, "TriggerMode", 0);
         fprintf(stderr, "hik: TriggerMode=Off (continuous)\n");
+    }
+}
+
+/** Counter0 counts Line0/Line1 edges → CounterCurrentValue over GigE. */
+static void hik_configure_line_trigger_counter(worker_state_t *st, const char *line) {
+    st->hik_line_counter_enabled = 0;
+    if (!st->hik_handle || !line || line[0] == '\0') {
+        return;
+    }
+    int sel = MV_CC_SetEnumValueByString(st->hik_handle, "CounterSelector", "Counter0");
+    if (sel != MV_OK) {
+        /* Some firmwares expose a numeric selector only. */
+        sel = MV_CC_SetEnumValue(st->hik_handle, "CounterSelector", 0);
+    }
+    int ev = MV_CC_SetEnumValueByString(st->hik_handle, "CounterEventSource", line);
+    if (ev != MV_OK) {
+        /* Alternate spellings seen on some Hikrobot models. */
+        ev = MV_CC_SetEnumValueByString(st->hik_handle, "CounterEventSource", "FrameTrigger");
+    }
+    int rst = MV_CC_SetEnumValueByString(st->hik_handle, "CounterResetSource", "Software");
+    int64_t cur = -1;
+    int rd = hik_read_line_trigger_counter(st, &cur);
+    if (rd == MV_OK) {
+        st->hik_line_counter_enabled = 1;
+        fprintf(stderr,
+                "hik: line trigger counter enabled cam=%d line=%s CounterSelector=%d EventSource=%d "
+                "ResetSource=%d CounterCurrentValue=%lld\n",
+                st->camera_id,
+                line,
+                sel,
+                ev,
+                rst,
+                (long long)cur);
+    } else {
+        fprintf(stderr,
+                "hik: line trigger counter unavailable cam=%d line=%s CounterSelector=%d EventSource=%d "
+                "read=0x%x (will still log nFrameNum/nTriggerIndex from frame meta)\n",
+                st->camera_id,
+                line,
+                sel,
+                ev,
+                rd);
+    }
+}
+
+static int hik_read_int_value(void *handle, const char *name, int64_t *out) {
+    if (!handle || !name || !out) {
+        return MV_E_PARAMETER;
+    }
+    MVCC_INTVALUE iv;
+    memset(&iv, 0, sizeof(iv));
+    int r = MV_CC_GetIntValue(handle, name, &iv);
+    if (r == MV_OK) {
+        *out = (int64_t)iv.nCurValue;
+    }
+    return r;
+}
+
+static int hik_read_line_trigger_counter(worker_state_t *st, int64_t *out) {
+    if (!st || !st->hik_handle || !out) {
+        return MV_E_PARAMETER;
+    }
+    /* Prefer CounterCurrentValue (executed external triggers). TriggerFrameCount on some models. */
+    static const char *const names[] = {
+            "CounterCurrentValue",
+            "TriggerFrameCount",
+    };
+    int last = MV_E_PARAMETER;
+    for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
+        last = hik_read_int_value(st->hik_handle, names[i], out);
+        if (last == MV_OK) {
+            return MV_OK;
+        }
+    }
+    return last;
+}
+
+static void hik_log_line_trigger_counters(worker_state_t *st, const char *event, uint64_t frame_id, int wait_only,
+                                          int clear_buffer, int grab_ok, int grab_ret) {
+    int64_t delta = -1;
+    if (st->hik_counter_before >= 0 && st->hik_counter_after >= 0) {
+        delta = st->hik_counter_after - st->hik_counter_before;
+    }
+    fprintf(stderr,
+            "sync_diag channel=worker event=%s cam=%d frame_id=%llu wait_only=%d clear_buffer=%d grab_ok=%d "
+            "grab_ret=0x%x counter_enabled=%d counter_before=%lld counter_after=%lld counter_delta=%lld "
+            "nFrameNum=%u nTriggerIndex=%u nFrameCounter=%u\n",
+            event,
+            st->camera_id,
+            (unsigned long long)frame_id,
+            wait_only ? 1 : 0,
+            clear_buffer ? 1 : 0,
+            grab_ok ? 1 : 0,
+            (unsigned)grab_ret,
+            st->hik_line_counter_enabled ? 1 : 0,
+            (long long)st->hik_counter_before,
+            (long long)st->hik_counter_after,
+            (long long)delta,
+            st->hik_frame_num,
+            st->hik_trigger_index,
+            st->hik_frame_counter);
+    if (st->metrics_log_file) {
+        fprintf(st->metrics_log_file,
+                "{\"ts_ns\":%" PRIu64
+                ",\"camera_id\":%d,\"event\":\"%s\",\"frame_id\":%" PRIu64
+                ",\"wait_only\":%d,\"clear_buffer\":%d,\"grab_ok\":%d,\"grab_ret\":%d,\"counter_enabled\":%d,"
+                "\"counter_before\":%lld,\"counter_after\":%lld,\"counter_delta\":%lld,"
+                "\"nFrameNum\":%u,\"nTriggerIndex\":%u,\"nFrameCounter\":%u}\n",
+                now_ns(),
+                st->camera_id,
+                event,
+                frame_id,
+                wait_only ? 1 : 0,
+                clear_buffer ? 1 : 0,
+                grab_ok ? 1 : 0,
+                grab_ret,
+                st->hik_line_counter_enabled ? 1 : 0,
+                (long long)st->hik_counter_before,
+                (long long)st->hik_counter_after,
+                (long long)delta,
+                st->hik_frame_num,
+                st->hik_trigger_index,
+                st->hik_frame_counter);
+        fflush(st->metrics_log_file);
     }
 }
 
@@ -1219,6 +1437,111 @@ static int hik_copy_frame_to_bgr(worker_state_t *st, MV_FRAME_OUT_INFO_EX *info,
 }
 
 /** Минимальный шаг GevSCFTD (тики ~8 нс): время кадра на 1 Gb/s + ~25% запас под оверхед. */
+static DWORD WINAPI hik_rx_thread_proc(LPVOID param) {
+    worker_state_t *st = (worker_state_t *)param;
+    uint8_t *converted = st->hik_pending_bgr;
+    while (InterlockedCompareExchange(&st->hik_rx_stop, 0, 0) == 0) {
+        MV_FRAME_OUT_INFO_EX info;
+        memset(&info, 0, sizeof(info));
+        int r = MV_CC_GetOneFrameTimeout(st->hik_handle, st->hik_raw_frame, st->hik_raw_capacity, &info, 100);
+        if (r != MV_OK) continue;
+        if (info.nLostPacket > 0 || hik_copy_frame_to_bgr(st, &info, converted) != 0) {
+            fprintf(stderr, "sync_diag channel=worker event=rx_drop_invalid cam=%d nFrameNum=%u lost=%u\n",
+                    st->camera_id, info.nFrameNum, info.nLostPacket);
+            continue;
+        }
+        EnterCriticalSection(&st->hik_rx_lock);
+        if (st->hik_rx_count == HIK_RX_QUEUE_SLOTS) {
+            st->hik_rx_head = (st->hik_rx_head + 1) % HIK_RX_QUEUE_SLOTS;
+            st->hik_rx_count--;
+            st->hik_rx_dropped++;
+        }
+        int tail = (st->hik_rx_head + st->hik_rx_count) % HIK_RX_QUEUE_SLOTS;
+        memcpy(st->hik_rx_frames + (size_t)tail * st->frame_bytes, converted, st->frame_bytes);
+        st->hik_rx_frame_num[tail] = info.nFrameNum;
+        st->hik_rx_trigger_index[tail] = info.nTriggerIndex;
+        st->hik_rx_frame_counter[tail] = info.nFrameCounter;
+        st->hik_rx_count++;
+        int queued = st->hik_rx_count;
+        WakeConditionVariable(&st->hik_rx_ready);
+        LeaveCriticalSection(&st->hik_rx_lock);
+        fprintf(stderr, "sync_diag channel=worker event=rx_enqueue cam=%d nFrameNum=%u queue=%d dropped=%llu\n",
+                st->camera_id, info.nFrameNum, queued, (unsigned long long)st->hik_rx_dropped);
+    }
+    return 0;
+}
+
+static int hik_rx_start(worker_state_t *st, char *err, size_t err_len) {
+    st->hik_rx_frames = (uint8_t *)malloc(st->frame_bytes * HIK_RX_QUEUE_SLOTS);
+    if (!st->hik_rx_frames) {
+        snprintf(err, err_len, "malloc hik receive queue failed");
+        return -1;
+    }
+    st->hik_rx_head = 0;
+    st->hik_rx_count = 0;
+    st->hik_rx_dropped = 0;
+    st->hik_rx_stop = 0;
+    InitializeCriticalSection(&st->hik_rx_lock);
+    InitializeConditionVariable(&st->hik_rx_ready);
+    st->hik_rx_thread = CreateThread(NULL, 0, hik_rx_thread_proc, st, 0, NULL);
+    if (!st->hik_rx_thread) {
+        snprintf(err, err_len, "CreateThread hik receiver failed: %lu", GetLastError());
+        DeleteCriticalSection(&st->hik_rx_lock);
+        free(st->hik_rx_frames);
+        st->hik_rx_frames = NULL;
+        return -1;
+    }
+    fprintf(stderr, "hik: continuous receive FIFO started cam=%d slots=%d\n", st->camera_id, HIK_RX_QUEUE_SLOTS);
+    return 0;
+}
+
+static void hik_rx_stop(worker_state_t *st) {
+    if (!st->hik_rx_thread) return;
+    InterlockedExchange(&st->hik_rx_stop, 1);
+    WakeAllConditionVariable(&st->hik_rx_ready);
+    WaitForSingleObject(st->hik_rx_thread, INFINITE);
+    CloseHandle(st->hik_rx_thread);
+    st->hik_rx_thread = NULL;
+    DeleteCriticalSection(&st->hik_rx_lock);
+    free(st->hik_rx_frames);
+    st->hik_rx_frames = NULL;
+    st->hik_rx_count = 0;
+}
+
+static void hik_rx_clear(worker_state_t *st) {
+    EnterCriticalSection(&st->hik_rx_lock);
+    st->hik_rx_head = 0;
+    st->hik_rx_count = 0;
+    LeaveCriticalSection(&st->hik_rx_lock);
+}
+
+static int hik_rx_pop(worker_state_t *st, uint8_t *frame, MV_FRAME_OUT_INFO_EX *info, unsigned int timeout_ms) {
+    DWORD started = GetTickCount();
+    EnterCriticalSection(&st->hik_rx_lock);
+    while (st->hik_rx_count == 0 && InterlockedCompareExchange(&st->hik_rx_stop, 0, 0) == 0) {
+        DWORD elapsed = GetTickCount() - started;
+        if (elapsed >= timeout_ms) break;
+        if (!SleepConditionVariableCS(&st->hik_rx_ready, &st->hik_rx_lock, timeout_ms - elapsed)
+            && GetLastError() == ERROR_TIMEOUT) break;
+    }
+    if (st->hik_rx_count == 0) {
+        LeaveCriticalSection(&st->hik_rx_lock);
+        return MV_E_NODATA;
+    }
+    int slot = st->hik_rx_head;
+    memcpy(frame, st->hik_rx_frames + (size_t)slot * st->frame_bytes, st->frame_bytes);
+    memset(info, 0, sizeof(*info));
+    info->nWidth = (unsigned int)st->width;
+    info->nHeight = (unsigned int)st->height;
+    info->nFrameNum = st->hik_rx_frame_num[slot];
+    info->nTriggerIndex = st->hik_rx_trigger_index[slot];
+    info->nFrameCounter = st->hik_rx_frame_counter[slot];
+    st->hik_rx_head = (st->hik_rx_head + 1) % HIK_RX_QUEUE_SLOTS;
+    st->hik_rx_count--;
+    LeaveCriticalSection(&st->hik_rx_lock);
+    return MV_OK;
+}
+
 static int hik_is_small_switch_buffer(const worker_state_t *st) {
     return st->gige_switch_buffer_kb > 0 && st->gige_switch_buffer_kb <= 96;
 }
@@ -1440,7 +1763,20 @@ static void hik_apply_gige_stream_tuning(worker_state_t *st) {
     hik_apply_gige_inter_packet_delay(st->hik_handle, hik_effective_inter_packet_delay(st), st->camera_id);
     hik_apply_gige_frame_transfer_delay(st);
     int image_nodes = hik_is_small_switch_buffer(st) ? 8 : 6;
-    (void)MV_CC_SetImageNodeNum(st->hik_handle, image_nodes);
+    int r = MV_CC_SetImageNodeNum(st->hik_handle, image_nodes);
+    if (r != MV_OK) {
+        fprintf(stderr, "hik: MV_CC_SetImageNodeNum(%d) failed cam=%d (0x%x)\n", image_nodes, st->camera_id, r);
+    }
+
+    /* Two hardware pulses may arrive before the first large GigE frame has been
+     * copied by the command thread.  Never allow the SDK to collapse that queue
+     * to the newest image: phase 0 and phase 1 must be consumed in trigger order. */
+    r = MV_CC_SetGrabStrategy(st->hik_handle, MV_GrabStrategy_OneByOne);
+    if (r != MV_OK) {
+        fprintf(stderr, "hik: MV_CC_SetGrabStrategy(OneByOne) failed cam=%d (0x%x)\n", st->camera_id, r);
+    } else {
+        fprintf(stderr, "hik: grab strategy OneByOne cam=%d image_nodes=%d\n", st->camera_id, image_nodes);
+    }
 }
 
 static int hik_verify_frame_size(void *handle, int camera_id, int target_w, int target_h) {
@@ -1792,12 +2128,30 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
         MV_CC_Finalize();
         return -1;
     }
+    st->hik_pending_bgr = (uint8_t *)malloc(st->frame_bytes);
+    st->hik_pending_valid = 0;
+    if (!st->hik_pending_bgr) {
+        snprintf(err, err_len, "malloc hik pending bgr failed: %zu", st->frame_bytes);
+        free(st->hik_raw_frame);
+        st->hik_raw_frame = NULL;
+        st->hik_raw_capacity = 0;
+        MV_CC_CloseDevice(st->hik_handle);
+        MV_CC_DestroyHandle(st->hik_handle);
+        st->hik_handle = NULL;
+        MV_CC_Finalize();
+        return -1;
+    }
 
     nRet = MV_CC_StartGrabbing(st->hik_handle);
     if (nRet != MV_OK) {
         snprintf(err, err_len, "MV_CC_StartGrabbing failed: 0x%x", nRet);
         free(st->hik_raw_frame);
         st->hik_raw_frame = NULL;
+        if (st->hik_pending_bgr) {
+            free(st->hik_pending_bgr);
+            st->hik_pending_bgr = NULL;
+        }
+        st->hik_pending_valid = 0;
         st->hik_raw_capacity = 0;
         MV_CC_CloseDevice(st->hik_handle);
         MV_CC_DestroyHandle(st->hik_handle);
@@ -1808,6 +2162,13 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
     if (devList.pDeviceInfo[selected]->nTLayerType == MV_GIGE_DEVICE) {
         hik_apply_gige_frame_transfer_delay(st);
     }
+    if (st->trigger_mode == TRIGGER_MODE_LINE0 || st->trigger_mode == TRIGGER_MODE_LINE1) {
+        char rx_err[256] = {0};
+        if (hik_rx_start(st, rx_err, sizeof(rx_err)) != 0) {
+            fprintf(stderr, "hik: continuous receive FIFO unavailable cam=%d: %s; using synchronous fallback\n",
+                    st->camera_id, rx_err);
+        }
+    }
 
     st->capture_backend_ready = 1;
     snprintf(st->capture_backend_info, sizeof(st->capture_backend_info), "hik_mvs");
@@ -1815,6 +2176,7 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
 }
 
 static void shutdown_hik_mvs(worker_state_t *st) {
+    hik_rx_stop(st);
     if (st->hik_handle) {
         (void)MV_CC_StopGrabbing(st->hik_handle);
         (void)MV_CC_CloseDevice(st->hik_handle);
@@ -1826,6 +2188,11 @@ static void shutdown_hik_mvs(worker_state_t *st) {
         free(st->hik_raw_frame);
         st->hik_raw_frame = NULL;
     }
+    if (st->hik_pending_bgr) {
+        free(st->hik_pending_bgr);
+        st->hik_pending_bgr = NULL;
+    }
+    st->hik_pending_valid = 0;
     st->hik_raw_capacity = 0;
 }
 #endif /* _WIN32 && HAVE_HIK_MVS */
@@ -1929,13 +2296,49 @@ static int fire_software_trigger_only(worker_state_t *st, char *err, size_t err_
 }
 
 static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t frame_id, int sync_capture, int wait_only,
-                               int clear_buffer, char *err, size_t err_len) {
+                               int clear_buffer, int prefetch_next, char *err, size_t err_len) {
     if (strcmp(st->capture_source, "hik") == 0) {
 #if defined(_WIN32) && defined(HAVE_HIK_MVS)
         int use_sync = !wait_only && (sync_capture || st->trigger_mode == TRIGGER_MODE_SOFTWARE);
         MV_FRAME_OUT_INFO_EX info;
         memset(&info, 0, sizeof(info));
         int nRet;
+        st->hik_counter_before = -1;
+        st->hik_counter_after = -1;
+        st->hik_frame_num = 0;
+        st->hik_trigger_index = 0;
+        st->hik_frame_counter = 0;
+        if (wait_only && st->hik_rx_thread) {
+            if (clear_buffer) {
+                /* The phase-0 command is armed on DI2 before either photoeye
+                 * pulse, so discarding leftovers here cannot eat this cycle. */
+                hik_rx_clear(st);
+            }
+            nRet = hik_rx_pop(st, frame, &info, (unsigned int)st->frame_timeout_ms);
+            if (nRet != MV_OK) {
+                hik_log_line_trigger_counters(st, "rx_queue_timeout", frame_id, wait_only, clear_buffer, 0, nRet);
+                snprintf(err, err_len, "hik receive queue timeout: 0x%x", nRet);
+                return -1;
+            }
+            st->hik_frame_num = info.nFrameNum;
+            st->hik_trigger_index = info.nTriggerIndex;
+            st->hik_frame_counter = info.nFrameCounter;
+            hik_log_line_trigger_counters(st, "rx_dequeue", frame_id, wait_only, clear_buffer, 1, nRet);
+            return 0;
+        }
+        if (wait_only && !clear_buffer && st->hik_pending_valid && st->hik_pending_bgr) {
+            memcpy(frame, st->hik_pending_bgr, st->frame_bytes);
+            st->hik_frame_num = st->hik_pending_frame_num;
+            st->hik_trigger_index = st->hik_pending_trigger_index;
+            st->hik_frame_counter = st->hik_pending_frame_counter;
+            st->hik_pending_valid = 0;
+            fprintf(stderr,
+                    "sync_diag channel=worker event=wait_frame_from_prefetch cam=%d frame_id=%llu nFrameNum=%u\n",
+                    st->camera_id,
+                    (unsigned long long)frame_id,
+                    st->hik_frame_num);
+            return 0;
+        }
         if (use_sync) {
             (void)hik_flush_image_buffer(st);
             nRet = hik_fire_software_trigger(st);
@@ -1947,18 +2350,39 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
             /* hardware Line0 (DO5): сбросить очередь SDK без GetOneFrame-drain
              * (drain гоняется с DO5 и выкидывает нужный кадр).
              * two-phase: clear_buffer=false на 2-м wait_frame — кадр 2-го DO5 уже в очереди. */
+            st->hik_pending_valid = 0;
             (void)hik_flush_image_buffer(st);
         } else if (wait_only && !clear_buffer) {
             fprintf(stderr,
                     "sync_diag channel=worker event=wait_frame_skip_clear cam=%d (keep SDK queue for 2nd line pulse)\n",
                     st->camera_id);
         }
+        /* GigE CounterCurrentValue: сколько фронтов Line* камера уже посчитала. */
+        if (wait_only || st->trigger_mode == TRIGGER_MODE_LINE0 || st->trigger_mode == TRIGGER_MODE_LINE1) {
+            int64_t before = -1;
+            if (hik_read_line_trigger_counter(st, &before) == MV_OK) {
+                st->hik_counter_before = before;
+                st->hik_line_counter_enabled = 1;
+            }
+        }
         nRet = MV_CC_GetOneFrameTimeout(st->hik_handle, st->hik_raw_frame, st->hik_raw_capacity, &info,
                                         (unsigned int)st->frame_timeout_ms);
+        {
+            int64_t after = -1;
+            if (hik_read_line_trigger_counter(st, &after) == MV_OK) {
+                st->hik_counter_after = after;
+                st->hik_line_counter_enabled = 1;
+            }
+        }
         if (nRet != MV_OK) {
+            hik_log_line_trigger_counters(st, "line_trigger_counters", frame_id, wait_only, clear_buffer, 0, nRet);
             snprintf(err, err_len, "hik timeout/error: 0x%x", nRet);
             return -1;
         }
+        st->hik_frame_num = info.nFrameNum;
+        st->hik_trigger_index = info.nTriggerIndex;
+        st->hik_frame_counter = info.nFrameCounter;
+        hik_log_line_trigger_counters(st, "line_trigger_counters", frame_id, wait_only, clear_buffer, 1, nRet);
         if ((int)info.nWidth != st->width || (int)info.nHeight != st->height) {
             snprintf(err, err_len, "hik frame dims mismatch %ux%u", info.nWidth, info.nHeight);
             return -1;
@@ -1978,6 +2402,36 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
         if (hik_copy_frame_to_bgr(st, &info, frame) != 0) {
             snprintf(err, err_len, "hik unsupported pixel type: 0x%x", info.enPixelType);
             return -1;
+        }
+        /* DI2-window two-phase: сразу добрать 2-й Line0, пока phase1 ещё не вызвал wait_frame. */
+        if (wait_only && clear_buffer && prefetch_next && st->hik_pending_bgr) {
+            MV_FRAME_OUT_INFO_EX info2;
+            memset(&info2, 0, sizeof(info2));
+            int nRet2 = MV_CC_GetOneFrameTimeout(st->hik_handle, st->hik_raw_frame, st->hik_raw_capacity, &info2,
+                                                 (unsigned int)st->frame_timeout_ms);
+            if (nRet2 == MV_OK
+                && (int)info2.nWidth == st->width
+                && (int)info2.nHeight == st->height
+                && info2.nLostPacket == 0
+                && info2.nFrameNum != info.nFrameNum
+                && hik_copy_frame_to_bgr(st, &info2, st->hik_pending_bgr) == 0) {
+                st->hik_pending_valid = 1;
+                st->hik_pending_frame_num = info2.nFrameNum;
+                st->hik_pending_trigger_index = info2.nTriggerIndex;
+                st->hik_pending_frame_counter = info2.nFrameCounter;
+                fprintf(stderr,
+                        "sync_diag channel=worker event=prefetch_next_ok cam=%d nFrameNum=%u\n",
+                        st->camera_id,
+                        info2.nFrameNum);
+            } else {
+                st->hik_pending_valid = 0;
+                fprintf(stderr,
+                        "sync_diag channel=worker event=prefetch_next_miss cam=%d ret=0x%x first_nFrameNum=%u second_nFrameNum=%u\n",
+                        st->camera_id,
+                        nRet2,
+                        info.nFrameNum,
+                        info2.nFrameNum);
+            }
         }
         (void)frame_id;
         return 0;
@@ -2070,14 +2524,14 @@ static void stream_lock_leave(worker_state_t *st) {
 #endif
 }
 
-static int capture_frame_to_shm(worker_state_t *st, int sync_capture, int wait_only, int clear_buffer, char *err,
-                                size_t err_len) {
+static int capture_frame_to_shm(worker_state_t *st, int sync_capture, int wait_only, int clear_buffer,
+                                int prefetch_next, char *err, size_t err_len) {
     uint64_t capture_started_ns = now_ns();
     uint64_t frame_id = st->next_frame_id;
     int slot_index = (int)((frame_id - 1) % (uint64_t)st->ring_slots);
     size_t slot_offset = (size_t)slot_index * st->frame_bytes;
     uint8_t *frame = st->shm_base + slot_offset;
-    if (capture_from_source(st, frame, frame_id, sync_capture, wait_only, clear_buffer, err, err_len) != 0) {
+    if (capture_from_source(st, frame, frame_id, sync_capture, wait_only, clear_buffer, prefetch_next, err, err_len) != 0) {
         st->capture_dropped++;
         return -1;
     }
@@ -2095,11 +2549,28 @@ static int capture_frame_to_shm(worker_state_t *st, int sync_capture, int wait_o
     st->stream_last_timestamp_ns = timestamp_ns;
     st->next_frame_id++;
     fprintf(stderr,
-            "sync_diag channel=worker event=capture_ok cam=%d frame=%llu latency_ms=%llu capture_started_ns=%llu\n",
+            "sync_diag channel=worker event=capture_ok cam=%d frame=%llu latency_ms=%llu capture_started_ns=%llu"
+#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+            " counter_before=%lld counter_after=%lld counter_delta=%lld"
+            " nFrameNum=%u nTriggerIndex=%u nFrameCounter=%u"
+#endif
+            "\n",
             st->camera_id,
             (unsigned long long)st->last_frame_id,
             (unsigned long long)(capture_latency_ns / 1000000ull),
-            (unsigned long long)capture_started_ns);
+            (unsigned long long)capture_started_ns
+#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+            ,
+            (long long)st->hik_counter_before,
+            (long long)st->hik_counter_after,
+            (long long)((st->hik_counter_before >= 0 && st->hik_counter_after >= 0)
+                                ? (st->hik_counter_after - st->hik_counter_before)
+                                : -1),
+            st->hik_frame_num,
+            st->hik_trigger_index,
+            st->hik_frame_counter
+#endif
+    );
     if ((st->capture_total % METRICS_LOG_EVERY) == 0) {
         log_metrics(st);
     }
@@ -2150,6 +2621,13 @@ static void stop_stream_internal(worker_state_t *st) {
     st->trigger_mode = st->stream_restore_trigger_mode;
 #if defined(_WIN32) && defined(HAVE_HIK_MVS)
     hik_configure_trigger_mode(st);
+    if (strcmp(st->capture_source, "hik") == 0
+        && (st->trigger_mode == TRIGGER_MODE_LINE0 || st->trigger_mode == TRIGGER_MODE_LINE1)) {
+        char rx_err[256] = {0};
+        if (hik_rx_start(st, rx_err, sizeof(rx_err)) != 0) {
+            fprintf(stderr, "hik: receive FIFO restore failed cam=%d: %s\n", st->camera_id, rx_err);
+        }
+    }
 #endif
     fprintf(stderr, "stream stopped camera=%d trigger_restored=%s\n", st->camera_id,
             trigger_mode_name(st->trigger_mode));
@@ -2169,7 +2647,7 @@ static void *stream_thread_proc(void *param) {
         }
         stream_lock_enter(st);
         char cap_err[256] = {0};
-        if (capture_frame_to_shm(st, 0, 0, 1, cap_err, sizeof(cap_err)) != 0) {
+        if (capture_frame_to_shm(st, 0, 0, 1, 0, cap_err, sizeof(cap_err)) != 0) {
             fprintf(stderr, "stream capture failed camera=%d: %s\n", st->camera_id,
                     cap_err[0] ? cap_err : "unknown");
         }
@@ -2205,6 +2683,7 @@ static int start_stream_internal(worker_state_t *st, int fps, char *err, size_t 
     st->stream_restore_trigger_mode = st->trigger_mode;
     st->trigger_mode = TRIGGER_MODE_CONTINUOUS;
 #if defined(_WIN32) && defined(HAVE_HIK_MVS)
+    hik_rx_stop(st);
     hik_configure_trigger_mode(st);
 #endif
     st->stream_active = 1;
@@ -2606,16 +3085,19 @@ static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, 
             int trigger_only = 0;
             int wait_frame = 0;
             int clear_buffer = 1;
+            int prefetch_next = 0;
             (void)json_find_bool(header_buf, (int)strlen(header_buf), "sync", &sync_capture);
             (void)json_find_bool(header_buf, (int)strlen(header_buf), "trigger_only", &trigger_only);
             (void)json_find_bool(header_buf, (int)strlen(header_buf), "wait_frame", &wait_frame);
             (void)json_find_bool(header_buf, (int)strlen(header_buf), "clear_buffer", &clear_buffer);
+            (void)json_find_bool(header_buf, (int)strlen(header_buf), "prefetch_next_frame", &prefetch_next);
             stream_lock_enter(&st);
             int cap_rc;
             if (trigger_only) {
                 cap_rc = fire_software_trigger_only(&st, cap_err, sizeof(cap_err));
             } else {
-                cap_rc = capture_frame_to_shm(&st, sync_capture, wait_frame, clear_buffer, cap_err, sizeof(cap_err));
+                cap_rc = capture_frame_to_shm(&st, sync_capture, wait_frame, clear_buffer, prefetch_next, cap_err,
+                                             sizeof(cap_err));
             }
             stream_lock_leave(&st);
             if (cap_rc != 0) {

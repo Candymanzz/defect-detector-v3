@@ -12,10 +12,12 @@ import org.apache.logging.log4j.Logger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
@@ -25,6 +27,7 @@ import java.util.function.Supplier;
 public final class CriticalServiceWatchdog implements IntegrationComponent {
 
     private static final long POLL_MS = 2000L;
+    private static final long RESTART_BACKOFF_MS = 2000L;
 
     private final Logger log;
     private final ServiceHealthGate healthGate;
@@ -36,6 +39,7 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final AtomicBoolean restarting = new AtomicBoolean(false);
     private final List<WatchedExternal> watched = new ArrayList<>();
+    private final ConcurrentHashMap<String, AtomicLong> nextRestartAtMs = new ConcurrentHashMap<>();
 
     private CriticalServiceWatchdog(
             Logger log,
@@ -197,6 +201,12 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
 
     private void handleDeath(String name, BooleanSupplier restart) {
         if (closed.get()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        AtomicLong retryAt = nextRestartAtMs.computeIfAbsent(name, ignored -> new AtomicLong(0L));
+        long allowedAt = retryAt.get();
+        if (now < allowedAt || !retryAt.compareAndSet(allowedAt, now + RESTART_BACKOFF_MS)) {
             return;
         }
         healthGate.markUnhealthy(name);

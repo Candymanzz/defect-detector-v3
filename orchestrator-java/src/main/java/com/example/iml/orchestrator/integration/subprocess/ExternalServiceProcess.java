@@ -3,7 +3,10 @@ package com.example.iml.orchestrator.integration.subprocess;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
@@ -16,6 +19,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class ExternalServiceProcess implements AutoCloseable {
     private static final Logger log = LogManager.getLogger(ExternalServiceProcess.class);
+    private static final Logger IO_INPUT_STDOUT = LogManager.getLogger(
+            "com.example.iml.orchestrator.integration.ioinput.external"
+    );
+    private static final String IO_INPUT_MONITOR_NAME = "io-input-monitor";
 
     private final String name;
     private final Process process;
@@ -47,11 +54,39 @@ public final class ExternalServiceProcess implements AutoCloseable {
                 }
             }
         }
-        pb.redirectError(ProcessBuilder.Redirect.INHERIT);
-        pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+        boolean captureIoInputStdout = IO_INPUT_MONITOR_NAME.equals(name);
+        if (captureIoInputStdout) {
+            pb.redirectErrorStream(true);
+            pb.redirectOutput(ProcessBuilder.Redirect.PIPE);
+        } else {
+            pb.redirectError(ProcessBuilder.Redirect.INHERIT);
+            pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+        }
         Process process = pb.start();
+        if (captureIoInputStdout) {
+            startIoInputMonitorLogDrain(process);
+            IO_INPUT_STDOUT.info("=== IoInputMonitor pid={} (stdout → di-capture-timeline.log) ===", process.pid());
+        }
         log.info("started external service {} pid={} command={}", name, process.pid(), command);
         return new ExternalServiceProcess(name, process);
+    }
+
+    private static void startIoInputMonitorLogDrain(Process process) {
+        Thread drain = new Thread(() -> {
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    IO_INPUT_STDOUT.info("[io-input] {}", line);
+                }
+            } catch (IOException e) {
+                if (process.isAlive()) {
+                    IO_INPUT_STDOUT.warn("[io-input] stdout drain ended: {}", e.getMessage());
+                }
+            }
+        }, "io-input-monitor-stdout-drain");
+        drain.setDaemon(true);
+        drain.start();
     }
 
     public boolean isAlive() {

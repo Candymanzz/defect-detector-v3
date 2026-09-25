@@ -29,6 +29,10 @@
   border-color: #ef4444;
 }
 
+.camera-overview--capture {
+  border-color: #38bdf8;
+}
+
 .camera-overview__header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -59,6 +63,10 @@
 
 .camera-overview__header .is-fail {
   color: #f05252;
+}
+
+.camera-overview__header .is-capture {
+  color: #38bdf8;
 }
 
 .camera-overview__inspection {

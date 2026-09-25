@@ -38,6 +38,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
     private static final int WAIT_FRAME_MAX_ATTEMPTS_SOFTWARE = 3;
     private static final long WAIT_FRAME_RETRY_MS = 50L;
     private static final long BARRIER_POLL_MS = 2L;
+    private static final long PHASE_ORDER_RETENTION_NS = TimeUnit.SECONDS.toNanos(60L);
 
     private final int expectedParties;
     private final long barrierWaitMs;
@@ -51,6 +52,8 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
     private final ExecutorService lineCaptureExecutor;
     private final LineFramePinService framePinService = new LineFramePinService();
     private final ConcurrentHashMap<Long, Round> rounds = new ConcurrentHashMap<>();
+    /** Per camera/cycle ordering: phase1 must never consume the first hardware frame. */
+    private final ConcurrentHashMap<PhaseOrderKey, PhaseOrderState> phase0Captured = new ConcurrentHashMap<>();
     /** Stop→Start: Line0 уже был — для этих cam/seq берём sync capture, не wait_frame. */
     private final ConcurrentHashMap<Long, Set<Integer>> lateJoinBySequence = new ConcurrentHashMap<>();
     private final Object lineCaptureSerialLock = new Object();
@@ -58,6 +61,10 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
     private volatile Map<Integer, WorkerProcessSupervisor> lineWorkers = Map.of();
     /** Первый usable кадр раунда (для interval_flash Off). */
     private volatile IntConsumer onFirstFrameCaptured;
+    /**
+     * phase0 wait_frame: worker сразу добирает 2-й Line0 в pending (для phase1 без промаха).
+     */
+    private volatile boolean prefetchNextFrame;
     private static final long FRAMES_READY_WAIT_MS = 30_000L;
 
     public LineSynchronizedCaptureCoordinator(Collection<Integer> cameraIds, long barrierWaitMs) {
@@ -204,6 +211,14 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
     /** Callback на первый usable wait_frame в раунде (камера id). */
     public void setOnFirstFrameCaptured(IntConsumer onFirstFrameCaptured) {
         this.onFirstFrameCaptured = onFirstFrameCaptured;
+    }
+
+    /** phase0: worker prefetch следующего Line0-кадра в pending buffer. */
+    public void setPrefetchNextFrame(boolean prefetchNextFrame) {
+        this.prefetchNextFrame = prefetchNextFrame;
+        if (prefetchNextFrame) {
+            LOG.info("line capture: prefetch_next_frame=true (phase0 grab also arms 2nd GetOneFrameTimeout)");
+        }
     }
 
     /** Пометить камеру как late-join в текущий seq (после Stop→Start). */
@@ -430,6 +445,61 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             WorkerProcessSupervisor worker,
             int phaseId
     ) throws Exception {
+        return captureForLine(triggerSequence, cameraId, worker, phaseId, -1L);
+    }
+
+    public BinaryProtocol.Message captureForLine(
+            long triggerSequence,
+            int cameraId,
+            WorkerProcessSupervisor worker,
+            int phaseId,
+            long parentCycleId
+    ) throws Exception {
+        prunePhaseOrderStates();
+        PhaseOrderKey orderKey = hardwareLineTrigger && parentCycleId > 0L
+                ? new PhaseOrderKey(parentCycleId, cameraId)
+                : null;
+        PhaseOrderState phaseOrder = orderKey == null
+                ? null
+                : phase0Captured.computeIfAbsent(orderKey, ignored -> new PhaseOrderState());
+        if (phaseId > 0 && phaseOrder != null
+                && !phaseOrder.phase0Done.await(FRAMES_READY_WAIT_MS, TimeUnit.MILLISECONDS)) {
+            phase0Captured.remove(orderKey, phaseOrder);
+            throw new IllegalStateException(
+                    "phase1 timed out waiting for phase0 cam=" + cameraId + " parent_cycle=" + parentCycleId
+            );
+        }
+        if (phaseId > 0 && phaseOrder != null && phaseOrder.phase0Failure != null) {
+            phase0Captured.remove(orderKey, phaseOrder);
+            throw new IllegalStateException(
+                    "phase1 cancelled because phase0 failed cam=" + cameraId + " parent_cycle=" + parentCycleId,
+                    phaseOrder.phase0Failure
+            );
+        }
+        try {
+            return captureForLineUnordered(triggerSequence, cameraId, worker, phaseId);
+        } catch (Exception failure) {
+            if (phaseId <= 0 && phaseOrder != null) {
+                phaseOrder.phase0Failure = failure;
+            }
+            throw failure;
+        } finally {
+            if (phaseOrder != null) {
+                if (phaseId <= 0) {
+                    phaseOrder.phase0Done.countDown();
+                } else {
+                    phase0Captured.remove(orderKey, phaseOrder);
+                }
+            }
+        }
+    }
+
+    private BinaryProtocol.Message captureForLineUnordered(
+            long triggerSequence,
+            int cameraId,
+            WorkerProcessSupervisor worker,
+            int phaseId
+    ) throws Exception {
         boolean clearBufferBeforeWait = phaseId <= 0;
         if (!isEnabled() || triggerSequence <= 0L) {
             return worker.command(Map.of("op", "capture", "sync", true));
@@ -494,11 +564,12 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             }
             long frameId = YamlScalars.toLong(capture.header().get("frame_id"), -1L);
             LOG.debug(
-                    "sync_diag channel=inspect event=line_frame_from_hw cam={} seq={} phase={} clear_buffer={} frame_id={}",
+                    "sync_diag channel=inspect event=line_frame_from_hw cam={} seq={} phase={} clear_buffer={} prefetch={} frame_id={}",
                     cameraId,
                     triggerSequence,
                     phaseId,
                     clearBufferBeforeWait,
+                    clearBufferBeforeWait && prefetchNextFrame,
                     frameId
             );
             return capture;
@@ -540,6 +611,17 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             );
         }
         return capture;
+    }
+
+    private void prunePhaseOrderStates() {
+        if (phase0Captured.size() <= expectedParties * 4) {
+            return;
+        }
+        long cutoff = System.nanoTime() - PHASE_ORDER_RETENTION_NS;
+        phase0Captured.entrySet().removeIf(entry ->
+                entry.getValue().phase0Done.getCount() == 0L
+                        && entry.getValue().createdNs < cutoff
+        );
     }
 
     private void awaitBarrier(Round round) throws InterruptedException {
@@ -598,6 +680,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         }
         lineCaptureExecutor.shutdownNow();
         rounds.clear();
+        phase0Captured.clear();
     }
 
     private void fireLineCapture(Round round, boolean lenient) throws Exception {
@@ -779,8 +862,11 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         return okCount;
     }
 
-    private static Map<String, Object> waitFrameCommand(boolean clearBufferBeforeWait) {
+    private Map<String, Object> waitFrameCommand(boolean clearBufferBeforeWait) {
         if (clearBufferBeforeWait) {
+            if (prefetchNextFrame) {
+                return Map.of("op", "capture", "wait_frame", true, "prefetch_next_frame", true);
+            }
             return Map.of("op", "capture", "wait_frame", true);
         }
         return Map.of("op", "capture", "wait_frame", true, "clear_buffer", false);
@@ -900,6 +986,15 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         } catch (Exception e) {
             LOG.warn("onFirstFrameCaptured cam={}: {}", cameraId, e.getMessage());
         }
+    }
+
+    private record PhaseOrderKey(long parentCycleId, int cameraId) {
+    }
+
+    private static final class PhaseOrderState {
+        final CountDownLatch phase0Done = new CountDownLatch(1);
+        final long createdNs = System.nanoTime();
+        volatile Exception phase0Failure;
     }
 
     private final class Round {

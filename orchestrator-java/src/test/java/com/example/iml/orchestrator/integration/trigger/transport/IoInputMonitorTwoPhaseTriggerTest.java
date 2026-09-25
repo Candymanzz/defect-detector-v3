@@ -24,7 +24,7 @@ class IoInputMonitorTwoPhaseTriggerTest {
                      LogManager.getLogger(IoInputMonitorTwoPhaseTriggerTest.class),
                      UdpTriggerConfig.defaults(),
                      IoInputDiscreteConfig.defaults(),
-                     new TwoPhaseTriggerConfig(true, 700, 150),
+                     new TwoPhaseTriggerConfig(true, 700, 150, 0, 90, false, "127.0.0.1", 9101),
                      bus,
                      null,
                      List.of(),

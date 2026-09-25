@@ -14,7 +14,8 @@ import { StatusCard } from "../../shared/ui/StatusCard";
 import { createCameraCards, createDefaultInspectionProducts, createSelectedCamera } from "./MainController";
 import { resolveCardInspectImageUrl } from "./MainController";
 import { useMainOverview } from "./useMainOverview";
-import type { CameraCardData, InspectionProduct, InspectionStats } from "./type";
+import type { CameraCardData, InspectionHistoryItem, InspectionProduct, InspectionStats } from "./type";
+import type { InspectResultPayload } from "../../shared/ws";
 import "./MainOverview.css";
 import "../SettingList/TestSettingsPanels.css";
 
@@ -132,9 +133,13 @@ export function MainOverview({
       className={`camera-overviews ${cameraCardGroups.length > 2 ? "camera-overviews--multi-column" : ""}`}
       ref={rootRef}
     >
-      {cameraCardGroups.map((cameraGroup) => (
+      {cameraCardGroups.map((cameraGroup) => {
+        const isCaptureOnlyProduct =
+          Object.keys(cameraGroup.resultsByCameraId).length > 0 &&
+          Object.values(cameraGroup.resultsByCameraId).every((result) => isCaptureOnlyInspectResult(result));
+        return (
         <section
-          className={`camera-overview ${cameraGroup.overallPass === false ? "camera-overview--fail" : cameraGroup.overallPass === true ? "camera-overview--pass" : ""}`}
+          className={`camera-overview ${cameraGroup.overallPass === false ? "camera-overview--fail" : cameraGroup.overallPass === true ? "camera-overview--pass" : isCaptureOnlyProduct ? "camera-overview--capture" : ""}`}
           aria-label={`Кадры камер для изделия ${cameraGroup.productNumber}`}
           key={cameraGroup.key}
         >
@@ -143,12 +148,12 @@ export function MainOverview({
               <h2>Изделие {cameraGroup.productNumber}</h2>
               <span>Камеры {formatCameraRange(cameraGroup.cameraIds)}</span>
             </div>
-            <strong className={cameraGroup.overallPass === false ? "is-fail" : cameraGroup.overallPass === true ? "is-pass" : ""}>
-              {cameraGroup.overallPass === false ? "● БРАК" : cameraGroup.overallPass === true ? "● ГОДЕН" : "Ожидание"}
+            <strong className={cameraGroup.overallPass === false ? "is-fail" : cameraGroup.overallPass === true ? "is-pass" : isCaptureOnlyProduct ? "is-capture" : ""}>
+              {cameraGroup.overallPass === false ? "● БРАК" : cameraGroup.overallPass === true ? "● ГОДЕН" : isCaptureOnlyProduct ? "● СЪЁМКА" : "Ожидание"}
             </strong>
             {cameraGroup.triggerSequence != null && (
               <div className="camera-overview__inspection">
-                <span>Последняя инспекция</span>
+                <span>{isCaptureOnlyProduct ? "Последняя съёмка" : "Последняя инспекция"}</span>
                 <b>#{cameraGroup.triggerSequence}</b>
               </div>
             )}
@@ -159,7 +164,13 @@ export function MainOverview({
               // A camera participates in two phases. Only a completed bucket result
               // belongs to this exact product; the camera-wide latest result may be
               // from the other phase and must not appear here prematurely.
-              const inspectResult = cameraGroup.resultsByCameraId[camera.cameraId];
+              const inspectResult =
+                cameraGroup.resultsByCameraId[camera.cameraId] ??
+                scopedInspectResult(
+                  controller.inspectResultsByCameraId[camera.cameraId],
+                  cameraGroup.phaseId,
+                  cameraGroup.groupId,
+                );
               const artifactCandidate = controller.inspectArtifactResultsByCameraId[camera.cameraId];
               const artifactInspectResult =
                 artifactCandidate &&
@@ -211,7 +222,12 @@ export function MainOverview({
                       showInspectionArtifacts ? artifactInspectResult : undefined,
                       controller.previewFrameIdsByCameraId[camera.cameraId],
                       controller.previewImageUrlsByCameraId[camera.cameraId],
-                      controller.inspectionHistoryByProductKey[cameraGroup.key]?.[camera.cameraId] ?? [],
+                      controller.inspectionHistoryByProductKey[cameraGroup.key]?.[camera.cameraId] ??
+                        scopedInspectionHistory(
+                          controller.inspectionHistoryByCameraId[camera.cameraId],
+                          cameraGroup.phaseId,
+                          cameraGroup.groupId,
+                        ),
                     )
                   }
                   onSelect={() => onSettingsCameraToggle(camera.cameraId)}
@@ -223,7 +239,16 @@ export function MainOverview({
 
           <InspectionHistory
             cameraIds={cameraGroup.cameraIds}
-            historyByCameraId={controller.inspectionHistoryByProductKey[cameraGroup.key] ?? {}}
+            historyByCameraId={
+              hasProductHistory(controller.inspectionHistoryByProductKey[cameraGroup.key])
+                ? (controller.inspectionHistoryByProductKey[cameraGroup.key] ?? {})
+                : scopedHistoryByCameraId(
+                    controller.inspectionHistoryByCameraId,
+                    cameraGroup.cameraIds,
+                    cameraGroup.phaseId,
+                    cameraGroup.groupId,
+                  )
+            }
             archiveHistoryState={controller.archiveHistoryState}
             archiveHistoryMessage={controller.archiveHistoryMessage}
             onLoadArchivedHistory={(ids) =>
@@ -235,7 +260,8 @@ export function MainOverview({
             }
           />
         </section>
-      ))}
+        );
+      })}
 
       {controller.modalSnapshot && (
         <ModalWrapper
@@ -415,6 +441,54 @@ function formatCameraRange(cameraIds: number[]) {
   }
   const sorted = [...cameraIds].sort((left, right) => left - right);
   return sorted.length === 1 ? String(sorted[0]) : `${sorted[0]}–${sorted[sorted.length - 1]}`;
+}
+
+function scopedInspectResult(
+  result: InspectResultPayload | undefined,
+  phaseId: number,
+  groupId: number,
+) {
+  if (!result) {
+    return undefined;
+  }
+  if (result.group_id != null && result.group_id >= 0) {
+    return (result.phase_id ?? 0) === phaseId && result.group_id === groupId ? result : undefined;
+  }
+  return (result.phase_id ?? 0) === phaseId ? result : undefined;
+}
+
+function scopedInspectionHistory(
+  items: InspectionHistoryItem[] | undefined,
+  phaseId: number,
+  groupId: number,
+) {
+  return (items ?? []).filter((item) => matchesProductScope(item.inspectResult, phaseId, groupId));
+}
+
+function hasProductHistory(historyByCameraId: Record<number, InspectionHistoryItem[]> | undefined) {
+  return Object.values(historyByCameraId ?? {}).some((items) => items.length > 0);
+}
+
+function scopedHistoryByCameraId(
+  historyByCameraId: Record<number, InspectionHistoryItem[]>,
+  cameraIds: number[],
+  phaseId: number,
+  groupId: number,
+) {
+  return Object.fromEntries(
+    cameraIds.map((cameraId) => [cameraId, scopedInspectionHistory(historyByCameraId[cameraId], phaseId, groupId)]),
+  );
+}
+
+function matchesProductScope(
+  result: { phase_id?: number; group_id?: number },
+  phaseId: number,
+  groupId: number,
+) {
+  if (result.group_id != null && result.group_id >= 0) {
+    return (result.phase_id ?? 0) === phaseId && result.group_id === groupId;
+  }
+  return (result.phase_id ?? 0) === phaseId;
 }
 
 function orderProductsForGrid<T extends InspectionProduct>(products: T[]) {

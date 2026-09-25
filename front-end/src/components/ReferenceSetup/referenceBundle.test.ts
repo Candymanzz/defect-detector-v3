@@ -4,7 +4,7 @@ import type { PreviewFramePayload } from "../../shared/ws";
 import { createCirclePolygonFromRadius } from "../RoiContourEditor/circleRoi";
 import { createOrientedRectFromAxis } from "../RoiContourEditor/orientedRectRoi";
 import { createReferenceBundleFromCameraFrames } from "./referenceBundle";
-import { createReferenceGroups } from "./ReferenceController";
+import { createReferenceGroups, resolveReferenceGroupIndex } from "./ReferenceController";
 
 function previewFrame(cameraId: number): PreviewFramePayload {
   return {
@@ -164,5 +164,23 @@ describe("createReferenceBundleFromCameraFrames", () => {
         [],
       ),
     ).toThrow(/same resolution/);
+  });
+});
+
+describe("resolveReferenceGroupIndex", () => {
+  const groups = createReferenceGroups([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+
+  it("matches a capture by phase and group", () => {
+    expect(resolveReferenceGroupIndex(groups, { camera_id: 7, phase_id: 1, group_id: 3 })).toBe(3);
+    expect(resolveReferenceGroupIndex(groups, { camera_id: 1, phase_id: 0, group_id: 0 })).toBe(0);
+  });
+
+  it("falls back to camera and phase when group_id is missing", () => {
+    expect(resolveReferenceGroupIndex(groups, { camera_id: 8, phase_id: 1 })).toBe(3);
+    expect(resolveReferenceGroupIndex(groups, { camera_id: 8, phase_id: 0, group_id: -1 })).toBe(1);
+  });
+
+  it("returns -1 for an unknown camera", () => {
+    expect(resolveReferenceGroupIndex(groups, { camera_id: 99, phase_id: 0, group_id: 0 })).toBe(-1);
   });
 });

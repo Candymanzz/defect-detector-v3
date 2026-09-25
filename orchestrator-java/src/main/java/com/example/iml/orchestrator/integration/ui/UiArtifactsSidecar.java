@@ -251,15 +251,6 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             sourceHeatmap = resolvedSourceHeatmap;
         }
 
-        if (ws != null) {
-            try {
-                // Deliver decision immediately; heavy UI artifacts are published in a later update.
-                ws.notifyInspectResult(cameraId, productType, detectorId, inspectionId, decision, cap, null, 0, 0, null, null, false, null);
-            } catch (Exception e) {
-                log.debug("client_ws inspect_result immediate cam={}: {}", cameraId, e.getMessage());
-            }
-        }
-
         long publishSequence = uiPublishSequence.incrementAndGet();
         latestUiPublishByCamera.put(cameraId, publishSequence);
         final FrozenFrame frozenFrame;
@@ -545,7 +536,10 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             hasHm ? uw : 0,
                             hasHm ? uh : 0
                     );
-                    if (ws != null && (hasCur || hasHm)) {
+                    // The JPEG-ready result was already sent above.  A second message is
+                    // useful only when this pass adds a heatmap; sending the same
+                    // frame-only result again made capture-only frames appear twice.
+                    if (ws != null && hasHm) {
                         try {
                             boolean testAnalyze = YamlScalars.toBool(cap.get("test_analyze"), false);
                             // test-analyze must keep live artifact URLs so the UI can show the freshly

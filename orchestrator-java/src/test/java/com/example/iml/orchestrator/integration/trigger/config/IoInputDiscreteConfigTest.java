@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.trigger.config;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import com.example.iml.orchestrator.integration.trigger.gpio.TriggerEdgeMode;
@@ -165,5 +166,43 @@ class IoInputDiscreteConfigTest {
     @Test
     void shutdownPortDefaultsToFour() {
         assertEquals(4, IoInputDiscreteConfig.defaults().shutdownPort());
+    }
+
+    @Test
+    void parsesArmOnDirectionFromIntegrationConfig() {
+        Map<String, Object> integration = Map.of(
+                "inspection_trigger",
+                Map.of(
+                        "io_input",
+                        Map.of("arm_on_direction", true)
+                )
+        );
+
+        IoInputDiscreteConfig cfg = IoInputDiscreteConfig.parse(integration, 0);
+
+        assertTrue(cfg.armOnDirection());
+        assertFalse(IoInputDiscreteConfig.defaults().armOnDirection());
+    }
+
+    @Test
+    void parsesTriggerPortsIncludingDi5() {
+        Map<String, Object> integration = Map.of(
+                "inspection_trigger",
+                Map.of(
+                        "io_input",
+                        Map.of(
+                                "trigger_port", 3,
+                                "trigger_ports", List.of(3, 5)
+                        )
+                )
+        );
+
+        IoInputDiscreteConfig cfg = IoInputDiscreteConfig.parse(integration, 0);
+
+        assertEquals(List.of(3, 5), cfg.resolveTriggerPorts());
+        assertTrue(cfg.isTriggerPort(3));
+        assertTrue(cfg.isTriggerPort(5));
+        assertFalse(cfg.isTriggerPort(4));
+        assertEquals("3/5", cfg.formatTriggerPorts());
     }
 }

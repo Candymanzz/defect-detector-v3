@@ -228,3 +228,430 @@
 2026-08-06 15:34:30.203 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=64 cameras=10 stagger_ms=0 mode=simultaneous
 2026-08-06 15:34:39.479 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=65 source=io_input cameras=all
 2026-08-06 15:34:39.479 INFO  [io-input-trigger] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=65 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-17 04:17:40.308 WARN  [main] c.e.i.o.i.t.DiShutdownControllerTest - DI4=1 — ?????????? ??????????: lights Off, vision_ready=0, vision_fault=1, stop orchestrator (di4_shutdown)
+2026-09-17 04:17:40.358 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-17 04:17:40.358 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-17 04:17:40.796 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-17 04:17:40.797 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-17 04:17:40.797 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-17 04:17:40.797 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-17 04:17:40.797 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-17 04:17:40.797 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-17 04:17:40.797 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-17 04:40:24.879 WARN  [main] c.e.i.o.i.t.DiShutdownControllerTest - DI4=1 — ?????????? ??????????: lights Off, vision_ready=0, vision_fault=1, stop orchestrator (di4_shutdown)
+2026-09-17 04:40:24.926 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-17 04:40:24.926 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-17 04:40:25.370 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-17 04:40:25.371 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-17 04:40:25.371 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-17 04:40:25.371 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-17 04:40:25.371 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-17 04:40:25.371 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-17 04:40:25.371 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-18 01:06:15.326 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-18 01:06:15.329 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-18 01:06:15.330 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-18 01:06:15.331 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-18 01:06:15.338 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-18 01:06:15.339 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-18 01:06:15.339 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-18 01:53:24.656 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-18 01:53:24.658 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-18 01:53:24.659 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-18 01:53:24.659 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-18 01:53:24.660 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-18 01:53:24.660 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-18 01:53:24.661 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-18 03:56:45.511 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-18 03:56:45.514 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-18 03:56:45.514 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-18 03:56:45.515 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-18 03:56:45.515 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-18 03:56:45.515 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-18 03:56:45.516 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-18 04:08:08.026 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-18 04:08:08.029 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-18 04:08:08.029 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-18 04:08:08.030 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-18 04:08:08.030 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-18 04:08:08.030 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-18 04:08:08.031 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-21 04:34:30.573 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-21 04:34:30.574 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window skip open — already collecting frames=0/4
+2026-09-21 04:35:30.577 INFO  [di2-capture-window] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=timeout frames=0/4 leftover_cancel=[0]
+2026-09-21 04:35:40.087 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-21 04:35:40.088 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window skip open — already collecting frames=0/4
+2026-09-21 04:35:40.089 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-09-21 04:35:40.089 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-09-21 04:35:40.089 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-09-21 04:35:40.089 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-09-21 04:35:40.090 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[0]
+2026-09-21 04:35:40.092 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-21 04:35:40.092 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-21 04:35:40.093 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/2 cam=0 phase=1 parent_cycle=1
+2026-09-21 04:35:40.093 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=2/2 leftover_cancel=[]
+2026-09-21 04:35:40.093 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-21 04:35:40.093 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=test frames=0/2 leftover_cancel=[]
+2026-09-21 04:36:05.309 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-21 04:36:05.311 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window skip open — already collecting frames=0/4
+2026-09-21 04:36:05.312 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-09-21 04:36:05.312 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-09-21 04:36:05.312 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-09-21 04:36:05.313 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-09-21 04:36:05.314 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[0]
+2026-09-21 04:36:05.316 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-21 04:36:05.316 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-21 04:36:05.317 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/2 cam=0 phase=1 parent_cycle=1
+2026-09-21 04:36:05.317 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=2/2 leftover_cancel=[]
+2026-09-21 04:36:05.317 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-21 04:36:05.318 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=test frames=0/2 leftover_cancel=[]
+2026-09-23 22:40:03.413 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-23 22:40:03.416 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window skip open — already collecting frames=0/4
+2026-09-23 22:40:03.428 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-09-23 22:40:03.429 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-09-23 22:40:03.429 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-09-23 22:40:03.429 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-09-23 22:40:03.430 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[0]
+2026-09-23 22:40:03.438 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-23 22:40:03.438 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-23 22:40:03.438 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window drop late frame cam=0 phase=1 parent_cycle=1 — DI2=0
+2026-09-23 22:40:03.439 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=di2_low frames=1/2 leftover_cancel=[]
+2026-09-23 22:40:03.440 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-23 22:40:03.441 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-23 22:40:03.441 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/2 cam=0 phase=1 parent_cycle=1
+2026-09-23 22:40:03.441 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=2/2 leftover_cancel=[]
+2026-09-23 22:40:03.441 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-23 22:40:03.442 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=test frames=0/2 leftover_cancel=[]
+2026-09-23 22:54:01.918 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-23 22:54:01.924 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window DI2? — accept frames until +80 ms, then cancel leftovers
+2026-09-23 22:54:01.924 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-23 22:54:02.016 INFO  [pool-3-thread-1] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=di2_low frames=1/2 leftover_cancel=[]
+2026-09-23 22:54:02.089 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-23 22:54:02.089 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window skip open — already collecting frames=0/4
+2026-09-23 22:54:02.101 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-09-23 22:54:02.101 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-09-23 22:54:02.101 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-09-23 22:54:02.101 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-09-23 22:54:02.102 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[0]
+2026-09-23 22:54:02.109 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-23 22:54:02.109 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-23 22:54:02.110 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/2 cam=0 phase=1 parent_cycle=1
+2026-09-23 22:54:02.110 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=2/2 leftover_cancel=[]
+2026-09-23 22:54:02.110 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-23 22:54:02.111 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=test frames=0/2 leftover_cancel=[]
+2026-09-24 00:01:51.159 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 00:01:51.160 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window DI2? — accept frames until +80 ms, then cancel leftovers
+2026-09-24 00:01:51.161 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-24 00:01:51.243 INFO  [pool-3-thread-1] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=di2_low frames=1/2 leftover_cancel=[]
+2026-09-24 00:01:51.325 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-24 00:01:51.325 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window skip open — already collecting frames=0/4
+2026-09-24 00:01:51.325 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-09-24 00:01:51.326 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-09-24 00:01:51.326 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-09-24 00:01:51.326 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-09-24 00:01:51.326 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[0]
+2026-09-24 00:01:51.328 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 00:01:51.328 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-24 00:01:51.329 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/2 cam=0 phase=1 parent_cycle=1
+2026-09-24 00:01:51.329 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=2/2 leftover_cancel=[]
+2026-09-24 00:01:51.329 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 00:01:51.329 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=test frames=0/2 leftover_cancel=[]
+2026-09-24 00:01:51.341 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-24 00:01:51.342 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 00:01:51.343 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-24 00:01:51.343 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 00:01:51.344 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-24 00:01:51.344 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-24 00:01:51.345 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-24 00:03:41.213 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 00:03:41.215 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window DI2? — accept frames until +80 ms, then cancel leftovers
+2026-09-24 00:03:41.216 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-24 00:03:41.300 INFO  [pool-3-thread-1] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=di2_low frames=1/2 leftover_cancel=[]
+2026-09-24 00:03:41.381 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-24 00:03:41.381 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window skip open — already collecting frames=0/4
+2026-09-24 00:03:41.382 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-09-24 00:03:41.382 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-09-24 00:03:41.382 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-09-24 00:03:41.382 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-09-24 00:03:41.383 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[0]
+2026-09-24 00:03:41.384 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 00:03:41.385 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-24 00:03:41.385 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/2 cam=0 phase=1 parent_cycle=1
+2026-09-24 00:03:41.385 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=2/2 leftover_cancel=[]
+2026-09-24 00:03:41.386 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 00:03:41.386 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=test frames=0/2 leftover_cancel=[]
+2026-09-24 00:03:41.397 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-24 00:03:41.398 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 00:03:41.399 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-24 00:03:41.399 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 00:03:41.400 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-24 00:03:41.400 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-24 00:03:41.401 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-24 04:28:40.787 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-24 04:28:40.791 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 04:28:40.792 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-24 04:28:40.792 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 04:28:40.793 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-24 04:28:40.793 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-24 04:28:40.794 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-24 04:34:48.102 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-24 04:34:48.105 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 04:34:48.106 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-24 04:34:48.106 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 04:34:48.106 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-24 04:34:48.107 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-24 04:34:48.108 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-24 04:41:27.917 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 04:41:27.920 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window DI2? — accept frames until +80 ms, then cancel leftovers
+2026-09-24 04:41:27.920 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-24 04:41:28.003 INFO  [pool-3-thread-1] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=di2_low frames=1/2 leftover_cancel=[]
+2026-09-24 04:41:28.083 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-24 04:41:28.083 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window skip open — already collecting frames=0/4
+2026-09-24 04:41:28.100 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-09-24 04:41:28.101 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-09-24 04:41:28.101 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-09-24 04:41:28.101 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-09-24 04:41:28.101 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[0]
+2026-09-24 04:41:28.107 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 04:41:28.108 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-24 04:41:28.108 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/2 cam=0 phase=1 parent_cycle=1
+2026-09-24 04:41:28.108 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=2/2 leftover_cancel=[]
+2026-09-24 04:41:28.108 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 04:41:28.109 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=test frames=0/2 leftover_cancel=[]
+2026-09-24 04:41:28.121 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-24 04:41:28.122 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 04:41:28.123 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-24 04:41:28.123 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 04:41:28.124 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-24 04:41:28.124 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-24 04:41:28.125 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-24 05:32:31.547 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-24 05:32:31.548 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 05:32:31.549 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-24 05:32:31.550 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 05:32:31.550 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-24 05:32:31.551 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-24 05:32:31.552 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-24 06:12:00.355 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 06:12:00.356 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window DI2? — accept frames until +80 ms, then cancel leftovers
+2026-09-24 06:12:00.356 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-24 06:12:00.442 INFO  [pool-61-thread-1] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=di2_low frames=1/2 leftover_cancel=[]
+2026-09-24 06:12:00.523 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-24 06:12:00.523 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window skip open — already collecting frames=0/4
+2026-09-24 06:12:00.523 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-09-24 06:12:00.523 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-09-24 06:12:00.523 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-09-24 06:12:00.524 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-09-24 06:12:00.524 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[0]
+2026-09-24 06:12:00.525 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 06:12:00.525 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-24 06:12:00.525 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/2 cam=0 phase=1 parent_cycle=1
+2026-09-24 06:12:00.525 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=2/2 leftover_cancel=[]
+2026-09-24 06:12:00.525 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 06:12:00.525 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=test frames=0/2 leftover_cancel=[]
+2026-09-24 06:12:00.529 WARN  [main] c.e.i.o.i.t.DiShutdownControllerTest - DI4=1 — ?????????? ??????????: lights Off, vision_ready=0, vision_fault=1, stop orchestrator (di4_shutdown)
+2026-09-24 06:12:00.573 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-24 06:12:00.573 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 06:12:01.013 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-24 06:12:01.013 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 06:12:01.013 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-24 06:12:01.013 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 06:12:01.013 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-24 06:12:01.014 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-24 06:12:01.014 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-24 22:44:38.865 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 22:44:38.873 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window DI2? — accept frames until +80 ms, then cancel leftovers
+2026-09-24 22:44:38.884 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-24 22:44:38.967 INFO  [pool-3-thread-1] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=di2_low frames=1/2 leftover_cancel=[]
+2026-09-24 22:44:39.057 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-24 22:44:39.058 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window skip open — already collecting frames=0/4
+2026-09-24 22:44:39.061 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-09-24 22:44:39.061 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-09-24 22:44:39.061 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-09-24 22:44:39.062 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-09-24 22:44:39.062 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[0]
+2026-09-24 22:44:39.068 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-24 22:44:39.069 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-09-24 22:44:39.070 WARN  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window duplicate frame ignored cam=0 phase=0 parent_cycle=1 frames=1/4
+2026-09-24 22:44:39.070 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-09-24 22:44:39.070 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-09-24 22:44:39.071 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-09-24 22:44:39.071 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[]
+2026-09-24 22:44:39.074 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 22:44:39.074 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-24 22:44:39.075 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/2 cam=0 phase=1 parent_cycle=1
+2026-09-24 22:44:39.075 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=2/2 leftover_cancel=[]
+2026-09-24 22:44:39.076 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 22:44:39.076 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=test frames=0/2 leftover_cancel=[]
+2026-09-24 22:44:39.099 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-24 22:44:39.100 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 22:44:39.102 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-24 22:44:39.103 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 22:44:39.104 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-24 22:44:39.104 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-24 22:44:39.106 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-24 22:45:27.961 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 22:45:27.961 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window DI2? — accept frames until +80 ms, then cancel leftovers
+2026-09-24 22:45:27.962 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-24 22:45:28.049 INFO  [pool-61-thread-1] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=di2_low frames=1/2 leftover_cancel=[]
+2026-09-24 22:45:28.114 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-24 22:45:28.114 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window skip open — already collecting frames=0/4
+2026-09-24 22:45:28.114 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-09-24 22:45:28.114 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-09-24 22:45:28.115 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-09-24 22:45:28.115 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-09-24 22:45:28.115 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[0]
+2026-09-24 22:45:28.116 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-24 22:45:28.116 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-09-24 22:45:28.116 WARN  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window duplicate frame ignored cam=0 phase=0 parent_cycle=1 frames=1/4
+2026-09-24 22:45:28.117 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-09-24 22:45:28.117 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-09-24 22:45:28.117 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-09-24 22:45:28.117 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[]
+2026-09-24 22:45:28.118 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 22:45:28.118 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-24 22:45:28.118 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/2 cam=0 phase=1 parent_cycle=1
+2026-09-24 22:45:28.118 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=2/2 leftover_cancel=[]
+2026-09-24 22:45:28.118 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 22:45:28.118 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=test frames=0/2 leftover_cancel=[]
+2026-09-24 22:45:28.122 WARN  [main] c.e.i.o.i.t.DiShutdownControllerTest - DI4=1 — ?????????? ??????????: lights Off, vision_ready=0, vision_fault=1, stop orchestrator (di4_shutdown)
+2026-09-24 22:45:28.176 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-24 22:45:28.176 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 22:45:28.621 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-24 22:45:28.621 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 22:45:28.622 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-24 22:45:28.622 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-24 22:45:28.622 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-24 22:45:28.622 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-24 22:45:28.622 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-24 22:54:35.302 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 22:54:35.305 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window DI2? — accept frames until +80 ms, then cancel leftovers
+2026-09-24 22:54:35.306 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-24 22:54:35.387 INFO  [pool-28-thread-1] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=di2_low frames=1/2 leftover_cancel=[]
+2026-09-24 22:54:35.468 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-24 22:54:35.468 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window skip open — already collecting frames=0/4
+2026-09-24 22:54:35.468 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-09-24 22:54:35.469 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-09-24 22:54:35.469 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-09-24 22:54:35.469 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-09-24 22:54:35.470 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[0]
+2026-09-24 22:54:35.476 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-24 22:54:35.477 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-09-24 22:54:35.478 WARN  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window duplicate frame ignored cam=0 phase=0 parent_cycle=1 frames=1/4
+2026-09-24 22:54:35.478 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-09-24 22:54:35.478 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-09-24 22:54:35.479 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-09-24 22:54:35.479 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[]
+2026-09-24 22:54:35.481 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 22:54:35.482 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-24 22:54:35.482 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/2 cam=0 phase=1 parent_cycle=1
+2026-09-24 22:54:35.483 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=2/2 leftover_cancel=[]
+2026-09-24 22:54:35.483 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-24 22:54:35.484 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=test frames=0/2 leftover_cancel=[]
+2026-09-25 03:41:16.669 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-25 03:41:16.672 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-25 03:41:16.673 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-25 03:41:16.673 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-25 03:41:16.673 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-25 03:41:16.674 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-25 03:41:16.675 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-25 03:59:04.270 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-25 03:59:04.271 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window DI2? — accept frames until +80 ms, then cancel leftovers
+2026-09-25 03:59:04.272 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-25 03:59:04.358 INFO  [pool-3-thread-1] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=di2_low frames=1/2 leftover_cancel=[]
+2026-09-25 03:59:04.437 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-25 03:59:04.438 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window skip open — already collecting frames=0/4
+2026-09-25 03:59:04.438 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-09-25 03:59:04.438 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-09-25 03:59:04.438 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-09-25 03:59:04.439 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-09-25 03:59:04.439 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[]
+2026-09-25 03:59:04.440 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-25 03:59:04.446 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-09-25 03:59:04.447 WARN  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window duplicate frame ignored cam=0 phase=0 parent_cycle=1 frames=1/4
+2026-09-25 03:59:04.447 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-09-25 03:59:04.447 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-09-25 03:59:04.447 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-09-25 03:59:04.448 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[]
+2026-09-25 03:59:04.449 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-25 03:59:04.449 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-25 03:59:04.450 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/2 cam=0 phase=1 parent_cycle=1
+2026-09-25 03:59:04.450 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=2/2 leftover_cancel=[]
+2026-09-25 03:59:04.451 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-25 03:59:04.451 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=test frames=0/2 leftover_cancel=[]
+2026-09-25 03:59:04.463 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-25 03:59:04.464 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-25 03:59:04.465 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-25 03:59:04.465 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-25 03:59:04.466 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-25 03:59:04.466 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-25 03:59:04.467 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-25 04:00:34.960 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-25 04:00:34.961 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window DI2? — accept frames until +80 ms, then cancel leftovers
+2026-09-25 04:00:34.962 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-25 04:00:35.051 INFO  [pool-61-thread-1] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=di2_low frames=1/2 leftover_cancel=[]
+2026-09-25 04:00:35.115 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-25 04:00:35.115 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window skip open — already collecting frames=0/4
+2026-09-25 04:00:35.115 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-09-25 04:00:35.115 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-09-25 04:00:35.116 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-09-25 04:00:35.116 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-09-25 04:00:35.116 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[]
+2026-09-25 04:00:35.117 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-09-25 04:00:35.117 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-09-25 04:00:35.117 WARN  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window duplicate frame ignored cam=0 phase=0 parent_cycle=1 frames=1/4
+2026-09-25 04:00:35.117 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-09-25 04:00:35.118 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-09-25 04:00:35.118 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-09-25 04:00:35.118 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[]
+2026-09-25 04:00:35.119 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-25 04:00:35.120 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-09-25 04:00:35.120 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/2 cam=0 phase=1 parent_cycle=1
+2026-09-25 04:00:35.120 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=2/2 leftover_cancel=[]
+2026-09-25 04:00:35.120 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-09-25 04:00:35.120 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=test frames=0/2 leftover_cancel=[]
+2026-09-25 04:00:35.123 WARN  [main] c.e.i.o.i.t.DiShutdownControllerTest - DI4=1 — ?????????? ??????????: lights Off, vision_ready=0, vision_fault=1, stop orchestrator (di4_shutdown)
+2026-09-25 04:00:35.177 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-25 04:00:35.177 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-25 04:00:35.611 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-25 04:00:35.611 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-25 04:00:35.611 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-25 04:00:35.612 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-25 04:00:35.612 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-25 04:00:35.612 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-25 04:00:35.612 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-25 04:12:13.722 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-25 04:12:13.725 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-25 04:12:13.726 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-25 04:12:13.727 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-25 04:12:13.727 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-25 04:12:13.727 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-25 04:12:13.729 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-25 04:17:40.279 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-25 04:17:40.283 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-25 04:17:40.284 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-25 04:17:40.284 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-25 04:17:40.284 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-25 04:17:40.284 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-25 04:17:40.285 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-25 04:22:50.300 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-25 04:22:50.301 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-25 04:22:50.302 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-25 04:22:50.303 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-25 04:22:50.303 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-25 04:22:50.304 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-25 04:22:50.305 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-25 04:23:34.416 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-25 04:23:34.418 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-25 04:23:34.419 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-25 04:23:34.420 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-25 04:23:34.420 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-25 04:23:34.420 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-25 04:23:34.422 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-25 04:53:12.748 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-25 04:53:12.750 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-25 04:53:12.750 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-25 04:53:12.751 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-25 04:53:12.751 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-25 04:53:12.751 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-25 04:53:12.752 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped

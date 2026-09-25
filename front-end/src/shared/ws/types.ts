@@ -307,6 +307,8 @@ export type InspectionStageStatus = "PASS" | "FAIL" | "SKIP" | "ERROR" | "UNKNOW
 
 export type PreviewFramePayload = {
   camera_id: number;
+  phase_id?: number;
+  group_id?: number;
   frame_id: string;
   session_state: WsSessionState;
   current: ShmFrameRefData;

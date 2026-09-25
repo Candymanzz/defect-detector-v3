@@ -96,6 +96,30 @@ class BucketInspectionAggregatorTest {
     }
 
     @Test
+    void resolvesGroupIdForPhaseAndCamera() {
+        aggregator = new BucketInspectionAggregator(
+                LogManager.getLogger(BucketInspectionAggregatorTest.class),
+                new BucketInspectionConfig(
+                        true,
+                        List.of(
+                                new BucketGroup(0, 0, List.of(0, 1, 2, 3, 4)),
+                                new BucketGroup(0, 1, List.of(5, 6, 7, 8, 9)),
+                                new BucketGroup(1, 2, List.of(0, 1, 2, 3, 4)),
+                                new BucketGroup(1, 3, List.of(5, 6, 7, 8, 9))
+                        ),
+                        1000L,
+                        1000L
+                )
+        );
+
+        assertEquals(0, aggregator.groupIdFor(0, 0));
+        assertEquals(1, aggregator.groupIdFor(0, 7));
+        assertEquals(2, aggregator.groupIdFor(1, 4));
+        assertEquals(3, aggregator.groupIdFor(1, 9));
+        assertNull(aggregator.groupIdFor(0, 99));
+    }
+
+    @Test
     void publishesEachGroupImmediatelyWhenItsBucketIsReady() {
         aggregator = new BucketInspectionAggregator(
                 LogManager.getLogger(BucketInspectionAggregatorTest.class),

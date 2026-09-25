@@ -12,12 +12,17 @@ import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspection
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionConfig;
 import com.example.iml.orchestrator.integration.pipeline.bucket.JointSeamPolicy;
 import com.example.iml.orchestrator.integration.pipeline.session.InspectionCycleResumeService;
+import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import com.example.iml.orchestrator.integration.trigger.BucketLineTriggerBroadcaster;
+import com.example.iml.orchestrator.integration.trigger.Di2CaptureWindow;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerRuntime;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategy;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerStrategyFactory;
 import com.example.iml.orchestrator.integration.trigger.config.InspectionTriggerConfig;
 import com.example.iml.orchestrator.integration.trigger.strategy.BusTriggerStrategy;
+import com.example.iml.orchestrator.integration.trigger.transport.IoInputMonitorUdpTriggerTransport;
+import com.example.iml.orchestrator.integration.config.YamlScalars;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.List;
@@ -41,9 +46,17 @@ public final class TriggerRuntimeBootstrapService {
         IntegrationFeatureConfig.InspectionTriggerMode triggerMode =
                 inspectionTriggerConfig.ioInput().di3Only()
                         || inspectionTriggerConfig.ioInput().directionLatchOnWork()
+                        || inspectionTriggerConfig.ioInput().armOnDirection()
                         ? IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL
                         : IntegrationFeatureConfig.resolveInspectionTriggerMode(ctx.integration());
-        if (inspectionTriggerConfig.ioInput().di3Only()) {
+        if (inspectionTriggerConfig.ioInput().armOnDirection()) {
+            log.info(
+                    "inspection_trigger arm_on_direction=true — DI{}↑ → di2_window (cameras×2 frames); "
+                            + "софтовый DI{} отключён; на камеры только wait_frame (Line0 с железа)",
+                    inspectionTriggerConfig.ioInput().directionPort(),
+                    inspectionTriggerConfig.ioInput().triggerPort()
+            );
+        } else if (inspectionTriggerConfig.ioInput().di3Only()) {
             log.info(
                     "inspection_trigger di3_only=true — съёмка по фронту DI{}, направление по текущему DI{}",
                     inspectionTriggerConfig.ioInput().triggerPort(),
@@ -57,7 +70,8 @@ public final class TriggerRuntimeBootstrapService {
             }
         }
         if (inspectionTriggerConfig.ioInput().di3Only()
-                && inspectionTriggerConfig.ioInput().requireDirection()) {
+                && inspectionTriggerConfig.ioInput().requireDirection()
+                && !inspectionTriggerConfig.ioInput().armOnDirection()) {
             log.info(
                     "inspection_trigger DI2→DI3: съёмка по DI{}↑ только при DI{}=1",
                     inspectionTriggerConfig.ioInput().triggerPort(),
@@ -118,6 +132,18 @@ public final class TriggerRuntimeBootstrapService {
         TwoPhaseCaptureDiagnostics phaseCaptureDiagnostics = new TwoPhaseCaptureDiagnostics(log);
         triggerRuntime.bus().setTwoPhaseCaptureDiagnostics(phaseCaptureDiagnostics);
         ctx.captureCoordinator().setTwoPhaseCaptureDiagnostics(phaseCaptureDiagnostics);
+
+        boolean holdUntilFrames = shouldHoldCaptureUntilFrames(inspectionTriggerConfig);
+        if (holdUntilFrames) {
+            wireCaptureFrameHoldWindow(
+                    ctx,
+                    inspectionTriggerConfig,
+                    inspectionCameraIds,
+                    phaseCaptureDiagnostics
+            );
+        } else {
+            wireDi2CaptureWindowGate(ctx, inspectionTriggerConfig);
+        }
 
         wireIntervalFlash(ctx);
 
@@ -258,6 +284,104 @@ public final class TriggerRuntimeBootstrapService {
         }
     }
 
+    /**
+     * Держим wait_frame до cameras×2 кадров: DI2↓ не отменяет; закрытие по счётчику/таймауту.
+     * Открытие окна: DI2↑ (arm_on_direction) или первый DI3↑ (обычный HW path).
+     */
+    private static boolean shouldHoldCaptureUntilFrames(InspectionTriggerConfig triggerCfg) {
+        var io = triggerCfg.ioInput();
+        return io.armOnDirection()
+                || (io.externalHardwareCapture() && io.di3Only() && triggerCfg.twoPhase().enabled());
+    }
+
+    /**
+     * Окно cameras×2 кадров: DI2↓ не отменяет wait; phase0/phase1 параллельно; prefetch 2-го кадра.
+     */
+    private void wireCaptureFrameHoldWindow(
+            IntegrationRuntimeContext ctx,
+            InspectionTriggerConfig triggerCfg,
+            List<Integer> inspectionCameraIds,
+            TwoPhaseCaptureDiagnostics phaseCaptureDiagnostics
+    ) {
+        IoInputMonitorUdpTriggerTransport transport = ctx.triggerRuntime() == null
+                ? null
+                : ctx.triggerRuntime().ioInputTransport();
+        if (transport == null || ctx.inspectionGate() == null) {
+            log.warn("capture frame hold: io_input transport/gate missing — window not armed");
+            return;
+        }
+        int cameraCount = inspectionCameraIds == null || inspectionCameraIds.isEmpty()
+                ? ctx.inspectionGate().cameraIds().size()
+                : inspectionCameraIds.size();
+        long timeoutMs = Math.max(
+                3_500L,
+                YamlScalars.toLong(ctx.integration().get("inspection_cycle_timeout_ms"), 3_500L) * 2L
+        );
+        Di2CaptureWindow window = new Di2CaptureWindow(
+                log,
+                ctx.inspectionGate(),
+                cameraCount,
+                2,
+                timeoutMs,
+                transport::isDirectionActive
+        );
+        transport.setDi2CaptureWindow(window);
+        phaseCaptureDiagnostics.setCaptureOkListener(window::onCaptureOk);
+        // One worker handles one binary command at a time. Serialize phase waits.
+        // Phase 1 must not overtake phase 0 on the same worker/FIFO.
+        ctx.inspectionGate().setAwaitPriorPhase(true);
+        if (ctx.lineCaptureCoordinator() != null) {
+            // Both physical pulses arrive on Line0. The receive FIFO retains
+            // the second frame until the ordered phase-1 command consumes it.
+            ctx.lineCaptureCoordinator().setPrefetchNextFrame(true);
+        }
+        String openBy = triggerCfg.ioInput().armOnDirection() ? "DI2↑" : "DI3↑/DI5↑";
+        log.info(
+                "inspection_trigger capture_window target_frames={} timeout_ms={} open_by={} "
+                        + "(DI2↓ grace then close; new triggers only while DI2=1)",
+                window.targetFrames(),
+                timeoutMs,
+                openBy
+        );
+    }
+
+    /**
+     * DI2↓: отменяем только phase0 in-flight (режим без hold-окна на 20 кадров).
+     */
+    private void wireDi2CaptureWindowGate(
+            IntegrationRuntimeContext ctx,
+            InspectionTriggerConfig triggerCfg
+    ) {
+        if (ctx.triggerRuntime() == null || ctx.inspectionGate() == null) {
+            return;
+        }
+        if (!triggerCfg.usesIoInputMonitor() || !triggerCfg.ioInput().requireDirection()) {
+            return;
+        }
+        if (shouldHoldCaptureUntilFrames(triggerCfg)) {
+            return;
+        }
+        int directionPort = triggerCfg.ioInput().directionPort();
+        PerCameraInspectionGate gate = ctx.inspectionGate();
+        ctx.triggerRuntime().addDiChangeListener(change -> {
+            if (change.diPort() != directionPort || change.active()) {
+                return;
+            }
+            var cancelled = gate.requestCancelAllInFlight(true);
+            if (!cancelled.isEmpty()) {
+                log.info(
+                        "io_input_trigger DI{}↓ — drop in-flight phase0 captures (phase1 kept) cameras={}",
+                        directionPort,
+                        cancelled
+                );
+            }
+        });
+        log.info(
+                "inspection_trigger DI{}↓ → cancel phase0 wait_frame only (phase1 waits after DI2=0)",
+                directionPort
+        );
+    }
+
     private void logSaveAndTriggerInfo(
             IntegrationRuntimeContext ctx,
             IntegrationFeatureConfig.ContinuousInspectionConfig continuousInspection,
@@ -276,8 +400,14 @@ public final class TriggerRuntimeBootstrapService {
             log.info("continuous_inspection enabled cycle_delay_ms={}", continuousInspection.cycleDelayMs());
         } else if (triggerMode == IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL) {
             if (triggerCfg.usesIoInputMonitor()) {
+                String logDir = System.getProperty("iml.log.dir", "logs");
+                LogManager.getLogger("com.example.iml.orchestrator.integration.ioinput.external")
+                        .info(
+                                "=== di-capture-timeline session: orchestrator (DI/capture filter) + IoInputMonitor stdout → {}/di-capture-timeline.log ===",
+                                logDir
+                        );
                 log.info(
-                        "inspection_trigger external io_input {}:{} di={}/{}/{} shutdown_di={} trigger_edge={} di3_only={} direction_latch_on_work={} direction_arm_next_di3={} require_direction={} require_work={} direction_invert={} direction_wait_ms={} direction_poll_ms={} debounce_ms={} stub_work={}",
+                        "inspection_trigger external io_input {}:{} di={}/{}/{} shutdown_di={} trigger_edge={} di3_only={} arm_on_direction={} direction_latch_on_work={} direction_arm_next_di3={} require_direction={} require_work={} direction_invert={} direction_wait_ms={} direction_poll_ms={} debounce_ms={} stub_work={}",
                         triggerCfg.udp().bindHost(),
                         triggerCfg.udp().bindPort(),
                         triggerCfg.ioInput().workPort(),
@@ -286,6 +416,7 @@ public final class TriggerRuntimeBootstrapService {
                         triggerCfg.ioInput().shutdownPort(),
                         triggerCfg.ioInput().triggerEdge(),
                         triggerCfg.ioInput().di3Only(),
+                        triggerCfg.ioInput().armOnDirection(),
                         triggerCfg.ioInput().directionLatchOnWork(),
                         triggerCfg.ioInput().directionArmNextDi3(),
                         triggerCfg.ioInput().requireDirection(),

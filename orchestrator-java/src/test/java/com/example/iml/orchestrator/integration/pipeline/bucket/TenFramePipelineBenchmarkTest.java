@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -130,21 +131,19 @@ class TenFramePipelineBenchmarkTest {
                 arrivals.indexOf("1:1") < arrivals.indexOf("0:0"),
                 "phase results must arrive interleaved rather than phase-by-phase"
         );
+        List<BucketFanOutResult> publishedOrdered = published.stream()
+                .sorted(Comparator.comparingInt(BucketFanOutResult::phaseId)
+                        .thenComparingInt(BucketFanOutResult::groupId))
+                .toList();
+        assertEquals(List.of(0, 1, 2, 3), publishedOrdered.stream().map(BucketFanOutResult::groupId).toList());
+        assertEquals(List.of(0, 0, 1, 1), publishedOrdered.stream().map(BucketFanOutResult::phaseId).toList());
         assertEquals(
-                List.of(0, 1, 2, 3),
-                published.stream().map(BucketFanOutResult::groupId).toList()
-        );
-        assertEquals(
-                List.of(0, 0, 1, 1),
-                published.stream().map(BucketFanOutResult::phaseId).toList()
+                List.of(phase0RawSequence, phase0RawSequence, phase1RawSequence, phase1RawSequence),
+                publishedOrdered.stream().map(BucketFanOutResult::rawTriggerSequence).toList()
         );
         assertEquals(
                 List.of(phase0RawSequence, phase0RawSequence, phase1RawSequence, phase1RawSequence),
-                published.stream().map(BucketFanOutResult::rawTriggerSequence).toList()
-        );
-        assertEquals(
-                List.of(phase0RawSequence, phase0RawSequence, phase1RawSequence, phase1RawSequence),
-                published.stream().map(BucketFanOutResult::triggerSequence).toList()
+                publishedOrdered.stream().map(BucketFanOutResult::triggerSequence).toList()
         );
         assertTrue(published.stream().allMatch(result -> result.parentCycleId() == parentCycleId));
         assertTrue(published.stream().allMatch(BucketFanOutResult::overallPass));

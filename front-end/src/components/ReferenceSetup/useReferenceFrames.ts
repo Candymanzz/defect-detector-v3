@@ -60,7 +60,7 @@ export function useReferenceFrames(cameraIds: number[], scope?: ReferenceFrameSc
         };
       }
 
-      const snapshotLoaded = scope == null && await loadSnapshotImage(
+      const snapshotLoaded = await loadSnapshotImage(
           cameraId,
           setSnapshotImageUrlsByCameraId,
           setFramesByCameraId,
@@ -111,14 +111,14 @@ export function useReferenceFrames(cameraIds: number[], scope?: ReferenceFrameSc
       if (loaded) {
         loadedCameraIds.push(cameraId);
       } else {
-        const snapshotLoaded = scope == null && await loadSnapshotImage(
-            cameraId,
-            setSnapshotImageUrlsByCameraId,
-            setFramesByCameraId,
-            setImageUrlsByCameraId,
-            lockedCameraIdsRef,
-            pendingCameraIdsRef,
-          );
+        const snapshotLoaded = await loadSnapshotImage(
+          cameraId,
+          setSnapshotImageUrlsByCameraId,
+          setFramesByCameraId,
+          setImageUrlsByCameraId,
+          lockedCameraIdsRef,
+          pendingCameraIdsRef,
+        );
 
         if (snapshotLoaded) {
           snapshotCameraIds.push(cameraId);
@@ -141,7 +141,7 @@ export function useReferenceFrames(cameraIds: number[], scope?: ReferenceFrameSc
     const missingCameraIds: number[] = [];
 
     for (const cameraId of targetCameraIds) {
-      const snapshotLoaded = scope == null && await loadSnapshotImage(
+      const snapshotLoaded = await loadSnapshotImage(
           cameraId,
           setSnapshotImageUrlsByCameraId,
           setFramesByCameraId,

@@ -127,6 +127,7 @@ public final class AsyncInspectionCycleRunner {
             InspectionDecision decision = svc.decisionPolicy().decide(
                     in.cameraId(), state.capture(), state.py(), state.geom());
             long tDecisionDone = System.nanoTime();
+            BinaryProtocol.Message capture = withCycleIdentity(state.capture(), in);
             boolean resultPublished = publishIfAllowed(inspectionGate, in.cameraId(), () -> {
                 if (in.bucketAggregator() != null) {
                     in.bucketAggregator().recordFrameResult(
@@ -151,7 +152,7 @@ public final class AsyncInspectionCycleRunner {
                             in.inspectionId(),
                             in.activeReference(),
                             decision,
-                            state.capture(),
+                            capture,
                             state.py(),
                             state.geom()
                     );
@@ -311,10 +312,9 @@ public final class AsyncInspectionCycleRunner {
         );
         PipelineState state;
         try {
-            if (timeoutMs > 0) {
-                state = captureFuture.get(timeoutMs, TimeUnit.MILLISECONDS);
-            } else {
-                state = captureFuture.join();
+            state = awaitCaptureOrDi2Cancel(captureFuture, timeoutMs, inspectionGate, in.cameraId(), svc);
+            if (state == null) {
+                return;
             }
         } catch (TimeoutException e) {
             captureFuture.cancel(true);
@@ -340,11 +340,20 @@ public final class AsyncInspectionCycleRunner {
             Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
-        if (state == null || state.capture() == null || state.capture().header() == null) {
+        if (state.capture() == null || state.capture().header() == null) {
             svc.log().warn("integration cam={}: capture-only skipped — empty capture response", in.cameraId());
             return;
         }
-        long frameId = YamlScalars.toLong(state.capture().header().get("frame_id"), -1L);
+        if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
+            releaseCycleShm(state.capture());
+            svc.log().info(
+                    "integration cam={}: capture-only frame dropped — DI2 window closed (not shown/saved)",
+                    in.cameraId()
+            );
+            return;
+        }
+        BinaryProtocol.Message capture = withCycleIdentity(state.capture(), in);
+        long frameId = YamlScalars.toLong(capture.header().get("frame_id"), -1L);
         InspectionDecision decision = InspectionDecision.captureOnly(in.cameraId(), frameId);
         // Soft-stop passes a null gate: must still publish (do not short-circuit the publish runnable).
         boolean published = publishIfAllowed(inspectionGate, in.cameraId(), () -> {
@@ -371,7 +380,7 @@ public final class AsyncInspectionCycleRunner {
                         in.inspectionId(),
                         in.activeReference(),
                         decision,
-                        state.capture(),
+                        capture,
                         null,
                         null
                 );
@@ -419,6 +428,45 @@ public final class AsyncInspectionCycleRunner {
     }
 
     /**
+     * Ждём кадр; при DI2↓ cancel срабатывает только для phase0 (phase1 gate не отменяет).
+     * Soft-stop по-прежнему ставит cancel и здесь выходим.
+     */
+    private static PipelineState awaitCaptureOrDi2Cancel(
+            CompletableFuture<PipelineState> captureFuture,
+            long timeoutMs,
+            PerCameraInspectionGate inspectionGate,
+            int cameraId,
+            InspectionPipelineServices svc
+    ) throws TimeoutException, ExecutionException, InterruptedException {
+        long deadlineNanos = timeoutMs > 0
+                ? System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs)
+                : Long.MAX_VALUE;
+        while (true) {
+            if (inspectionGate != null && inspectionGate.isCancelRequested(cameraId)) {
+                captureFuture.cancel(true);
+                svc.log().info(
+                        "integration cam={}: capture-only abandoned — DI2 window closed (not shown/saved)",
+                        cameraId
+                );
+                return null;
+            }
+            long remainingMs = timeoutMs > 0
+                    ? TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime())
+                    : CANCEL_POLL_INTERVAL_MS;
+            if (timeoutMs > 0 && remainingMs <= 0L) {
+                captureFuture.cancel(true);
+                throw new TimeoutException("capture-only timed out camera_id=" + cameraId);
+            }
+            long sliceMs = Math.min(CANCEL_POLL_INTERVAL_MS, Math.max(1L, remainingMs));
+            try {
+                return captureFuture.get(sliceMs, TimeUnit.MILLISECONDS);
+            } catch (TimeoutException ignored) {
+                // poll again — check DI2 cancel
+            }
+        }
+    }
+
+    /**
      * Publishes UI/bucket results when allowed.
      * {@code inspectionGate == null} means soft-stop preview-only: always publish.
      * Do not write {@code gate == null || gate.runIf...} — Java short-circuits and skips the runnable.
@@ -433,6 +481,24 @@ public final class AsyncInspectionCycleRunner {
             return true;
         }
         return inspectionGate.runIfInspectionActive(cameraId, publishAction);
+    }
+
+    private static BinaryProtocol.Message withCycleIdentity(
+            BinaryProtocol.Message capture,
+            AsyncInspectionCycleInput in
+    ) {
+        if (capture == null || capture.header() == null) {
+            return capture;
+        }
+        Map<String, Object> header = new LinkedHashMap<>(capture.header());
+        header.put("phase_id", in.phaseId());
+        Integer groupId = in.bucketAggregator() == null
+                ? null
+                : in.bucketAggregator().groupIdFor(in.phaseId(), in.cameraId());
+        if (groupId != null) {
+            header.put("group_id", groupId);
+        }
+        return new BinaryProtocol.Message(capture.type(), header, capture.payload());
     }
 
     private static void releaseCycleShm(BinaryProtocol.Message capture) {

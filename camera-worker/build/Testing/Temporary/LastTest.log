@@ -1,0 +1,19 @@
+Start testing: Sep 25 04:52 Pacific Daylight Time
+----------------------------------------------------------
+1/1 Testing: cw_config_tests
+1/1 Test: cw_config_tests
+Command: "D:/App/defect-detector-v3/camera-worker/build/Release/cw_config_tests.exe"
+Directory: D:/App/defect-detector-v3/camera-worker/build
+"cw_config_tests" start time: Sep 25 04:52 Pacific Daylight Time
+Output:
+----------------------------------------------------------
+camera-worker tests passed
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"cw_config_tests" end time: Sep 25 04:52 Pacific Daylight Time
+"cw_config_tests" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Sep 25 04:52 Pacific Daylight Time

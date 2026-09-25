@@ -172,7 +172,7 @@ export function createModalInspectionSnapshot(
     ? (resolveImmutableInspectionImageUrl(snapshotResult) ?? createWsFrameImageUrl(snapshotResult))
     : undefined;
   const matchingPreviewImageUrl =
-    snapshotResult && previewFrameId === snapshotResult.frame_id ? previewImageUrl : undefined;
+    !snapshotResult || previewFrameId === snapshotResult.frame_id ? previewImageUrl : undefined;
   const referenceImage = getReferenceImage(camera.cameraId, productContext?.phaseId, productContext?.groupId);
 
   return {
@@ -180,7 +180,7 @@ export function createModalInspectionSnapshot(
     ...productContext,
     initialFrameId: snapshotResult?.frame_id,
     inspectResult: snapshotResult,
-    cameraImageUrl: inspectImageUrl ?? matchingPreviewImageUrl,
+    cameraImageUrl: inspectImageUrl ?? matchingPreviewImageUrl ?? previewImageUrl,
     heatmapUrl: snapshotResult ? resolveInspectHeatmapUrl(snapshotResult) : undefined,
     referenceImageUrl: referenceImage?.imageUrl,
     referenceRoiPoints: referenceImage?.roiPoints.map((point) => ({ ...point })),
@@ -386,7 +386,7 @@ function archivedFrameToHistoryItem(cameraId: number, frame: FrameArchiveHistory
   return {
     frameId: frame.frame_id,
     inspectionId: frame.inspection_id,
-    result: frame.overall_pass ? "pass" : "fail",
+    result: resolveInspectionResultState(inspectResult) ?? (frame.overall_pass ? "pass" : "fail"),
     inspectResult,
   };
 }

@@ -169,12 +169,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           break;
         case "server.inspect_result": {
           const result = message.payload;
-          const targetGroupIndex = referenceGroups.findIndex(
-            (group) =>
-              group.phaseId === (result.phase_id ?? 0) &&
-              group.groupId === (result.group_id ?? -1) &&
-              group.cameraIds.includes(result.camera_id),
-          );
+          const targetGroupIndex = resolveReferenceGroupIndex(referenceGroups, result);
           if (targetGroupIndex >= 0) {
             referenceFrameHandlersRef.current[targetGroupIndex]?.(result);
           }
@@ -258,7 +253,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   }, [status.state]);
 
   useEffect(() => {
-    if (activeCameraIds.length === 0 || (activeReferenceGroup?.phaseId ?? 0) !== 0) {
+    if (activeCameraIds.length === 0) {
       return;
     }
 
@@ -566,6 +561,30 @@ export function createReferenceGroups(cameraIds: number[]): ReferenceGroupContex
       cameraIds: groupCameraIds,
     })),
   );
+}
+
+export function resolveReferenceGroupIndex(
+  referenceGroups: ReferenceGroupContext[],
+  result: { camera_id: number; phase_id?: number; group_id?: number },
+) {
+  const cameraMatches = referenceGroups
+    .map((group, index) => ({ group, index }))
+    .filter(({ group }) => group.cameraIds.includes(result.camera_id));
+  if (cameraMatches.length === 0) {
+    return -1;
+  }
+
+  const phaseId = result.phase_id ?? 0;
+  const groupId = result.group_id;
+  if (groupId != null && groupId >= 0) {
+    const exact = cameraMatches.find(({ group }) => group.phaseId === phaseId && group.groupId === groupId);
+    if (exact) {
+      return exact.index;
+    }
+  }
+
+  const phaseMatch = cameraMatches.find(({ group }) => group.phaseId === phaseId);
+  return phaseMatch?.index ?? -1;
 }
 
 function resolveInitialGroupIndex(cameraIds: number[], initialCameraId: number | null) {

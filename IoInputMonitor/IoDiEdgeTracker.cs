@@ -10,10 +10,18 @@ internal sealed class IoDiEdgeTracker
     private readonly Dictionary<int, bool> _pressed = new();
     private readonly Dictionary<(int Port, MvIoNative.IoEdgeType Edge), long> _lastLoggedTicks = new();
     private readonly int _softwareRefractoryMs;
+    private readonly Dictionary<int, int> _refractoryMsByPort = new();
 
     public IoDiEdgeTracker(int softwareRefractoryMs)
     {
         _softwareRefractoryMs = Math.Max(0, softwareRefractoryMs);
+    }
+
+    /// <summary>Per-port soft refractory (e.g. DI3 Rising=0 so 2nd Line0 ~80–100 ms не глотается).</summary>
+    public void SetPortRefractoryMs(int port, int refractoryMs)
+    {
+        lock (_lock)
+            _refractoryMsByPort[port] = Math.Max(0, refractoryMs);
     }
 
     public void Seed(int port, bool pressed)
@@ -94,12 +102,16 @@ internal sealed class IoDiEdgeTracker
 
     private bool PassRefractoryUnlocked(int port, MvIoNative.IoEdgeType edge)
     {
-        if (_softwareRefractoryMs <= 0)
+        int refractoryMs = _softwareRefractoryMs;
+        if (_refractoryMsByPort.TryGetValue(port, out int portMs))
+            refractoryMs = portMs;
+
+        if (refractoryMs <= 0)
             return true;
 
         long now = Environment.TickCount64;
         var key = (port, edge);
-        if (_lastLoggedTicks.TryGetValue(key, out long last) && now - last < _softwareRefractoryMs)
+        if (_lastLoggedTicks.TryGetValue(key, out long last) && now - last < refractoryMs)
             return false;
 
         _lastLoggedTicks[key] = now;

@@ -2592,16 +2592,16 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Administrator\\.nuget\\packages\\": {}
+    "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\25075a9cb13b97588711909743f76d16\\nuget": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\visionGay\\defect-detector-v3\\IoInputMonitor\\IoInputMonitor.Tests\\IoInputMonitor.Tests.csproj",
+      "projectUniqueName": "D:\\App\\defect-detector-v3\\IoInputMonitor\\IoInputMonitor.Tests\\IoInputMonitor.Tests.csproj",
       "projectName": "IoInputMonitor.Tests",
-      "projectPath": "D:\\visionGay\\defect-detector-v3\\IoInputMonitor\\IoInputMonitor.Tests\\IoInputMonitor.Tests.csproj",
-      "packagesPath": "C:\\Users\\Administrator\\.nuget\\packages\\",
-      "outputPath": "D:\\visionGay\\defect-detector-v3\\IoInputMonitor\\IoInputMonitor.Tests\\obj\\",
+      "projectPath": "D:\\App\\defect-detector-v3\\IoInputMonitor\\IoInputMonitor.Tests\\IoInputMonitor.Tests.csproj",
+      "packagesPath": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\cursor-sandbox-cache\\25075a9cb13b97588711909743f76d16\\nuget",
+      "outputPath": "D:\\App\\defect-detector-v3\\IoInputMonitor\\IoInputMonitor.Tests\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Administrator\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -2617,8 +2617,8 @@
           "framework": "net10.0",
           "targetAlias": "net10.0",
           "projectReferences": {
-            "D:\\visionGay\\defect-detector-v3\\IoInputMonitor\\IoInputMonitor.csproj": {
-              "projectPath": "D:\\visionGay\\defect-detector-v3\\IoInputMonitor\\IoInputMonitor.csproj"
+            "D:\\App\\defect-detector-v3\\IoInputMonitor\\IoInputMonitor.csproj": {
+              "projectPath": "D:\\App\\defect-detector-v3\\IoInputMonitor\\IoInputMonitor.csproj"
             }
           }
         }
@@ -2633,7 +2633,7 @@
         "auditLevel": "low",
         "auditMode": "all"
       },
-      "SdkAnalysisLevel": "10.0.300"
+      "SdkAnalysisLevel": "10.0.400"
     },
     "frameworks": {
       "net10.0": {
@@ -2671,7 +2671,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.300/PortableRuntimeIdentifierGraph.json",
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.400/PortableRuntimeIdentifierGraph.json",
         "packagesToPrune": {
           "Microsoft.CSharp": "(,4.7.32767]",
           "Microsoft.VisualBasic": "(,10.4.32767]",

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { HttpError, orchestratorApi } from "../../shared/api";
 import type { GeometryInspectResponse } from "../../shared/api";
-import { resolveInspectionResultState } from "../../shared/inspectResult";
+import { resolveInspectionResultState, isCaptureOnlyInspectResult } from "../../shared/inspectResult";
 import { updateReferenceFpZones } from "../../shared/referenceImages";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import { orchestratorWs } from "../../shared/ws";
@@ -78,7 +78,7 @@ export function ModalWrapper({
   onInspectionSelect,
   onClose,
 }: ModalWrapperProps) {
-  const displayedCurrentImageUrl = inspectResult ? cameraImageUrl : undefined;
+  const displayedCurrentImageUrl = cameraImageUrl;
   const inspectResultSyncState = getInspectResultSyncState(inspectResult, displayedCurrentImageUrl, inspectHeatmapUrl);
   const inspectionResultState = resolveInspectionResultState(inspectResult);
   const modalClassName = inspectionResultState ? `modal modal--${inspectionResultState}` : "modal";
@@ -166,7 +166,7 @@ export function ModalWrapper({
           />
           <ImagePanel
             imageUrl={displayedCurrentImageUrl}
-            label="Последний кадр инспекции"
+            label={inspectResult ? "Последний кадр инспекции" : "Последний кадр"}
           />
           <HeatmapPanel
             key={`heatmap-${cameraId}-${inspectResult?.server_ts_ms ?? "none"}-${inspectResult?.artifact_bundle_id ?? "no-bundle"}`}
@@ -798,6 +798,12 @@ function getInspectResultSyncState(
   }
 
   if (inspectResultImageUrl) {
+    if (isCaptureOnlyInspectResult(inspectResult)) {
+      return {
+        state: "synced" as const,
+        label: `Снятый кадр ${inspectResult.frame_id}${inspectResult.python_status === "NO_REFERENCE" ? " — эталон не задан" : ""}`,
+      };
+    }
     return {
       state: "loading" as const,
       label: `Кадр инспекции ${inspectResult.frame_id} получен, тепловая карта готовится`,

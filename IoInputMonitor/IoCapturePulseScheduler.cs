@@ -1,8 +1,8 @@
 namespace IoInputMonitor;
 
-/// <summary>
-/// Ограничение параллельных DO-импульсов (two-phase: два DI3 через ~80 ms при pulse_delay_ms&gt;0).
-/// </summary>
+    /// <summary>
+    /// Ограничение параллельных DO-burst'ов (один фронт DI3 может дать 2 импульса DO5 через gap).
+    /// </summary>
 internal sealed class IoCapturePulseScheduler
 {
     private readonly int _maxInflight;

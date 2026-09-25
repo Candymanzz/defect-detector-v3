@@ -561,6 +561,8 @@ public final class WsOutboundMessenger {
         ObjectNode payload = JSON.createObjectNode();
         payload.put("camera_id", cameraId);
         payload.put("frame_id", Long.toString(frameIdLong));
+        payload.put("phase_id", YamlScalars.toInt(captureHeader == null ? null : captureHeader.get("phase_id"), 0));
+        payload.put("group_id", YamlScalars.toInt(captureHeader == null ? null : captureHeader.get("group_id"), -1));
         boolean testAnalyze = YamlScalars.toBool(captureHeader == null ? null : captureHeader.get("test_analyze"), false);
         if (testAnalyze) {
             payload.put("inspection_id", "тест");

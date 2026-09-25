@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.trigger.transport;
 
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketGroup;
+import com.example.iml.orchestrator.integration.trigger.Di2CaptureWindow;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerBus;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerEvent;
 import com.example.iml.orchestrator.integration.trigger.ManualLineDirectionService;
@@ -66,9 +67,15 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     private volatile ScheduledFuture<?> delayedCaptureTask;
     private volatile long di3RiseEpochMs;
     private final ScheduledExecutorService captureDelayExecutor;
+    private final ScheduledExecutorService autoSecondPhaseExecutor;
+    private volatile ScheduledFuture<?> autoSecondPhaseTask;
+    private volatile long autoSecondPhaseParentCycle = -1L;
+    private volatile long autoSecondPhasePhase0EpochMs;
+    private final IoInputMonitorSyntheticCaptureClient syntheticCaptureClient;
     private long lastFireMs;
     private Thread listenerThread;
     private DatagramSocket socket;
+    private volatile Di2CaptureWindow di2CaptureWindow;
 
     public IoInputMonitorUdpTriggerTransport(
             Logger log,
@@ -127,6 +134,13 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         this.ioInputConfig = ioInputConfig;
         this.twoPhaseConfig = twoPhaseConfig == null ? TwoPhaseTriggerConfig.defaults() : twoPhaseConfig;
         this.twoPhaseCorrelator = new TwoPhaseTriggerCorrelator(this.twoPhaseConfig);
+        this.syntheticCaptureClient = this.twoPhaseConfig.enabled()
+                && this.twoPhaseConfig.autoSecondPhaseDelayMs() > 0
+                ? new IoInputMonitorSyntheticCaptureClient(
+                        log,
+                        this.twoPhaseConfig.ioControlHttpHost(),
+                        this.twoPhaseConfig.ioControlHttpPort())
+                : null;
         this.bus = bus;
         this.onLineWorkChanged = onLineWorkChanged == null ? () -> { } : onLineWorkChanged;
         this.bucketGroups = bucketGroups == null ? List.of() : List.copyOf(bucketGroups);
@@ -139,6 +153,11 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         });
         this.captureDelayExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "io-input-capture-delay");
+            t.setDaemon(true);
+            return t;
+        });
+        this.autoSecondPhaseExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "io-input-auto-phase1");
             t.setDaemon(true);
             return t;
         });
@@ -204,18 +223,19 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             socket = new DatagramSocket(new InetSocketAddress(bindAddress, udpConfig.bindPort()));
             socket.setReuseAddress(true);
             log.info(
-                    "io_input_trigger listening {}:{} payload_format={} di={}/{}/{} shutdown_di={} trigger_edge={} require_direction={} require_work={} di3_only={} direction_latch={} direction_latch_on_work={} direction_arm_next_di3={} direction_invert={} direction_wait_ms={} direction_poll_ms={} capture_delay_ms={} debounce_ms={} stub_work={} two_phase={} expected_delay_ms={} tolerance_ms={}",
+                    "io_input_trigger listening {}:{} payload_format={} di={}/{}/{} shutdown_di={} trigger_edge={} require_direction={} require_work={} di3_only={} arm_on_direction={} direction_latch={} direction_latch_on_work={} direction_arm_next_di3={} direction_invert={} direction_wait_ms={} direction_poll_ms={} capture_delay_ms={} debounce_ms={} stub_work={} two_phase={} expected_delay_ms={} tolerance_ms={} auto_second_phase_delay_ms={} fallback_physical_grace_ms={} single_di3_burst={}",
                     udpConfig.bindHost(),
                     udpConfig.bindPort(),
                     ioInputConfig.payloadFormat(),
                     ioInputConfig.workPort(),
                     ioInputConfig.directionPort(),
-                    ioInputConfig.triggerPort(),
+                    ioInputConfig.formatTriggerPorts(),
                     ioInputConfig.shutdownPort(),
                     ioInputConfig.triggerEdge(),
                     ioInputConfig.requireDirection(),
                     ioInputConfig.requireWork(),
                     ioInputConfig.di3Only(),
+                    ioInputConfig.armOnDirection(),
                     ioInputConfig.directionLatch(),
                     ioInputConfig.directionLatchOnWork(),
                     ioInputConfig.directionArmNextDi3(),
@@ -227,7 +247,10 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                     ioInputConfig.stubWorkActive(),
                     twoPhaseConfig.enabled(),
                     twoPhaseConfig.expectedDelayMs(),
-                    twoPhaseConfig.toleranceMs()
+                    twoPhaseConfig.toleranceMs(),
+                    twoPhaseConfig.autoSecondPhaseDelayMs(),
+                    twoPhaseConfig.fallbackPhysicalGraceMs(),
+                    twoPhaseConfig.singleDi3Burst()
             );
             byte[] buffer = new byte[2048];
             while (running.get() && !socket.isClosed()) {
@@ -269,6 +292,14 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         if (listener != null) {
             diChangeListeners.add(listener);
         }
+    }
+
+    public void setDi2CaptureWindow(Di2CaptureWindow di2CaptureWindow) {
+        this.di2CaptureWindow = di2CaptureWindow;
+    }
+
+    public Di2CaptureWindow di2CaptureWindow() {
+        return di2CaptureWindow;
     }
 
     private void notifyDiChangeListeners(IoInputDiChange change) {
@@ -371,6 +402,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             if (ioInputConfig.directionLatch() && directionLatched) {
                 if (previousRaw != active) {
                     captureFiredThisDi2Window = false;
+                    cancelAutoSecondPhase();
                     twoPhaseCorrelator.resetDirectionWindow();
                     log.info(
                             "io_input_trigger DI2 idle {} -> {} (направление зафиксировано={})",
@@ -397,9 +429,36 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                 }
             }
             directionActive = mapped;
+            if (ioInputConfig.armOnDirection()) {
+                // DI2↑ открывает окно; DI2↓ закрывает и дропает late wait_frame (только кадры при DI2=1).
+                if (mapped && !previousMapped) {
+                    captureFiredThisPulse = false;
+                    captureFiredThisDi2Window = false;
+                    Di2CaptureWindow window = di2CaptureWindow;
+                    if (window != null) {
+                        if (!window.tryOpen()) {
+                            return;
+                        }
+                    }
+                    cancelAutoSecondPhase();
+                    twoPhaseCorrelator.resetDirectionWindow();
+                    log.info(
+                            "io_input_trigger DI2↑ — di2_window open, arm wait_frame×2 (софт на камеры не шлёт, Line0 с железа)"
+                    );
+                    fireLineCapture();
+                } else if (!mapped && previousMapped) {
+                    closeCaptureWindowOnDi2Low();
+                }
+                return;
+            }
             if (previousMapped != mapped) {
-                captureFiredThisDi2Window = false;
-                twoPhaseCorrelator.resetDirectionWindow();
+                if (!mapped) {
+                    closeCaptureWindowOnDi2Low();
+                } else {
+                    captureFiredThisDi2Window = false;
+                    cancelAutoSecondPhase();
+                    twoPhaseCorrelator.resetDirectionWindow();
+                }
             }
             if (ioInputConfig.directionLatch() && mapped) {
                 directionLatched = true;
@@ -426,9 +485,24 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             }
             return;
         }
-        if (port == ioInputConfig.triggerPort()) {
+        if (ioInputConfig.isTriggerPort(port)) {
+            if (ioInputConfig.armOnDirection()) {
+                // Софтовый DI3/DI5 временно не стартует цикл — только железный DI→Line0.
+                if (active && ioInputConfig.triggerEdge() == TriggerEdgeMode.RISING) {
+                    triggerActive = false;
+                    captureFiredThisPulse = false;
+                } else {
+                    triggerActive = active;
+                }
+                log.info(
+                        "io_input_trigger DI{} ignored (arm_on_direction): wait_frame уже от DI2, value={}",
+                        port,
+                        active ? 1 : 0
+                );
+                return;
+            }
             if (usesAutoDirection() && !directionAutoCapture.isDirectionArmed()) {
-                log.info("io_input_trigger phase1: DI3 ignored until DI2=1 arms direction");
+                log.info("io_input_trigger phase1: DI{} ignored until DI2=1 arms direction", port);
                 return;
             }
             // Rising-only photoeye: IoInputMonitor шлёт только UDP DI3=1, без DI3=0.
@@ -455,21 +529,25 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                 } else if (ioInputConfig.di3Only()) {
                     captureFiredThisPulse = false;
                     di3RiseEpochMs = System.currentTimeMillis();
+                    // Строго DI2=1: поздний DI5 после DI2↓ не армит wait (иначе чужие Line0).
                     boolean directionOk = !ioInputConfig.requireDirection()
                             || (ioInputConfig.directionLatch() ? directionLatched : directionActive);
                     if (!directionOk) {
                         log.info(
-                                "io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source={}",
+                                "io_input_trigger skip DI{}↑: направление ещё не зафиксировано (жди DI2=1), source={}",
+                                port,
                                 directionSourceLabel()
                         );
                     } else if (!twoPhaseConfig.enabled() && directionActive && captureFiredThisDi2Window) {
                         log.info(
-                                "io_input_trigger skip DI3↑: холостой (уже сняли при DI2=1), source={}",
+                                "io_input_trigger skip DI{}↑: холостой (уже сняли при DI2=1), source={}",
+                                port,
                                 directionSourceLabel()
                         );
                     } else {
                         log.info(
-                                "io_input_trigger DI3↑ capture — direction={} latched={} source={}",
+                                "io_input_trigger DI{}↑ capture — direction={} latched={} source={}",
+                                port,
                                 effectiveDirectionWire(),
                                 directionLatched ? 1 : 0,
                                 directionSourceLabel()
@@ -725,6 +803,26 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         if (captureFiredThisPulse) {
             return;
         }
+        // Импульс и wait_frame только при DI2=1.
+        if (ioInputConfig.requireDirection() && !allowsCaptureForSelectedDirection()) {
+            log.info("io_input_trigger skip fire — DI2=0 (нужен импульс при DI2=1)");
+            return;
+        }
+        Di2CaptureWindow window = di2CaptureWindow;
+        if (ioInputConfig.armOnDirection()) {
+            if (window != null && !window.isOpen()) {
+                log.info("io_input_trigger skip fire — di2_window closed (wait next DI2↑)");
+                return;
+            }
+        } else if (window != null && !window.isOpen()) {
+            if (window.tryOpen()) {
+                log.info(
+                        "io_input_trigger capture_window open on DI3/DI5 — accept frames only while DI2=1 "
+                                + "(target {})",
+                        window.targetFrames()
+                );
+            }
+        }
         if (!twoPhaseConfig.enabled() && directionActive && captureFiredThisDi2Window) {
             log.info("io_input_trigger skip: холостой DI3 (уже сняли при DI2=1)");
             return;
@@ -735,9 +833,6 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         }
         if (ioInputConfig.requireDirection() && usesAutoDirection() && !directionAutoCapture.isDirectionArmed()) {
             log.info("io_input_trigger skip: await DI2=1 before capture (direction not armed)");
-            return;
-        }
-        if (!allowsCaptureForSelectedDirection()) {
             return;
         }
         if (ioInputConfig.debounceMs() > 0) {
@@ -758,13 +853,14 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             }
             long dispatchMs = System.currentTimeMillis() - triggerReceivedMs;
             log.info(
-                    "io_input_trigger DI3 capture direction={} source={} cameras={} target={} dispatch_ms={} hardware={}",
+                    "io_input_trigger capture direction={} source={} cameras={} target={} dispatch_ms={} hardware={} arm_on_direction={}",
                     effectiveDirectionWire(),
                     directionSourceLabel(),
                     published,
                     formatCameraTarget(targetCameras),
                     dispatchMs,
-                    ioInputConfig.externalHardwareCapture()
+                    ioInputConfig.externalHardwareCapture(),
+                    ioInputConfig.armOnDirection()
             );
         }
     }
@@ -774,6 +870,15 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     }
 
     int publishLineCapture(List<Integer> targetCameras, Instant receivedAt) {
+        Di2CaptureWindow window = di2CaptureWindow;
+        if (window != null && !window.isOpen()) {
+            log.info("io_input_trigger discard dispatch — capture_window closed (нужен DI2=1 + DI3/DI5)");
+            return 0;
+        }
+        if (ioInputConfig.requireDirection() && !directionActive && !ioInputConfig.directionLatch()) {
+            log.info("io_input_trigger discard dispatch — DI2=0");
+            return 0;
+        }
         long rawSequence = ioInputConfig.externalHardwareCapture()
                 ? bus.reserveLineBroadcastSequence("io_input")
                 : bus.prefireLineBroadcast("io_input", targetCameras);
@@ -781,12 +886,201 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                 twoPhaseCorrelator.correlate(rawSequence, receivedAt);
         if (phase == null) {
             log.info(
-                    "io_input_trigger discard DI3 raw_sequence={}: already accepted two pulses in current DI2=1 window",
-                    rawSequence
+                    "io_input_trigger discard DI3 raw_sequence={}: {} in current DI2=1 window",
+                    rawSequence,
+                    twoPhaseConfig.singleDi3Burst()
+                            ? "burst already started (one DI3 per window)"
+                            : "already accepted two pulses"
             );
             return 0;
         }
-        return bus.dispatchLineBroadcast("io_input", rawSequence, receivedAt, targetCameras, phase);
+        int published = bus.dispatchLineBroadcast("io_input", rawSequence, receivedAt, targetCameras, phase);
+        if (published > 0) {
+            onTwoPhaseDispatched(phase);
+        }
+        return published;
+    }
+
+    /** DI2↓: grace на доставку кадра с Line0 (импульс был при DI2=1); потом cancel. */
+    private void closeCaptureWindowOnDi2Low() {
+        captureFiredThisDi2Window = false;
+        cancelAutoSecondPhase();
+        twoPhaseCorrelator.resetDirectionWindow();
+        Di2CaptureWindow window = di2CaptureWindow;
+        if (window != null && window.isOpen()) {
+            // ~400 ms: GigE transfer; reverse photoeye обычно +700–1000 ms после DI2↓.
+            window.scheduleCloseAfterDi2Low(400L);
+            log.info(
+                    "io_input_trigger DI2↓ — capture_window grace 400ms "
+                            + "(принять кадры от DI3/DI5, затем закрыть; новые импульсы при DI2=0 skip)"
+            );
+        } else {
+            log.info("io_input_trigger DI2↓ — no open capture_window");
+        }
+    }
+
+    public boolean isDirectionActive() {
+        return directionActive;
+    }
+
+    private void onTwoPhaseDispatched(TwoPhaseTriggerCorrelator.PhaseAssignment phase) {
+        if (!twoPhaseConfig.enabled()) {
+            return;
+        }
+        if (phase.phaseId() == 1) {
+            cancelAutoSecondPhase();
+            return;
+        }
+        if (phase.phaseId() != 0) {
+            return;
+        }
+        // arm_on_direction: сразу ставим phase1 wait (параллельно phase0); 2-й Line0 с железа.
+        long delayMs = twoPhaseConfig.autoSecondPhaseDelayMs();
+        if (ioInputConfig.armOnDirection()) {
+            delayMs = 1L;
+        }
+        if (delayMs <= 0) {
+            return;
+        }
+        scheduleAutoSecondPhase(phase.parentCycleId(), delayMs);
+    }
+
+    private void scheduleAutoSecondPhase(long parentCycleId) {
+        long delayMs = twoPhaseConfig.autoSecondPhaseDelayMs();
+        if (delayMs <= 0) {
+            return;
+        }
+        scheduleAutoSecondPhase(parentCycleId, delayMs);
+    }
+
+    private void scheduleAutoSecondPhase(long parentCycleId, long delayMs) {
+        cancelAutoSecondPhase();
+        autoSecondPhaseParentCycle = parentCycleId;
+        autoSecondPhasePhase0EpochMs = System.currentTimeMillis();
+        String mode = ioInputConfig.armOnDirection()
+                ? "arm_on_direction: software wait_frame for 2nd Line0 (no soft DI3)"
+                : twoPhaseConfig.singleDi3Burst()
+                        ? (ioInputConfig.externalHardwareCapture()
+                                ? "burst phase1: line0-pulse + dispatch"
+                                : "burst phase1: software dispatch")
+                        : (ioInputConfig.externalHardwareCapture()
+                                ? "fallback: synthetic DI3+DO5 if no 2nd physical DI3"
+                                : "fallback: software wait_frame if no 2nd DI3");
+        log.info(
+                "io_input_trigger phase1 scheduled parent_cycle={} delay_ms={} grace_ms={} ({})",
+                parentCycleId,
+                delayMs,
+                twoPhaseConfig.fallbackPhysicalGraceMs(),
+                mode
+        );
+        autoSecondPhaseTask = autoSecondPhaseExecutor.schedule(
+                () -> fireFallbackSecondPhase(parentCycleId),
+                delayMs,
+                TimeUnit.MILLISECONDS
+        );
+    }
+
+    private void fireFallbackSecondPhase(long parentCycleId) {
+        if (autoSecondPhaseParentCycle != parentCycleId) {
+            return;
+        }
+        long elapsedMs = System.currentTimeMillis() - autoSecondPhasePhase0EpochMs;
+        if (twoPhaseConfig.singleDi3Burst()) {
+            publishBurstPhase1(parentCycleId, elapsedMs);
+            return;
+        }
+        if (twoPhaseCorrelator.acceptedPulseCount() >= 2) {
+            log.info(
+                    "io_input_trigger fallback phase1 skipped parent_cycle={}: physical DI3 phase1 already received",
+                    parentCycleId
+            );
+            return;
+        }
+        int graceMs = twoPhaseConfig.fallbackPhysicalGraceMs();
+        if (graceMs > 0 && elapsedMs < graceMs) {
+            log.info(
+                    "io_input_trigger fallback phase1 skipped parent_cycle={}: elapsed_ms={} < grace_ms={}",
+                    parentCycleId,
+                    elapsedMs,
+                    graceMs
+            );
+            return;
+        }
+        if (ioInputConfig.externalHardwareCapture() && !ioInputConfig.armOnDirection()) {
+            log.info(
+                    "io_input_trigger fallback phase1 synthetic DO5 parent_cycle={} elapsed_ms={} (no second physical DI3)",
+                    parentCycleId,
+                    elapsedMs
+            );
+            if (syntheticCaptureClient == null
+                    || !syntheticCaptureClient.triggerSyntheticDi3Capture()) {
+                log.warn(
+                        "io_input_trigger fallback phase1 synthetic DO5 failed parent_cycle={} — phase1 not dispatched",
+                        parentCycleId
+                );
+            }
+            return;
+        }
+        log.info(
+                "io_input_trigger fallback phase1 wait_frame parent_cycle={} elapsed_ms={} ({})",
+                parentCycleId,
+                elapsedMs,
+                ioInputConfig.armOnDirection()
+                        ? "arm_on_direction: 2nd Line0 from hardware"
+                        : "no second physical DI3"
+        );
+        int published = publishLineCapture(null, Instant.now());
+        if (published <= 0) {
+            log.warn(
+                    "io_input_trigger fallback phase1 produced no dispatch parent_cycle={}",
+                    parentCycleId
+            );
+        }
+    }
+
+    private void publishBurstPhase1(long parentCycleId, long elapsedMs) {
+        Instant receivedAt = Instant.now();
+        long rawSequence = ioInputConfig.externalHardwareCapture()
+                ? bus.reserveLineBroadcastSequence("io_input_burst")
+                : bus.prefireLineBroadcast("io_input_burst", null);
+        TwoPhaseTriggerCorrelator.PhaseAssignment phase =
+                twoPhaseCorrelator.assignBurstPhase1(rawSequence, receivedAt);
+        if (phase == null) {
+            log.warn(
+                    "io_input_trigger burst phase1 skipped parent_cycle={} raw_seq={} (correlator rejected)",
+                    parentCycleId,
+                    rawSequence
+            );
+            return;
+        }
+        log.info(
+                "io_input_trigger burst phase1 dispatch parent_cycle={} raw_seq={} elapsed_ms={}",
+                parentCycleId,
+                rawSequence,
+                elapsedMs
+        );
+        int published = bus.dispatchLineBroadcast("io_input_burst", rawSequence, receivedAt, null, phase);
+        if (published <= 0) {
+            log.warn("io_input_trigger burst phase1 produced no dispatch parent_cycle={}", parentCycleId);
+            return;
+        }
+        if (ioInputConfig.externalHardwareCapture()) {
+            if (syntheticCaptureClient == null || !syntheticCaptureClient.triggerLine0Pulse()) {
+                log.warn(
+                        "io_input_trigger burst phase1 line0-pulse failed parent_cycle={} — cameras may miss frame",
+                        parentCycleId
+                );
+            }
+        }
+    }
+
+    private void cancelAutoSecondPhase() {
+        ScheduledFuture<?> task = autoSecondPhaseTask;
+        autoSecondPhaseTask = null;
+        autoSecondPhaseParentCycle = -1L;
+        if (task != null) {
+            task.cancel(false);
+        }
     }
 
     /**
@@ -924,12 +1218,21 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     public void close() {
         running.set(false);
         cancelDelayedCapture();
+        cancelAutoSecondPhase();
         directionWaiter.close();
         captureDelayExecutor.shutdown();
+        autoSecondPhaseExecutor.shutdown();
         directionWaitExecutor.shutdown();
+        Di2CaptureWindow window = di2CaptureWindow;
+        if (window != null) {
+            window.close();
+        }
         try {
             if (!captureDelayExecutor.awaitTermination(500L, TimeUnit.MILLISECONDS)) {
                 captureDelayExecutor.shutdownNow();
+            }
+            if (!autoSecondPhaseExecutor.awaitTermination(500L, TimeUnit.MILLISECONDS)) {
+                autoSecondPhaseExecutor.shutdownNow();
             }
             if (!directionWaitExecutor.awaitTermination(500L, TimeUnit.MILLISECONDS)) {
                 directionWaitExecutor.shutdownNow();
@@ -937,6 +1240,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             captureDelayExecutor.shutdownNow();
+            autoSecondPhaseExecutor.shutdownNow();
             directionWaitExecutor.shutdownNow();
         }
         closeSocket();

@@ -28,6 +28,17 @@ public class IoDiEdgeTrackerTests
     }
 
     [Fact]
+    public void PortRefractoryZero_AllowsFastSecondRisingOnDi3()
+    {
+        var tracker = new IoDiEdgeTracker(softwareRefractoryMs: 80);
+        tracker.SetPortRefractoryMs(3, 0);
+        tracker.Seed(3, pressed: false);
+
+        Assert.True(tracker.TryAccept(3, MvIoNative.IoEdgeType.Rising, IoInputEdgeMode.Rising, out _));
+        Assert.True(tracker.TryAccept(3, MvIoNative.IoEdgeType.Rising, IoInputEdgeMode.Rising, out _));
+    }
+
+    [Fact]
     public void CapturePulseScheduler_AllowsOnlyOneInflight()
     {
         var scheduler = new IoCapturePulseScheduler();

@@ -80,6 +80,26 @@ function Invoke-BuildStep([string]$Title, [scriptblock]$Action) {
     }
 }
 
+# npm пишет warn в stderr; при $ErrorActionPreference Stop PowerShell трактует это как ошибку.
+function Invoke-Npm([string[]]$NpmArguments) {
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & $NpmCmd @NpmArguments 2>&1 | ForEach-Object {
+            if ($_ -is [System.Management.Automation.ErrorRecord]) {
+                Write-Host $_.ToString()
+            } else {
+                Write-Host $_
+            }
+        }
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+    if ($LASTEXITCODE -ne 0) {
+        throw "npm failed (exit $LASTEXITCODE): $($NpmArguments -join ' ')"
+    }
+}
+
 Write-Step "Cleanup stale processes and ports"
 & (Join-Path $RepoRoot "stop-dev.ps1") -Quiet
 
@@ -143,6 +163,16 @@ if (-not $SkipCameraWorker) {
   if (Get-Command cmake -ErrorAction SilentlyContinue) {
     Invoke-BuildStep "Build camera-worker" {
         Push-Location $CameraWorkerDir
+        $buildDir = Join-Path $CameraWorkerDir "build"
+        $cacheFile = Join-Path $buildDir "CMakeCache.txt"
+        if (Test-Path $cacheFile) {
+            $cache = Get-Content $cacheFile -Raw
+            $expected = ($CameraWorkerDir -replace '\\', '/')
+            if ($cache -notmatch [regex]::Escape($expected)) {
+                Write-Host "Stale CMake cache (other clone path), recreating build/" -ForegroundColor Yellow
+                Remove-Item -Recurse -Force $buildDir
+            }
+        }
         $mvsDevRoot = $null
         if ($env:MVS_ROOT) {
             if (Test-Path (Join-Path $env:MVS_ROOT "Includes\MvCameraControl.h")) {
@@ -158,12 +188,14 @@ if (-not $SkipCameraWorker) {
                 }
             }
         }
-        $cmakeArgs = @("-B", "build", "-DCMAKE_BUILD_TYPE=Release")
+        $cmakeArgs = @("-S", $CameraWorkerDir, "-B", "build", "-DCMAKE_BUILD_TYPE=Release")
         if ($mvsDevRoot) {
             $cmakeArgs += "-DMVS_ROOT=$($mvsDevRoot -replace '\\','/')"
         }
         cmake @cmakeArgs
+        if ($LASTEXITCODE -ne 0) { throw "cmake configure failed: $LASTEXITCODE" }
         cmake --build build --config Release
+        if ($LASTEXITCODE -ne 0) { throw "cmake build failed: $LASTEXITCODE" }
         Pop-Location
     }
   } else {
@@ -180,13 +212,12 @@ if (-not $SkipCameraWorker) {
 Invoke-BuildStep "npm install (front-end)" {
     if (-not (Test-Path $NpmCmd)) { throw "npm.cmd not found: $NpmCmd" }
     Push-Location $FrontEndDir
-    & $NpmCmd install
+    Invoke-Npm install
     Pop-Location
 }
 
 Write-Step "Build complete, starting stack"
-$runArgs = @()
-if ($NoFrontend) { $runArgs += "-NoFrontend" }
-if ($Config -ne "config\config.yaml") { $runArgs += "-Config"; $runArgs += $Config }
+$runParams = @{ Config = $Config }
+if ($NoFrontend) { $runParams["NoFrontend"] = $true }
 
-& (Join-Path $RepoRoot "run.ps1") @runArgs
+& (Join-Path $RepoRoot "run.ps1") @runParams
