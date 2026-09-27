@@ -22,11 +22,6 @@ public sealed class IoInputOptions
 
     public int DebounceMs { get; set; } = 50;
 
-    /// <summary>
-    /// При COM busy убить чужой IoInputMonitor.dll и повторить Open (сирота после crash).
-    /// </summary>
-    public bool StealComOnBusy { get; set; } = true;
-
     public IoInputUdpPublishOptions UdpPublish { get; set; } = new();
 
     public IoCaptureOptions Capture { get; set; } = new();
@@ -146,7 +141,6 @@ public static class IoInputConfigLoader
             EdgeMode = ParseEdgeMode(section.Edge),
             ConfigureSdk = section.ConfigureSdk ?? true,
             DebounceMs = section.DebounceMs is >= 0 and <= 1000 ? section.DebounceMs.Value : 50,
-            StealComOnBusy = section.StealComOnBusy ?? true,
             UdpPublish = ParseUdpPublish(section.Publish?.Udp, inputs),
             Capture = ParseCapture(section.Capture),
         };
@@ -330,8 +324,6 @@ public static class IoInputConfigLoader
         public bool? ConfigureSdk { get; set; }
 
         public int? DebounceMs { get; set; }
-
-        public bool? StealComOnBusy { get; set; }
 
         public IoInputPublishYaml? Publish { get; set; }
 

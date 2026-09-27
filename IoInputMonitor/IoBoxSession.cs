@@ -17,16 +17,8 @@ internal sealed class IoBoxSession : IDisposable
     /// <summary>DO съёмки (capture.output_ports). Только [5].</summary>
     public int[] Line0OutputPorts { get; set; } = [5];
 
-    /// <summary>
-    /// При COM busy — убить чужой процесс с IoInputMonitor.dll и повторить Open.
-    /// </summary>
-    public bool StealComOnBusy { get; }
-
-    public IoBoxSession(string comPort, bool stealComOnBusy = true)
-    {
+    public IoBoxSession(string comPort) =>
         ComPort = NormalizeComPort(comPort);
-        StealComOnBusy = stealComOnBusy;
-    }
 
     public void Open()
     {
@@ -34,40 +26,6 @@ internal sealed class IoBoxSession : IDisposable
         if (_handle != IntPtr.Zero)
             return;
 
-        const int maxAttempts = 8;
-        InvalidOperationException? last = null;
-        bool stoleOnce = false;
-        for (int attempt = 1; attempt <= maxAttempts; attempt++)
-        {
-            try
-            {
-                OpenOnce();
-                return;
-            }
-            catch (InvalidOperationException ex) when (IsTransientComOpenFailure(ex) && attempt < maxAttempts)
-            {
-                last = ex;
-                if (StealComOnBusy && !stoleOnce)
-                {
-                    stoleOnce = true;
-                    int killed = IoSiblingProcessKiller.KillOtherInstances(
-                        msg => Console.Error.WriteLine($"[{Timestamp()}] {msg}"));
-                    if (killed > 0)
-                        Thread.Sleep(IoSiblingProcessKiller.PostKillReleaseMs);
-                }
-
-                int delayMs = Math.Min(2000, 250 * attempt);
-                Thread.Sleep(delayMs);
-            }
-        }
-
-        throw last ?? new InvalidOperationException($"MV_IO_Open failed for {ComPort}.");
-    }
-
-    private static string Timestamp() => DateTime.Now.ToString("HH:mm:ss.fff");
-
-    private void OpenOnce()
-    {
         IntPtr handle = IntPtr.Zero;
         int ret = MvIoNative.CreateHandle(ref handle);
         if (ret != MvIoNative.MvOk || handle == IntPtr.Zero)
@@ -103,15 +61,6 @@ internal sealed class IoBoxSession : IDisposable
 
         _handle = handle;
         OpenedComName = opened;
-    }
-
-    private static bool IsTransientComOpenFailure(InvalidOperationException ex)
-    {
-        string message = ex.Message;
-        return message.Contains("0x80000004", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("0x80000204", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("занят", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("занято", StringComparison.OrdinalIgnoreCase);
     }
 
     public bool TryReadFirmwareVersion(out MvIoNative.MvIoVersion version)
