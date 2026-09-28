@@ -233,3 +233,43 @@
 2026-09-25 04:53:12.751 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
 2026-09-25 04:53:12.751 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
 2026-09-25 04:53:12.752 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-28 05:21:51.953 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-09-28 05:21:51.956 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=2: capture-only frame=23 delivered to ui (geometry/python skipped — no reference)
+2026-09-28 05:21:51.959 INFO  [pool-19-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_decision cam=0 frame=7 overall=true action=ACCEPT py_ok=true py_status=PASS anomaly=0.05 threshold=null geom_pass=true geom_status=PASS align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-09-28 05:21:51.960 INFO  [pool-19-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_timing cam=0 frame=7 positioning_ms=0 capture_to_geometry_done_ms=0 capture_to_python_done_ms=0 capture_frame_to_inspection_end_ms=2
+2026-09-28 05:21:51.960 INFO  [pool-19-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - stage_timing cam=0 frame=7 total_ms=2 pipeline_ms=6 reference_ms=0 capture_ms=1 positioning_ms=0 python_ms=3 geometry_ms=2 decision_ms=0 fanout_ms=0 pos_orb_ms=0.0 pos_warp_ms=0.0 pos_ecc_ms=0.0 pos_write_ms=0.0 py_align_ms=0.0 py_diff_ms=0.0 py_anomaly_ms=0.0 py_fp_recheck_ms=0.0 py_encode_ms=0.0 py_total_ms=0.0
+2026-09-28 05:21:51.961 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-09-28 05:21:51.962 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=1: capture-only frame=11 delivered to ui (geometry/python skipped — no reference)
+2026-09-28 05:21:51.969 INFO  [phase-one-begin] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait cam=0 parent_cycle=55 phase=1 waiting_for_phase=0
+2026-09-28 05:21:51.969 INFO  [phase-one-begin] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait cam=0 parent_cycle=55 phase=1 waiting_for_phase=0
+2026-09-28 05:21:52.053 INFO  [phase-one-begin] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait_done cam=0 parent_cycle=55 phase=1
+2026-09-28 05:21:52.053 INFO  [phase-one-begin] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait_done cam=0 parent_cycle=55 phase=1
+2026-09-28 05:21:55.007 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-28 05:21:55.007 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-28 05:21:55.437 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-28 05:21:55.437 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-28 05:21:55.437 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-28 05:21:55.437 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-28 05:21:55.437 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-28 05:21:55.438 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-28 05:21:55.438 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-09-28 06:01:40.455 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-09-28 06:01:40.458 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=2: capture-only frame=23 delivered to ui (geometry/python skipped — no reference)
+2026-09-28 06:01:40.461 INFO  [pool-19-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_decision cam=0 frame=7 overall=true action=ACCEPT py_ok=true py_status=PASS anomaly=0.05 threshold=null geom_pass=true geom_status=PASS align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-09-28 06:01:40.462 INFO  [pool-19-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_timing cam=0 frame=7 positioning_ms=0 capture_to_geometry_done_ms=0 capture_to_python_done_ms=0 capture_frame_to_inspection_end_ms=2
+2026-09-28 06:01:40.462 INFO  [pool-19-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - stage_timing cam=0 frame=7 total_ms=2 pipeline_ms=6 reference_ms=0 capture_ms=1 positioning_ms=0 python_ms=3 geometry_ms=2 decision_ms=0 fanout_ms=0 pos_orb_ms=0.0 pos_warp_ms=0.0 pos_ecc_ms=0.0 pos_write_ms=0.0 py_align_ms=0.0 py_diff_ms=0.0 py_anomaly_ms=0.0 py_fp_recheck_ms=0.0 py_encode_ms=0.0 py_total_ms=0.0
+2026-09-28 06:01:40.463 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-09-28 06:01:40.464 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=1: capture-only frame=11 delivered to ui (geometry/python skipped — no reference)
+2026-09-28 06:01:40.469 INFO  [phase-one-begin] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait cam=0 parent_cycle=55 phase=1 waiting_for_phase=0
+2026-09-28 06:01:40.469 INFO  [phase-one-begin] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait cam=0 parent_cycle=55 phase=1 waiting_for_phase=0
+2026-09-28 06:01:40.556 INFO  [phase-one-begin] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait_done cam=0 parent_cycle=55 phase=1
+2026-09-28 06:01:40.556 INFO  [phase-one-begin] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait_done cam=0 parent_cycle=55 phase=1
+2026-09-28 06:01:43.510 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-28 06:01:43.510 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-28 06:01:43.941 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-09-28 06:01:43.941 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-28 06:01:43.941 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-09-28 06:01:43.941 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-09-28 06:01:43.941 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-09-28 06:01:43.942 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-09-28 06:01:43.942 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped

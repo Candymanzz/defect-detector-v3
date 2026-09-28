@@ -24,6 +24,9 @@ int cw_parse_trigger_mode(const char *mode) {
     if (CW_STRICMP(mode, "line1") == 0) {
         return CW_TRIGGER_MODE_LINE1;
     }
+    if (CW_STRICMP(mode, "anyway") == 0 || CW_STRICMP(mode, "any") == 0) {
+        return CW_TRIGGER_MODE_ANYWAY;
+    }
     return CW_TRIGGER_MODE_CONTINUOUS;
 }
 
@@ -35,6 +38,8 @@ const char *cw_trigger_mode_name(int trigger_mode) {
             return "line0";
         case CW_TRIGGER_MODE_LINE1:
             return "line1";
+        case CW_TRIGGER_MODE_ANYWAY:
+            return "anyway";
         default:
             return "continuous";
     }

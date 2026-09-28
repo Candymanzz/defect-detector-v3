@@ -1122,14 +1122,18 @@ static void hik_configure_trigger_mode(worker_state_t *st) {
         (void)MV_CC_SetEnumValue(st->hik_handle, "TriggerMode", 1);
         (void)MV_CC_SetEnumValueByString(st->hik_handle, "TriggerSource", "Software");
         fprintf(stderr, "hik: TriggerMode=On TriggerSource=Software (sync with flash)\n");
-    } else if (st->trigger_mode == TRIGGER_MODE_LINE0 || st->trigger_mode == TRIGGER_MODE_LINE1) {
+    } else if (st->trigger_mode == TRIGGER_MODE_LINE0 || st->trigger_mode == TRIGGER_MODE_LINE1
+               || st->trigger_mode == TRIGGER_MODE_ANYWAY) {
         const char *counter_line = st->trigger_mode == TRIGGER_MODE_LINE1 ? "Line1" : "Line0";
+        const char *trigger_source = st->trigger_mode == TRIGGER_MODE_ANYWAY
+                ? "Anyway"
+                : (st->trigger_mode == TRIGGER_MODE_LINE1 ? "Line1" : "Line0");
         const char *activation = st->trigger_activation[0] != '\0'
                 ? st->trigger_activation
                 : "RisingEdge";
 
-        /* MV-CS050-10GC exposes FrameBurstStart (not FrameStart). Both DI events
-         * are converted to DO5 pulses, so the camera listens only to Line0. */
+        /* MV-CS050-10GC exposes FrameBurstStart (not FrameStart). Anyway lets
+         * supported firmware accept every physical trigger source, including Line0/Line2. */
         int mode_off_ret = MV_CC_SetEnumValue(st->hik_handle, "TriggerMode", 0);
         int line0_sel_ret = MV_CC_SetEnumValueByString(st->hik_handle, "LineSelector", "Line0");
         int line0_mode_ret = line0_sel_ret == MV_OK
@@ -1138,12 +1142,19 @@ static void hik_configure_trigger_mode(worker_state_t *st) {
         int line0_inv_ret = line0_mode_ret == MV_OK
                 ? MV_CC_SetBoolValue(st->hik_handle, "LineInverter", st->line_inverter ? 1 : 0)
                 : line0_mode_ret;
+        int line2_sel_ret = MV_CC_SetEnumValueByString(st->hik_handle, "LineSelector", "Line2");
+        int line2_mode_ret = line2_sel_ret == MV_OK
+                ? MV_CC_SetEnumValueByString(st->hik_handle, "LineMode", "Input")
+                : line2_sel_ret;
+        int line2_inv_ret = line2_mode_ret == MV_OK
+                ? MV_CC_SetBoolValue(st->hik_handle, "LineInverter", st->line_inverter ? 1 : 0)
+                : line2_mode_ret;
         int selector_ret = MV_CC_SetEnumValueByString(st->hik_handle, "TriggerSelector", "FrameBurstStart");
         int burst_count_ret = selector_ret == MV_OK
                 ? MV_CC_SetIntValue(st->hik_handle, "AcquisitionBurstFrameCount", 1)
                 : selector_ret;
         int source_ret = selector_ret == MV_OK
-                ? MV_CC_SetEnumValueByString(st->hik_handle, "TriggerSource", "Line0")
+                ? MV_CC_SetEnumValueByString(st->hik_handle, "TriggerSource", trigger_source)
                 : selector_ret;
         int activation_ret = source_ret == MV_OK
                 ? MV_CC_SetEnumValueByString(st->hik_handle, "TriggerActivation", activation)
@@ -1156,13 +1167,18 @@ static void hik_configure_trigger_mode(worker_state_t *st) {
             overlap_ret = MV_CC_SetEnumValueByString(st->hik_handle, "TriggerOverlap", "PreviousFrame");
         }
         int trigger_delay_ret = MV_CC_SetFloatValue(st->hik_handle, "TriggerDelay", 0.0f);
-        int debounce_ret = MV_CC_SetFloatValue(st->hik_handle, "LineDebouncerTime", 0.0f);
+        int trigger_cache_ret = MV_CC_SetBoolValue(st->hik_handle, "TriggerCacheEnable", 1);
+        int debounce_ret = MV_CC_SetFloatValue(st->hik_handle, "TriggerDebouncer", 0.0f);
+        if (debounce_ret != MV_OK) {
+            debounce_ret = MV_CC_SetFloatValue(st->hik_handle, "LineDebouncerTime", 0.0f);
+        }
         int frame_rate_limit_ret = MV_CC_SetBoolValue(st->hik_handle, "AcquisitionFrameRateEnable", 0);
         /* Leave LineSelector on Line0 for predictable MVS status display.  This
          * must also happen before TriggerMode=On because the node may lock. */
         int display_line_ret = MV_CC_SetEnumValueByString(st->hik_handle, "LineSelector", "Line0");
         int setup_ok = mode_off_ret == MV_OK
                 && line0_sel_ret == MV_OK && line0_mode_ret == MV_OK
+                && line2_sel_ret == MV_OK && line2_mode_ret == MV_OK
                 && selector_ret == MV_OK && burst_count_ret == MV_OK
                 && source_ret == MV_OK && activation_ret == MV_OK
                 && display_line_ret == MV_OK;
@@ -1172,17 +1188,21 @@ static void hik_configure_trigger_mode(worker_state_t *st) {
         int mode_on_ret = MV_CC_SetEnumValue(st->hik_handle, "TriggerMode", 1);
 
         fprintf(stderr,
-                "hik: TriggerSelector=FrameBurstStart(%d) TriggerSource=Line0(%d) TriggerMode=Off(%d)/On(%d) "
-                "Line0=Input(sel=%d mode=%d inv=%d) "
+                "hik: TriggerSelector=FrameBurstStart(%d) TriggerSource=%s(%d) TriggerMode=Off(%d)/On(%d) "
+                "Line0=Input(sel=%d mode=%d inv=%d) Line2=Input(sel=%d mode=%d inv=%d) "
                 "TriggerActivation=%s(%d) AcquisitionBurstFrameCount=1(%d) display_line0=%d setup_ok=%d "
-                "rearm[overlap=%d trigger_delay_0=%d debounce_0=%d frame_rate_limit_off=%d]\n",
+                "rearm[overlap=%d trigger_delay_0=%d trigger_cache_on=%d debounce_0=%d frame_rate_limit_off=%d]\n",
                 selector_ret,
+                trigger_source,
                 source_ret,
                 mode_off_ret,
                 mode_on_ret,
                 line0_sel_ret,
                 line0_mode_ret,
                 line0_inv_ret,
+                line2_sel_ret,
+                line2_mode_ret,
+                line2_inv_ret,
                 activation,
                 activation_ret,
                 burst_count_ret,
@@ -1190,13 +1210,20 @@ static void hik_configure_trigger_mode(worker_state_t *st) {
                 setup_ok,
                 overlap_ret,
                 trigger_delay_ret,
+                trigger_cache_ret,
                 debounce_ret,
                 frame_rate_limit_ret);
         if (!setup_ok || mode_on_ret != MV_OK) {
             fprintf(stderr,
-                    "hik: ERROR hardware trigger setup failed; expected FrameBurstStart + Line0 Input\n");
+                    "hik: ERROR hardware trigger setup failed; expected FrameBurstStart + %s (Line0/Line2 Input)\n",
+                    trigger_source);
         }
-        hik_configure_line_trigger_counter(st, counter_line);
+        if (st->trigger_mode == TRIGGER_MODE_ANYWAY) {
+            st->hik_line_counter_enabled = 0;
+            fprintf(stderr, "hik: trigger counter diagnostic disabled for Anyway (avoid Counter0 as extra trigger source)\n");
+        } else {
+            hik_configure_line_trigger_counter(st, counter_line);
+        }
     } else {
         st->hik_line_counter_enabled = 0;
         (void)MV_CC_SetEnumValue(st->hik_handle, "TriggerMode", 0);
@@ -2162,7 +2189,8 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
     if (devList.pDeviceInfo[selected]->nTLayerType == MV_GIGE_DEVICE) {
         hik_apply_gige_frame_transfer_delay(st);
     }
-    if (st->trigger_mode == TRIGGER_MODE_LINE0 || st->trigger_mode == TRIGGER_MODE_LINE1) {
+    if (st->trigger_mode == TRIGGER_MODE_LINE0 || st->trigger_mode == TRIGGER_MODE_LINE1
+        || st->trigger_mode == TRIGGER_MODE_ANYWAY) {
         char rx_err[256] = {0};
         if (hik_rx_start(st, rx_err, sizeof(rx_err)) != 0) {
             fprintf(stderr, "hik: continuous receive FIFO unavailable cam=%d: %s; using synchronous fallback\n",
@@ -2358,7 +2386,8 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
                     st->camera_id);
         }
         /* GigE CounterCurrentValue: сколько фронтов Line* камера уже посчитала. */
-        if (wait_only || st->trigger_mode == TRIGGER_MODE_LINE0 || st->trigger_mode == TRIGGER_MODE_LINE1) {
+        if (wait_only || st->trigger_mode == TRIGGER_MODE_LINE0 || st->trigger_mode == TRIGGER_MODE_LINE1
+            || st->trigger_mode == TRIGGER_MODE_ANYWAY) {
             int64_t before = -1;
             if (hik_read_line_trigger_counter(st, &before) == MV_OK) {
                 st->hik_counter_before = before;
@@ -2622,7 +2651,8 @@ static void stop_stream_internal(worker_state_t *st) {
 #if defined(_WIN32) && defined(HAVE_HIK_MVS)
     hik_configure_trigger_mode(st);
     if (strcmp(st->capture_source, "hik") == 0
-        && (st->trigger_mode == TRIGGER_MODE_LINE0 || st->trigger_mode == TRIGGER_MODE_LINE1)) {
+        && (st->trigger_mode == TRIGGER_MODE_LINE0 || st->trigger_mode == TRIGGER_MODE_LINE1
+            || st->trigger_mode == TRIGGER_MODE_ANYWAY)) {
         char rx_err[256] = {0};
         if (hik_rx_start(st, rx_err, sizeof(rx_err)) != 0) {
             fprintf(stderr, "hik: receive FIFO restore failed cam=%d: %s\n", st->camera_id, rx_err);

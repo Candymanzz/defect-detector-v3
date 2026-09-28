@@ -33,6 +33,10 @@ final class IoInputMonitorSyntheticCaptureClient {
         return postEmpty("/synthetic-di3-capture", "synthetic DI3 capture");
     }
 
+    boolean publishCurrentInputs() {
+        return postEmpty("/publish-current-inputs", "current DI state replay");
+    }
+
     private boolean postEmpty(String path, String label) {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + path))

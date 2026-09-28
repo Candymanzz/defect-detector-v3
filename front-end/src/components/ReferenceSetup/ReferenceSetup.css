@@ -25,9 +25,37 @@
 }
 
 .reference-setup__group-switch {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.reference-setup__bucket-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.reference-setup__bucket-heading h3,
+.reference-setup__bucket-heading p {
+  margin: 0;
+}
+
+.reference-setup__bucket-heading p {
+  margin-top: 4px;
+  color: #9aa8a4;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.reference-setup__bucket-heading > strong {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.14);
+  color: #b8f8d1;
+  font-size: 12px;
 }
 
 .reference-setup__group-tab {
@@ -49,6 +77,30 @@
   color: #9aa8a4;
   font-size: 12px;
   font-weight: 700;
+}
+
+.reference-setup__group-tab[data-ready="true"] {
+  border-color: rgba(52, 211, 153, 0.48);
+}
+
+.reference-setup__bucket-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  color: #f2f5f7 !important;
+  font-size: 14px !important;
+}
+
+.reference-setup__bucket-title i {
+  color: #fbbf24;
+  font-size: 10px;
+  font-style: normal;
+  text-transform: uppercase;
+}
+
+.reference-setup__group-tab[data-ready="true"] .reference-setup__bucket-title i {
+  color: #86efac;
 }
 
 .reference-setup__group-tab--active {

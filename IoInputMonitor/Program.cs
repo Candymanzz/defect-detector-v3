@@ -458,20 +458,43 @@ internal static class Program
             }
             : null;
 
+        // Startup replay is for persistent level inputs only. Never replay trigger or
+        // shutdown inputs: a stale/high DI4 would be interpreted as a fresh emergency
+        // shutdown immediately after the orchestrator binds its UDP socket.
+        int[] startupStatePorts = captureGate != null
+            ? new[] { captureGate.WorkPort, captureGate.DirectionPort }
+                .Where(port => port is >= 1 and <= 8 && inputSet.Contains(port))
+                .Distinct()
+                .ToArray()
+            : options.InputPorts.Where(port => !triggerSet.Contains(port)).ToArray();
+
+        Func<int>? publishCurrentInputs = udpPublisher != null
+            ? () =>
+            {
+                int published = 0;
+                foreach (int inputPort in startupStatePorts)
+                {
+                    if (!edgeTracker.TryGetPressed(inputPort, out bool closed))
+                        continue;
+                    udpPublisher.Publish(inputPort, closed);
+                    published++;
+                }
+                return published;
+            }
+            : null;
+
         using var directionHttp = IoLineDirectionHttpServer.TryStart(
             captureGate,
             options.Capture.DirectionHttp,
             consoleLock,
             syntheticDi3,
-            line0PulseOnly);
+            line0PulseOnly,
+            publishCurrentInputs);
 
         if (udpPublisher != null && options.UdpPublish.SendInitialState)
         {
-            foreach (int inputPort in options.InputPorts)
+            foreach (int inputPort in startupStatePorts)
             {
-                if (!options.UdpPublish.SendInitialTriggerState && triggerSet.Contains(inputPort))
-                    continue;
-
                 if (edgeTracker.TryGetPressed(inputPort, out bool closed))
                     udpPublisher.Publish(inputPort, closed);
             }
@@ -479,6 +502,7 @@ internal static class Program
 
         session.RegisterEdgeCallback((port, edge) =>
         {
+            long inputFrontTimestamp = System.Diagnostics.Stopwatch.GetTimestamp();
             if (!inputSet.Contains(port))
                 return;
 
@@ -525,6 +549,7 @@ internal static class Program
                     capturePulseScheduler,
                     options.Capture,
                     fireChannel,
+                    inputFrontTimestamp,
                     consoleLock);
             }
 
@@ -685,9 +710,9 @@ internal static class Program
         }
     }
 
-    // both всегда вызывает SetInput (перевооружение); иначе — только если configure_sdk=true.
-    private static bool ShouldConfigureSdk(MonitorOptions options) =>
-        options.EdgeMode == IoInputEdgeMode.Both || options.ConfigureSdk;
+    // configure_sdk=false means strict listen-only mode: do not overwrite MVS/device
+    // input configuration, even when edge=both was requested in YAML.
+    private static bool ShouldConfigureSdk(MonitorOptions options) => options.ConfigureSdk;
 
     private static void ReArmEdge(
         IoBoxSession session,

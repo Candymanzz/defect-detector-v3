@@ -9,6 +9,8 @@ static void test_trigger_modes(void) {
     assert(cw_parse_trigger_mode("software") == CW_TRIGGER_MODE_SOFTWARE);
     assert(cw_parse_trigger_mode("hardware") == CW_TRIGGER_MODE_LINE0);
     assert(cw_parse_trigger_mode("line1") == CW_TRIGGER_MODE_LINE1);
+    assert(cw_parse_trigger_mode("anyway") == CW_TRIGGER_MODE_ANYWAY);
+    assert(strcmp(cw_trigger_mode_name(CW_TRIGGER_MODE_ANYWAY), "anyway") == 0);
     assert(strcmp(cw_trigger_mode_name(CW_TRIGGER_MODE_SOFTWARE), "software") == 0);
 }
 

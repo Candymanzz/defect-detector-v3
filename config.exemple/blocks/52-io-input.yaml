@@ -8,7 +8,7 @@ io_input:
   edge: both            # DI1/DI2: both; DI3 в коде всегда Rising (импульс <10 мс)
   # DI3 ~10 мс: SDK Glitch=0. Soft refractory ≥80 мс режет bounce Rising.
   debounce_ms: 0
-  configure_sdk: true
+  configure_sdk: false   # pure hardware routing is configured and saved in MVS
   inputs:
     - 1                 # DI1 = работа (конвейер); ↓ снимает direction latch
     - 2                 # DI2 = направление
@@ -22,7 +22,7 @@ io_input:
   capture:
     enabled: true
     # timer = soft Timer5 Software; hardware = только listen/log DI (DO с платы)
-    capture_strategy: direct
+    capture_strategy: hardware
     direction_port: 2
     work_port: 1
     # DI1 публикуется как состояние линии, но не разоружает реальные DI3/DI5.

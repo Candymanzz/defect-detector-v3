@@ -13,6 +13,7 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
     private readonly IoCaptureGate _gate;
     private readonly Func<Task<(bool Ok, string Detail)>>? _syntheticDi3Capture;
     private readonly Func<Task<(bool Ok, string Detail)>>? _line0PulseOnly;
+    private readonly Func<int>? _publishCurrentInputs;
     private readonly HttpListener _listener;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _loop;
@@ -24,11 +25,13 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
         string prefix,
         object consoleLock,
         Func<Task<(bool Ok, string Detail)>>? syntheticDi3Capture,
-        Func<Task<(bool Ok, string Detail)>>? line0PulseOnly)
+        Func<Task<(bool Ok, string Detail)>>? line0PulseOnly,
+        Func<int>? publishCurrentInputs)
     {
         _gate = gate;
         _syntheticDi3Capture = syntheticDi3Capture;
         _line0PulseOnly = line0PulseOnly;
+        _publishCurrentInputs = publishCurrentInputs;
         _consoleLock = consoleLock;
         _listener = new HttpListener();
         _listener.Prefixes.Add(prefix);
@@ -37,7 +40,8 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
         Console.WriteLine(
             $"IO control HTTP ← {prefix}line-direction (GET/PUT), capture-disarm (POST)"
             + (syntheticDi3Capture != null ? ", synthetic-di3-capture (POST)" : "")
-            + (line0PulseOnly != null ? ", line0-pulse (POST)" : ""));
+            + (line0PulseOnly != null ? ", line0-pulse (POST)" : "")
+            + (publishCurrentInputs != null ? ", publish-current-inputs (POST)" : ""));
     }
 
     public static IoLineDirectionHttpServer? TryStart(
@@ -45,7 +49,8 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
         IoDirectionHttpOptions? directionHttp,
         object consoleLock,
         Func<Task<(bool Ok, string Detail)>>? syntheticDi3Capture = null,
-        Func<Task<(bool Ok, string Detail)>>? line0PulseOnly = null)
+        Func<Task<(bool Ok, string Detail)>>? line0PulseOnly = null,
+        Func<int>? publishCurrentInputs = null)
     {
         if (gate == null || directionHttp is not { Enabled: true })
             return null;
@@ -57,7 +62,8 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
         string prefix = $"http://{host}:{directionHttp.Port}/";
         try
         {
-            return new IoLineDirectionHttpServer(gate, prefix, consoleLock, syntheticDi3Capture, line0PulseOnly);
+            return new IoLineDirectionHttpServer(
+                gate, prefix, consoleLock, syntheticDi3Capture, line0PulseOnly, publishCurrentInputs);
         }
         catch (Exception ex)
         {
@@ -126,6 +132,12 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
             if (path is "/line0-pulse" or "/api/client/line0-pulse")
             {
                 HandleLine0Pulse(ctx);
+                return;
+            }
+
+            if (path is "/publish-current-inputs" or "/api/client/publish-current-inputs")
+            {
+                HandlePublishCurrentInputs(ctx);
                 return;
             }
 
@@ -204,6 +216,26 @@ internal sealed class IoLineDirectionHttpServer : IDisposable
                 // ignore
             }
         }
+    }
+
+    private void HandlePublishCurrentInputs(HttpListenerContext ctx)
+    {
+        if (!ctx.Request.HttpMethod.Equals("POST", StringComparison.OrdinalIgnoreCase))
+        {
+            WriteJson(ctx.Response, 405, new { error = "method not allowed" });
+            return;
+        }
+
+        if (_publishCurrentInputs == null)
+        {
+            WriteJson(ctx.Response, 503, new { error = "UDP state publisher not available" });
+            return;
+        }
+
+        int published = _publishCurrentInputs();
+        lock (_consoleLock)
+            Console.WriteLine($"[{Timestamp()}] UDP current DI state replay: {published} input(s)");
+        WriteJson(ctx.Response, 200, new { ok = true, published });
     }
 
     private void HandleSyntheticDi3Capture(HttpListenerContext ctx)

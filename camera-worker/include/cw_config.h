@@ -13,7 +13,8 @@ enum {
     CW_TRIGGER_MODE_CONTINUOUS = 0,
     CW_TRIGGER_MODE_SOFTWARE = 1,
     CW_TRIGGER_MODE_LINE0 = 2,
-    CW_TRIGGER_MODE_LINE1 = 3
+    CW_TRIGGER_MODE_LINE1 = 3,
+    CW_TRIGGER_MODE_ANYWAY = 4
 };
 
 int cw_parse_trigger_mode(const char *mode);
@@ -30,6 +31,7 @@ uint32_t cw_read_u32_be(const uint8_t *b);
 #define TRIGGER_MODE_SOFTWARE CW_TRIGGER_MODE_SOFTWARE
 #define TRIGGER_MODE_LINE0 CW_TRIGGER_MODE_LINE0
 #define TRIGGER_MODE_LINE1 CW_TRIGGER_MODE_LINE1
+#define TRIGGER_MODE_ANYWAY CW_TRIGGER_MODE_ANYWAY
 #define parse_trigger_mode cw_parse_trigger_mode
 #define trigger_mode_name cw_trigger_mode_name
 #define parse_pixel_format_pref cw_parse_pixel_format_pref

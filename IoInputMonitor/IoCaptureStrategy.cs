@@ -30,6 +30,7 @@ internal interface IIoCaptureStrategy
         IoCapturePulseScheduler capturePulseScheduler,
         IoCaptureOptions capture,
         IoCaptureChannel channel,
+        long inputFrontTimestamp,
         object consoleLock);
 }
 
@@ -71,13 +72,14 @@ internal sealed class DirectSoftwareCaptureStrategy : IIoCaptureStrategy
         IoCapturePulseScheduler capturePulseScheduler,
         IoCaptureOptions capture,
         IoCaptureChannel channel,
+        long inputFrontTimestamp,
         object consoleLock)
     {
         IoCaptureOptions bound = capture.ForChannel(channel);
         bound.OutputMode = IoCaptureOutputMode.Direct;
         IoDi3CaptureRunner.StartFireDoAfterUdp(
             captureGate, session, doExecutor, capturePulseScheduler,
-            bound, channel.TriggerPort, consoleLock);
+            bound, channel.TriggerPort, inputFrontTimestamp, consoleLock);
     }
 }
 
@@ -97,6 +99,7 @@ internal sealed class TimerSoftwareCaptureStrategy : IIoCaptureStrategy
         IoCapturePulseScheduler capturePulseScheduler,
         IoCaptureOptions capture,
         IoCaptureChannel channel,
+        long inputFrontTimestamp,
         object consoleLock)
     {
         IoCaptureOptions bound = capture.ForChannel(channel);
@@ -112,6 +115,7 @@ internal sealed class TimerSoftwareCaptureStrategy : IIoCaptureStrategy
             capturePulseScheduler,
             bound,
             channel.TriggerPort,
+            inputFrontTimestamp,
             consoleLock);
     }
 }
@@ -132,6 +136,7 @@ internal sealed class HardwareListenCaptureStrategy : IIoCaptureStrategy
         IoCapturePulseScheduler capturePulseScheduler,
         IoCaptureOptions capture,
         IoCaptureChannel channel,
+        long inputFrontTimestamp,
         object consoleLock)
     {
         lock (consoleLock)

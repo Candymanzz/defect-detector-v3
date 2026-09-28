@@ -77,6 +77,19 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   const readyCameraCount = cameraSlots.filter(
     (slot) => Boolean(slot.frame) && (roiPolygonsByCameraId[slot.cameraId]?.length ?? 0) >= 3,
   ).length;
+  const bucketStatuses = cameraGroups.map((groupCameraIds, groupIndex) => {
+    const group = cameraGroups[groupIndex] ? { phaseId: Math.floor(groupIndex / 2), groupId: groupIndex } : undefined;
+    const storedCameraCount = groupCameraIds.filter((cameraId) =>
+      Boolean(getReferenceImage(cameraId, group?.phaseId, group?.groupId)),
+    ).length;
+    const isActiveDraftReady =
+      groupIndex === activeGroupIndex && readyCameraCount === groupCameraIds.length && groupCameraIds.length > 0;
+    return {
+      storedCameraCount,
+      ready: isActiveDraftReady || (storedCameraCount === groupCameraIds.length && groupCameraIds.length > 0),
+    };
+  });
+  const readyBucketCount = bucketStatuses.filter((bucket) => bucket.ready).length;
   const hasSetupError = /не получен|не задан|не отправлен|ошиб|отклон/i.test(message);
   const shouldStartNewReference = hasAnyStoredReferenceForActiveGroup && !isNewReferenceMode;
   const primaryReferenceLabel = shouldStartNewReference
@@ -150,34 +163,45 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
 
           <div className="reference-setup__layout">
             <aside className="reference-setup__sidebar reference-setup__sidebar--cameras">
-              <h3>Группа камер</h3>
+              <div className="reference-setup__bucket-heading">
+                <div>
+                  <h3>Эталоны для четырёх вёдер</h3>
+                  <p>Каждое ведро настраивается отдельно. Нужно сохранить все 4 эталона.</p>
+                </div>
+                <strong>{readyBucketCount} / 4 готовы</strong>
+              </div>
               <div
                 className="reference-setup__group-switch"
                 role="tablist"
-                aria-label="Группы камер"
+                aria-label="Эталоны четырёх вёдер"
               >
-                {cameraGroups.map((groupCameraIds, groupIndex) => (
-                  <button
-                    key={`${groupIndex}:${groupCameraIds.join("-")}`}
-                    aria-selected={groupIndex === activeGroupIndex}
-                    className={
-                      groupIndex === activeGroupIndex
-                        ? "reference-setup__group-tab reference-setup__group-tab--active"
-                        : "reference-setup__group-tab"
-                    }
-                    role="tab"
-                    type="button"
-                    onClick={() => setActiveGroupIndex(groupIndex)}
-                  >
-                    Группа {groupIndex + 1}
-                    <span>
-                      Съёмка {Math.floor(groupIndex / 2) + 1} · камеры {groupCameraIds.join(", ")}
-                    </span>
-                  </button>
-                ))}
+                {cameraGroups.map((groupCameraIds, groupIndex) => {
+                  const bucketStatus = bucketStatuses[groupIndex];
+                  return (
+                    <button
+                      key={`${groupIndex}:${groupCameraIds.join("-")}`}
+                      aria-selected={groupIndex === activeGroupIndex}
+                      className={
+                        groupIndex === activeGroupIndex
+                          ? "reference-setup__group-tab reference-setup__group-tab--active"
+                          : "reference-setup__group-tab"
+                      }
+                      data-ready={bucketStatus?.ready}
+                      role="tab"
+                      type="button"
+                      onClick={() => setActiveGroupIndex(groupIndex)}
+                    >
+                      <span className="reference-setup__bucket-title">
+                        Ведро {groupIndex + 1}
+                        <i>{bucketStatus?.ready ? "Готово" : "Нужно настроить"}</i>
+                      </span>
+                      <span>Камеры {groupCameraIds.join(", ")}</span>
+                    </button>
+                  );
+                })}
               </div>
 
-              <h3>Камеры группы {activeGroupIndex + 1} · съёмка {Math.floor(activeGroupIndex / 2) + 1}</h3>
+              <h3>Ведро {activeGroupIndex + 1} · камеры эталона</h3>
               <div className="reference-setup__camera-list">
                 {cameraSlots.map((slot) => {
                   const hasFrame = Boolean(slot.frame);
@@ -379,7 +403,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               </aside>
               <div className="reference-setup__footer">
                 <div className="reference-setup__readiness">
-                  <strong>Готовность группы {activeGroupIndex + 1}</strong>
+                  <strong>Готовность эталона ведра {activeGroupIndex + 1}</strong>
                   <span>
                     {readyCameraCount} из {cameraSlots.length} камер готовы
                   </span>

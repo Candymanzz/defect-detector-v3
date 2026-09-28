@@ -8,10 +8,10 @@ internal sealed class IoMonitorArbiter : IDisposable
 {
     public enum Domain
     {
-        /// <summary>DI edge re-arm — всегда первый.</summary>
-        Input = 0,
-        /// <summary>DO5 съёмка Line0.</summary>
-        Capture = 1
+        /// <summary>DO5 съёмка Line0 — всегда первый.</summary>
+        Capture = 0,
+        /// <summary>DI edge re-arm выполняется после критичного фронта съёмки.</summary>
+        Input = 1
     }
 
     private readonly PriorityQueue<WorkItem, (int Prio, long Seq)> _ready = new();
@@ -29,7 +29,7 @@ internal sealed class IoMonitorArbiter : IDisposable
         {
             IsBackground = true,
             Name = threadName,
-            Priority = ThreadPriority.AboveNormal
+            Priority = ThreadPriority.Highest
         };
         _worker.Start();
     }
@@ -234,7 +234,7 @@ internal sealed class IoDoExecutor : IDisposable
 
     private static IoMonitorArbiter.Domain Map(Priority p) => p switch
     {
-        Priority.Input => IoMonitorArbiter.Domain.Input,
-        _ => IoMonitorArbiter.Domain.Capture
+        Priority.Capture => IoMonitorArbiter.Domain.Capture,
+        _ => IoMonitorArbiter.Domain.Input
     };
 }

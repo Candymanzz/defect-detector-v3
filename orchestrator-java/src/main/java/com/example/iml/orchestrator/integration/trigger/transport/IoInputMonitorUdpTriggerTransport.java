@@ -72,6 +72,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     private volatile long autoSecondPhaseParentCycle = -1L;
     private volatile long autoSecondPhasePhase0EpochMs;
     private final IoInputMonitorSyntheticCaptureClient syntheticCaptureClient;
+    private final IoInputMonitorSyntheticCaptureClient stateReplayClient;
     private long lastFireMs;
     private Thread listenerThread;
     private DatagramSocket socket;
@@ -141,6 +142,10 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                         this.twoPhaseConfig.ioControlHttpHost(),
                         this.twoPhaseConfig.ioControlHttpPort())
                 : null;
+        this.stateReplayClient = new IoInputMonitorSyntheticCaptureClient(
+                log,
+                this.twoPhaseConfig.ioControlHttpHost(),
+                this.twoPhaseConfig.ioControlHttpPort());
         this.bus = bus;
         this.onLineWorkChanged = onLineWorkChanged == null ? () -> { } : onLineWorkChanged;
         this.bucketGroups = bucketGroups == null ? List.of() : List.copyOf(bucketGroups);
@@ -252,6 +257,9 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                     twoPhaseConfig.fallbackPhysicalGraceMs(),
                     twoPhaseConfig.singleDi3Burst()
             );
+            // IoInputMonitor may have published its one-shot initial DI states before this
+            // socket existed. Request a replay only after bind, so DI2=1 cannot be lost at startup.
+            stateReplayClient.publishCurrentInputs();
             byte[] buffer = new byte[2048];
             while (running.get() && !socket.isClosed()) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
@@ -929,6 +937,10 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         }
         if (phase.phaseId() == 1) {
             cancelAutoSecondPhase();
+            if (ioInputConfig.repeatDi3Capture()) {
+                twoPhaseCorrelator.resetDirectionWindow();
+                log.info("io_input_trigger two-phase pair complete — ready for next DI3/DI5 pair while DI2=1");
+            }
             return;
         }
         if (phase.phaseId() != 0) {

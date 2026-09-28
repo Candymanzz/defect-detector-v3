@@ -109,6 +109,7 @@ internal static class IoDi3CaptureRunner
         IoCapturePulseScheduler capturePulseScheduler,
         IoCaptureOptions capture,
         int triggerPort,
+        long inputFrontTimestamp,
         object consoleLock)
     {
         if (captureGate == null)
@@ -144,6 +145,54 @@ internal static class IoDi3CaptureRunner
         }
 
         long frontTick = Environment.TickCount64;
+
+        // Fast production path: UDP has already armed camera workers. Put the
+        // rising DO edge on the dedicated highest-priority COM worker without
+        // an additional ThreadPool/Task.Run scheduling hop.
+        if (delayMs == 0
+            && repeats == 1
+            && capture.OutputMode == IoCaptureOutputMode.Direct)
+        {
+            try
+            {
+                long fastPathStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+                string how = doExecutor.Run(
+                    IoDoExecutor.Priority.Capture,
+                    () => session.FireCapturePulse(capture),
+                    timeoutMs: 1000);
+                long sdkReturned = System.Diagnostics.Stopwatch.GetTimestamp();
+                double beforeFastPathMs = System.Diagnostics.Stopwatch.GetElapsedTime(
+                    inputFrontTimestamp, fastPathStarted).TotalMilliseconds;
+                double executorAndSdkMs = System.Diagnostics.Stopwatch.GetElapsedTime(
+                    fastPathStarted, sdkReturned).TotalMilliseconds;
+                double callbackToSdkReturnMs = System.Diagnostics.Stopwatch.GetElapsedTime(
+                    inputFrontTimestamp, sdkReturned).TotalMilliseconds;
+                lock (consoleLock)
+                {
+                    Console.WriteLine(
+                        $"[{Timestamp()}] sync_diag channel=io_latency event=do5_fast_edge "
+                        + $"trigger_di={triggerPort} output={capture.FormatOutputPorts()} "
+                        + $"callback_to_fastpath_ms={beforeFastPathMs:F3} "
+                        + $"executor_and_sdk_ms={executorAndSdkMs:F3} "
+                        + $"callback_to_sdk_return_ms={callbackToSdkReturnMs:F3} detail=\"{how}\"");
+                }
+
+                _ = ReleaseFastDirectPulseAsync(
+                    session, doExecutor, capturePulseScheduler, capture, consoleLock);
+            }
+            catch (Exception ex)
+            {
+                capturePulseScheduler.End();
+                captureGate.ReleaseCaptureFireSlot(triggerPort);
+                lock (consoleLock)
+                {
+                    Console.Error.WriteLine(
+                        $"[{Timestamp()}] {capture.FormatOutputPorts()}: FAST EDGE FAIL — {ex.Message}");
+                }
+            }
+            return;
+        }
+
         _ = Task.Run(async () =>
         {
             try
@@ -164,6 +213,44 @@ internal static class IoDi3CaptureRunner
                 capturePulseScheduler.End();
             }
         });
+    }
+
+    private static async Task ReleaseFastDirectPulseAsync(
+        IoBoxSession session,
+        IoDoExecutor doExecutor,
+        IoCapturePulseScheduler capturePulseScheduler,
+        IoCaptureOptions capture,
+        object consoleLock)
+    {
+        try
+        {
+            int holdMs = Math.Clamp(capture.PulseDurationMs, 1, 2000);
+            await Task.Delay(holdMs).ConfigureAwait(false);
+            string released = await doExecutor.RunAsync(IoDoExecutor.Priority.Capture, () =>
+            {
+                var parts = new List<string>();
+                foreach (int port in capture.ResolveOutputPorts())
+                    parts.Add(session.EndSimpleCaptureLevelPulse(port, capture.ActiveHigh));
+                return string.Join("; ", parts);
+            }).ConfigureAwait(false);
+            lock (consoleLock)
+            {
+                Console.WriteLine(
+                    $"[{Timestamp()}] {capture.FormatOutputPorts()}: FAST RELEASE — {released} after {holdMs} ms");
+            }
+        }
+        catch (Exception ex)
+        {
+            lock (consoleLock)
+            {
+                Console.Error.WriteLine(
+                    $"[{Timestamp()}] {capture.FormatOutputPorts()}: FAST RELEASE FAIL — {ex.Message}");
+            }
+        }
+        finally
+        {
+            capturePulseScheduler.End();
+        }
     }
 
     /// <summary>

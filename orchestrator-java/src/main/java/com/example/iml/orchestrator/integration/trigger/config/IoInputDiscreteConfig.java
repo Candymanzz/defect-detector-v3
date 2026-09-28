@@ -32,6 +32,7 @@ public record IoInputDiscreteConfig(
         int directionPollMs,
         int captureDelayMs,
         boolean externalHardwareCapture,
+        boolean repeatDi3Capture,
         /**
          * Временно: DI2↑ → сразу wait_frame; софтовый DI3/DI5 не стартует цикл.
          * Экспозиция по-прежнему с железа (Line0); Java только ждёт кадры в окне DI2=1.
@@ -71,7 +72,7 @@ public record IoInputDiscreteConfig(
         return new IoInputDiscreteConfig(
                 1, 2, 3, List.of(3), 4, 0, "json", false, TriggerEdgeMode.RISING,
                 true, false, false, false, false, false, true,
-                5000, 1, 0, true, false
+                5000, 1, 0, true, false, false
         );
     }
 
@@ -125,6 +126,10 @@ public record IoInputDiscreteConfig(
                 io.get("external_hardware_capture"),
                 defaults.externalHardwareCapture()
         );
+        boolean repeatDi3Capture = YamlScalars.toBool(
+                io.get("repeat_di3_capture"),
+                defaults.repeatDi3Capture()
+        );
         boolean armOnDirection = YamlScalars.toBool(io.get("arm_on_direction"), defaults.armOnDirection());
         return new IoInputDiscreteConfig(
                 workPort,
@@ -147,6 +152,7 @@ public record IoInputDiscreteConfig(
                 directionPollMs,
                 captureDelayMs,
                 externalHardwareCapture,
+                repeatDi3Capture,
                 armOnDirection
         );
     }
@@ -193,6 +199,7 @@ public record IoInputDiscreteConfig(
                 defaults.directionPollMs(),
                 defaults.captureDelayMs(),
                 defaults.externalHardwareCapture(),
+                defaults.repeatDi3Capture(),
                 defaults.armOnDirection()
         );
     }
