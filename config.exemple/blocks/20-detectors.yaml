@@ -2,7 +2,7 @@ java_geometry:
   # При binning 2×2 мм/пиксель ≈ ×2 (перекалибровать по эталону при необходимости).
   pixels_to_mm: 0.02
   # Fallback ROI, если эталон не задан с клиента; морщины используют тот же ROI, что interest с эталона.
-  main_roi: { x: 0, y: 0, width: 1224, height: 1024 }
+  main_roi: { x: 0, y: 0, width: 800, height: 672 }
   max_shift_mm: 0.5
   max_rotation_deg: 1.0
   # Шов этикетки (joint ROI): сегментация полосы, средняя ширина + клин сверху/снизу.
@@ -51,8 +51,8 @@ python_detector:
     - name: main
       x: 0
       y: 0
-      width: 1224
-      height: 1024
+      width: 800
+      height: 672
   # Более безопасный рабочий порог: меньше ложных REJECT при микро-шуме/свете.
   fallback_threshold: 0.45
   # UI heatmap is written at this width after the full-resolution inspection decision is calculated.

@@ -126,13 +126,13 @@ internal sealed class IoBoxSession : IDisposable
         EnsureOpen();
         inPort = 0;
         reportedOut = 0;
-        foreach (uint outEnc in new uint[] { MvIoNative.PortMaskForUint(outPort) })
+        foreach (uint outEnc in new uint[] { (uint)outPort, MvIoNative.OutputPortIndex(outPort) }.Distinct())
         {
             var assoc = new MvIoNative.MvIoPortAssociation
             {
                 InPortNum = 0,
-                OutPortNum = checked((ushort)outEnc),
-                Reserved = new uint[4]
+                OutPortNum = outEnc,
+                Reserved = new uint[8]
             };
             if (MvIoNative.GetOutPortTriggerSource(_handle, ref assoc) == MvIoNative.MvOk)
             {
@@ -266,7 +266,7 @@ internal sealed class IoBoxSession : IDisposable
 
         foreach (int port in ports)
         {
-            BeginSimpleCaptureLevelPulse(port, capture.ActiveHigh, duration);
+            BeginSimpleCaptureLevelPulse(port, capture.ActiveHigh);
             parts.Add($"DO{port} ACTIVE hold {duration}ms");
         }
 
@@ -277,14 +277,24 @@ internal sealed class IoBoxSession : IDisposable
     /// Один фронт IDLE→ACTIVE на Line0. Без StopDo/Enable-пляски — иначе камеры RisingEdge
     /// ловят 2–3 ложных импульса на один FireDo.
     /// </summary>
-    public void BeginSimpleCaptureLevelPulse(int outputPort, bool activeHigh = true, int durationMs = 10)
+    public void BeginSimpleCaptureLevelPulse(int outputPort, bool activeHigh = true)
     {
         EnsureOpen();
         if (outputPort is < 1 or > 8)
             throw new ArgumentOutOfRangeException(nameof(outputPort), "DO port must be 1..8.");
 
-        if (!TryStartSingleOutputPulse(outputPort, activeHigh, durationMs, out string errors))
-            throw new InvalidOperationException($"DO{outputPort} pulse failed: {errors}");
+        bool active = activeHigh;
+        bool idle = !activeHigh;
+
+        TrySetOutTriggerSource(inPort: 0, outPort: outputPort);
+        TryPnpEnable(outputPort, enabled: true);
+        // База: idle, Enable Start (без StopDo — Stop даёт лишний фронт).
+        if (!TryOutputEnableAny(outputPort, MvIoNative.IoOutputEnableType.Start, out string enableErrors))
+            throw new InvalidOperationException($"DO{outputPort} enable failed: {enableErrors}");
+        _ = TrySetMainOutputLevel(outputPort, idle);
+
+        if (!TrySetMainOutputLevel(outputPort, active))
+            throw new InvalidOperationException($"DO{outputPort} ACTIVE level failed");
     }
 
     /// <summary>Гасить capture DO: один уход в idle (без двойного StopDo).</summary>
@@ -294,7 +304,8 @@ internal sealed class IoBoxSession : IDisposable
         if (outputPort is < 1 or > 8)
             throw new ArgumentOutOfRangeException(nameof(outputPort), "DO port must be 1..8.");
 
-        _ = TryOutputEnable(MvIoNative.PortMaskForUint(outputPort), MvIoNative.IoOutputEnableType.End);
+        bool idle = !activeHigh;
+        _ = TrySetMainOutputLevel(outputPort, idle);
         return $"DO{outputPort} idle";
     }
 
@@ -316,42 +327,38 @@ internal sealed class IoBoxSession : IDisposable
                 $"Timer{timerIndex} software trigger failed: 0x{ret:x8} via {detail}");
         }
     }
-    private bool TryStartSingleOutputPulse(int outputPort, bool activeHigh, int durationMs, out string errors)
+    private bool TrySetMainOutputLevel(int outputPort, bool high)
     {
-        var failed = new List<string>();
+        uint status = high ? 1u : 0u;
+        uint[] ports = [(uint)outputPort, MvIoNative.OutputPortIndex(outputPort), MvIoNative.PortMaskForUint(outputPort)];
+        foreach (uint p in ports.Distinct())
+        {
+            var lvl = new MvIoNative.MvIoMainOutputLevel { Port = p, Status = status, Reserved = new uint[8] };
+            if (MvIoNative.SetMainOutputLevel(_handle, ref lvl) == MvIoNative.MvOk)
+                return true;
+        }
+
+        return false;
+    }
+
+    private void TryPnpEnable(int outputPort, bool enabled)
+    {
         foreach (uint port in OutputPortEncodings(outputPort))
         {
-            var output = new MvIoNative.MvIoSetOutput
+            var pnp = new MvIoNative.MvIoPnpEnable
             {
                 Port = port,
-                Pattern = (uint)MvIoNative.IoOutputPattern.Single,
-                PulseWidth = 0,
-                PulsePeriod = 0,
-                PulseDuration = (uint)Math.Clamp(durationMs, 1, 65535),
-                Level = activeHigh ? 1u : 0u,
+                Enable = enabled ? 1u : 0u,
                 Reserved = new uint[8]
             };
-            int setRet = MvIoNative.SetOutput(_handle, ref output);
-            if (setRet != MvIoNative.MvOk)
-            {
-                failed.Add($"port={port}:SetOutput=0x{setRet:x8}");
-                continue;
-            }
-            int enableRet = TryOutputEnable(port, MvIoNative.IoOutputEnableType.Start);
-            if (enableRet == MvIoNative.MvOk)
-            {
-                errors = "";
-                return true;
-            }
-            failed.Add($"port={port}:Enable=0x{enableRet:x8}");
+            if (MvIoNative.ExecutePnpEnable(_handle, ref pnp) == MvIoNative.MvOk)
+                return;
         }
-        errors = string.Join(", ", failed);
-        return false;
     }
 
     private void TrySetOutTriggerSource(uint inPort, int outPort)
     {
-        uint[] outCandidates = [MvIoNative.PortMaskForUint(outPort)];
+        uint[] outCandidates = [(uint)outPort, MvIoNative.OutputPortIndex(outPort)];
         uint[] inCandidates = [inPort, 0u, 9u, 255u];
         foreach (uint outEnc in outCandidates.Distinct())
         {
@@ -359,9 +366,9 @@ internal sealed class IoBoxSession : IDisposable
             {
                 var assoc = new MvIoNative.MvIoPortAssociation
                 {
-                    InPortNum = checked((ushort)inEnc),
-                    OutPortNum = checked((ushort)outEnc),
-                    Reserved = new uint[4]
+                    InPortNum = inEnc,
+                    OutPortNum = outEnc,
+                    Reserved = new uint[8]
                 };
                 if (MvIoNative.SetOutPortTriggerSource(_handle, ref assoc) == MvIoNative.MvOk)
                     return;
@@ -373,9 +380,9 @@ internal sealed class IoBoxSession : IDisposable
     {
         var enable = new MvIoNative.MvIoOutputEnable
         {
-            Port = checked((ushort)portEnc),
-            Enable = (byte)enableType,
-            Reserved = new uint[4]
+            Port = portEnc,
+            Enable = (uint)enableType,
+            Reserved = new uint[8]
         };
         return MvIoNative.SetOutputEnable(_handle, ref enable);
     }
@@ -437,7 +444,7 @@ internal sealed class IoBoxSession : IDisposable
     }
 
     private static uint[] OutputPortEncodings(int outputPort) =>
-        [MvIoNative.PortMaskForUint(outputPort)];
+        [(uint)outputPort, MvIoNative.OutputPortIndex(outputPort), MvIoNative.PortMaskForUint(outputPort)];
 
     public void Dispose()
     {
@@ -487,7 +494,7 @@ internal sealed class IoBoxSession : IDisposable
     private static string DescribeOpenError(int ret) => ret switch
     {
         unchecked((int)0x80000004) =>
-            "MV_E_PARAMETER: SDK отклонил переданные параметры.",
+            "Порт занят или уже открыт (часто — второй dotnet run IoInputMonitor).",
         unchecked((int)0x80000204) => "Устройство занято (MV_E_BUSY).",
         _ => ""
     };

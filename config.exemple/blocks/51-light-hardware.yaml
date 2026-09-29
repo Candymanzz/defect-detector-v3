@@ -17,22 +17,22 @@ light_hardware:
     - id: mv-le-1
       enabled: true
       type: ethernet
-      ip: "169.254.220.23"
+      ip: "169.254.220.5"
       channels: 4
     - id: mv-le-2
       enabled: true
       type: ethernet
-      ip: "169.254.220.22"
+      ip: "169.254.220.9"
       channels: 4
     - id: mv-le-3
       enabled: true
       type: ethernet
-      ip: "169.254.220.2"
+      ip: "169.254.220.10"
       channels: 4
     - id: mv-le-4
       enabled: true
       type: ethernet
-      ip: "169.254.220.1"
+      ip: "169.254.220.11"
       channels: 4
 
   # POST /api/camera-flash/pair — routes с 2+ каналами; /single — 1 канал (COM).

@@ -8,9 +8,7 @@ public class IoCaptureGateTests
         bool requireDirection = true,
         bool directionLatch = true,
         bool disarmOnWorkLow = false,
-        int workPort = 1,
-        bool repeatDi3Capture = false,
-        int maxDi3CapturesPerDi2Window = 0) =>
+        int workPort = 1) =>
         new(new IoCaptureOptions
         {
             Enabled = true,
@@ -20,9 +18,7 @@ public class IoCaptureGateTests
             DisarmOnWorkLow = disarmOnWorkLow,
             RequireDirection = requireDirection,
             DirectionLatch = directionLatch,
-            InitialDirection = "forward",
-            RepeatDi3Capture = repeatDi3Capture,
-            MaxDi3CapturesPerDi2Window = maxDi3CapturesPerDi2Window
+            InitialDirection = "forward"
         });
 
     [Fact]
@@ -149,68 +145,31 @@ public class IoCaptureGateTests
     }
 
     [Fact]
-    public void Di2High_SecondDi3IsIdleWhenSingleCapturePerWindow()
+    public void Di2High_AllowsEveryDistinctDi3Pulse()
     {
         var gate = CreateGate(directionLatch: false);
         Assert.Equal(IoCaptureDecision.DirectionArmed, gate.Evaluate(2, true, risingEdge: true));
         Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
-        Assert.Equal(IoCaptureDecision.SkipAlreadyFired, gate.Evaluate(3, true, risingEdge: true));
+        // DI2 остаётся 1 — каждый новый Rising DI3 должен дать съёмку.
+        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
+        // DI2↓ открывает новое окно на следующем DI2↑.
         gate.Evaluate(2, false, risingEdge: false);
         Assert.Equal(IoCaptureDecision.DirectionArmed, gate.Evaluate(2, true, risingEdge: true));
         Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
-    }
-
-    [Fact]
-    public void Di2High_AllowsTwoDi3WhenRepeatEnabled()
-    {
-        var gate = CreateGate(directionLatch: false, repeatDi3Capture: true);
-        Assert.Equal(IoCaptureDecision.DirectionArmed, gate.Evaluate(2, true, risingEdge: true));
-        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
-        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
-        Assert.Equal(IoCaptureDecision.SkipAlreadyFired, gate.Evaluate(3, true, risingEdge: true));
     }
 
     [Fact]
     public void ResetsCaptureFlagOnDi3Release()
     {
-        // При DI2=1 повторный DI3 после Falling всё равно холостой — нужен DI2↓↑.
+        // При DI2=1 следующий отдельный импульс DI3 разрешён.
         var gate = CreateGate(directionLatch: false);
         Assert.Equal(IoCaptureDecision.DirectionArmed, gate.Evaluate(2, true, risingEdge: true));
         Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
         Assert.Equal(IoCaptureDecision.None, gate.Evaluate(3, false, risingEdge: false));
-        Assert.Equal(IoCaptureDecision.SkipAlreadyFired, gate.Evaluate(3, true, risingEdge: true));
+        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
 
         gate.Evaluate(2, false, risingEdge: false);
         Assert.Equal(IoCaptureDecision.DirectionArmed, gate.Evaluate(2, true, risingEdge: true));
         Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
-    }
-
-    [Fact]
-    public void TwoChannels_Di3AndDi5_FireIndependentlyInSameDi2Window()
-    {
-        var gate = new IoCaptureGate(new IoCaptureOptions
-        {
-            Enabled = true,
-            DirectionPort = 2,
-            TriggerPort = 3,
-            WorkPort = 1,
-            RequireDirection = true,
-            DirectionLatch = false,
-            MaxDi3CapturesPerDi2Window = 1,
-            Channels =
-            [
-                new IoCaptureChannel { TriggerPort = 3, OutputPort = 5, TimerIndex = 5 },
-                new IoCaptureChannel { TriggerPort = 5, OutputPort = 7, TimerIndex = 7 }
-            ]
-        });
-
-        Assert.Equal(IoCaptureDecision.DirectionArmed, gate.Evaluate(2, true, risingEdge: true));
-        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
-        Assert.Equal(3, gate.LastFiredTriggerPort);
-        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(5, true, risingEdge: true));
-        Assert.Equal(5, gate.LastFiredTriggerPort);
-        // Лимит на канал: второй DI3 в том же окне — skip; DI5 уже сработал.
-        Assert.Equal(IoCaptureDecision.SkipAlreadyFired, gate.Evaluate(3, true, risingEdge: true));
-        Assert.Equal(IoCaptureDecision.SkipAlreadyFired, gate.Evaluate(5, true, risingEdge: true));
     }
 }

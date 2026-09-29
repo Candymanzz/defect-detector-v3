@@ -46,8 +46,8 @@ internal static class MvIoNative
 
     public enum IoOutputPattern : uint
     {
-        Pwm = 0x05,
-        Single = 0x06,
+        Single = 0,
+        Pwm = 1,
     }
 
     public enum IoOutputEnableType : uint
@@ -124,10 +124,10 @@ internal static class MvIoNative
     [StructLayout(LayoutKind.Sequential)]
     public struct MvIoOutputEnable
     {
-        public ushort Port;
-        public byte Enable;
+        public uint Port;
+        public uint Enable;
 
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
         public uint[] Reserved;
     }
 
@@ -187,6 +187,9 @@ internal static class MvIoNative
     [DllImport("MvIOInterfaceBox.dll", EntryPoint = "MV_IO_SetOutputEnable")]
     public static extern int SetOutputEnable(IntPtr handle, ref MvIoOutputEnable enable);
 
+    [DllImport("MvIOInterfaceBox.dll", EntryPoint = "MV_IO_SetMainOutputLevel")]
+    public static extern int SetMainOutputLevel(IntPtr handle, ref MvIoMainOutputLevel level);
+
     [DllImport("MvIOInterfaceBox.dll", EntryPoint = "MV_IO_AssociatedOutPort")]
     public static extern int AssociatedOutPort(IntPtr handle, ref MvIoPortAssociation association);
 
@@ -194,10 +197,30 @@ internal static class MvIoNative
     public static extern int SaveParam(IntPtr handle);
 
     [DllImport("MvIOInterfaceBox.dll", EntryPoint = "MV_IO_ExcutePNPEnable")]
-    public static extern int ExecutePnpEnable(IntPtr handle, int type);
+    public static extern int ExecutePnpEnable(IntPtr handle, ref MvIoPnpEnable enable);
 
     [DllImport("MvIOInterfaceBox.dll", EntryPoint = "MV_IO_GetPNPEnable")]
-    public static extern int GetPnpEnable(IntPtr handle, ref int type);
+    public static extern int GetPnpEnable(IntPtr handle, ref MvIoPnpEnable enable);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MvIoPnpEnable
+    {
+        public uint Port;
+        public uint Enable;
+
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+        public uint[] Reserved;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MvIoMainOutputLevel
+    {
+        public uint Port;
+        public uint Status;
+
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+        public uint[] Reserved;
+    }
 
     [DllImport("MvIOInterfaceBox.dll", EntryPoint = "MV_IO_GetPortOutputParam")]
     public static extern int GetPortOutputParam(IntPtr handle, ref MvIoSetOutput output);
@@ -214,18 +237,18 @@ internal static class MvIoNative
     [StructLayout(LayoutKind.Sequential)]
     public struct MvIoPortAssociation
     {
-        public ushort OutPortNum;
-        public ushort InPortNum;
+        public uint InPortNum;
+        public uint OutPortNum;
 
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
         public uint[] Reserved;
     }
 
-    /// <summary>Порты IO-box задаются битовой маской: DO5 = 0x10.</summary>
+    /// <summary>DO в SDK — 0-based индекс (DO5 → 4), не битовая маска как у DI.</summary>
     public static uint OutputPortIndex(int outputPort) =>
         outputPort is < 1 or > 8
             ? throw new ArgumentOutOfRangeException(nameof(outputPort), outputPort, "DO port must be 1..8.")
-            : PortMaskForUint(outputPort);
+            : (uint)(outputPort - 1);
 
     public static int PortFromMask(byte portMask) =>
         portMask switch

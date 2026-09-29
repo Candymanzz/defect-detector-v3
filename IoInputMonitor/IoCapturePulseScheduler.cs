@@ -1,40 +1,16 @@
 namespace IoInputMonitor;
 
-    /// <summary>
-    /// Ограничение параллельных DO-burst'ов (один фронт DI3 может дать 2 импульса DO5 через gap).
-    /// </summary>
+/// <summary>
+/// Один in-flight capture DO: при bounce DI3 (debounce=0) не копим очередь Task.Run с импульсами.
+/// </summary>
 internal sealed class IoCapturePulseScheduler
 {
-    private readonly int _maxInflight;
     private int _inflight;
 
-    public IoCapturePulseScheduler(int maxInflight = 1) =>
-        _maxInflight = Math.Clamp(maxInflight, 1, 8);
+    public bool IsBusy => Volatile.Read(ref _inflight) != 0;
 
-    public bool IsBusy => Volatile.Read(ref _inflight) >= _maxInflight;
+    /// <summary>true — можно стартовать импульс; false — уже идёт, пропуск.</summary>
+    public bool TryBegin() => Interlocked.CompareExchange(ref _inflight, 1, 0) == 0;
 
-    /// <summary>true — можно стартовать импульс; false — лимит in-flight.</summary>
-    public bool TryBegin()
-    {
-        while (true)
-        {
-            int current = Volatile.Read(ref _inflight);
-            if (current >= _maxInflight)
-                return false;
-            if (Interlocked.CompareExchange(ref _inflight, current + 1, current) == current)
-                return true;
-        }
-    }
-
-    public void End()
-    {
-        while (true)
-        {
-            int current = Volatile.Read(ref _inflight);
-            if (current <= 0)
-                return;
-            if (Interlocked.CompareExchange(ref _inflight, current - 1, current) == current)
-                return;
-        }
-    }
+    public void End() => Interlocked.Exchange(ref _inflight, 0);
 }

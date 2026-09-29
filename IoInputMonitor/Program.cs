@@ -300,35 +300,17 @@ internal static class Program
         }
 
         var inputSet = new HashSet<int>(options.InputPorts);
-        // SDK Glitch = debounce_ms. Soft refractory для edge=both на DI1/DI2 (анти-bounce).
-        // Trigger Rising-only: refractory=0 — иначе 2-й импульс ~80–100 ms глотается без лога.
+        // SDK Glitch = debounce_ms (0 → ловит DI3 ~10 мс). Soft refractory отдельно:
+        // при 0 debounce both иначе глотает bounce DI3 → несколько UDP/FireDo на один продукт.
         int softwareRefractoryMs = options.DebounceMs > 0
             ? options.DebounceMs
             : (options.EdgeMode == IoInputEdgeMode.Both ? 80 : 0);
         var edgeTracker = new IoDiEdgeTracker(softwareRefractoryMs);
-        int[] triggerPorts = options.Capture.Enabled
-            ? options.Capture.ResolveTriggerPorts()
-            : (options.UdpPublish.TriggerPort is >= 1 and <= 8
-                ? [options.UdpPublish.TriggerPort]
-                : [3]);
-        var triggerSet = new HashSet<int>(triggerPorts);
-        foreach (int di in triggerPorts)
-            edgeTracker.SetPortRefractoryMs(di, 0);
-        int maxPerWindow = options.Capture.Enabled
-            ? options.Capture.EffectiveMaxDi3CapturesPerDi2Window()
-            : 1;
-        // Каналы независимы: DI3 и DI5 могут бить параллельно.
-        int maxInflight = Math.Clamp(triggerPorts.Length * maxPerWindow, 1, 8);
-        var capturePulseScheduler = new IoCapturePulseScheduler(maxInflight);
+        var capturePulseScheduler = new IoCapturePulseScheduler();
         object consoleLock = new();
         using var doExecutor = new IoDoExecutor();
-        string triggerLabel = string.Join("/", triggerPorts.Select(static p => $"DI{p}"));
         Console.WriteLine(
-            $"IO arbiter: Input+Capture(DI{options.Capture.DirectionPort}/{triggerLabel}+{options.Capture.FormatOutputPorts()}); Sleep вне COM");
-        Console.WriteLine(
-            $"edge soft-refractory: default={softwareRefractoryMs} ms, {triggerLabel}=0 ms (photoeye)");
-        if (options.Capture.Enabled)
-            Console.WriteLine($"capture channels: {options.Capture.FormatChannels()}");
+            $"IO arbiter: Input+Capture(DI{options.Capture.DirectionPort}/{options.Capture.TriggerPort}+{options.Capture.FormatOutputPorts()}); Sleep вне COM");
         session.Line0OutputPort = options.Capture.OutputPort;
         session.Line0OutputPorts = options.Capture.ResolveOutputPorts();
 
@@ -343,31 +325,38 @@ internal static class Program
         }
 
         uint debounceMs = (uint)options.DebounceMs;
+        int triggerPort = options.Capture.Enabled
+            ? options.Capture.TriggerPort
+            : (options.UdpPublish.TriggerPort is >= 1 and <= 8 ? options.UdpPublish.TriggerPort : 3);
+        // When software capture is disabled, DI3 is telemetry only: listen to both
+        // edges so the real input pulse width can be measured.
+        bool triggerRisingOnly = options.Capture.Enabled;
+        long triggerRiseTimestamp = 0;
         if (ShouldConfigureSdk(options))
         {
             foreach (int inputPort in options.InputPorts)
             {
                 bool pressed = edgeTracker.TryGetPressed(inputPort, out bool p) && p;
-                // Trigger <10 мс: edge=both не успевает перевооружить Falling → stuck HIGH →
+                // DI3 <10 мс: edge=both не успевает перевооружить Falling → stuck HIGH →
                 // следующие Rising глотаются. Триггер — только Rising.
                 // IoCaptureGate после Rising сам сбрасывает _triggerActive (Falling не придёт).
-                IoInputEdgeMode portMode = triggerSet.Contains(inputPort)
+                IoInputEdgeMode portMode = inputPort == triggerPort && triggerRisingOnly
                     ? IoInputEdgeMode.Rising
                     : options.EdgeMode;
                 MvIoNative.IoEdgeType initialEdge = IoDiEdgeTracker.NextEdgeToArm(portMode, pressed);
                 session.ConfigureInputEdge(inputPort, (uint)initialEdge, debounceMs);
-                if (triggerSet.Contains(inputPort) && options.EdgeMode == IoInputEdgeMode.Both)
+                if (inputPort == triggerPort && triggerRisingOnly && options.EdgeMode == IoInputEdgeMode.Both)
                 {
                     Console.WriteLine(
-                        $"DI{inputPort}: edge=Rising (override both) — короткий импульс <10 мс иначе stuck");
+                        $"DI{triggerPort}: edge=Rising (override both) — короткий импульс <10 мс иначе stuck");
                 }
             }
 
             if (options.EdgeMode == IoInputEdgeMode.Both)
             {
-                Console.WriteLine(
-                    "both: DI1/DI2 — динамическое перевооружение; " +
-                    $"{triggerLabel} — только Rising (короткий photoeye).");
+                Console.WriteLine(triggerRisingOnly
+                    ? $"both: DI1/DI2 — динамическое перевооружение; DI{triggerPort} — только Rising (capture)."
+                    : $"both: DI1/DI2/DI{triggerPort} — динамическое перевооружение; длительность DI{triggerPort} логируется.");
             }
         }
         else
@@ -381,8 +370,6 @@ internal static class Program
         IoCaptureGate? captureGate = options.Capture.Enabled
             ? new IoCaptureGate(options.Capture)
             : null;
-        IIoCaptureStrategy captureStrategy = IoCaptureStrategyFactory.Create(options.Capture);
-        Console.WriteLine($"capture_strategy={captureStrategy.Kind} — {captureStrategy.DisplayName}");
 
         if (captureGate != null)
         {
@@ -402,99 +389,40 @@ internal static class Program
                 DescribeCaptureOutput(options.Capture) +
                 $" (require_direction={options.Capture.RequireDirection})");
 
-            if (captureStrategy.FiresSoftwareDo && options.Capture.OutputMode == IoCaptureOutputMode.Timer)
+            if (options.Capture.OutputMode == IoCaptureOutputMode.Timer)
             {
-                foreach (IoCaptureChannel ch in options.Capture.ResolveChannels())
+                if (MvIoTimerTrigger.IsAvailable)
                 {
                     Console.WriteLine(
-                        $"MVS: Timer{ch.TimerIndex} → Out{ch.OutputPort} (DI{ch.TriggerPort}); "
-                        + "Timer Trigger Source must be Software (Execute).");
+                        $"Timer SDK: {MvIoTimerTrigger.ResolvedExport} (Timer{options.Capture.TimerIndex} → Out{options.Capture.OutputPort})");
                 }
-
-                if (MvIoTimerTrigger.IsAvailable)
-                    Console.WriteLine($"Timer SDK: {MvIoTimerTrigger.ResolvedExport}");
                 else
                 {
                     Console.WriteLine(
-                        "WARNING: MV_IO timer trigger export not found in MvIOInterfaceBox.dll — soft Timer Execute недоступен.");
+                        "WARNING: MV_IO timer trigger export not found — для Out5 поставь Line Source = In 3.");
                 }
-            }
-            else if (!captureStrategy.FiresSoftwareDo)
-            {
-                Console.WriteLine(
-                    "hardware strategy: soft DO отключён — Line0 только с аппаратного DI→DO; приложение логирует DI + UDP.");
             }
 
             MvIoDllExports.LogInteresting(Console.Out);
             Console.WriteLine(
-                $"{options.Capture.FormatChannels()}: mode={options.Capture.OutputMode} — " +
-                "при DI↑ шлём импульс своего канала (или hardware Out←In если SDK откажется).");
+                $"{options.Capture.FormatOutputPorts()}: mode={options.Capture.OutputMode} — " +
+                $"при DI{options.Capture.TriggerPort}↑ шлём импульс (или hardware Out←In если SDK откажется).");
         }
 
-
-        int primaryTrigger = triggerPorts.Length > 0 ? triggerPorts[0] : 3;
-        Func<Task<(bool Ok, string Detail)>>? syntheticDi3 = options.Capture.Enabled
-            ? () => IoDi3CaptureRunner.FireSyntheticDi3Async(
-                captureGate,
-                udpPublisher,
-                session,
-                doExecutor,
-                capturePulseScheduler,
-                options.Capture,
-                primaryTrigger,
-                consoleLock)
-            : null;
-
-        Func<Task<(bool Ok, string Detail)>>? line0PulseOnly = options.Capture.Enabled
-            ? () =>
-            {
-                IoDi3CaptureRunner.StartLine0PulseOnly(
-                    session,
-                    doExecutor,
-                    capturePulseScheduler,
-                    options.Capture,
-                    consoleLock);
-                return Task.FromResult((true, "line0 pulse queued"));
-            }
-            : null;
-
-        // Startup replay is for persistent level inputs only. Never replay trigger or
-        // shutdown inputs: a stale/high DI4 would be interpreted as a fresh emergency
-        // shutdown immediately after the orchestrator binds its UDP socket.
-        int[] startupStatePorts = captureGate != null
-            ? new[] { captureGate.WorkPort, captureGate.DirectionPort }
-                .Where(port => port is >= 1 and <= 8 && inputSet.Contains(port))
-                .Distinct()
-                .ToArray()
-            : options.InputPorts.Where(port => !triggerSet.Contains(port)).ToArray();
-
-        Func<int>? publishCurrentInputs = udpPublisher != null
-            ? () =>
-            {
-                int published = 0;
-                foreach (int inputPort in startupStatePorts)
-                {
-                    if (!edgeTracker.TryGetPressed(inputPort, out bool closed))
-                        continue;
-                    udpPublisher.Publish(inputPort, closed);
-                    published++;
-                }
-                return published;
-            }
-            : null;
 
         using var directionHttp = IoLineDirectionHttpServer.TryStart(
             captureGate,
             options.Capture.DirectionHttp,
-            consoleLock,
-            syntheticDi3,
-            line0PulseOnly,
-            publishCurrentInputs);
+            consoleLock);
 
         if (udpPublisher != null && options.UdpPublish.SendInitialState)
         {
-            foreach (int inputPort in startupStatePorts)
+            int udpTriggerPort = options.UdpPublish.TriggerPort;
+            foreach (int inputPort in options.InputPorts)
             {
+                if (!options.UdpPublish.SendInitialTriggerState && inputPort == udpTriggerPort)
+                    continue;
+
                 if (edgeTracker.TryGetPressed(inputPort, out bool closed))
                     udpPublisher.Publish(inputPort, closed);
             }
@@ -502,11 +430,10 @@ internal static class Program
 
         session.RegisterEdgeCallback((port, edge) =>
         {
-            long inputFrontTimestamp = System.Diagnostics.Stopwatch.GetTimestamp();
             if (!inputSet.Contains(port))
                 return;
 
-            IoInputEdgeMode portEdgeMode = triggerSet.Contains(port)
+            IoInputEdgeMode portEdgeMode = port == triggerPort && triggerRisingOnly
                 ? IoInputEdgeMode.Rising
                 : options.EdgeMode;
             if (!edgeTracker.TryAccept(port, edge, portEdgeMode, out bool closed))
@@ -526,6 +453,22 @@ internal static class Program
             };
 
             bool risingEdge = edge == MvIoNative.IoEdgeType.Rising;
+            double? triggerPulseMs = null;
+            if (port == triggerPort)
+            {
+                long edgeTimestamp = System.Diagnostics.Stopwatch.GetTimestamp();
+                if (risingEdge)
+                {
+                    Interlocked.Exchange(ref triggerRiseTimestamp, edgeTimestamp);
+                }
+                else if (edge == MvIoNative.IoEdgeType.Falling)
+                {
+                    long started = Interlocked.Exchange(ref triggerRiseTimestamp, 0);
+                    if (started > 0 && edgeTimestamp >= started)
+                        triggerPulseMs = (edgeTimestamp - started) * 1000.0
+                            / System.Diagnostics.Stopwatch.Frequency;
+                }
+            }
             IoCaptureDecision captureDecision = captureGate?.Evaluate(port, closed, risingEdge)
                 ?? IoCaptureDecision.None;
 
@@ -533,29 +476,82 @@ internal static class Program
             {
                 string udpSuffix = udpPublisher != null ? $"  [udp {port}:{(closed ? 1 : 0)}]" : "";
                 Console.WriteLine($"[{Timestamp()}] DI{port} edge {edgeName}{action}{udpSuffix}");
+                if (triggerPulseMs.HasValue)
+                {
+                    Console.WriteLine(
+                        $"[{Timestamp()}] DI{triggerPort} pulse width={triggerPulseMs.Value:F3} ms " +
+                        $"({triggerPulseMs.Value * 1000.0:F0} us)");
+                }
                 LogCaptureDecision(captureDecision, options.Capture, captureGate);
             }
 
-            // Сначала UDP → Java/камеры в wait_frame, потом стратегия Line0.
+            // Сначала UDP → Java/камеры в wait_frame, потом DO на Line0 (иначе RisingEdge уже прошёл).
             udpPublisher?.Publish(port, closed);
 
-            if (captureDecision == IoCaptureDecision.FireDo
-                && options.Capture.TryGetChannel(port, out IoCaptureChannel fireChannel))
+            if (captureDecision == IoCaptureDecision.FireDo)
             {
-                captureStrategy.OnFireDo(
-                    captureGate,
-                    session,
-                    doExecutor,
-                    capturePulseScheduler,
-                    options.Capture,
-                    fireChannel,
-                    inputFrontTimestamp,
-                    consoleLock);
+                if (!capturePulseScheduler.TryBegin())
+                {
+                    // Импульс уже в полёте — слот FireDo не отпускаем (bounce DI3 иначе даст 2-й FireDo).
+                    lock (consoleLock)
+                    {
+                        Console.WriteLine(
+                            $"[{Timestamp()}] {options.Capture.FormatOutputPorts()}: НЕ отправляется — импульс уже в полёте (SkipBusy)");
+                    }
+                }
+                else
+                {
+                    IoCaptureOptions capture = options.Capture;
+                    int delayMs = Math.Clamp(capture.PulseDelayMs, 0, 5000);
+                    int repeats = Math.Clamp(capture.PulseRepeat, 1, 20);
+                    int gapMs = Math.Clamp(capture.PulseRepeatGapMs, 0, 2000);
+                    lock (consoleLock)
+                    {
+                        Console.WriteLine(
+                            $"[{Timestamp()}] {capture.FormatOutputPorts()}: after {delayMs} ms ×{repeats} pulse {capture.PulseDurationMs} ms");
+                    }
+
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            using (doExecutor.Arbiter.CaptureWindow())
+                            {
+                                try
+                                {
+                                    if (delayMs > 0)
+                                        await Task.Delay(delayMs).ConfigureAwait(false);
+                                    for (int i = 0; i < repeats; i++)
+                                    {
+                                        await FireCapturePulseLoggedAsync(session, doExecutor, consoleLock, capture)
+                                            .ConfigureAwait(false);
+                                        if (i + 1 < repeats && gapMs > 0)
+                                            await Task.Delay(gapMs).ConfigureAwait(false);
+                                    }
+                                    // EndSimpleCaptureLevelPulse уже в FireCapturePulseLoggedAsync —
+                                    // повторный ReleaseLine0ForPlc давал лишние фронты на Line0.
+                                }
+                                catch (Exception ex)
+                                {
+                                    lock (consoleLock)
+                                    {
+                                        Console.Error.WriteLine(
+                                            $"[{Timestamp()}] {capture.FormatOutputPorts()}: delayed FAIL — {ex.Message}");
+                                    }
+                                }
+                            }
+                        }
+                        finally
+                        {
+                            capturePulseScheduler.End();
+                        }
+                    });
+                }
             }
 
             if (ShouldConfigureSdk(options))
             {
-                IoInputEdgeMode rearmMode = triggerSet.Contains(port)
+                IoInputEdgeMode rearmMode = port == triggerPort && triggerRisingOnly
                     ? IoInputEdgeMode.Rising
                     : options.EdgeMode;
                 // Rising-only (DI3): после каждого ↑ снова Rising.
@@ -589,14 +585,8 @@ internal static class Program
     private static void LogCaptureDecision(IoCaptureDecision decision, IoCaptureOptions capture, IoCaptureGate? gate)
     {
         string expect = gate?.DescribeExpectedArm()
-            ?? $"DI{capture.DirectionPort} затем {capture.FormatChannels()}";
+            ?? $"DI{capture.DirectionPort} затем DI{capture.TriggerPort}↑";
         string mode = gate?.SelectedWireValue ?? capture.InitialDirection;
-        int firedDi = gate?.LastFiredTriggerPort is >= 1 and <= 8
-            ? gate.LastFiredTriggerPort
-            : capture.TriggerPort;
-        string doLabel = capture.TryGetChannel(firedDi, out IoCaptureChannel ch)
-            ? $"DO{ch.OutputPort}"
-            : capture.FormatOutputPorts();
 
         switch (decision)
         {
@@ -611,24 +601,21 @@ internal static class Program
                 break;
             case IoCaptureDecision.SkipNoDirection:
                 Console.WriteLine(
-                    $"[{Timestamp()}] {doLabel}: НЕ отправляется — DI{firedDi}↑ SKIP " +
+                    $"[{Timestamp()}] {capture.FormatOutputPorts()}: НЕ отправляется — DI{capture.TriggerPort}↑ SKIP " +
                     $"(UI={mode}, жду {expect})");
                 break;
             case IoCaptureDecision.SkipAlreadyFired:
                 Console.WriteLine(
-                    $"[{Timestamp()}] {doLabel}: НЕ отправляется — DI{firedDi}↑ холостой " +
-                    $"(лимит на окно DI{capture.DirectionPort}=1)");
+                    $"[{Timestamp()}] {capture.FormatOutputPorts()}: НЕ отправляется — DI{capture.TriggerPort}↑ холостой " +
+                    $"(уже сняли при DI{capture.DirectionPort}=1)");
                 break;
             case IoCaptureDecision.SkipBusy:
                 Console.WriteLine(
-                    $"[{Timestamp()}] {doLabel}: НЕ отправляется — импульс уже в полёте");
+                    $"[{Timestamp()}] {capture.FormatOutputPorts()}: НЕ отправляется — импульс уже в полёте");
                 break;
             case IoCaptureDecision.FireDo:
-                string send = capture.TryGetChannel(firedDi, out IoCaptureChannel fireCh)
-                    ? DescribeCaptureSend(capture.ForChannel(fireCh))
-                    : DescribeCaptureSend(capture);
                 Console.WriteLine(
-                    $"[{Timestamp()}] {doLabel}: SEND — DI{firedDi}↑ UI={mode} → {send}");
+                    $"[{Timestamp()}] {capture.FormatOutputPorts()}: SEND — DI{capture.TriggerPort}↑ UI={mode} → {DescribeCaptureSend(capture)}");
                 break;
             case IoCaptureDecision.DirectionModeChanged:
                 Console.WriteLine(
@@ -640,11 +627,9 @@ internal static class Program
     private static string DescribeCaptureOutput(IoCaptureOptions capture) =>
         capture.OutputMode switch
         {
-            IoCaptureOutputMode.Timer => string.Join(
-                "+",
-                capture.ResolveChannels().Select(static c => $"Timer{c.TimerIndex}→DO{c.OutputPort}")),
+            IoCaptureOutputMode.Timer => $"Timer{capture.TimerIndex}→{capture.FormatOutputPorts()}",
             IoCaptureOutputMode.Direct => $"{capture.FormatOutputPorts()} pulse {capture.PulseDurationMs} ms",
-            _ => $"{capture.FormatChannels()} auto"
+            _ => $"{capture.FormatOutputPorts()} auto (SetOutput→Timer→Out←In{capture.TriggerPort})"
         };
 
     private static string DescribeCaptureSend(IoCaptureOptions capture) =>
@@ -663,7 +648,6 @@ internal static class Program
         IoCaptureOptions capture)
     {
         string doLabel = capture.FormatOutputPorts();
-        bool timerMode = capture.OutputMode == IoCaptureOutputMode.Timer;
         try
         {
             lock (consoleLock)
@@ -671,17 +655,9 @@ internal static class Program
                 Console.WriteLine($"[{Timestamp()}] {doLabel}: очередь Capture…");
             }
 
+            // Старт DO ACTIVE; pulse_duration_ms снаружи; потом StopDo (без hold).
             string how = await doExecutor.RunAsync(IoDoExecutor.Priority.Capture, () =>
                 session.FireCapturePulse(capture)).ConfigureAwait(false);
-
-            if (timerMode)
-            {
-                lock (consoleLock)
-                {
-                    Console.WriteLine($"[{Timestamp()}] {doLabel}: OK — {how}");
-                }
-                return;
-            }
 
             int settleMs = Math.Clamp(capture.PulseDurationMs, 1, 2000);
             await Task.Delay(settleMs).ConfigureAwait(false);
@@ -710,9 +686,9 @@ internal static class Program
         }
     }
 
-    // configure_sdk=false means strict listen-only mode: do not overwrite MVS/device
-    // input configuration, even when edge=both was requested in YAML.
-    private static bool ShouldConfigureSdk(MonitorOptions options) => options.ConfigureSdk;
+    // both всегда вызывает SetInput (перевооружение); иначе — только если configure_sdk=true.
+    private static bool ShouldConfigureSdk(MonitorOptions options) =>
+        options.EdgeMode == IoInputEdgeMode.Both || options.ConfigureSdk;
 
     private static void ReArmEdge(
         IoBoxSession session,
