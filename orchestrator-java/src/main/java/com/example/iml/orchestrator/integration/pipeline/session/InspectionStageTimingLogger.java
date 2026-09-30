@@ -36,6 +36,7 @@ public final class InspectionStageTimingLogger {
                         + "python_ms={} geometry_ms={} decision_ms={} fanout_ms={} "
                         + "pos_coarse_ms={} pos_orb_ms={} pos_warp_ms={} pos_polish_ms={} pos_ecc_ms={} pos_post_polish_ms={} pos_write_ms={} "
                         + "pos_coarse_used={} pos_orb_applied={} pos_polish_used={} pos_ecc_skip={} pos_ecc_applied={} pos_post_polish_used={} "
+                        + "python_queue_ms={} python_rpc_ms={} "
                         + "py_align_ms={} py_diff_ms={} py_anomaly_ms={} py_fp_recheck_ms={} py_heatmap_ms={} py_total_ms={}",
                 cameraId,
                 decision.frameId(),
@@ -61,6 +62,8 @@ public final class InspectionStageTimingLogger {
                 capHeader.get("positioning_ecc_skipped"),
                 capHeader.get("positioning_ecc_applied"),
                 capHeader.get("positioning_post_ecc_polish"),
+                YamlScalars.toDouble(pyHeader.get("python_queue_ms"), 0.0),
+                YamlScalars.toDouble(pyHeader.get("python_rpc_ms"), 0.0),
                 YamlScalars.toDouble(pyHeader.get("py_align_ms"), 0.0),
                 YamlScalars.toDouble(pyHeader.get("py_diff_ms"), 0.0),
                 YamlScalars.toDouble(pyHeader.get("py_anomaly_ms"), 0.0),

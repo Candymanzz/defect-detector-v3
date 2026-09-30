@@ -12,6 +12,7 @@ import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -200,11 +201,23 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                 }
             }
             Semaphore fifoLane = pythonFifoLanes.computeIfAbsent(python, ignored -> new Semaphore(1, true));
+            long tQueue0 = System.nanoTime();
             fifoLane.acquire();
             try {
                 pythonSlots.acquire();
                 try {
-                    BinaryProtocol.Message pyResp = python.command(pyHeader);
+                    long tCommand0 = System.nanoTime();
+                    BinaryProtocol.Message rawResp = python.command(pyHeader);
+                    long commandMs = YamlScalars.nanosToMs(System.nanoTime() - tCommand0);
+                    long queueMs = YamlScalars.nanosToMs(tCommand0 - tQueue0);
+                    Map<String, Object> responseHeader = new LinkedHashMap<>(
+                            rawResp == null || rawResp.header() == null ? Map.of() : rawResp.header()
+                    );
+                    responseHeader.put("python_queue_ms", queueMs);
+                    responseHeader.put("python_rpc_ms", commandMs);
+                    BinaryProtocol.Message pyResp = rawResp == null
+                            ? new BinaryProtocol.Message(BinaryProtocol.MSG_ERROR, responseHeader, new byte[0])
+                            : new BinaryProtocol.Message(rawResp.type(), Map.copyOf(responseHeader), rawResp.payload());
                     if (log.isDebugEnabled()) {
                         log.debug("{} cam={} frame={} => {}", python.supervisorLabel(), cameraId, state.capture().header().get("frame_id"), pyResp.header());
                     }

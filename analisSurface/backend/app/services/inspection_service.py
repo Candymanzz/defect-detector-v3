@@ -50,6 +50,9 @@ _FP_CROP_MIN = 64
 # mini-etalon crops must retain their original score semantics.
 _VERTICAL_COMPENSATION_MAX_GAIN = 1.20
 _VERTICAL_COMPENSATION_ACTIVE_HEIGHT = 0.75
+_FAR_EDGE_ACTIVE_ROI_HEIGHT = 0.35
+_FAR_EDGE_MAX_TOTAL_GAIN = 1.35
+_FAR_EDGE_EDGE_SUPPRESS_FACTOR = 0.35
 
 # Smooth illumination changes keep local texture and gradients, unlike a real
 # scratch/tear. Suppress them conservatively before structural defect boosts.
@@ -949,8 +952,17 @@ class InspectionService:
         diff_source_aligned = aligned
         diff_source_reference = reference
         diff_bbox: Optional[tuple[int, int, int, int]] = None
+        roi_vertical_bounds: Optional[tuple[int, int]] = None
         if polygon is not None:
             frame_height, frame_width = reference.shape[:2]
+            _, roi_y, _, roi_height = polygon_bbox_from_norm_points(
+                frame_width,
+                frame_height,
+                polygon,
+                padding=0,
+            )
+            if roi_height > 0:
+                roi_vertical_bounds = (roi_y, roi_y + roi_height)
             # Keep enough context for the widest local illumination kernel
             # (up to 81 px) so defects near the ROI edge are not weakened.
             diff_bbox = polygon_bbox_from_norm_points(
@@ -981,6 +993,7 @@ class InspectionService:
             vertical_compensation_frame=(reference.shape[0], diff_bbox[1])
             if diff_bbox is not None
             else None,
+            roi_vertical_bounds=roi_vertical_bounds,
         )
         if diff_bbox is not None:
             crop_x, crop_y, crop_width, crop_height = diff_bbox
@@ -2461,6 +2474,7 @@ class InspectionService:
         vertical_compensation: bool = False,
         illumination_diagnostics: Optional[dict[str, object]] = None,
         vertical_compensation_frame: Optional[tuple[int, int]] = None,
+        roi_vertical_bounds: Optional[tuple[int, int]] = None,
     ) -> np.ndarray:
         """Построить карту отличий (BGR), устойчивую к микросдвигу и тексту эталона."""
         if aligned.shape[:2] != reference.shape[:2]:
@@ -2536,13 +2550,25 @@ class InspectionService:
         # small smooth gain there. The cap is intentionally conservative to
         # avoid turning texture/noise into defects; static reference edges are
         # still suppressed immediately below.
+        far_edge_weight: Optional[np.ndarray] = None
         if vertical_compensation:
             if vertical_compensation_frame is None:
                 row_gain = self._vertical_compensation_gain(robust_gray.shape[0])
+                row_offset = 0
             else:
                 full_height, row_offset = vertical_compensation_frame
                 full_gain = self._vertical_compensation_gain(full_height)
                 row_gain = full_gain[row_offset : row_offset + robust_gray.shape[0]]
+            if roi_vertical_bounds is not None:
+                roi_top, roi_bottom = roi_vertical_bounds
+                far_edge_weight = self._far_edge_roi_weight(
+                    robust_gray.shape[0],
+                    row_offset,
+                    roi_top,
+                    roi_bottom,
+                )
+                extra_gain = _FAR_EDGE_MAX_TOTAL_GAIN / _VERTICAL_COMPENSATION_MAX_GAIN
+                row_gain = row_gain * (1.0 + (extra_gain - 1.0) * far_edge_weight)
             robust_float = robust_gray.astype(np.float32)
             robust_float *= row_gain[:, np.newaxis]
             robust_gray = np.clip(robust_float, 0.0, 255.0).astype(np.uint8)
@@ -2564,7 +2590,20 @@ class InspectionService:
         current_edge_zone = cv2.dilate(edges_cur, _EDGE_ZONE_KERNEL, iterations=2)
         edge_mask = (edges_zone > 0) & (current_edge_zone > 0)
         robust_gray = robust_gray.astype(np.float32)
-        robust_gray[edge_mask] *= settings.edge_suppress_factor
+        if far_edge_weight is None:
+            robust_gray[edge_mask] *= settings.edge_suppress_factor
+        else:
+            far_edge_factor = max(
+                float(settings.edge_suppress_factor),
+                _FAR_EDGE_EDGE_SUPPRESS_FACTOR,
+            )
+            edge_factors = settings.edge_suppress_factor + (
+                far_edge_factor - settings.edge_suppress_factor
+            ) * far_edge_weight
+            robust_gray[edge_mask] *= np.broadcast_to(
+                edge_factors[:, np.newaxis],
+                robust_gray.shape,
+            )[edge_mask]
         robust_gray = np.clip(robust_gray, 0, 255).astype(np.uint8)
 
         contrast_loss_zone = (ref_grad_mag > settings.contrast_loss_ref_grad) & (
@@ -2711,6 +2750,28 @@ class InspectionService:
     def _vertical_compensation_gain(height: int) -> np.ndarray:
         """Return a bounded gain that is largest at the top of a full frame."""
         return _cached_vertical_compensation_gain(height)
+
+    @staticmethod
+    def _far_edge_roi_weight(
+        row_count: int,
+        row_offset: int,
+        roi_top: int,
+        roi_bottom: int,
+    ) -> np.ndarray:
+        """Return a smooth 1→0 weight over the upper 35% of the actual ROI."""
+        roi_height = max(1, roi_bottom - roi_top - 1)
+        frame_rows = np.arange(
+            row_offset,
+            row_offset + row_count,
+            dtype=np.float32,
+        )
+        roi_y_norm = (frame_rows - float(roi_top)) / float(roi_height)
+        weight = np.clip(
+            (_FAR_EDGE_ACTIVE_ROI_HEIGHT - roi_y_norm) / _FAR_EDGE_ACTIVE_ROI_HEIGHT,
+            0.0,
+            1.0,
+        )
+        return weight * weight * (3.0 - 2.0 * weight)
 
     def _refine_alignment_ecc(self, aligned: np.ndarray, reference: np.ndarray) -> np.ndarray:
         """Доточить affine-сдвиг пирамидальным ECC (после грубой гомографии)."""

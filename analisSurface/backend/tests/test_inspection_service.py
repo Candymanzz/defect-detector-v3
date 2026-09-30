@@ -74,6 +74,23 @@ def test_vertical_compensation_is_smooth_bounded_and_top_weighted() -> None:
     assert gain[75] == pytest.approx(1.0)
 
 
+def test_far_edge_boost_is_relative_to_top_of_roi_and_localized() -> None:
+    # Crop starts above the ROI; rows before roi_top keep full weight, then the
+    # boost fades to zero within the upper 35% of the ROI.
+    weight = InspectionService._far_edge_roi_weight(
+        row_count=121,
+        row_offset=20,
+        roi_top=40,
+        roi_bottom=140,
+    )
+
+    assert weight[0] == pytest.approx(1.0)
+    assert weight[20] == pytest.approx(1.0)
+    assert 0.0 < weight[40] < 1.0
+    assert weight[56] == pytest.approx(0.0)
+    assert np.all(weight[56:] == 0.0)
+
+
 @pytest.mark.parametrize("current_level", [85, 155])
 def test_smooth_shadow_and_glare_are_suppressed(current_level: int) -> None:
     service = InspectionService.__new__(InspectionService)
