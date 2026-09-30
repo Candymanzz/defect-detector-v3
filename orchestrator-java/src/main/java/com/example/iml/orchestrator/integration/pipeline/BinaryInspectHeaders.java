@@ -134,7 +134,11 @@ public final class BinaryInspectHeaders {
                 mainRoi = bbox;
             }
         }
-        if (positioningCfg != null && positioningCfg.get("main_roi") != null) {
+        // The regular ROI selected on the reference is the positioning anchor.
+        // A static rectangle is only a fallback when no interest polygon exists.
+        if (!(mainRoiPolygon instanceof List<?> poly && poly.size() >= 3)
+                && positioningCfg != null
+                && positioningCfg.get("main_roi") != null) {
             mainRoi = positioningCfg.get("main_roi");
         }
         pHeader.put("mainRoi", mainRoi);
@@ -418,17 +422,8 @@ public final class BinaryInspectHeaders {
         pyHeader.put("width", capture.header().get("width"));
         pyHeader.put("height", capture.header().get("height"));
         pyHeader.put("stride", capture.header().get("stride"));
-        if (YamlScalars.toBool(capture.header().get(InspectPositioningExecutor.HEADER_ALIGNED), false)) {
-            pyHeader.put(
-                    "alignment_h_ref_to_cur",
-                    List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
-            );
-        } else if (geomResp != null) {
-            Object h = geomResp.header().get("homographyRefToCurrent");
-            if (h != null) {
-                pyHeader.put("alignment_h_ref_to_cur", h);
-            }
-        }
+        // Positioning belongs to java-positioning. Python receives its aligned
+        // SHM and must not apply geometry H or perform another warp.
         return pyHeader;
     }
 
@@ -484,18 +479,6 @@ public final class BinaryInspectHeaders {
         }
         if (imageUrl != null && !String.valueOf(imageUrl).isBlank()) {
             pyHeader.put("image_url", String.valueOf(imageUrl).trim());
-        }
-
-        // JPEG is the original archive/pin frame — send real H, never identity from HEADER_ALIGNED.
-        Object homography = null;
-        if (geomResp != null && geomResp.header() != null) {
-            homography = geomResp.header().get("homographyRefToCurrent");
-        }
-        if (homography == null) {
-            homography = cap.get("positioning_homography_ref_to_cur");
-        }
-        if (homography != null) {
-            pyHeader.put("alignment_h_ref_to_cur", homography);
         }
 
         putEphemeralTestKnobs(pyHeader, cap);

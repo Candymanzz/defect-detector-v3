@@ -66,8 +66,13 @@ ipcMain.handle("app:getEnvironment", () => ({
     node: process.versions.node,
   },
 }));
-
+app.disableHardwareAcceleration();
+app.commandLine.appendSwitch("disable-gpu");
+app.commandLine.appendSwitch("disable-gpu-compositing");
 app.whenReady().then(() => {
+// }));
+//fix for electron
+// app.whenReady().then(() => {
   if (process.platform === "win32") {
     app.setAppUserModelId("com.defect-detector.front-end");
   }
@@ -102,9 +107,18 @@ app.on("window-all-closed", () => {
     app.quit();
   }
 });
+// fix for electron
+// app.on("child-process-gone", (_event, details) => {
+//   writeRuntimeLog("child-process-gone", details);
+// });
 
 app.on("child-process-gone", (_event, details) => {
   writeRuntimeLog("child-process-gone", details);
+  if (details?.type === "GPU") {
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.reloadIgnoringCache();
+    }
+  }
 });
 app.on("before-quit", (_event, exitCode) => {
   writeRuntimeLog("before-quit", { exitCode });

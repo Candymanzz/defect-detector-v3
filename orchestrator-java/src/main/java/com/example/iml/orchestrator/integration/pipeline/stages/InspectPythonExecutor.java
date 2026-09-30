@@ -14,6 +14,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -24,6 +25,12 @@ public final class InspectPythonExecutor implements PythonInspectStage {
 
     private final Logger log;
     private final GeometryRuntimeConfig inspectionRuntimeConfig;
+    /**
+     * One fair FIFO lane per Python process/client.  Letting two inspections enter the
+     * same FastAPI process at once makes both CPU-bound OpenCV pipelines slower and
+     * produces large tail-latency spikes.  Different pool members still run in parallel.
+     */
+    private final Map<BinaryRpcSupervisor, Semaphore> pythonFifoLanes = new ConcurrentHashMap<>();
 
     public InspectPythonExecutor(Logger log) {
         this(log, null);
@@ -192,22 +199,28 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                     pyHeader.put("inspect_scale", inspectScale);
                 }
             }
-            pythonSlots.acquire();
+            Semaphore fifoLane = pythonFifoLanes.computeIfAbsent(python, ignored -> new Semaphore(1, true));
+            fifoLane.acquire();
             try {
-                BinaryProtocol.Message pyResp = python.command(pyHeader);
-                if (log.isDebugEnabled()) {
-                    log.debug("{} cam={} frame={} => {}", python.supervisorLabel(), cameraId, state.capture().header().get("frame_id"), pyResp.header());
+                pythonSlots.acquire();
+                try {
+                    BinaryProtocol.Message pyResp = python.command(pyHeader);
+                    if (log.isDebugEnabled()) {
+                        log.debug("{} cam={} frame={} => {}", python.supervisorLabel(), cameraId, state.capture().header().get("frame_id"), pyResp.header());
+                    }
+                    return new PipelineState(
+                            state.capture(),
+                            pyResp,
+                            state.geom(),
+                            state.captureMs(),
+                            YamlScalars.nanosToMs(System.nanoTime() - t0),
+                            state.geometryMs()
+                    );
+                } finally {
+                    pythonSlots.release();
                 }
-                return new PipelineState(
-                        state.capture(),
-                        pyResp,
-                        state.geom(),
-                        state.captureMs(),
-                        YamlScalars.nanosToMs(System.nanoTime() - t0),
-                        state.geometryMs()
-                );
             } finally {
-                pythonSlots.release();
+                fifoLane.release();
             }
         } catch (Exception e) {
             throw new RuntimeException(e);

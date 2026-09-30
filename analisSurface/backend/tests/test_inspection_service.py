@@ -552,6 +552,41 @@ def test_heatmap_and_score_are_zero_outside_roi(
     assert int(result.heatmap_u8[32:38, 34:44].max()) > 0
 
 
+def test_expensive_difference_is_computed_only_on_roi_bbox(
+    inspection_service: InspectionService,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    height, width = 240, 320
+    reference = np.full((height, width, 3), 120, dtype=np.uint8)
+    product_type = "roi-cropped-diff"
+    inspection_service.set_reference_frame(product_type, reference)
+    inspection_service.set_roi_polygon(
+        product_type,
+        [(0.40, 0.35), (0.60, 0.35), (0.60, 0.65), (0.40, 0.65)],
+    )
+    computed_shapes: list[tuple[int, int]] = []
+    original = inspection_service._compute_advanced_difference
+
+    def record_shape(aligned: np.ndarray, expected: np.ndarray, settings, **kwargs):
+        computed_shapes.append(aligned.shape[:2])
+        return original(aligned, expected, settings, **kwargs)
+
+    monkeypatch.setattr(inspection_service, "_compute_advanced_difference", record_shape)
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+
+    result = inspection_service.inspect_frame(
+        product_type,
+        reference.copy(),
+        threshold=0.5,
+        include_visuals=True,
+        alignment_h_ref_to_cur=identity,
+    )
+
+    assert computed_shapes == [(168, 160)]
+    assert result.heatmap_u8 is not None
+    assert result.heatmap_u8.shape == (height, width)
+
+
 def test_heatmap_ignores_background_residual_when_mask_is_empty() -> None:
     service = InspectionService.__new__(InspectionService)
     mask = np.zeros((32, 40, 3), dtype=np.uint8)
@@ -634,6 +669,27 @@ def test_identity_homography_skips_realign(inspection_service: InspectionService
         alignment_h_ref_to_cur=identity,
     )
     assert np.array_equal(aligned, gray_frame)
+
+
+def test_inspection_never_runs_python_positioning(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inspection_service.set_reference_frame("positioned-upstream", gray_frame)
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("Python positioning must not run")
+
+    monkeypatch.setattr(inspection_service, "_align_to_reference", fail_if_called)
+    result = inspection_service.inspect_frame(
+        "positioned-upstream",
+        gray_frame.copy(),
+        threshold=0.5,
+        alignment_h_ref_to_cur=[1.0, 0.0, 12.0, 0.0, 1.0, 7.0, 0.0, 0.0, 1.0],
+    )
+
+    assert result.anomaly_score == pytest.approx(0.0)
 
 
 def test_activity_score_does_not_saturate_on_moderate_mask() -> None:

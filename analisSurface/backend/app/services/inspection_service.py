@@ -8,6 +8,7 @@ import threading
 import time
 import uuid
 from datetime import datetime, timezone
+from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -58,6 +59,40 @@ _ILLUMINATION_DETAIL_SCALE = 18.0
 _ILLUMINATION_GRADIENT_SCALE = 32.0
 _ILLUMINATION_LOCAL_MAX_SUPPRESSION = 0.30
 _ILLUMINATION_BROAD_MAX_SUPPRESSION = 0.75
+
+# These kernels are read-only inputs to OpenCV. Reusing them avoids allocating
+# the same arrays for every frame in every inspection worker.
+_LOCAL_ENVELOPE_KERNEL = np.ones((5, 5), dtype=np.uint8)
+_THIN_DEFECT_KERNEL = np.ones((15, 15), dtype=np.uint8)
+_EDGE_ZONE_KERNEL = np.ones((3, 3), dtype=np.uint8)
+
+
+@lru_cache(maxsize=8)
+def _cached_vertical_compensation_gain(height: int) -> np.ndarray:
+    """Build the immutable, resolution-dependent gain vector only once."""
+    if height <= 1:
+        gain = np.ones((max(0, height),), dtype=np.float32)
+    else:
+        y_norm = np.arange(height, dtype=np.float32) / float(height - 1)
+        active_height = _VERTICAL_COMPENSATION_ACTIVE_HEIGHT
+        far_from_camera = np.clip((active_height - y_norm) / active_height, 0.0, 1.0)
+        far_from_camera = far_from_camera * far_from_camera * (3.0 - 2.0 * far_from_camera)
+        gain = 1.0 + (_VERTICAL_COMPENSATION_MAX_GAIN - 1.0) * far_from_camera
+    gain.setflags(write=False)
+    return gain
+
+
+def _gaussian_similarity(values: np.ndarray, scale: float) -> np.ndarray:
+    """Return exp(-(values / scale)^2) with one full-size allocation.
+
+    Keeping the ufunc sequence identical while writing intermediate results
+    in-place avoids two temporary float images per call.
+    """
+    result = np.divide(values, scale)
+    np.square(result, out=result)
+    np.negative(result, out=result)
+    np.exp(result, out=result)
+    return result
 
 
 class _DeferredLearningReviewWriter:
@@ -863,12 +898,18 @@ class InspectionService:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
         reference = reference.copy()
 
-        # 1. Совместить текущий кадр с эталоном (geometry H или ORB+homography, затем ECC).
-        aligned = self._align_to_reference(
-            frame,
-            reference,
-            product_type,
-            alignment_h_ref_to_cur=alignment_h_ref_to_cur,
+        # Positioning is owned exclusively by java-positioning. Python receives
+        # a frame that is already in reference coordinates and must never run a
+        # second ORB/ECC/warp pass over it.
+        aligned = self._use_fixed_frame(frame, reference)
+        log_analysis_stage(
+            "alignment",
+            "frame accepted from positioning service",
+            product_type=product_type,
+            extra={
+                "method": "positioning_service",
+                "resized": frame.shape[:2] != reference.shape[:2],
+            },
         )
         align_finished = time.perf_counter()
 
@@ -905,13 +946,58 @@ class InspectionService:
 
         # 3. Карта отличий эталон vs выровненный кадр.
         illumination_diagnostics: dict[str, object] = {}
-        diff_map = self._compute_advanced_difference(
-            aligned,
-            reference,
+        diff_source_aligned = aligned
+        diff_source_reference = reference
+        diff_bbox: Optional[tuple[int, int, int, int]] = None
+        if polygon is not None:
+            frame_height, frame_width = reference.shape[:2]
+            # Keep enough context for the widest local illumination kernel
+            # (up to 81 px) so defects near the ROI edge are not weakened.
+            diff_bbox = polygon_bbox_from_norm_points(
+                frame_width,
+                frame_height,
+                polygon,
+                padding=48,
+            )
+            crop_x, crop_y, crop_width, crop_height = diff_bbox
+            if crop_width > 0 and crop_height > 0:
+                diff_source_aligned = aligned[
+                    crop_y : crop_y + crop_height,
+                    crop_x : crop_x + crop_width,
+                ]
+                diff_source_reference = reference[
+                    crop_y : crop_y + crop_height,
+                    crop_x : crop_x + crop_width,
+                ]
+            else:
+                diff_bbox = None
+
+        diff_crop = self._compute_advanced_difference(
+            diff_source_aligned,
+            diff_source_reference,
             settings,
             vertical_compensation=True,
             illumination_diagnostics=illumination_diagnostics,
+            vertical_compensation_frame=(reference.shape[0], diff_bbox[1])
+            if diff_bbox is not None
+            else None,
         )
+        if diff_bbox is not None:
+            crop_x, crop_y, crop_width, crop_height = diff_bbox
+            diff_map = np.zeros(reference.shape, dtype=diff_crop.dtype)
+            diff_map[
+                crop_y : crop_y + crop_height,
+                crop_x : crop_x + crop_width,
+            ] = diff_crop
+            illumination_diagnostics.update(
+                roi_crop=f"{crop_x},{crop_y},{crop_width},{crop_height}",
+                roi_crop_percent=round(
+                    100.0 * crop_width * crop_height / max(1, reference.shape[0] * reference.shape[1]),
+                    1,
+                ),
+            )
+        else:
+            diff_map = diff_crop
         log_analysis_stage(
             "illumination",
             "shadow/glare guard applied",
@@ -2374,6 +2460,7 @@ class InspectionService:
         *,
         vertical_compensation: bool = False,
         illumination_diagnostics: Optional[dict[str, object]] = None,
+        vertical_compensation_frame: Optional[tuple[int, int]] = None,
     ) -> np.ndarray:
         """Построить карту отличий (BGR), устойчивую к микросдвигу и тексту эталона."""
         if aligned.shape[:2] != reference.shape[:2]:
@@ -2406,9 +2493,8 @@ class InspectionService:
         ref_gray = cv2.GaussianBlur(ref_gray, (5, 5), 0)
         cur_gray = cv2.GaussianBlur(cur_gray, (5, 5), 0)
 
-        kernel = np.ones((5, 5), dtype=np.uint8)
-        ref_min = cv2.erode(ref_gray, kernel, iterations=1)
-        ref_max = cv2.dilate(ref_gray, kernel, iterations=1)
+        ref_min = cv2.erode(ref_gray, _LOCAL_ENVELOPE_KERNEL, iterations=1)
+        ref_max = cv2.dilate(ref_gray, _LOCAL_ENVELOPE_KERNEL, iterations=1)
 
         over = cv2.subtract(cur_gray, ref_max)
         under = cv2.subtract(ref_min, cur_gray)
@@ -2426,12 +2512,12 @@ class InspectionService:
         blackhat = cv2.morphologyEx(
             robust_gray,
             cv2.MORPH_BLACKHAT,
-            np.ones((15, 15), dtype=np.uint8),
+            _THIN_DEFECT_KERNEL,
         )
         tophat = cv2.morphologyEx(
             robust_gray,
             cv2.MORPH_TOPHAT,
-            np.ones((15, 15), dtype=np.uint8),
+            _THIN_DEFECT_KERNEL,
         )
         robust_gray = cv2.addWeighted(robust_gray, 0.6, blackhat, 0.2, 0.0)
         robust_gray = cv2.addWeighted(robust_gray, 1.0, tophat, 0.2, 0.0)
@@ -2451,7 +2537,12 @@ class InspectionService:
         # avoid turning texture/noise into defects; static reference edges are
         # still suppressed immediately below.
         if vertical_compensation:
-            row_gain = self._vertical_compensation_gain(robust_gray.shape[0])
+            if vertical_compensation_frame is None:
+                row_gain = self._vertical_compensation_gain(robust_gray.shape[0])
+            else:
+                full_height, row_offset = vertical_compensation_frame
+                full_gain = self._vertical_compensation_gain(full_height)
+                row_gain = full_gain[row_offset : row_offset + robust_gray.shape[0]]
             robust_float = robust_gray.astype(np.float32)
             robust_float *= row_gain[:, np.newaxis]
             robust_gray = np.clip(robust_float, 0.0, 255.0).astype(np.uint8)
@@ -2469,8 +2560,8 @@ class InspectionService:
         # frame. A missing/broken edge is evidence and must keep its response.
         edges_ref = cv2.Canny(ref_gray, 80, 160)
         edges_cur = cv2.Canny(cur_gray, 80, 160)
-        edges_zone = cv2.dilate(edges_ref, np.ones((3, 3), dtype=np.uint8), iterations=2)
-        current_edge_zone = cv2.dilate(edges_cur, np.ones((3, 3), dtype=np.uint8), iterations=2)
+        edges_zone = cv2.dilate(edges_ref, _EDGE_ZONE_KERNEL, iterations=2)
+        current_edge_zone = cv2.dilate(edges_cur, _EDGE_ZONE_KERNEL, iterations=2)
         edge_mask = (edges_zone > 0) & (current_edge_zone > 0)
         robust_gray = robust_gray.astype(np.float32)
         robust_gray[edge_mask] *= settings.edge_suppress_factor
@@ -2546,20 +2637,24 @@ class InspectionService:
             0.0,
             1.0,
         )
-        light_confidence = light_confidence * light_confidence * (3.0 - 2.0 * light_confidence)
+        smooth_step = 3.0 - 2.0 * light_confidence
+        np.square(light_confidence, out=light_confidence)
+        np.multiply(light_confidence, smooth_step, out=light_confidence)
 
         # A genuine defect changes high-frequency detail or gradient structure;
         # only pixels preserving both are eligible for illumination suppression.
         detail_delta = np.abs((cur_float - low_cur) - (ref_float - low_ref))
-        detail_confidence = np.exp(-np.square(detail_delta / _ILLUMINATION_DETAIL_SCALE))
+        detail_confidence = _gaussian_similarity(detail_delta, _ILLUMINATION_DETAIL_SCALE)
         ref_gx = cv2.Sobel(ref_float, cv2.CV_32F, 1, 0, ksize=3)
         ref_gy = cv2.Sobel(ref_float, cv2.CV_32F, 0, 1, ksize=3)
         cur_gx = cv2.Sobel(cur_float, cv2.CV_32F, 1, 0, ksize=3)
         cur_gy = cv2.Sobel(cur_float, cv2.CV_32F, 0, 1, ksize=3)
         gradient_delta = cv2.magnitude(cur_gx - ref_gx, cur_gy - ref_gy)
-        gradient_confidence = np.exp(-np.square(gradient_delta / _ILLUMINATION_GRADIENT_SCALE))
+        gradient_confidence = _gaussian_similarity(gradient_delta, _ILLUMINATION_GRADIENT_SCALE)
 
-        confidence = (light_confidence * detail_confidence * gradient_confidence).astype(np.float32)
+        confidence = np.multiply(light_confidence, detail_confidence)
+        np.multiply(confidence, gradient_confidence, out=confidence)
+        confidence = confidence.astype(np.float32, copy=False)
         confidence = cv2.GaussianBlur(confidence, (9, 9), 0)
 
         # Dual branch guard: the photometric branch may suppress a smooth light
@@ -2615,14 +2710,7 @@ class InspectionService:
     @staticmethod
     def _vertical_compensation_gain(height: int) -> np.ndarray:
         """Return a bounded gain that is largest at the top of a full frame."""
-        if height <= 1:
-            return np.ones((max(0, height),), dtype=np.float32)
-        y_norm = np.arange(height, dtype=np.float32) / float(height - 1)
-        active_height = _VERTICAL_COMPENSATION_ACTIVE_HEIGHT
-        far_from_camera = np.clip((active_height - y_norm) / active_height, 0.0, 1.0)
-        # Smooth ramp avoids a visible/algorithmic boundary between bands.
-        far_from_camera = far_from_camera * far_from_camera * (3.0 - 2.0 * far_from_camera)
-        return 1.0 + (_VERTICAL_COMPENSATION_MAX_GAIN - 1.0) * far_from_camera
+        return _cached_vertical_compensation_gain(height)
 
     def _refine_alignment_ecc(self, aligned: np.ndarray, reference: np.ndarray) -> np.ndarray:
         """Доточить affine-сдвиг пирамидальным ECC (после грубой гомографии)."""
