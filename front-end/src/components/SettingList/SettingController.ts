@@ -31,6 +31,11 @@ const DEFAULT_ANALYSIS_SETTINGS: AnalysisSettings = {
   scratch_score_floor: 0.35,
   scratch_aspect_floor: 4.5,
   edge_suppress_factor: 0.2,
+  far_edge_active_roi_height: 0.35,
+  far_edge_max_total_gain: 1.45,
+  far_edge_edge_suppress_factor: 0.45,
+  high_contrast_guard_threshold: 70,
+  shadow_suppression_strength: 0.5,
   text_min_contrast: 55,
   text_structure_threshold: 30,
   contrast_loss_boost: 2,
@@ -338,6 +343,31 @@ function normalizeAnalysisSettings(settings: AnalysisSettings): AnalysisSettings
     ),
     edge_suppress_factor: clampNumber(
       toFiniteNumber(settings.edge_suppress_factor, DEFAULT_ANALYSIS_SETTINGS.edge_suppress_factor),
+      0,
+      1,
+    ),
+    far_edge_active_roi_height: clampNumber(
+      toFiniteNumber(settings.far_edge_active_roi_height, DEFAULT_ANALYSIS_SETTINGS.far_edge_active_roi_height),
+      0.05,
+      1,
+    ),
+    far_edge_max_total_gain: clampNumber(
+      toFiniteNumber(settings.far_edge_max_total_gain, DEFAULT_ANALYSIS_SETTINGS.far_edge_max_total_gain),
+      1,
+      2,
+    ),
+    far_edge_edge_suppress_factor: clampNumber(
+      toFiniteNumber(settings.far_edge_edge_suppress_factor, DEFAULT_ANALYSIS_SETTINGS.far_edge_edge_suppress_factor),
+      0,
+      1,
+    ),
+    high_contrast_guard_threshold: clampNumber(
+      Math.round(toFiniteNumber(settings.high_contrast_guard_threshold, DEFAULT_ANALYSIS_SETTINGS.high_contrast_guard_threshold)),
+      1,
+      255,
+    ),
+    shadow_suppression_strength: clampNumber(
+      toFiniteNumber(settings.shadow_suppression_strength, DEFAULT_ANALYSIS_SETTINGS.shadow_suppression_strength),
       0,
       1,
     ),

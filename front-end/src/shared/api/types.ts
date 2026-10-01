@@ -328,6 +328,11 @@ export type AnalysisSettings = {
   scratch_score_floor: number;
   scratch_aspect_floor: number;
   edge_suppress_factor: number;
+  far_edge_active_roi_height: number;
+  far_edge_max_total_gain: number;
+  far_edge_edge_suppress_factor: number;
+  high_contrast_guard_threshold: number;
+  shadow_suppression_strength: number;
   text_min_contrast: number;
   text_structure_threshold: number;
   contrast_loss_boost: number;
@@ -363,6 +368,7 @@ export type ProAnalysisKnobs = {
   edge_suppression: number;
   text_handling: number;
   preprocess_strength: number;
+  shadow_suppression: number;
 };
 
 /** Силы групп алгоритма (0–100), без threshold/sensitivity — см. ANALYSIS_SETTINGS_INTEGRATION.md */
@@ -372,6 +378,7 @@ export type StrengthKnobs = {
   edge_suppression: number;
   text_handling: number;
   preprocess_strength: number;
+  shadow_suppression: number;
 };
 
 export type StrengthKnobsResponse = {

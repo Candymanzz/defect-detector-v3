@@ -117,6 +117,39 @@ def test_smooth_shadow_and_glare_are_suppressed(current_level: int) -> None:
     assert float(np.mean(corrected)) < float(np.mean(robust)) * 0.35
 
 
+def test_shadow_suppression_strength_zero_disables_filter() -> None:
+    service = InspectionService.__new__(InspectionService)
+    robust = np.full((120, 180), 40, dtype=np.uint8)
+    reference = np.full_like(robust, 140)
+    current = np.full_like(robust, 90)
+
+    corrected, confidence = service._suppress_smooth_illumination(
+        robust,
+        reference,
+        current,
+        strength=0.0,
+    )
+
+    assert np.array_equal(corrected, robust)
+    assert np.count_nonzero(confidence) == 0
+
+
+def test_higher_shadow_suppression_strength_removes_more_energy() -> None:
+    service = InspectionService.__new__(InspectionService)
+    robust = np.full((120, 180), 40, dtype=np.uint8)
+    reference = np.full_like(robust, 140)
+    current = np.full_like(robust, 125)
+
+    low, _ = service._suppress_smooth_illumination(
+        robust, reference, current, strength=0.25,
+    )
+    high, _ = service._suppress_smooth_illumination(
+        robust, reference, current, strength=0.75,
+    )
+
+    assert float(np.mean(high)) < float(np.mean(low))
+
+
 def test_high_contrast_guard_preserves_compact_black_on_white_defect() -> None:
     reference = np.full((160, 220), 230, dtype=np.uint8)
     current = reference.copy()

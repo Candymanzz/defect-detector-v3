@@ -75,6 +75,7 @@ STRENGTH_FIELD_NAMES = (
     "edge_suppression",
     "text_handling",
     "preprocess_strength",
+    "shadow_suppression",
 )
 
 DEFAULT_STRENGTHS: dict[str, float] = {name: 50.0 for name in STRENGTH_FIELD_NAMES}
@@ -168,6 +169,7 @@ def expand_merged(
     edge_suppression: float = 50.0,
     text_handling: float = 50.0,
     preprocess_strength: float = 50.0,
+    shadow_suppression: float = 50.0,
 ) -> dict[str, Any]:
     """Чувствительность (simple) + силы групп (detailed) → полный AnalysisSettings.
 
@@ -183,6 +185,7 @@ def expand_merged(
             "edge_suppression": edge_suppression,
             "text_handling": text_handling,
             "preprocess_strength": preprocess_strength,
+            "shadow_suppression": shadow_suppression,
         }
     )
     sensitivity_100 = sensitivity * 100.0
@@ -216,6 +219,9 @@ def expand_merged(
         effective_group_sensitivity(sensitivity_100, strengths["preprocess_strength"]),
         result,
     )
+    # Direct operator control: 0 disables suppression, 50 preserves historical
+    # behavior, 100 makes smooth shadow/glare removal more aggressive.
+    result["shadow_suppression_strength"] = strengths["shadow_suppression"] / 100.0
 
     AnalysisSettings.from_overrides(result)
     return result

@@ -1494,6 +1494,7 @@ class InspectionService:
             "edge_suppression",
             "text_handling",
             "preprocess_strength",
+            "shadow_suppression",
         ):
             if key in raw:
                 value = float(raw[key])
@@ -2545,6 +2546,7 @@ class InspectionService:
                 robust_gray,
                 illumination_ref_gray,
                 illumination_cur_gray,
+                strength=settings.shadow_suppression_strength,
                 diagnostics=illumination_diagnostics,
             )
 
@@ -2652,6 +2654,7 @@ class InspectionService:
         reference_gray: np.ndarray,
         current_gray: np.ndarray,
         *,
+        strength: float = 0.5,
         diagnostics: Optional[dict[str, object]] = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Suppress broad shadow/glare while retaining local structural changes."""
@@ -2667,9 +2670,14 @@ class InspectionService:
                 suppression_percent=0.0,
                 raw_energy=0.0,
                 corrected_energy=0.0,
+                strength=round(float(np.clip(strength, 0.0, 1.0)), 3),
             )
         if height == 0 or width == 0:
             return robust_gray, np.zeros_like(robust_gray, dtype=np.float32)
+
+        safe_strength = float(np.clip(strength, 0.0, 1.0))
+        if safe_strength <= 1e-6:
+            return robust_gray.copy(), np.zeros_like(robust_gray, dtype=np.float32)
 
         kernel_size = int(round(min(height, width) * 0.08))
         kernel_size = min(81, max(7, kernel_size | 1))
@@ -2679,9 +2687,11 @@ class InspectionService:
         low_cur = cv2.GaussianBlur(cur_float, (kernel_size, kernel_size), 0)
 
         shift = np.abs(low_cur - low_ref)
+        min_shift = _ILLUMINATION_MIN_SHIFT + (0.5 - safe_strength) * 8.0
+        full_shift = _ILLUMINATION_FULL_SHIFT + (0.5 - safe_strength) * 16.0
         light_confidence = np.clip(
-            (shift - _ILLUMINATION_MIN_SHIFT)
-            / (_ILLUMINATION_FULL_SHIFT - _ILLUMINATION_MIN_SHIFT),
+            (shift - min_shift)
+            / (full_shift - min_shift),
             0.0,
             1.0,
         )
@@ -2721,22 +2731,24 @@ class InspectionService:
         detected_ratio = float(np.count_nonzero(detected)) / max(1, height * width)
         detected_columns = float(np.count_nonzero(np.any(detected, axis=0))) / max(1, width)
         broad = detected_ratio >= 0.08 and detected_columns >= 0.70
-        suppression = (
+        base_suppression = (
             _ILLUMINATION_BROAD_MAX_SUPPRESSION
             if broad
             else _ILLUMINATION_LOCAL_MAX_SUPPRESSION
         )
+        suppression = min(1.0, base_suppression * (safe_strength / 0.5))
 
         raw_float = robust_gray.astype(np.float32)
         corrected = raw_float * (1.0 - suppression * confidence)
-        if broad:
-            corrected[confidence >= 0.55] = 0.0
+        if broad and safe_strength >= 0.35:
+            zero_threshold = float(np.clip(0.80 - 0.50 * safe_strength, 0.30, 0.70))
+            corrected[confidence >= zero_threshold] = 0.0
         corrected[protected_mask] = np.maximum(corrected[protected_mask], raw_float[protected_mask])
 
         if diagnostics is not None:
             signed_shift = low_cur - low_ref
-            shadow_mask = detected & (signed_shift <= -_ILLUMINATION_MIN_SHIFT)
-            glare_mask = detected & (signed_shift >= _ILLUMINATION_MIN_SHIFT)
+            shadow_mask = detected & (signed_shift <= -min_shift)
+            glare_mask = detected & (signed_shift >= min_shift)
             pixels = max(1, height * width)
             raw_energy = float(np.sum(raw_float))
             corrected_energy = float(np.sum(corrected))
@@ -2752,6 +2764,8 @@ class InspectionService:
                 ),
                 raw_energy=round(raw_energy, 1),
                 corrected_energy=round(corrected_energy, 1),
+                min_shift=round(min_shift, 2),
+                full_shift=round(full_shift, 2),
             )
         return np.clip(corrected, 0.0, 255.0).astype(np.uint8), confidence
 

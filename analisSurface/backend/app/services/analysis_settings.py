@@ -19,6 +19,7 @@ class AnalysisSettings:
     far_edge_max_total_gain: float = 1.45
     far_edge_edge_suppress_factor: float = 0.45
     high_contrast_guard_threshold: int = 70
+    shadow_suppression_strength: float = 0.5
     text_min_contrast: int = 55
     text_structure_threshold: int = 30
     contrast_loss_boost: float = 2.0
@@ -80,6 +81,8 @@ class AnalysisSettings:
             raise ValueError("far_edge_edge_suppress_factor must be in [0, 1]")
         if not 1 <= self.high_contrast_guard_threshold <= 255:
             raise ValueError("high_contrast_guard_threshold must be in [1, 255]")
+        if not 0.0 <= self.shadow_suppression_strength <= 1.0:
+            raise ValueError("shadow_suppression_strength must be in [0, 1]")
         if not 0 <= self.text_min_contrast <= 255:
             raise ValueError("text_min_contrast must be in [0, 255]")
         if not 0 <= self.text_structure_threshold <= 255:

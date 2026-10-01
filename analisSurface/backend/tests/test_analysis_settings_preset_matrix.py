@@ -201,6 +201,7 @@ def test_strength_matrix(overrides: dict, field: str, expected: object) -> None:
         "edge_suppression": 50,
         "text_handling": 50,
         "preprocess_strength": 50,
+        "shadow_suppression": 50,
     }
     base.update(overrides)
     expanded = expand_merged(0.25, 1.0, **base)
@@ -271,6 +272,7 @@ def test_print_strength_table(capsys: pytest.CaptureFixture[str]) -> None:
                     "edge_suppression": 50,
                     "text_handling": 50,
                     "preprocess_strength": 50,
+                    "shadow_suppression": 50,
                 }
                 knobs[knob] = value
                 expanded = expand_merged(0.25, 1.0, **knobs)
