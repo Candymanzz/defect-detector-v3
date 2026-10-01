@@ -30,7 +30,6 @@ public final class InspectPositioningExecutor {
     private final AtomicInteger positioningRoundRobin;
     private final Map<String, Object> positioningCfg;
     private final boolean enabled;
-    private final boolean failOnReject;
 
     public InspectPositioningExecutor(
             Logger log,
@@ -46,8 +45,6 @@ public final class InspectPositioningExecutor {
         this.positioningCfg = positioningCfg == null ? Map.of() : Map.copyOf(positioningCfg);
         this.enabled = YamlScalars.toBool(this.positioningCfg.get("enabled"), !this.positioningPool.isEmpty())
                 && !this.positioningPool.isEmpty();
-        // Large pose discrepancy is expected; hard-fail only when alignment itself failed.
-        this.failOnReject = YamlScalars.toBool(this.positioningCfg.get("fail_on_reject"), true);
     }
 
     public static InspectPositioningExecutor disabled(Logger log) {
@@ -256,11 +253,14 @@ public final class InspectPositioningExecutor {
             putIfPresent(captureHeader, "positioning_error_class", resp.header().get("error_class"));
         }
 
-        if (!ok && failOnReject) {
-            captureHeader.put(HEADER_HARD_FAIL, true);
+        if (!ok) {
+            // Positioning is a transform stage, not an inspection authority.  Its
+            // quality status is diagnostic only; Python/geometry must make the
+            // product decision.  On failure they receive the original capture.
+            captureHeader.put(HEADER_HARD_FAIL, false);
             if (log != null) {
                 log.info(
-                        "positioning reject cam={} frame={} shift=({}, {}) rot={} status={} msg_type={} error={}",
+                        "positioning fallback cam={} frame={} shift=({}, {}) rot={} status={} msg_type={} error={}",
                         cameraId,
                         captureHeader.get("frame_id"),
                         captureHeader.get("positioning_shift_x_mm"),

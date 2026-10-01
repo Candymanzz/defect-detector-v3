@@ -12,3 +12,10 @@
 2026-09-22 09:29:20.077 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-close pid=13004 command=[cmd.exe, /c, ping -n 30 127.0.0.1 >nul]
 2026-09-22 09:29:20.077 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service exit-test-close pid=13004
 2026-09-22 09:29:20.077 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service exit-test-close stopped
+2026-10-01 15:16:43.522 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit821966356540943463\camera_runtime_settings.json cameras=2
+2026-10-01 15:16:43.539 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit3895611219165695621\camera_runtime_settings.json cameras=1
+2026-10-01 15:16:58.270 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-unexpected pid=12248 command=[cmd.exe, /c, exit /b 0]
+2026-10-01 15:16:58.287 WARN  [ForkJoinPool.commonPool-worker-1] c.e.i.o.i.s.ExternalServiceProcess - external service exit-test-unexpected pid=12248 exited unexpectedly code=0
+2026-10-01 15:16:58.287 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-close pid=10544 command=[cmd.exe, /c, ping -n 30 127.0.0.1 >nul]
+2026-10-01 15:16:58.287 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service exit-test-close pid=10544
+2026-10-01 15:16:58.287 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service exit-test-close stopped

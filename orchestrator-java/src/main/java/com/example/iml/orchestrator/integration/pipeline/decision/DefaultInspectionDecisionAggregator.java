@@ -99,7 +99,10 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
         }
         if (geomResp.header() != null
                 && "SKIPPED".equals(String.valueOf(geomResp.header().getOrDefault("status", "")))) {
-            return true;
+            // A normal no-joint skip carries overallPass=true.  A positioning reject
+            // is also skipped (geometry never ran), but carries alignmentPass=false
+            // and overallPass=false so it must still reject the item.
+            return Boolean.TRUE.equals(geomResp.header().get("overallPass"));
         }
         return geomResp.type() == BinaryProtocol.MSG_RESPONSE
                 && Boolean.TRUE.equals(geomResp.header().get("overallPass"));

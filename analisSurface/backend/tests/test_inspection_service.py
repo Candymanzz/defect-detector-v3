@@ -128,6 +128,50 @@ def test_illumination_filter_preserves_local_defect() -> None:
     assert float(np.percentile(corrected[defect_border], 90)) >= 30.0
 
 
+def test_local_smooth_shadow_is_suppressed_without_full_width_coverage() -> None:
+    service = InspectionService.__new__(InspectionService)
+    height, width = 180, 260
+    reference = np.full((height, width), 130, dtype=np.uint8)
+    x = np.arange(width, dtype=np.float32)
+    # A soft, coherent shadow covers only the right-hand part of the ROI.  It
+    # deliberately does not satisfy the full-width broad-lighting heuristic.
+    shadow = 38.0 / (1.0 + np.exp(-(x - 175.0) / 12.0))
+    current = np.clip(reference.astype(np.float32) - shadow[np.newaxis, :], 0, 255).astype(np.uint8)
+    robust = np.full_like(reference, 40)
+
+    corrected, confidence = service._suppress_smooth_illumination(
+        robust,
+        reference,
+        current,
+    )
+
+    shadow_core = np.s_[:, 210:250]
+    assert float(np.mean(confidence[shadow_core])) > 0.7
+    assert float(np.mean(corrected[shadow_core])) < 22.0
+
+
+def test_local_shadow_filter_preserves_thin_defect_inside_shadow() -> None:
+    service = InspectionService.__new__(InspectionService)
+    height, width = 180, 260
+    reference = np.full((height, width), 130, dtype=np.uint8)
+    x = np.arange(width, dtype=np.float32)
+    shadow = 38.0 / (1.0 + np.exp(-(x - 175.0) / 12.0))
+    current = np.clip(reference.astype(np.float32) - shadow[np.newaxis, :], 0, 255).astype(np.uint8)
+    cv2.line(current, (225, 25), (225, 155), 45, 2, cv2.LINE_AA)
+    robust = np.full_like(reference, 40)
+    robust[:, 222:229] = 55
+
+    corrected, confidence = service._suppress_smooth_illumination(
+        robust,
+        reference,
+        current,
+    )
+
+    defect = np.s_[30:150, 223:228]
+    assert float(np.percentile(confidence[defect], 90)) < 0.2
+    assert float(np.percentile(corrected[defect], 90)) >= 50.0
+
+
 def test_saturated_glare_is_not_suppressed_to_pass() -> None:
     service = InspectionService.__new__(InspectionService)
     reference = np.full((160, 220), 125, dtype=np.uint8)
@@ -226,6 +270,62 @@ def test_component_intensity_increases_local_score(
     strong_score, _ = inspection_service._run_anomaly_model(strong, settings)
 
     assert strong_score > weak_score
+
+
+def test_weak_elongated_light_edge_does_not_receive_scratch_reject_floor(
+    inspection_service: InspectionService,
+) -> None:
+    settings = AnalysisSettings.from_overrides(
+        {
+            "use_patchcore": False,
+            "default_threshold": 0.454,
+            "min_diff_signal": 8.0,
+            "min_defect_area": 4,
+            "scratch_aspect_floor": 3.0,
+            "scratch_score_floor": 0.5,
+        }
+    )
+    diff = np.zeros((160, 220, 3), dtype=np.uint8)
+    # Mirrors the latest false reject: a short narrow, low-energy highlight
+    # boundary, not enough photometric evidence to call it a scratch.
+    weak_edge = np.array(
+        [[197, 55], [200, 56], [202, 63], [203, 97], [200, 97], [195, 60]],
+        dtype=np.int32,
+    )
+    cv2.fillPoly(diff, [weak_edge], (12, 12, 12))
+
+    score, _ = inspection_service._run_anomaly_model(
+        diff,
+        settings,
+        decision_threshold=0.454,
+    )
+
+    assert score < 0.454
+
+
+def test_strong_thin_scratch_still_receives_reject_floor(
+    inspection_service: InspectionService,
+) -> None:
+    settings = AnalysisSettings.from_overrides(
+        {
+            "use_patchcore": False,
+            "default_threshold": 0.454,
+            "min_diff_signal": 8.0,
+            "min_defect_area": 4,
+            "scratch_aspect_floor": 3.0,
+            "scratch_score_floor": 0.5,
+        }
+    )
+    diff = np.zeros((160, 220, 3), dtype=np.uint8)
+    cv2.line(diff, (110, 35), (110, 125), (70, 70, 70), 2, cv2.LINE_AA)
+
+    score, _ = inspection_service._run_anomaly_model(
+        diff,
+        settings,
+        decision_threshold=0.454,
+    )
+
+    assert score > 0.454
 
 
 def test_unchanged_full_roi_reuses_initial_anomaly_pass(

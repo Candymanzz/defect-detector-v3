@@ -29,6 +29,7 @@ import org.opencv.imgproc.Imgproc;
 import org.opencv.video.Video;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -94,8 +95,13 @@ public final class BucketPositioningService {
     /** Soft gate: both residual + absdiff still bad → refuse PASS (cam=2/4 leftover shift). */
     private static final double ALIGN_FAIL_RESIDUAL_PX = 10.0;
     private static final double ALIGN_FAIL_ABSDiff = 10.0;
-    /** Hard gate: absdiff alone (residual can read ~0 while frame is still wrong — cam=0). */
+    /**
+     * A large absdiff by itself can be caused by an alternating light bank.  In that
+     * case the image structure is still strongly correlated and positioning must not
+     * turn an illumination change into an alignment reject.
+     */
     private static final double ALIGN_FAIL_ABSDiff_HARD = 16.0;
+    private static final double ALIGN_FAIL_NCC_HARD = 0.80;
     private static final int ORB_MIN_REF_KEYPOINTS = 48;
     private static final double FALLBACK_FAIL_MM = 9999.0;
     private static final double FALLBACK_FAIL_ROTATION_DEG = 9999.0;
@@ -105,6 +111,9 @@ public final class BucketPositioningService {
     private final BFMatcher matcher;
     private final CLAHE clahe;
     private PreparedReference preparedReferenceCache;
+    private double lastAcceptedShiftXPx = Double.NaN;
+    private double lastAcceptedShiftYPx = Double.NaN;
+    private double lastAcceptedRotationDeg = Double.NaN;
 
     /**
      * Reused scratch Mats for hot paths (single-threaded stdio loop per process).
@@ -572,11 +581,32 @@ public final class BucketPositioningService {
             String writeError = null;
 
             double finalResidual = Math.hypot(qFinal.residualShiftX(), qFinal.residualShiftY());
-            // Residual metric can lie on striped texture; absdiff is the hard floor.
+            boolean uncorrectedFallback = !coarseUsed
+                    && !orbApplied
+                    && !residualPolishUsed
+                    && !eccApplied
+                    && !postEccPolishUsed;
+            boolean fallbackResidualTooLarge = uncorrectedFallback
+                    && Double.isFinite(finalResidual)
+                    && finalResidual >= tuning.alignFailResidualPx();
+            // Residual metric can lie on striped texture, but absdiff alone also lies
+            // when illumination alternates.  Use the hard photometric gate only when
+            // structural correlation is poor as well.  Real displacement remains
+            // protected by the residual gates below.
+            boolean hardPhotometricMismatch = Double.isFinite(qFinal.meanAbsDiff())
+                    && qFinal.meanAbsDiff() >= tuning.alignFailAbsdiffHard()
+                    && (!Double.isFinite(qFinal.ncc()) || qFinal.ncc() < ALIGN_FAIL_NCC_HARD);
             boolean stillMisaligned = Double.isFinite(qFinal.meanAbsDiff())
-                    && (qFinal.meanAbsDiff() >= tuning.alignFailAbsdiffHard()
+                    && (hardPhotometricMismatch
                     || (qFinal.meanAbsDiff() >= tuning.alignFailAbsdiff()
                             && finalResidual >= tuning.alignFailResidualPx()));
+            // No correction was accepted, so a large residual cannot safely be
+            // hidden by a low average absdiff. Passing that raw frame caused
+            // visible frame-to-frame jumps and false defect decisions.
+            stillMisaligned = stillMisaligned || fallbackResidualTooLarge;
+            diag.put("uncorrected_fallback", uncorrectedFallback);
+            diag.put("fallback_residual_reject", fallbackResidualTooLarge);
+            diag.put("hard_photometric_mismatch", hardPhotometricMismatch);
             diag.put("align_quality_ok", !stillMisaligned);
             if (stillMisaligned) {
                 log.warn(
@@ -624,6 +654,61 @@ public final class BucketPositioningService {
                     : (matched && !stillMisaligned);
             if (request.writeAligned() && outputName.isEmpty()) {
                 overallPass = false;
+            }
+
+            double pixelsToMm = Math.max(1e-12, Math.abs(request.pixelsToMm()));
+            double shiftXPx = metrics.shiftXmm / pixelsToMm;
+            double shiftYPx = metrics.shiftYmm / pixelsToMm;
+            double jumpPx = Double.NaN;
+            double jumpRotationDeg = Double.NaN;
+            if (Double.isFinite(lastAcceptedShiftXPx) && Double.isFinite(lastAcceptedShiftYPx)) {
+                jumpPx = Math.hypot(
+                        shiftXPx - lastAcceptedShiftXPx,
+                        shiftYPx - lastAcceptedShiftYPx
+                );
+            }
+            if (Double.isFinite(lastAcceptedRotationDeg)) {
+                jumpRotationDeg = Math.abs(metrics.rotationDeg - lastAcceptedRotationDeg);
+            }
+            putFinite(diag, "pose_shift_x_px", shiftXPx);
+            putFinite(diag, "pose_shift_y_px", shiftYPx);
+            putFinite(diag, "pose_rotation_deg", metrics.rotationDeg);
+            putFinite(diag, "pose_jump_px", jumpPx);
+            putFinite(diag, "pose_jump_rotation_deg", jumpRotationDeg);
+            diag.put("homography_ref_to_current", Arrays.toString(hRefToCur));
+
+            log.info(
+                    "positioning_result {} status={} source={} raw_absdiff={} raw_ncc={} raw_residual=({}, {}) "
+                            + "final_absdiff={} final_ncc={} final_residual=({}, {}) residual_mag={} "
+                            + "pose_px=({}, {}) rot_deg={} jump_px={} jump_rot_deg={} "
+                            + "orb_kp=({},{}) good={} inliers={} h_ref_to_cur={}",
+                    ctx(logContext),
+                    overallPass ? "PASS" : "FAIL",
+                    uncorrectedFallback ? "raw_fallback" : "aligned",
+                    fmt(q0.meanAbsDiff()),
+                    fmt(q0.ncc()),
+                    fmt(q0.residualShiftX()),
+                    fmt(q0.residualShiftY()),
+                    fmt(qFinal.meanAbsDiff()),
+                    fmt(qFinal.ncc()),
+                    fmt(qFinal.residualShiftX()),
+                    fmt(qFinal.residualShiftY()),
+                    fmt(finalResidual),
+                    fmt(shiftXPx),
+                    fmt(shiftYPx),
+                    fmt(metrics.rotationDeg),
+                    fmt(jumpPx),
+                    fmt(jumpRotationDeg),
+                    orbResult.refKeypoints(),
+                    orbResult.curKeypoints(),
+                    orbResult.goodMatches(),
+                    orbResult.inliers(),
+                    Arrays.toString(hRefToCur)
+            );
+            if (overallPass) {
+                lastAcceptedShiftXPx = shiftXPx;
+                lastAcceptedShiftYPx = shiftYPx;
+                lastAcceptedRotationDeg = metrics.rotationDeg;
             }
 
             double stageMsTotal = nanosToMs(System.nanoTime() - tTotal0);

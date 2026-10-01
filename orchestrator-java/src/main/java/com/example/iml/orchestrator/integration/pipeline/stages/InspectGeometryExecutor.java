@@ -330,12 +330,15 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
     private static BinaryProtocol.Message positioningRejectMessage(PipelineState state, int cameraId) {
         Map<String, Object> h = state.capture().header();
         Map<String, Object> fail = new java.util.LinkedHashMap<>();
-        fail.put("status", "FAIL");
+        // Geometry was not executed.  Keep alignmentPass=false so the final decision
+        // remains REJECT, but do not present this as a geometry/seam defect.
+        fail.put("status", "SKIPPED");
         fail.put("overallPass", false);
         fail.put("alignmentPass", false);
         fail.put("camera_id", cameraId);
         fail.put("frame_id", h.get("frame_id"));
         fail.put("error", "positioning reject");
+        fail.put("skipReason", "POSITIONING_REJECT");
         double shiftX = YamlScalars.toDouble(h.getOrDefault("positioning_shift_x_mm", 9999.0), 9999.0);
         double shiftY = YamlScalars.toDouble(h.getOrDefault("positioning_shift_y_mm", 9999.0), 9999.0);
         fail.put("shiftXmm", shiftX);

@@ -61,7 +61,9 @@ _ILLUMINATION_FULL_SHIFT = 22.0
 _ILLUMINATION_DETAIL_SCALE = 18.0
 _ILLUMINATION_GRADIENT_SCALE = 32.0
 _ILLUMINATION_LOCAL_MAX_SUPPRESSION = 0.30
+_ILLUMINATION_COHERENT_LOCAL_MAX_SUPPRESSION = 0.55
 _ILLUMINATION_BROAD_MAX_SUPPRESSION = 0.75
+_ILLUMINATION_COHERENT_MIN_AREA_RATIO = 0.03
 
 # These kernels are read-only inputs to OpenCV. Reusing them avoids allocating
 # the same arrays for every frame in every inspection worker.
@@ -2655,6 +2657,7 @@ class InspectionService:
                 saturated_percent=0.0,
                 structural_protected_percent=0.0,
                 broad_illumination=False,
+                coherent_local_illumination=False,
                 suppression_percent=0.0,
                 raw_energy=0.0,
                 corrected_energy=0.0,
@@ -2712,11 +2715,29 @@ class InspectionService:
         detected_ratio = float(np.count_nonzero(detected)) / max(1, height * width)
         detected_columns = float(np.count_nonzero(np.any(detected, axis=0))) / max(1, width)
         broad = detected_ratio >= 0.08 and detected_columns >= 0.70
-        suppression = (
-            _ILLUMINATION_BROAD_MAX_SUPPRESSION
-            if broad
-            else _ILLUMINATION_LOCAL_MAX_SUPPRESSION
-        )
+        # A real cast shadow may cover only one side of the ROI and therefore
+        # never reach the full-width `broad` criterion.  Strengthen suppression
+        # only when the eligible light field is one sizeable coherent region.
+        # Tiny/noisy regions retain the old conservative cap, while structural
+        # pixels remain protected below regardless of this classification.
+        coherent_local = False
+        if not broad and detected_ratio >= _ILLUMINATION_COHERENT_MIN_AREA_RATIO:
+            component_count, _, component_stats, _ = cv2.connectedComponentsWithStats(
+                detected.astype(np.uint8),
+                connectivity=8,
+            )
+            if component_count > 1:
+                largest_area = int(np.max(component_stats[1:, cv2.CC_STAT_AREA]))
+                coherent_local = (
+                    largest_area / max(1, height * width)
+                    >= _ILLUMINATION_COHERENT_MIN_AREA_RATIO
+                )
+        if broad:
+            suppression = _ILLUMINATION_BROAD_MAX_SUPPRESSION
+        elif coherent_local:
+            suppression = _ILLUMINATION_COHERENT_LOCAL_MAX_SUPPRESSION
+        else:
+            suppression = _ILLUMINATION_LOCAL_MAX_SUPPRESSION
 
         raw_float = robust_gray.astype(np.float32)
         corrected = raw_float * (1.0 - suppression * confidence)
@@ -2737,6 +2758,7 @@ class InspectionService:
                 saturated_percent=round(100.0 * np.count_nonzero(saturated_mask) / pixels, 3),
                 structural_protected_percent=round(100.0 * np.count_nonzero(structural_mask) / pixels, 3),
                 broad_illumination=bool(broad),
+                coherent_local_illumination=bool(coherent_local),
                 suppression_percent=round(
                     100.0 * max(0.0, raw_energy - corrected_energy) / max(1.0, raw_energy),
                     3,
@@ -2874,6 +2896,8 @@ class InspectionService:
         filtered = np.zeros_like(cleaned)
         min_area = settings.min_defect_area
         max_aspect = 0.0
+        max_scratch_q90 = 0.0
+        max_scratch_peak = 0.0
         max_object_score = 0.0
         # Approximate text-like zones on diff map by strong local gradients.
         grad_x = cv2.Sobel(gray_blur, cv2.CV_32F, 1, 0, ksize=3)
@@ -2909,12 +2933,22 @@ class InspectionService:
                     max_aspect = max(max_aspect, float(aspect))
                     component_values = gray_blur[y : y + h, x : x + w][component_mask]
                     component_q90 = float(np.percentile(component_values, 90)) if component_values.size else 0.0
+                    component_peak = float(np.max(component_values)) if component_values.size else 0.0
+                    if aspect > settings.scratch_aspect_floor:
+                        max_scratch_q90 = max(max_scratch_q90, component_q90)
+                        max_scratch_peak = max(max_scratch_peak, component_peak)
                     local_score = float(
                         (aspect / 15.0)
                         + (area / 500.0)
                         + ((component_q90 / 255.0) * 0.25)
                     )
-                    if text_overlap > 0.2:
+                    # Weak illumination boundaries can have a large Sobel
+                    # response despite very low absolute difference.  Do not
+                    # amplify them as text damage without photometric evidence.
+                    if (
+                        text_overlap > 0.2
+                        and component_q90 >= max(25.0, settings.min_diff_signal * 2.5)
+                    ):
                         local_score *= 1.3
 
                     # Penalty for structural "emptiness": if inside anomaly region
@@ -2944,7 +2978,11 @@ class InspectionService:
         # elongated blobs + bright top-tail appeared, so a small sensitivity nudge
         # often jumped displayed anomaly from ~80% to 100%.
         heuristic_score = float(np.clip((max_object_score * 0.55) + (top_mean * 0.40), 0.0, 1.0))
-        if max_aspect > settings.scratch_aspect_floor:
+        scratch_signal_confirmed = (
+            max_scratch_q90 >= max(20.0, settings.min_diff_signal * 2.0)
+            and max_scratch_peak >= max(28.0, settings.min_diff_signal * 3.0)
+        )
+        if max_aspect > settings.scratch_aspect_floor and scratch_signal_confirmed:
             # A positively identified scratch must not remain just below the
             # active verdict threshold. Keep a small margin to avoid equality
             # and floating-point rounding differences between regional passes.

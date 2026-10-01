@@ -1,0 +1,267 @@
+﻿--- LightServer log started 2026-09-28 09:45:04 ---
+2026-09-28 09:45:04.587 [Information] LightServer: Content root: C:\Users\Administrator\Documents\GitHub\defect-detector-v3\LightServer.v3\bin\Release\net10.0\, ComLightDevices: 1, файл лога: C:\Users\Administrator\Documents\GitHub\defect-detector-v3\LightServer.v3\logs\2026-09-28_09-45-04.log
+2026-09-28 09:45:04.743 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://127.0.0.1:5080
+2026-09-28 09:45:04.743 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2026-09-28 09:45:04.744 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Production
+2026-09-28 09:45:04.751 [Information] Microsoft.Hosting.Lifetime: Content root path: C:\Users\Administrator\Documents\GitHub\defect-detector-v3\LightServer.v3\bin\Release\net10.0\
+2026-09-28 09:45:05.451 [Information] LightServer.Services.EthernetMvLeBank: Ethernet bank: EnumDevices count=0, targets=4
+2026-09-28 09:45:05.457 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: mv-le-1@169.254.220.4 не найден
+2026-09-28 09:45:05.458 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: mv-le-2@169.254.220.3 не найден
+2026-09-28 09:45:05.458 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: mv-le-3@169.254.220.2 не найден
+2026-09-28 09:45:05.458 [Warning] LightServer.Services.EthernetMvLeBank: Ethernet bank: mv-le-4@169.254.220.1 не найден
+2026-09-28 09:45:06.708 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: EnumDevices count=1, map=[COM2:0]
+2026-09-28 09:45:07.175 [Information] LightServer.Services.IsolatedComPortLight: COM2: открыт idx=0/1 mode=bank-On MV-LE200-48W24-2D @ COM2 (DA8782413)
+2026-09-28 09:45:07.175 [Information] LightServer.Services.ComLightIsolatedBank: IsolatedBank: готово COM2
+2026-09-28 09:45:07.176 [Information] LightServer.Services.ComLightBankService: ComLightBank: готово 1/1 COM (COM2)
+2026-09-28 09:45:25.437 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":1,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":1,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","channels":[2,3],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.1'."}
+2026-09-28 09:45:26.173 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":2,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":2,"deviceId":"mv-le-1","route":"network","ipAddress":"169.254.220.4","channels":[1,4],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.4'."}
+2026-09-28 09:45:26.407 [Information] LightServer.Services.IsolatedComPortLight: COM2: brightness powers=[153,255]
+2026-09-28 09:45:26.409 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 200
+  >> Request: {"cameraNumber":3,"power":153}
+  << Response: {"success":true,"cameraNumber":3,"deviceId":"com2","route":"com-bank","comPort":"COM2","channels":[1],"brightness":[153]}
+2026-09-28 09:45:27.140 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":4,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":4,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","channels":[1,4],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.1'."}
+2026-09-28 09:45:27.874 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":5,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":5,"deviceId":"mv-le-1","route":"network","ipAddress":"169.254.220.4","channels":[2,3],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.4'."}
+2026-09-28 09:45:28.625 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":6,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":6,"deviceId":"mv-le-2","route":"network","ipAddress":"169.254.220.3","channels":[2,3],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.3'."}
+2026-09-28 09:45:29.376 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":7,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":7,"deviceId":"mv-le-3","route":"network","ipAddress":"169.254.220.2","channels":[1,4],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.2'."}
+2026-09-28 09:45:29.542 [Information] LightServer.Services.IsolatedComPortLight: COM2: brightness powers=[153,153]
+2026-09-28 09:45:29.543 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 200
+  >> Request: {"cameraNumber":8,"power":153}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"com2","route":"com-bank","comPort":"COM2","channels":[2],"brightness":[153]}
+2026-09-28 09:45:30.261 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":9,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":9,"deviceId":"mv-le-2","route":"network","ipAddress":"169.254.220.3","channels":[1,4],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.3'."}
+2026-09-28 09:45:30.995 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":10,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":10,"deviceId":"mv-le-3","route":"network","ipAddress":"169.254.220.2","channels":[2,3],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.2'."}
+2026-09-28 09:45:31.712 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":9,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":9,"deviceId":"mv-le-2","route":"network","ipAddress":"169.254.220.3","channels":[1,4],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.3'."}
+2026-09-28 09:45:31.878 [Information] LightServer.Services.IsolatedComPortLight: COM2: brightness powers=[153,153]
+2026-09-28 09:45:31.878 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 200
+  >> Request: {"cameraNumber":8,"power":153}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"com2","route":"com-bank","comPort":"COM2","channels":[2],"brightness":[153]}
+2026-09-28 09:45:32.629 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":7,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":7,"deviceId":"mv-le-3","route":"network","ipAddress":"169.254.220.2","channels":[1,4],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.2'."}
+2026-09-28 09:45:33.364 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":6,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":6,"deviceId":"mv-le-2","route":"network","ipAddress":"169.254.220.3","channels":[2,3],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.3'."}
+2026-09-28 09:45:34.114 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":5,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":5,"deviceId":"mv-le-1","route":"network","ipAddress":"169.254.220.4","channels":[2,3],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.4'."}
+2026-09-28 09:45:34.849 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":4,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":4,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","channels":[1,4],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.1'."}
+2026-09-28 09:45:35.048 [Information] LightServer.Services.IsolatedComPortLight: COM2: brightness powers=[153,153]
+2026-09-28 09:45:35.048 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 200
+  >> Request: {"cameraNumber":3,"power":153}
+  << Response: {"success":true,"cameraNumber":3,"deviceId":"com2","route":"com-bank","comPort":"COM2","channels":[1],"brightness":[153]}
+2026-09-28 09:45:35.766 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":2,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":2,"deviceId":"mv-le-1","route":"network","ipAddress":"169.254.220.4","channels":[1,4],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.4'."}
+2026-09-28 09:45:36.499 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":1,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":1,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","channels":[2,3],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.1'."}
+2026-09-28 09:45:37.234 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":10,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":10,"deviceId":"mv-le-3","route":"network","ipAddress":"169.254.220.2","channels":[2,3],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.2'."}
+2026-09-28 09:45:37.241 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:37.644 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:38.052 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:38.455 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:38.869 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:39.286 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:39.703 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:40.106 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:40.520 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:40.923 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:41.338 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:41.756 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:42.172 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:42.573 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:42.990 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:43.407 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:43.809 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:44.224 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:44.627 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:45.042 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:45.459 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:45.876 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:46.293 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:46.710 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:47.113 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:47.528 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:47.931 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:48.334 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:48.745 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:49.147 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:49.563 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:49.969 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:50.379 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:50.781 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:51.198 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:51.615 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:52.016 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:52.432 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:52.835 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:53.250 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:53.653 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:54.068 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:54.484 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:54.887 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:55.301 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:55.703 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:56.118 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:56.520 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:56.937 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP GET /api/camera-flash/bank => 200
+  >> Request: (empty)
+  << Response: {"initialized":false,"ready":0,"transport":"ethernet-gige+com","skipped":{"169.254.220.4":"не найден в EnumDevices","169.254.220.3":"не найден в EnumDevices","169.254.220.2":"не найден в EnumDevices","169.254.220.1":"не найден в EnumDevices"},"com":{"initialized":true,"ready":1,"error":null},"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:45:58.054 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":1,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":1,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","channels":[2,3],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.1'."}
+2026-09-28 09:45:58.773 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":2,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":2,"deviceId":"mv-le-1","route":"network","ipAddress":"169.254.220.4","channels":[1,4],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.4'."}
+2026-09-28 09:45:58.938 [Information] LightServer.Services.IsolatedComPortLight: COM2: brightness powers=[153,153]
+2026-09-28 09:45:58.938 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 200
+  >> Request: {"cameraNumber":3,"power":153}
+  << Response: {"success":true,"cameraNumber":3,"deviceId":"com2","route":"com-bank","comPort":"COM2","channels":[1],"brightness":[153]}
+2026-09-28 09:45:59.689 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":4,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":4,"deviceId":"mv-le-4","route":"network","ipAddress":"169.254.220.1","channels":[1,4],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.1'."}
+2026-09-28 09:46:00.424 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":5,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":5,"deviceId":"mv-le-1","route":"network","ipAddress":"169.254.220.4","channels":[2,3],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.4'."}
+2026-09-28 09:46:01.141 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":6,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":6,"deviceId":"mv-le-2","route":"network","ipAddress":"169.254.220.3","channels":[2,3],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.3'."}
+2026-09-28 09:46:01.875 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":7,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":7,"deviceId":"mv-le-3","route":"network","ipAddress":"169.254.220.2","channels":[1,4],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.2'."}
+2026-09-28 09:46:02.039 [Information] LightServer.Services.IsolatedComPortLight: COM2: brightness powers=[153,153]
+2026-09-28 09:46:02.039 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/single => 200
+  >> Request: {"cameraNumber":8,"power":153}
+  << Response: {"success":true,"cameraNumber":8,"deviceId":"com2","route":"com-bank","comPort":"COM2","channels":[2],"brightness":[153]}
+2026-09-28 09:46:02.758 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":9,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":9,"deviceId":"mv-le-2","route":"network","ipAddress":"169.254.220.3","channels":[1,4],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.3'."}
+2026-09-28 09:46:03.494 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/pair => 400
+  >> Request: {"cameraNumber":10,"leftPower":153,"rightPower":153}
+  << Response: {"success":false,"cameraNumber":10,"deviceId":"mv-le-3","route":"network","ipAddress":"169.254.220.2","channels":[2,3],"brightness":[153,153],"error":"Устройство не найдено по ipAddress='169.254.220.2'."}
+2026-09-28 09:46:03.503 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"on"}
+  << Response: {"success":false,"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:46:03.508 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"off"}
+  << Response: {"success":false,"error":"Ethernet bank: ни одно MV-LE не открыто."}
+2026-09-28 09:46:03.911 [Information] LightServer.Logging.HttpExchangeLoggingMiddleware: HTTP POST /api/camera-flash/bank => 400
+  >> Request: {"state":"off"}
+  << Response: {"success":false,"error":"Ethernet bank: ни одно MV-LE не открыто."}

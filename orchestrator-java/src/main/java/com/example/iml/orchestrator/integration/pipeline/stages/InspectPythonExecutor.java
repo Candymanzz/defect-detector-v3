@@ -61,9 +61,11 @@ public final class InspectPythonExecutor implements PythonInspectStage {
             BinaryProtocol.Message pyFail = new BinaryProtocol.Message(
                     BinaryProtocol.MSG_RESPONSE,
                     Map.of(
-                            "status", "FAIL",
+                            // Python was not executed; the reject belongs to positioning.
+                            "status", "SKIPPED",
                             "ok", false,
                             "error", "positioning reject",
+                            "skipReason", "POSITIONING_REJECT",
                             "camera_id", cameraId,
                             "product_type", productType
                     ),
