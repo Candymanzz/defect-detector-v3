@@ -51,8 +51,6 @@ _FP_CROP_MIN = 64
 _VERTICAL_COMPENSATION_MAX_GAIN = 1.20
 _VERTICAL_COMPENSATION_ACTIVE_HEIGHT = 0.75
 _FAR_EDGE_ACTIVE_ROI_HEIGHT = 0.35
-_FAR_EDGE_MAX_TOTAL_GAIN = 1.35
-_FAR_EDGE_EDGE_SUPPRESS_FACTOR = 0.35
 
 # Smooth illumination changes keep local texture and gradients, unlike a real
 # scratch/tear. Suppress them conservatively before structural defect boosts.
@@ -2566,8 +2564,9 @@ class InspectionService:
                     row_offset,
                     roi_top,
                     roi_bottom,
+                    settings.far_edge_active_roi_height,
                 )
-                extra_gain = _FAR_EDGE_MAX_TOTAL_GAIN / _VERTICAL_COMPENSATION_MAX_GAIN
+                extra_gain = settings.far_edge_max_total_gain / _VERTICAL_COMPENSATION_MAX_GAIN
                 row_gain = row_gain * (1.0 + (extra_gain - 1.0) * far_edge_weight)
             robust_float = robust_gray.astype(np.float32)
             robust_float *= row_gain[:, np.newaxis]
@@ -2595,7 +2594,7 @@ class InspectionService:
         else:
             far_edge_factor = max(
                 float(settings.edge_suppress_factor),
-                _FAR_EDGE_EDGE_SUPPRESS_FACTOR,
+                settings.far_edge_edge_suppress_factor,
             )
             edge_factors = settings.edge_suppress_factor + (
                 far_edge_factor - settings.edge_suppress_factor
@@ -2757,8 +2756,9 @@ class InspectionService:
         row_offset: int,
         roi_top: int,
         roi_bottom: int,
+        active_height: float = _FAR_EDGE_ACTIVE_ROI_HEIGHT,
     ) -> np.ndarray:
-        """Return a smooth 1→0 weight over the upper 35% of the actual ROI."""
+        """Return a smooth 1→0 weight over the configured upper part of the ROI."""
         roi_height = max(1, roi_bottom - roi_top - 1)
         frame_rows = np.arange(
             row_offset,
@@ -2766,8 +2766,9 @@ class InspectionService:
             dtype=np.float32,
         )
         roi_y_norm = (frame_rows - float(roi_top)) / float(roi_height)
+        safe_active_height = float(np.clip(active_height, 0.05, 1.0))
         weight = np.clip(
-            (_FAR_EDGE_ACTIVE_ROI_HEIGHT - roi_y_norm) / _FAR_EDGE_ACTIVE_ROI_HEIGHT,
+            (safe_active_height - roi_y_norm) / safe_active_height,
             0.0,
             1.0,
         )

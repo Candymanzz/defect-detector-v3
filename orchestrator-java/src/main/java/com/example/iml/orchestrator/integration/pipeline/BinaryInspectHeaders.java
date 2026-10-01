@@ -158,6 +158,10 @@ public final class BinaryInspectHeaders {
         pHeader.put("pixelsToMm", pixelsToMm);
         pHeader.put("maxShiftMm", maxShift);
         pHeader.put("maxRotationDeg", maxRot);
+        pHeader.put(
+                "maxScaleDelta",
+                YamlScalars.toDouble(positioningCfg == null ? null : positioningCfg.get("max_scale_delta"), 0.08)
+        );
         pHeader.put("write_aligned", YamlScalars.toBool(positioningCfg == null ? null : positioningCfg.get("write_aligned"), true));
         pHeader.put("output_shm_name", "iml_pos_cam_" + cameraId);
         return pHeader;
@@ -227,6 +231,7 @@ public final class BinaryInspectHeaders {
         putPositioningTuning(header, overrides, "ecc_skip_ncc", "eccSkipNcc");
         putPositioningTuning(header, overrides, "ecc_skip_absdiff", "eccSkipAbsdiff");
         putPositioningTuning(header, overrides, "ecc_skip_residual_px", "eccSkipResidualPx");
+        putPositioningTuning(header, overrides, "max_scale_delta", "maxScaleDelta");
         putPositioningTuning(header, overrides, "max_shift_mm", "maxShiftMm");
         putPositioningTuning(header, overrides, "max_rotation_deg", "maxRotationDeg");
         Object mainRoi = overrides.get("main_roi");

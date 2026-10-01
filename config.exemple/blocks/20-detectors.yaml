@@ -58,6 +58,8 @@ java_positioning:
   fail_on_reject: false
   write_aligned: true
   pixels_to_mm: 0.02
+  # Ограниченная компенсация масштаба без perspective/shear; 0.08 = 0.92..1.08.
+  max_scale_delta: 0.08
   # Мягкие метрики в ответе (не гейтят PASS); QC допусков — у java_geometry после выравнивания.
   max_shift_mm: 9999.0
   max_rotation_deg: 9999.0

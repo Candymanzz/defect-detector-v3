@@ -36,9 +36,9 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Lock current frame into the reference pose with a rigid transform only
- * Primary: translation. Tiny rotation only (conveyor); fake ORB twist is clamped off.
- * No perspective / scale / shear — those stretch the bucket.
+ * Lock current frame into the reference pose with a bounded similarity transform.
+ * Translation and tiny rotation are allowed together with a small uniform scale
+ * correction. Perspective and shear remain forbidden because they can hide defects.
  *
  * Pipeline:
  * 1) phaseCorrelate coarse translation
@@ -264,7 +264,10 @@ public final class BucketPositioningService {
             String orbCacheKey = (referenceCacheKey == null ? "" : referenceCacheKey)
                     + "|orb=" + orbRoi.x + "," + orbRoi.y + "," + orbRoi.width + "," + orbRoi.height;
             OrbResult orbResult = estimateRigidTransformCurrentToReference(
-                    reference, afterCoarse, orbCacheKey, orbRoi, request.mainRoiPolygonNorm());
+                    reference, afterCoarse, orbCacheKey, orbRoi, request.mainRoiPolygonNorm(),
+                    request.tuning() == null
+                            ? PositioningTuning.defaults().maxScaleDelta()
+                            : request.tuning().maxScaleDelta());
             // Tight ROI mask can starve ORB (kp_ref=0). Retry full-frame features.
             if (orbResult.refKeypoints() < ORB_MIN_REF_KEYPOINTS
                     || orbResult.homography() == null
@@ -272,7 +275,10 @@ public final class BucketPositioningService {
                     || orbResult.inliers() < MIN_MATCHES) {
                 String fullKey = (referenceCacheKey == null ? "" : referenceCacheKey) + "|orb=full";
                 OrbResult fullOrb = estimateRigidTransformCurrentToReference(
-                        reference, afterCoarse, fullKey, null, null);
+                        reference, afterCoarse, fullKey, null, null,
+                        request.tuning() == null
+                                ? PositioningTuning.defaults().maxScaleDelta()
+                                : request.tuning().maxScaleDelta());
                 boolean orbEmpty = orbResult.homography() == null || orbResult.homography().empty();
                 boolean fullOk = fullOrb.homography() != null && !fullOrb.homography().empty();
                 boolean preferFull = fullOk && (orbEmpty
@@ -305,10 +311,19 @@ public final class BucketPositioningService {
             diag.put("orb_good_matches", orbResult.goodMatches());
             diag.put("orb_inliers", orbResult.inliers());
             diag.put("orb_ok", !orbResult.homography().empty());
-            diag.put("orb_model", "euclidean");
+            diag.put("orb_model", "bounded_similarity");
+            if (!orbResult.homography().empty()) {
+                diag.put(
+                        "orb_scale",
+                        Math.hypot(
+                                orbResult.homography().get(0, 0)[0],
+                                orbResult.homography().get(1, 0)[0]
+                        )
+                );
+            }
             diag.put("orb_fullframe_fallback", orbFullframeFallback);
             log.debug(
-                    "positioning_diag {} stage=orb model=euclidean kp_ref={} kp_cur={} good_matches={} inliers={} ok={}",
+                    "positioning_diag {} stage=orb model=bounded_similarity kp_ref={} kp_cur={} good_matches={} inliers={} ok={}",
                     ctx(logContext),
                     orbResult.refKeypoints(),
                     orbResult.curKeypoints(),
@@ -772,15 +787,16 @@ public final class BucketPositioningService {
     }
 
     /**
-     * Rigid pose (R + t) from ORB matches inside the interest ROI only.
-     * Full projective homography is intentionally avoided — it stretches/shears the bucket.
+     * Bounded similarity pose (uniform scale + R + t) from ORB matches inside the interest ROI.
+     * Full projective homography is intentionally avoided because it stretches/shears the bucket.
      */
     private OrbResult estimateRigidTransformCurrentToReference(
             Mat reference,
             Mat current,
             String referenceCacheKey,
             Rect interestRoi,
-            List<NormPoint> polygon
+            List<NormPoint> polygon,
+            double maxScaleDelta
     ) {
         Mat curGray = new Mat();
         Mat curScaled = null;
@@ -873,7 +889,7 @@ public final class BucketPositioningService {
                 int inliers = inliersMask.empty() ? 0 : Core.countNonZero(inliersMask);
                 if (affineScaled == null || affineScaled.empty() || inliers < MIN_MATCHES) {
                     log.warn(
-                            "positioning_diag stage=orb_euclidean FAIL inliers={} good={} empty={}",
+                            "positioning_diag stage=orb_similarity FAIL inliers={} good={} empty={}",
                             inliers,
                             srcCur.size(),
                             affineScaled == null || affineScaled.empty()
@@ -883,7 +899,12 @@ public final class BucketPositioningService {
                 Mat hScaled = affine23ToHomography(affineScaled);
                 try {
                     Mat full = toOriginalScaleHomography(hScaled, prepared.scaleX, prepared.scaleY);
-                    Mat rigid = projectToEuclideanHomography(full, reference.cols(), reference.rows());
+                    Mat rigid = projectToBoundedSimilarityHomography(
+                            full,
+                            reference.cols(),
+                            reference.rows(),
+                            maxScaleDelta
+                    );
                     release(full);
                     return new OrbResult(rigid, refKp, curKp, good.size(), inliers);
                 } finally {
@@ -913,35 +934,60 @@ public final class BucketPositioningService {
     }
 
     /**
-     * Keep translation (+ tiny rotation). Fake ORB twist above {@link #ORB_MAX_ANGLE_DEG}
-     * is stripped so the bucket is not “подкручен” around Z.
-     * When clamping angle, translation is recomputed so the image centre stays aligned
-     * (plain drop of R with old t smears the frame).
+     * Keep translation, tiny rotation and bounded uniform scale. Fake ORB twist above
+     * {@link #ORB_MAX_ANGLE_DEG} is stripped. Translation is recomputed around the
+     * image centre whenever scale or angle is clamped.
      */
-    private static Mat projectToEuclideanHomography(Mat h, int frameWidth, int frameHeight) {
+    private static Mat projectToBoundedSimilarityHomography(
+            Mat h,
+            int frameWidth,
+            int frameHeight,
+            double maxScaleDelta
+    ) {
         double a = h.get(0, 0)[0];
         double b = h.get(1, 0)[0];
         double tx = h.get(0, 2)[0];
         double ty = h.get(1, 2)[0];
         double angle = Math.atan2(b, a);
+        double scale = Math.hypot(a, b);
+        if (!Double.isFinite(scale) || scale < 1e-6) {
+            scale = 1.0;
+        }
+        double safeScaleDelta = clampDouble(
+                Double.isFinite(maxScaleDelta)
+                        ? maxScaleDelta
+                        : PositioningTuning.defaults().maxScaleDelta(),
+                0.0,
+                0.15
+        );
+        double boundedScale = clampDouble(scale, 1.0 - safeScaleDelta, 1.0 + safeScaleDelta);
+        if (Math.abs(scale - boundedScale) > 1e-6) {
+            log.info(
+                    "positioning_diag stage=orb_scale CLAMPED {}->{} limit={}",
+                    fmt(scale),
+                    fmt(boundedScale),
+                    fmt(safeScaleDelta)
+            );
+        }
         double maxRad = Math.toRadians(ORB_MAX_ANGLE_DEG);
+        double boundedAngle = Math.abs(angle) > maxRad ? 0.0 : angle;
         if (Math.abs(angle) > maxRad) {
             log.info(
                     "positioning_diag stage=orb_angle CLAMPED {}→0 deg (conveyor translation-only)",
                     fmt(Math.toDegrees(angle))
             );
-            double cx = Math.max(1, frameWidth - 1) * 0.5;
-            double cy = Math.max(1, frameHeight - 1) * 0.5;
-            double c0 = Math.cos(angle);
-            double s0 = Math.sin(angle);
-            double mappedX = c0 * cx - s0 * cy + tx;
-            double mappedY = s0 * cx + c0 * cy + ty;
-            tx = mappedX - cx;
-            ty = mappedY - cy;
-            angle = 0.0;
+            angle = boundedAngle;
         }
-        double c = Math.cos(angle);
-        double s = Math.sin(angle);
+        // Preserve where the estimated transform maps the image centre while
+        // removing shear/perspective and clamping scale/rotation.
+        double cx = Math.max(1, frameWidth - 1) * 0.5;
+        double cy = Math.max(1, frameHeight - 1) * 0.5;
+        double mappedX = h.get(0, 0)[0] * cx + h.get(0, 1)[0] * cy + tx;
+        double mappedY = h.get(1, 0)[0] * cx + h.get(1, 1)[0] * cy + ty;
+        double c = boundedScale * Math.cos(angle);
+        double s = boundedScale * Math.sin(angle);
+        tx = mappedX - (c * cx - s * cy);
+        ty = mappedY - (s * cx + c * cy);
         Mat out = Mat.eye(3, 3, CvType.CV_64F);
         out.put(0, 0, c, -s, tx);
         out.put(1, 0, s, c, ty);

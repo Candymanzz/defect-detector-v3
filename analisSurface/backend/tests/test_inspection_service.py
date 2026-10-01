@@ -91,6 +91,15 @@ def test_far_edge_boost_is_relative_to_top_of_roi_and_localized() -> None:
     assert np.all(weight[56:] == 0.0)
 
 
+def test_far_edge_boost_respects_configured_active_height() -> None:
+    narrow = InspectionService._far_edge_roi_weight(101, 0, 0, 101, 0.20)
+    wide = InspectionService._far_edge_roi_weight(101, 0, 0, 101, 0.50)
+
+    assert narrow[30] == pytest.approx(0.0)
+    assert wide[30] > 0.0
+    assert wide[50] == pytest.approx(0.0)
+
+
 @pytest.mark.parametrize("current_level", [85, 155])
 def test_smooth_shadow_and_glare_are_suppressed(current_level: int) -> None:
     service = InspectionService.__new__(InspectionService)

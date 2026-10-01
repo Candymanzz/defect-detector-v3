@@ -40,7 +40,8 @@ public final class PositioningHeaderMapper {
                         numOrNull(h.get("alignFailResidualPx"), h.get("align_fail_residual_px"), defaults.alignFailResidualPx()),
                         numOrNull(h.get("eccSkipNcc"), h.get("ecc_skip_ncc"), defaults.eccSkipNcc()),
                         numOrNull(h.get("eccSkipAbsdiff"), h.get("ecc_skip_absdiff"), defaults.eccSkipAbsdiff()),
-                        numOrNull(h.get("eccSkipResidualPx"), h.get("ecc_skip_residual_px"), defaults.eccSkipResidualPx())
+                        numOrNull(h.get("eccSkipResidualPx"), h.get("ecc_skip_residual_px"), defaults.eccSkipResidualPx()),
+                        numOrNull(h.get("maxScaleDelta"), h.get("max_scale_delta"), defaults.maxScaleDelta())
                 )
         );
     }

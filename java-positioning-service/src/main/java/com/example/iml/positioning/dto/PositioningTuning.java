@@ -9,9 +9,10 @@ public record PositioningTuning(
         double alignFailResidualPx,
         double eccSkipNcc,
         double eccSkipAbsdiff,
-        double eccSkipResidualPx
+        double eccSkipResidualPx,
+        double maxScaleDelta
 ) {
     public static PositioningTuning defaults() {
-        return new PositioningTuning(10.0, 16.0, 10.0, 0.88, 5.0, 3.0);
+        return new PositioningTuning(10.0, 16.0, 10.0, 0.88, 5.0, 3.0, 0.08);
     }
 }
