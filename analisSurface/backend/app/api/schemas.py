@@ -97,6 +97,7 @@ class AnalysisSettingsValues(BaseModel):
     far_edge_active_roi_height: float = 0.35
     far_edge_max_total_gain: float = 1.45
     far_edge_edge_suppress_factor: float = 0.45
+    high_contrast_guard_threshold: int = 70
     text_min_contrast: int = 55
     text_structure_threshold: int = 30
     contrast_loss_boost: float = 2.0
@@ -122,6 +123,7 @@ class AnalysisSettingsUpdateRequest(BaseModel):
     far_edge_active_roi_height: Optional[float] = None
     far_edge_max_total_gain: Optional[float] = None
     far_edge_edge_suppress_factor: Optional[float] = None
+    high_contrast_guard_threshold: Optional[int] = None
     text_min_contrast: Optional[int] = None
     text_structure_threshold: Optional[int] = None
     contrast_loss_boost: Optional[float] = None

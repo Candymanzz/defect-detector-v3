@@ -2487,6 +2487,11 @@ class InspectionService:
         # for defects but can turn a smooth shadow/glare into artificial texture.
         illumination_ref_gray = ref_gray.copy()
         illumination_cur_gray = cur_gray.copy()
+        high_contrast_guard = self._build_high_contrast_guard(
+            illumination_ref_gray,
+            illumination_cur_gray,
+            settings.high_contrast_guard_threshold,
+        )
 
         # CLAHE can over-amplify texture noise on smooth frames. clipLimit≈1.0 is a
         # near no-op — treat it as off so sensitivity can ramp continuously via
@@ -2542,6 +2547,11 @@ class InspectionService:
                 illumination_cur_gray,
                 diagnostics=illumination_diagnostics,
             )
+
+        # A compact black-on-white (or white-on-black) defect must never vanish
+        # as a side effect of smooth shadow/glare suppression. Broad whole-frame
+        # illumination shifts are excluded while building this guard.
+        robust_gray = cv2.max(robust_gray, high_contrast_guard)
 
         # The bucket is inverted in the camera view, so the upper part of the
         # image is farther from the camera and its defects are weaker. Apply a
@@ -2744,6 +2754,28 @@ class InspectionService:
                 corrected_energy=round(corrected_energy, 1),
             )
         return np.clip(corrected, 0.0, 255.0).astype(np.uint8), confidence
+
+    @staticmethod
+    def _build_high_contrast_guard(
+        reference_gray: np.ndarray,
+        current_gray: np.ndarray,
+        threshold: int,
+    ) -> np.ndarray:
+        """Preserve compact, strong intensity changes before illumination filtering."""
+        delta = cv2.absdiff(reference_gray, current_gray)
+        delta = cv2.GaussianBlur(delta, (3, 3), 0)
+        limit = int(np.clip(threshold, 1, 255))
+        binary = np.where(delta >= limit, 255, 0).astype(np.uint8)
+        binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, _EDGE_ZONE_KERNEL)
+
+        count, labels, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
+        keep = np.zeros_like(binary)
+        max_area = max(9, round(binary.size * 0.20))
+        for label in range(1, count):
+            area = int(stats[label, cv2.CC_STAT_AREA])
+            if 9 <= area <= max_area:
+                keep[labels == label] = 255
+        return np.where(keep > 0, delta, 0).astype(np.uint8)
 
     @staticmethod
     def _vertical_compensation_gain(height: int) -> np.ndarray:

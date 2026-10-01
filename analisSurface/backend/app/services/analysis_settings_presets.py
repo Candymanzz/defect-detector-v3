@@ -66,6 +66,7 @@ _FIXED_FIELDS = (
     "far_edge_active_roi_height",
     "far_edge_max_total_gain",
     "far_edge_edge_suppress_factor",
+    "high_contrast_guard_threshold",
 )
 
 STRENGTH_FIELD_NAMES = (

@@ -117,6 +117,26 @@ def test_smooth_shadow_and_glare_are_suppressed(current_level: int) -> None:
     assert float(np.mean(corrected)) < float(np.mean(robust)) * 0.35
 
 
+def test_high_contrast_guard_preserves_compact_black_on_white_defect() -> None:
+    reference = np.full((160, 220), 230, dtype=np.uint8)
+    current = reference.copy()
+    current[55:105, 85:135] = 10
+
+    guard = InspectionService._build_high_contrast_guard(reference, current, 70)
+
+    assert float(np.percentile(guard[60:100, 90:130], 50)) > 150.0
+    assert np.count_nonzero(guard[:40]) == 0
+
+
+def test_high_contrast_guard_ignores_whole_frame_brightness_shift() -> None:
+    reference = np.full((160, 220), 220, dtype=np.uint8)
+    current = np.full_like(reference, 120)
+
+    guard = InspectionService._build_high_contrast_guard(reference, current, 70)
+
+    assert np.count_nonzero(guard) == 0
+
+
 def test_illumination_filter_preserves_local_defect() -> None:
     service = InspectionService.__new__(InspectionService)
     reference = np.full((180, 240), 130, dtype=np.uint8)
