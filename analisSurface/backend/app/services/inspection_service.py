@@ -20,7 +20,15 @@ from PIL import Image
 from app.runtime import get_application_id
 from app.file_logging import log_analysis_stage
 from app.services.analysis_settings import AnalysisSettings
-from app.services.analysis_settings_presets import DEFAULT_STRENGTHS, expand_merged, normalize_strengths
+from app.services.analysis_settings_presets import (
+    DEFAULT_STRENGTHS,
+    STRENGTH_SCALE_VERSION,
+    effective_group_sensitivity,
+    expand_merged,
+    migrate_intermediate_centered_strengths,
+    migrate_legacy_strengths,
+    normalize_strengths,
+)
 from app.services.inspection_geometry import (
     combine_region_masks,
     mask_to_polygon,
@@ -581,12 +589,15 @@ class InspectionService:
             if key not in allowed:
                 raise ValueError(f"Unknown analysis setting: {key}")
             current[key] = value
-        AnalysisSettings.from_overrides(current)
+        settings = AnalysisSettings.from_overrides(current)
         self._analysis_settings_overrides[analysis_profile] = current
         # Полный API сбивает abstract-режим: knobs больше не соответствуют overrides.
         self._analysis_settings_simple_knobs.pop(analysis_profile, None)
         self._analysis_settings_detailed_knobs.pop(analysis_profile, None)
         self._save_analysis_settings()
+        self._log_analysis_settings_event(
+            "saved_direct", analysis_profile, settings, source="full_settings_api",
+        )
         return dict(current)
 
     def reset_analysis_settings(self, analysis_profile: str) -> dict[str, object]:
@@ -594,6 +605,9 @@ class InspectionService:
         self._analysis_settings_simple_knobs.pop(analysis_profile, None)
         self._analysis_settings_detailed_knobs.pop(analysis_profile, None)
         self._save_analysis_settings()
+        self._log_analysis_settings_event(
+            "reset", analysis_profile, AnalysisSettings.defaults(), source="full_settings_api",
+        )
         return {}
 
     def get_simple_knobs(self, analysis_profile: str) -> dict[str, object] | None:
@@ -625,6 +639,39 @@ class InspectionService:
     def get_strengths_for_profile(self, analysis_profile: str) -> dict[str, float]:
         return normalize_strengths(self.get_detailed_knobs(analysis_profile))
 
+    @staticmethod
+    def _log_analysis_settings_event(
+        event: str,
+        analysis_profile: str,
+        settings: AnalysisSettings,
+        *,
+        threshold: float | None = None,
+        simple_knobs: dict[str, object] | None = None,
+        detailed_knobs: dict[str, object] | None = None,
+        source: str = "",
+    ) -> None:
+        details: dict[str, object] = {
+            "analysis_profile": analysis_profile,
+            "source": source,
+            "threshold": settings.default_threshold if threshold is None else threshold,
+            "inspection_enabled": settings.inspection_enabled,
+            "expanded_settings": json.dumps(settings.to_dict(), ensure_ascii=False, sort_keys=True),
+        }
+        if simple_knobs and "sensitivity" in simple_knobs:
+            sensitivity = float(simple_knobs["sensitivity"]) * 100.0
+            strengths = normalize_strengths(detailed_knobs)
+            details["global_sensitivity_pct"] = sensitivity
+            details["group_sliders"] = json.dumps(strengths, ensure_ascii=False, sort_keys=True)
+            details["effective_groups"] = json.dumps(
+                {
+                    name: round(effective_group_sensitivity(sensitivity, value), 4)
+                    for name, value in strengths.items()
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+        log_analysis_stage("analysis_settings", event, product_type=analysis_profile, extra=details)
+
     def expand_settings_for_profile(
         self,
         analysis_profile: str,
@@ -645,12 +692,20 @@ class InspectionService:
         knobs: dict[str, object],
     ) -> dict[str, object]:
         """Сохранить simple-knobs и пересчитать overrides (силы detailed сохраняются)."""
-        AnalysisSettings.from_overrides(overrides)
+        settings = AnalysisSettings.from_overrides(overrides)
         self._analysis_settings_overrides[analysis_profile] = dict(overrides)
         self._analysis_settings_simple_knobs[analysis_profile] = dict(knobs)
         if analysis_profile not in self._analysis_settings_detailed_knobs:
             self._analysis_settings_detailed_knobs[analysis_profile] = dict(DEFAULT_STRENGTHS)
         self._save_analysis_settings()
+        self._log_analysis_settings_event(
+            "saved_simple",
+            analysis_profile,
+            settings,
+            simple_knobs=knobs,
+            detailed_knobs=self._analysis_settings_detailed_knobs[analysis_profile],
+            source="simple_api",
+        )
         return dict(overrides)
 
     def apply_detailed_settings(
@@ -662,9 +717,18 @@ class InspectionService:
         normalized = self._normalize_detailed_knobs(strength_knobs)
         self._analysis_settings_detailed_knobs[analysis_profile] = normalized
         expanded = self.expand_settings_for_profile(analysis_profile)
-        AnalysisSettings.from_overrides(expanded)
+        settings = AnalysisSettings.from_overrides(expanded)
         self._analysis_settings_overrides[analysis_profile] = dict(expanded)
         self._save_analysis_settings()
+        self._log_analysis_settings_event(
+            "saved_detailed",
+            analysis_profile,
+            settings,
+            simple_knobs=self._resolve_analysis_settings_knobs(self._analysis_settings_simple_knobs, analysis_profile)
+            or {"sensitivity": 0.5},
+            detailed_knobs=normalized,
+            source="detailed_api",
+        )
         return dict(expanded)
 
     def add_fp_zone(
@@ -893,12 +957,32 @@ class InspectionService:
                 "defer_learning_review": defer_learning_review,
             },
         )
+        explicit_settings = settings is not None
         if settings is None:
             settings = self.get_analysis_settings(settings_key)
             if temporary_analysis_overrides:
                 merged_overrides = self.get_analysis_settings_overrides(settings_key)
                 merged_overrides.update(temporary_analysis_overrides)
                 settings = AnalysisSettings.from_overrides(merged_overrides)
+        saved_simple = None
+        saved_detailed = None
+        if explicit_settings:
+            settings_source = "explicit_settings"
+        elif temporary_analysis_overrides:
+            settings_source = "temporary_overrides"
+        else:
+            saved_simple = self._resolve_analysis_settings_knobs(self._analysis_settings_simple_knobs, settings_key)
+            saved_detailed = self._resolve_analysis_settings_knobs(self._analysis_settings_detailed_knobs, settings_key)
+            settings_source = "saved_knobs" if saved_simple else "direct_overrides"
+        self._log_analysis_settings_event(
+            "applied_inspection",
+            settings_key,
+            settings,
+            threshold=threshold,
+            simple_knobs=saved_simple,
+            detailed_knobs=saved_detailed,
+            source=settings_source,
+        )
         reference = self.get_reference(product_type)
         if reference is None:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
@@ -949,6 +1033,38 @@ class InspectionService:
         inspection_threshold = (
             threshold if threshold is not None else settings.default_threshold
         )
+
+        if not settings.inspection_enabled:
+            # Нулевая общая чувствительность выключает именно детекцию брака,
+            # а не просто выбирает самый грубый набор порогов.
+            log_analysis_stage(
+                "analysis_settings",
+                "inspection disabled; verdict forced to ГОДЕН",
+                product_type=product_type,
+                skipped=True,
+                extra={"analysis_profile": settings_key, "threshold": inspection_threshold},
+            )
+            height, width = aligned.shape[:2]
+            empty_mask = np.zeros((height, width), dtype=np.uint8)
+            self._last_diff_maps[product_type] = empty_mask.copy()
+            self._last_segmentation_masks[product_type] = empty_mask.copy()
+            self._last_aligned_ref_hash[product_type] = (
+                self._reference_hashes.get(product_type) or reference_fingerprint(reference)
+            )
+            return InspectionResult(
+                product_type=product_type,
+                status="ГОДЕН",
+                anomaly_score=0.0,
+                threshold=inspection_threshold,
+                detector_id=get_application_id(),
+                aligned_image=aligned if include_visuals else None,
+                diff_map=empty_mask if include_visuals else None,
+                heatmap=np.zeros_like(aligned) if include_visuals else None,
+                heatmap_u8=empty_mask if include_visuals or include_heatmap_u8 else None,
+                segmentation_mask=empty_mask if include_visuals else None,
+                py_align_ms=(align_finished - pipeline_started) * 1000.0,
+                py_total_ms=(time.perf_counter() - pipeline_started) * 1000.0,
+            )
 
         # 3. Карта отличий эталон vs выровненный кадр.
         illumination_diagnostics: dict[str, object] = {}
@@ -1491,7 +1607,7 @@ class InspectionService:
 
     @staticmethod
     def _migrate_legacy_pro_knobs(raw: dict[str, object]) -> dict[str, object]:
-        """pro_knobs (0–1) → detailed strengths (0–200), без threshold/sensitivity."""
+        """pro_knobs (0–1) → новая шкала групп (0–100)."""
         migrated: dict[str, object] = {}
         for key in (
             "noise_tolerance",
@@ -1504,8 +1620,8 @@ class InspectionService:
                 value = float(raw[key])
                 migrated[key] = value * 100.0 if value <= 1.0 else value
             else:
-                migrated[key] = 50.0
-        return migrated
+                migrated[key] = 100.0
+        return migrate_legacy_strengths(migrated)
 
     @staticmethod
     def _normalize_detailed_knobs(raw: dict[str, object]) -> dict[str, object]:
@@ -1542,6 +1658,10 @@ class InspectionService:
                     self._analysis_settings_simple_knobs[analysis_profile] = dict(simple_knobs)
                 detailed_knobs = entry.get("detailed_knobs")
                 if isinstance(detailed_knobs, dict) and detailed_knobs:
+                    if entry.get("strength_scale") == "centered_0_100":
+                        detailed_knobs = migrate_intermediate_centered_strengths(detailed_knobs)
+                    elif entry.get("strength_scale") != STRENGTH_SCALE_VERSION:
+                        detailed_knobs = migrate_legacy_strengths(detailed_knobs)
                     self._analysis_settings_detailed_knobs[analysis_profile] = self._normalize_detailed_knobs(
                         detailed_knobs
                     )
@@ -1608,6 +1728,7 @@ class InspectionService:
                 entry["detailed_knobs"] = {
                     key: float(value) for key, value in detailed_knobs.items()
                 }
+                entry["strength_scale"] = STRENGTH_SCALE_VERSION
             entries.append(entry)
         self._analysis_settings_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")
         self._stamp_analysis_settings_mtime()

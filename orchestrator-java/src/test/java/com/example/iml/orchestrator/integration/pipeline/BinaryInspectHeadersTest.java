@@ -342,11 +342,11 @@ class BinaryInspectHeadersTest {
         cap.put("analysis_test_settings", Map.of(
                 "simple", Map.of("threshold", 0.3, "sensitivity", 0.7),
                 "detailed", Map.of(
-                        "noise_tolerance", 50,
+                        "noise_tolerance", 75,
                         "scratch_sensitivity", 80,
-                        "edge_suppression", 50,
-                        "text_handling", 50,
-                        "preprocess_strength", 100
+                        "edge_suppression", 75,
+                        "text_handling", 75,
+                        "preprocess_strength", 75
                 )
         ));
         BinaryProtocol.Message captureMsg = new BinaryProtocol.Message(

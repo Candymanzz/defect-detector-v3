@@ -101,7 +101,7 @@ async def put_pro_analysis_settings(
     response_model=StrengthKnobsResponse,
 )
 async def get_strength_knobs(analysis_profile: str) -> StrengthKnobsResponse:
-    """GET — силы групп (0–200). Если не сохранены — defaults 100, saved=false."""
+    """GET — силы групп (0–100). Если не сохранены — defaults 75, saved=false."""
     return to_strength_knobs_response(analysis_profile)
 
 

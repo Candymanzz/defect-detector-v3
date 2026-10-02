@@ -591,6 +591,78 @@ def test_inspect_detects_large_difference(inspection_service: InspectionService,
     assert result.anomaly_score >= result.threshold
 
 
+def test_zero_sensitivity_always_passes_without_running_detector(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    settings_events: list[tuple[str, str, dict]] = []
+    monkeypatch.setattr(
+        "app.services.inspection_service.log_analysis_stage",
+        lambda stage, message, **kwargs: settings_events.append((stage, message, kwargs)),
+    )
+    inspection_service.set_reference_frame("disabled-inspection", gray_frame)
+    defective = gray_frame.copy()
+    defective[10:30, 10:50] = 255
+    inspection_service._analysis_settings_file = tmp_path / "analysis_settings.json"
+    inspection_service.apply_simple_settings(
+        "disabled-inspection",
+        expand_simple(0.25, 0.0),
+        {"threshold": 0.25, "sensitivity": 0.0},
+    )
+
+    def detector_must_not_run(*args, **kwargs):
+        raise AssertionError("detector must be skipped at zero sensitivity")
+
+    monkeypatch.setattr(inspection_service, "_run_anomaly_model", detector_must_not_run)
+    result = inspection_service.inspect_frame(
+        "disabled-inspection", defective, threshold=0.01,
+        include_visuals=False, include_heatmap_u8=True,
+    )
+
+    assert result.status == "ГОДЕН"
+    assert result.anomaly_score == 0.0
+    assert result.inspection_id is None
+    assert result.heatmap_u8 is not None
+    assert not np.any(result.heatmap_u8)
+    assert any(stage == "analysis_settings" and message == "saved_simple" for stage, message, _ in settings_events)
+    applied = next(kwargs["extra"] for stage, message, kwargs in settings_events
+                   if stage == "analysis_settings" and message == "applied_inspection")
+    assert applied["global_sensitivity_pct"] == 0.0
+    assert applied["inspection_enabled"] is False
+    assert all(value == 0.0 for value in json.loads(applied["effective_groups"]).values())
+    assert any("verdict forced" in message for stage, message, _ in settings_events if stage == "analysis_settings")
+
+
+def test_detailed_settings_log_contains_slider_and_effective_values(
+    inspection_service: InspectionService,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    events: list[tuple[str, str, dict]] = []
+    monkeypatch.setattr(
+        "app.services.inspection_service.log_analysis_stage",
+        lambda stage, message, **kwargs: events.append((stage, message, kwargs)),
+    )
+    inspection_service._analysis_settings_file = tmp_path / "analysis_settings.json"
+    inspection_service.apply_simple_settings(
+        "logged-profile", expand_simple(0.3, 1.0), {"threshold": 0.3, "sensitivity": 1.0},
+    )
+    strengths = {name: 75.0 for name in (
+        "noise_tolerance", "scratch_sensitivity", "edge_suppression", "text_handling", "preprocess_strength",
+    )}
+    strengths["noise_tolerance"] = 100.0
+    inspection_service.apply_detailed_settings("logged-profile", strengths)
+
+    saved = next(kwargs["extra"] for stage, message, kwargs in events
+                 if stage == "analysis_settings" and message == "saved_detailed")
+    assert saved["global_sensitivity_pct"] == 100.0
+    assert json.loads(saved["group_sliders"])["noise_tolerance"] == 100.0
+    assert json.loads(saved["effective_groups"])["noise_tolerance"] == 150.0
+    assert json.loads(saved["expanded_settings"])["min_diff_signal"] == 2.5
+
+
 def test_scoped_camera_inspection_uses_saved_profile_threshold_when_request_omits_it(
     inspection_service: InspectionService,
     gray_frame: np.ndarray,

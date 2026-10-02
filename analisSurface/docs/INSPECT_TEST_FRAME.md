@@ -44,7 +44,7 @@
 | `detector_id` | string \| null | нет | Пробрасывается в ответ |
 | `alignment_h_ref_to_cur` | `number[]` или `number[][]` | нет | 3×3 гомография ref→cur от java-geometry (9 float или 3×3) |
 | `simple` | object | один из двух | Быстрые ручки (см. ниже) |
-| `detailed` | object | один из двух | Детальные чувствительности (0–200) |
+| `detailed` | object | один из двух | Детальные настройки (0–100, прежнее обычное 75) |
 | `heatmap_u8_output_path` | string \| null | нет | Куда писать gray heatmap u8 (SHM/файл). Если задан — пишется |
 | `heatmap_max_width` | int \| null | нет | Ужать heatmap по ширине перед записью |
 | `aligned_image_u8_output_path` | string \| null | нет | Опциональный визуал |

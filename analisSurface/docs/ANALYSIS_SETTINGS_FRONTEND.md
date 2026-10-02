@@ -18,7 +18,7 @@
 | Вкладка | API | Поля |
 |---------|-----|------|
 | Быстрая | `GET/PUT .../simple` | `threshold`, `sensitivity` (0–1) |
-| Детальная | `GET/PUT .../strengths` | 5 сил (0–200), **без** threshold/sensitivity |
+| Детальная | `GET/PUT .../strengths` | 5 сил (0–100, обычное 75), **без** threshold/sensitivity |
 
 Чувствительность всегда одна — на вкладке «Быстрая».  
 Детальная вкладка только задаёт, **насколько сильно** каждая группа следует за ней.
@@ -40,8 +40,8 @@ const strengths = await fetch(
   `/api/orchestrator/analysis-settings/camera/${cameraId}/strengths`
 ).then((r) => r.json());
 
-// strengths.saved === false → все силы 100, в UI можно показать «стандарт»
-// strengths.strengths.noise_tolerance и т.д. — слайдеры 0–200
+// strengths.saved === false → все силы 75, в UI можно показать «стандарт»
+// strengths.strengths.noise_tolerance и т.д. — слайдеры 0–100
 ```
 
 По `product_type` (без камеры):
@@ -84,7 +84,7 @@ await fetch(
       scratch_sensitivity: 80,
       edge_suppression: 50,
       text_handling: 50,
-      preprocess_strength: 100,
+      preprocess_strength: 50,
     }),
   },
 );
@@ -108,7 +108,7 @@ await fetch(
 | `getProAnalysisSettings` | `GET .../strengths` |
 | `setProAnalysisSettings` | `PUT .../strengths` |
 | `ProAnalysisKnobs.threshold` | убрать — только в `SimpleAnalysisKnobs` |
-| значения 0–1 на pro-слайдерах | 0–200 (силы) |
+| значения 0–1 на pro-слайдерах | 0–100 (силы, обычное 75) |
 
 Тип для фронта:
 

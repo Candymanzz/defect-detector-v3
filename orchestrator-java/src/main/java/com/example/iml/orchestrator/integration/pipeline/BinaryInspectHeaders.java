@@ -547,11 +547,11 @@ public final class BinaryInspectHeaders {
             pyHeader.put("pro", knobs.isEmpty()
                     ? Map.of(
                     "threshold", 0.25,
-                    "noise_tolerance", 100.0,
-                    "scratch_sensitivity", 100.0,
-                    "edge_suppression", 100.0,
-                    "text_handling", 100.0,
-                    "preprocess_strength", 100.0
+                    "noise_tolerance", 75.0,
+                    "scratch_sensitivity", 75.0,
+                    "edge_suppression", 75.0,
+                    "text_handling", 75.0,
+                    "preprocess_strength", 75.0
             )
                     : knobs);
         } else {

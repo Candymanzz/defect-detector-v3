@@ -24,6 +24,7 @@ class AnalysisSettings:
     clahe_clip_limit: float = 1.2
     fp_recheck_enabled: bool = True
     fp_trigger_diff_q90: float = 22.0
+    inspection_enabled: bool = True
     @classmethod
     def defaults(cls) -> "AnalysisSettings":
         return cls()

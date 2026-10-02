@@ -103,6 +103,7 @@ class AnalysisSettingsValues(BaseModel):
     clahe_clip_limit: float = 1.2
     fp_recheck_enabled: bool = True
     fp_trigger_diff_q90: float = 22.0
+    inspection_enabled: bool = True
     enable_internal_alignment: bool = False
 
 
@@ -125,6 +126,7 @@ class AnalysisSettingsUpdateRequest(BaseModel):
     clahe_clip_limit: Optional[float] = None
     fp_recheck_enabled: Optional[bool] = None
     fp_trigger_diff_q90: Optional[float] = None
+    inspection_enabled: Optional[bool] = None
     enable_internal_alignment: Optional[bool] = None
 
 
@@ -145,11 +147,11 @@ class SimpleSettingsKnobs(BaseModel):
 class DetailedStrengthKnobs(BaseModel):
     """Силы изменения групп (сохраняются отдельно от чувствительности)."""
 
-    noise_tolerance: float = Field(..., ge=0.0, le=200.0)
-    scratch_sensitivity: float = Field(..., ge=0.0, le=200.0)
-    edge_suppression: float = Field(..., ge=0.0, le=200.0)
-    text_handling: float = Field(..., ge=0.0, le=200.0)
-    preprocess_strength: float = Field(..., ge=0.0, le=200.0)
+    noise_tolerance: float = Field(..., ge=0.0, le=100.0)
+    scratch_sensitivity: float = Field(..., ge=0.0, le=100.0)
+    edge_suppression: float = Field(..., ge=0.0, le=100.0)
+    text_handling: float = Field(..., ge=0.0, le=100.0)
+    preprocess_strength: float = Field(..., ge=0.0, le=100.0)
 
 
 # alias для обратной совместимости импортов
@@ -189,12 +191,12 @@ class ProSettingsResponse(BaseModel):
 
 
 class StrengthKnobsResponse(BaseModel):
-    """Силы групп (0–200) для product_type — лёгкий ответ без полного settings."""
+    """Центрированные силы групп (0–100) для product_type."""
 
     analysis_profile: str
     strengths: DetailedStrengthKnobs
     saved: bool = Field(
-        description="True если силы явно сохранены в detailed_knobs; False — отдаются defaults (100)."
+        description="True если силы явно сохранены в detailed_knobs; False — отдаются defaults (75)."
     )
 
 

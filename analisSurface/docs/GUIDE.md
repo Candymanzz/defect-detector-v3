@@ -238,7 +238,7 @@ analisSurface/
 | `PUT` | `/analysis-settings/{product_type}` | Частичное обновление |
 | `DELETE` | `/analysis-settings/{product_type}` | Сброс к defaults |
 | `GET/PUT` | `/analysis-settings/{product_type}/simple` | 2 ручки: threshold + sensitivity |
-| `GET/PUT` | `/analysis-settings/{product_type}/strengths` | 5 сил групп (0–200) |
+| `GET/PUT` | `/analysis-settings/{product_type}/strengths` | 5 сил групп (0–100, обычное 75) |
 | `GET/PUT` | `/analysis-settings/{product_type}/detailed` | alias strengths + полный settings в ответе |
 
 Ключевые параметры (кратко):
