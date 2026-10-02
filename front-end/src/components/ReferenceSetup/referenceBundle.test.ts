@@ -53,6 +53,30 @@ describe("createReferenceBundleFromCameraFrames", () => {
     expect(bundle.views[1].joint_roi_polygon_norm).toHaveLength(4);
   });
 
+  it("adds perspective_line_norm only for views with a valid near→far line", () => {
+    const bundle = createReferenceBundleFromCameraFrames(
+      [0, 1],
+      1,
+      { 0: previewFrame(0), 1: previewFrame(1) },
+      { 0: roi, 1: roi },
+      jointRoi,
+      [],
+      {
+        0: [
+          { x: 0.5, y: 0.9 },
+          { x: 0.5, y: 0.1 },
+        ],
+        1: [{ x: 0.5, y: 0.9 }],
+      },
+    );
+
+    expect(bundle.views[0].perspective_line_norm).toEqual([
+      { x: 0.5, y: 0.9 },
+      { x: 0.5, y: 0.1 },
+    ]);
+    expect(bundle.views[1]).not.toHaveProperty("perspective_line_norm");
+  });
+
   it("accepts circular ROI from radius as interest_polygon_norm for inspect services", () => {
     const circle = createCirclePolygonFromRadius(
       { x: 0.5, y: 0.5 },

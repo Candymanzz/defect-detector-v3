@@ -22,13 +22,16 @@ from app.file_logging import log_analysis_stage
 from app.services.analysis_settings import AnalysisSettings
 from app.services.analysis_settings_presets import DEFAULT_STRENGTHS, expand_merged, normalize_strengths
 from app.services.inspection_geometry import (
+    PerspectiveLine,
     combine_region_masks,
+    perspective_far_weights,
     mask_to_polygon,
     polygon_area,
     polygon_bbox_from_norm_points,
     polygon_mask_from_norm_points,
     padded_bbox_polygon,
     validate_polygon_inside_parent,
+    validate_perspective_line,
     validate_polygon_points,
 )
 from app.services.inspection_models import FPZone, FPZoneScore, InspectionResult, RoiSubZone, RoiSubZoneScore
@@ -171,6 +174,7 @@ class InspectionService:
         self._reference_hashes: Dict[str, str] = {}
         self._ref_orb_cache: Dict[str, Tuple[list, Optional[np.ndarray]]] = {}
         self.roi_polygons: Dict[str, list[Tuple[float, float]]] = {}
+        self.perspective_lines: Dict[str, PerspectiveLine] = {}
         self.roi_sub_zones: Dict[str, list[RoiSubZone]] = {}
         self._roi_sub_zones_file = Path(__file__).resolve().parent.parent / "data" / "roi_sub_zones.json"
         self._analysis_settings_file = Path(__file__).resolve().parent.parent / "data" / "analysis_settings.json"
@@ -255,6 +259,7 @@ class InspectionService:
         self._reference_hashes.clear()
         self._ref_orb_cache.clear()
         self.roi_polygons.clear()
+        self.perspective_lines.clear()
         self.roi_sub_zones.clear()
         self.fp_zones.clear()
         self._last_diff_maps.clear()
@@ -479,6 +484,21 @@ class InspectionService:
 
     def get_roi_polygon(self, product_type: str) -> Optional[list[Tuple[float, float]]]:
         return self.roi_polygons.get(product_type)
+
+    def set_perspective_line(
+        self,
+        product_type: str,
+        points: Optional[list[Tuple[float, float]]],
+    ) -> None:
+        """Линия от ближнего края изделия к дальнему; None — вернуть допущение по умолчанию."""
+        with self._product_lock(product_type):
+            if points is None:
+                self.perspective_lines.pop(product_type, None)
+            else:
+                self.perspective_lines[product_type] = validate_perspective_line(points)
+
+    def get_perspective_line(self, product_type: str) -> Optional[PerspectiveLine]:
+        return self.perspective_lines.get(product_type)
 
     def get_roi_sub_zones(self, product_type: str) -> list[RoiSubZone]:
         return list(self.roi_sub_zones.get(product_type, []))
@@ -984,11 +1004,18 @@ class InspectionService:
             else:
                 diff_bbox = None
 
+        perspective_weights = self._perspective_weights_for(
+            product_type,
+            reference.shape,
+            diff_bbox,
+            diff_source_aligned.shape,
+        )
         diff_crop = self._compute_advanced_difference(
             diff_source_aligned,
             diff_source_reference,
             settings,
             vertical_compensation=True,
+            perspective_weights=perspective_weights,
             illumination_diagnostics=illumination_diagnostics,
             vertical_compensation_frame=(reference.shape[0], diff_bbox[1])
             if diff_bbox is not None
@@ -2475,6 +2502,7 @@ class InspectionService:
         illumination_diagnostics: Optional[dict[str, object]] = None,
         vertical_compensation_frame: Optional[tuple[int, int]] = None,
         roi_vertical_bounds: Optional[tuple[int, int]] = None,
+        perspective_weights: Optional[tuple[np.ndarray, np.ndarray]] = None,
     ) -> np.ndarray:
         """Построить карту отличий (BGR), устойчивую к микросдвигу и тексту эталона."""
         if aligned.shape[:2] != reference.shape[:2]:
@@ -2551,7 +2579,20 @@ class InspectionService:
         # avoid turning texture/noise into defects; static reference edges are
         # still suppressed immediately below.
         far_edge_weight: Optional[np.ndarray] = None
-        if vertical_compensation:
+        if vertical_compensation and perspective_weights is not None:
+            # The user drew a near→far line: gain follows the real direction
+            # of the perspective instead of the "top of frame is far" default.
+            smooth_weight, far_edge_weight = perspective_weights
+            if smooth_weight.shape != robust_gray.shape[:2]:
+                raise ValueError("Perspective weights do not match the diff crop")
+            extra_gain = _FAR_EDGE_MAX_TOTAL_GAIN / _VERTICAL_COMPENSATION_MAX_GAIN
+            row_gain = (
+                1.0 + (_VERTICAL_COMPENSATION_MAX_GAIN - 1.0) * smooth_weight
+            ) * (1.0 + (extra_gain - 1.0) * far_edge_weight)
+            robust_float = robust_gray.astype(np.float32)
+            robust_float *= row_gain
+            robust_gray = np.clip(robust_float, 0.0, 255.0).astype(np.uint8)
+        elif vertical_compensation:
             if vertical_compensation_frame is None:
                 row_gain = self._vertical_compensation_gain(robust_gray.shape[0])
                 row_offset = 0
@@ -2600,8 +2641,10 @@ class InspectionService:
             edge_factors = settings.edge_suppress_factor + (
                 far_edge_factor - settings.edge_suppress_factor
             ) * far_edge_weight
+            if edge_factors.ndim == 1:
+                edge_factors = edge_factors[:, np.newaxis]
             robust_gray[edge_mask] *= np.broadcast_to(
-                edge_factors[:, np.newaxis],
+                edge_factors,
                 robust_gray.shape,
             )[edge_mask]
         robust_gray = np.clip(robust_gray, 0, 255).astype(np.uint8)
@@ -2745,6 +2788,28 @@ class InspectionService:
                 corrected_energy=round(corrected_energy, 1),
             )
         return np.clip(corrected, 0.0, 255.0).astype(np.uint8), confidence
+
+    def _perspective_weights_for(
+        self,
+        product_type: str,
+        frame_shape: tuple[int, ...],
+        diff_bbox: Optional[tuple[int, int, int, int]],
+        crop_shape: tuple[int, ...],
+    ) -> Optional[tuple[np.ndarray, np.ndarray]]:
+        line = self.get_perspective_line(product_type)
+        if line is None:
+            return None
+        frame_height, frame_width = frame_shape[:2]
+        bbox = diff_bbox or (0, 0, frame_width, frame_height)
+        if (bbox[3], bbox[2]) != tuple(crop_shape[:2]):
+            return None
+        return perspective_far_weights(
+            frame_width,
+            frame_height,
+            line,
+            bbox,
+            _FAR_EDGE_ACTIVE_ROI_HEIGHT,
+        )
 
     @staticmethod
     def _vertical_compensation_gain(height: int) -> np.ndarray:

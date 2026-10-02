@@ -184,7 +184,11 @@ def _copy_shm_bgr_frame(payload: ShmFrameRequest) -> np.ndarray:
         return np.copy(bgr_frame)
 
 
-def _sync_request_roi(product_type: str, raw_polygon: list[dict[str, float]] | None) -> None:
+def _sync_request_roi(
+    product_type: str,
+    raw_polygon: list[dict[str, float]] | None,
+    raw_perspective_line: list[dict[str, float]] | None = None,
+) -> None:
     """Install the camera ROI carried by this request before inspecting it.
 
     ROI is otherwise kept only in the Python process memory. Reapplying the
@@ -203,6 +207,14 @@ def _sync_request_roi(product_type: str, raw_polygon: list[dict[str, float]] | N
     if len(points) < 3:
         raise ValueError("roi_polygon_norm must contain at least 3 points")
     inspection_service.set_roi_polygon(product_type=product_type, points=points)
+    if raw_perspective_line:
+        line: list[tuple[float, float]] = []
+        for point in raw_perspective_line:
+            try:
+                line.append((float(point["x"]), float(point["y"])))
+            except (KeyError, TypeError, ValueError):
+                raise ValueError("perspective_line_norm points must contain numeric x and y")
+        inspection_service.set_perspective_line(product_type, line)
 
 
 def _inspect_shm_sync(
@@ -212,7 +224,11 @@ def _inspect_shm_sync(
     include_heatmap_u8: bool,
     force_skip_learning_review: bool = False,
 ):
-    _sync_request_roi(payload.product_type, payload.roi_polygon_norm)
+    _sync_request_roi(
+        payload.product_type,
+        payload.roi_polygon_norm,
+        payload.perspective_line_norm,
+    )
     inspect_scale = payload.inspect_scale
     if inspect_scale is not None and (not 0.0 < inspect_scale <= 1.0):
         raise ValueError("inspect_scale must be in (0, 1]")
@@ -355,7 +371,11 @@ async def inspect_shm_visuals(payload: ShmVisualsRequest) -> ShmVisualsResponse:
 
 
 def _inspect_test_frame_sync(payload: TestFrameInspectRequest):
-    _sync_request_roi(payload.product_type, payload.roi_polygon_norm)
+    _sync_request_roi(
+        payload.product_type,
+        payload.roi_polygon_norm,
+        payload.perspective_line_norm,
+    )
     frame = load_test_frame_bgr(payload)
     reference = inspection_service.get_reference(payload.product_type)
     if reference is not None and frame.shape[:2] != reference.shape[:2]:

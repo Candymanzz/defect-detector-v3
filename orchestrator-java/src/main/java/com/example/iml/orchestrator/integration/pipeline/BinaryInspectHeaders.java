@@ -512,6 +512,12 @@ public final class BinaryInspectHeaders {
         if (poly != null) {
             pyHeader.put("roi_polygon_norm", poly);
         }
+        if (activeReference != null
+                && activeReference.header() != null
+                && activeReference.header().get("perspective_line_norm") instanceof List<?> line
+                && line.size() == 2) {
+            pyHeader.put("perspective_line_norm", line);
+        }
     }
 
     @SuppressWarnings("unchecked")

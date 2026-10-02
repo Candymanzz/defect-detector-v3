@@ -222,6 +222,8 @@ class ShmFrameRequest(BaseModel):
     # Carry the camera-scoped ROI with each request so a Python restart cannot
     # silently fall back to full-frame processing.
     roi_polygon_norm: Optional[list[dict[str, float]]] = None
+    # [ближний край, дальний край]; переустанавливается вместе с ROI после рестарта Python.
+    perspective_line_norm: Optional[list[dict[str, float]]] = None
     skip_learning_review: bool = False
     defer_learning_review: bool = False
     test_analyze: bool = False
@@ -244,6 +246,8 @@ class TestFrameInspectRequest(BaseModel):
     alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None
     # Same per-camera ROI contract as ShmFrameRequest for UI test inspections.
     roi_polygon_norm: Optional[list[dict[str, float]]] = None
+    # [ближний край, дальний край]; переустанавливается вместе с ROI после рестарта Python.
+    perspective_line_norm: Optional[list[dict[str, float]]] = None
     simple: Optional[SimpleSettingsKnobs] = None
     detailed: Optional[DetailedSensitivityKnobs] = None
     # Kept for the current UI/orchestrator contract while detailed remains the
@@ -286,11 +290,15 @@ class RoiPolygonRequest(BaseModel):
     product_type: str
     points: list[RoiPoint]
     algorithm_params: Optional[dict] = None
+    # Две точки: от ближнего края изделия к дальнему. Без неё действует
+    # прежнее допущение «верх кадра дальше».
+    perspective_line: Optional[list[RoiPoint]] = None
 
 
 class RoiPolygonResponse(BaseModel):
     product_type: str
     points: list[RoiPoint]
+    perspective_line: Optional[list[RoiPoint]] = None
 
 
 class FPZonePoint(BaseModel):

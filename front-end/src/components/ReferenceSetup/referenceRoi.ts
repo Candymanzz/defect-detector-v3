@@ -53,6 +53,15 @@ export function isValidJointRoiPolygon(points?: InterestPointNorm[]) {
   return Boolean(points && isOrientedRectPolygon(points));
 }
 
+/** Линия перспективы: ровно две точки — ближний и дальний край изделия. */
+export function isValidPerspectiveLine(points?: InterestPointNorm[]) {
+  if (!points || points.length !== 2) {
+    return false;
+  }
+
+  return Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y) >= 0.05;
+}
+
 function normalizeRoiCoordinate(value: number, size: number) {
   if (!Number.isFinite(value) || !Number.isFinite(size) || size <= 0) {
     return 0;

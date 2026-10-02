@@ -541,6 +541,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         }
         copyIfPresent(body, header, "alignment_h_ref_to_cur");
         copyIfPresent(body, header, "roi_polygon_norm");
+        copyIfPresent(body, header, "perspective_line_norm");
         if (header.get("simple") instanceof Map<?, ?> simple) {
             body.put("simple", simple);
         }
@@ -678,7 +679,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             return null;
         }
         String roiKey = runtimeKey(productType, cameraId);
-        String signature = roiSignature(points);
+        List<Map<String, Object>> perspectiveLine = perspectiveLinePoints(header);
+        String signature = roiSignature(points) + roiSignature(perspectiveLine);
         if (signature.equals(SHARED_ROI_SIGNATURES.get(roiKey))) {
             return null;
         }
@@ -689,6 +691,9 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             Map<String, Object> roiBody = new LinkedHashMap<>();
             roiBody.put("product_type", scopedProductType);
             roiBody.put("points", points);
+            if (perspectiveLine.size() == 2) {
+                roiBody.put("perspective_line", perspectiveLine);
+            }
             appendAlgorithmParams(roiBody, header);
             HttpResponse<byte[]> roiResp = httpPostJson("/roi-polygon", roiBody);
             if (roiResp.statusCode() / 100 != 2) {
@@ -871,6 +876,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         }
         copyIfPresent(body, header, "alignment_h_ref_to_cur");
         copyIfPresent(body, header, "roi_polygon_norm");
+        copyIfPresent(body, header, "perspective_line_norm");
         copyIfPresent(body, header, "heatmap_u8_output_path");
         copyIfPresent(body, header, "heatmap_max_width");
         copyIfPresent(body, header, "inspect_scale");
@@ -1250,6 +1256,17 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         } catch (Exception e) {
             return "err";
         }
+    }
+
+    /** Линия перспективы из заголовка запроса: ровно две нормализованные точки, иначе пусто. */
+    private static List<Map<String, Object>> perspectiveLinePoints(Map<String, Object> header) {
+        if (header != null && header.get("perspective_line_norm") instanceof List<?> list) {
+            List<Map<String, Object>> points = normalizeRoiPoints(list);
+            if (points.size() == 2) {
+                return points;
+            }
+        }
+        return List.of();
     }
 
     private static String roiSignature(List<Map<String, Object>> points) {

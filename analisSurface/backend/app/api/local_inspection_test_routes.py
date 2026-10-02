@@ -58,6 +58,10 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     .roi-overlay polygon { fill:rgba(65,148,255,.20); stroke:#55a4ff; stroke-width:.005; vector-effect:non-scaling-stroke; pointer-events:none; }
     .roi-overlay polyline { fill:none; stroke:#76b6ff; stroke-width:.004; vector-effect:non-scaling-stroke; pointer-events:none; }
     .roi-overlay circle { fill:#ffe073; stroke:#152131; stroke-width:.003; vector-effect:non-scaling-stroke; pointer-events:none; }
+    .roi-overlay line.perspective { stroke:#ff9f43; stroke-width:.004; vector-effect:non-scaling-stroke; stroke-dasharray:6 4; pointer-events:none; }
+    .roi-overlay circle.persp-near { fill:#4cd98a; }
+    .roi-overlay circle.persp-far { fill:#ff6b6b; }
+    button.active-mode { border-color:#ff9f43; background:#6a4515; }
     .roi-controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:9px 10px; border-top:1px solid #29384b; }
     .roi-controls button { padding:7px 10px; }
     .roi-help { padding:0 10px 10px; color:#9eabbc; font-size:12px; }
@@ -118,15 +122,19 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
             <polygon id="roiPolygon"></polygon>
             <polyline id="roiPolyline"></polyline>
             <g id="roiVertices"></g>
+            <g id="perspectiveLayer"></g>
           </svg>
         </div>
         <div class="roi-controls">
           <button onclick="undoRoiPoint()">Удалить точку</button>
           <button onclick="clearRoi()">Очистить</button>
           <button onclick="useFullFrameRoi()">Весь кадр</button>
+          <button id="perspectiveButton" onclick="togglePerspectiveMode()" title="Два клика: сначала ближний край изделия, затем дальний">Линия перспективы</button>
+          <button onclick="clearPerspectiveLine()">Убрать линию</button>
           <span id="roiStatus" class="muted">Весь кадр</span>
+          <span id="perspectiveStatus" class="muted">Линия не задана</span>
         </div>
-        <div class="roi-help">Кликайте по эталону, чтобы поставить минимум 3 вершины. При проверке область замыкается автоматически.</div>
+        <div class="roi-help">Кликайте по эталону, чтобы поставить минимум 3 вершины. При проверке область замыкается автоматически. «Линия перспективы»: кликните сначала по ближнему краю изделия, затем по дальнему — на дальнем краю чувствительность усиливается.</div>
       </figure>
       <figure><figcaption>Выбранный текущий кадр</figcaption><img id="currentPreview" alt="Текущий кадр"></figure>
     </div>
@@ -190,6 +198,8 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
   let currentReview = null;
   let historyItems = [];
   let roiPoints = [];
+  let perspectivePoints = [];
+  let perspectiveMode = false;
   const fullFrameRoi = [{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:0,y:1}];
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const productType = () => document.getElementById('productType').value.trim() || 'local-test';
@@ -203,7 +213,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
   }
   bindPreview('referenceFile','referencePreview');
   bindPreview('currentFile','currentPreview');
-  document.getElementById('referenceFile').addEventListener('change', clearRoi);
+  document.getElementById('referenceFile').addEventListener('change', () => { clearRoi(); clearPerspectiveLine(); });
   document.getElementById('productType').addEventListener('change', () => { clearRoi(); loadAcceptedCases(); loadHistory(); });
 
   const roiSvgPoints = points => points.map(point => `${point.x},${point.y}`).join(' ');
@@ -228,11 +238,38 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     if(!image.src) { setMessage('Сначала выберите эталон.', true); return; }
     const rect = event.currentTarget.getBoundingClientRect();
     if(rect.width <= 0 || rect.height <= 0) return;
-    roiPoints.push({
+    const point = {
       x:Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
       y:Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
-    });
+    };
+    if(perspectiveMode) {
+      perspectivePoints = perspectivePoints.length >= 2 ? [point] : [...perspectivePoints, point];
+      if(perspectivePoints.length === 2) setPerspectiveMode(false);
+      renderPerspective();
+      return;
+    }
+    roiPoints.push(point);
     renderRoi();
+  }
+  function setPerspectiveMode(enabled) {
+    perspectiveMode = enabled;
+    document.getElementById('perspectiveButton').classList.toggle('active-mode', enabled);
+  }
+  function togglePerspectiveMode() { setPerspectiveMode(!perspectiveMode); if(perspectiveMode) perspectivePoints = []; renderPerspective(); }
+  function clearPerspectiveLine() { perspectivePoints = []; setPerspectiveMode(false); renderPerspective(); }
+  function renderPerspective() {
+    const [near, far] = perspectivePoints;
+    document.getElementById('perspectiveLayer').innerHTML =
+      (near && far ? `<line class="perspective" x1="${near.x}" y1="${near.y}" x2="${far.x}" y2="${far.y}"></line>` : '') +
+      (near ? `<circle class="persp-near" cx="${near.x}" cy="${near.y}" r="0.011"></circle>` : '') +
+      (far ? `<circle class="persp-far" cx="${far.x}" cy="${far.y}" r="0.011"></circle>` : '');
+    const status = document.getElementById('perspectiveStatus');
+    status.textContent = perspectivePoints.length === 2
+      ? 'Линия: ближний (зелёный) → дальний (красный)'
+      : perspectiveMode
+        ? (perspectivePoints.length === 0 ? 'Кликните по ближнему краю' : 'Кликните по дальнему краю')
+        : 'Линия не задана';
+    status.className = 'muted';
   }
   function undoRoiPoint() { roiPoints = roiPoints.slice(0, -1); renderRoi(); }
   function clearRoi() { roiPoints = []; renderRoi(); }
@@ -248,6 +285,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     const reference = document.getElementById('referenceFile').files[0];
     const current = document.getElementById('currentFile').files[0];
     if(!reference || !current) { setMessage('Выберите оба изображения: эталон и текущий кадр.', true); return; }
+    if(perspectiveMode && perspectivePoints.length < 2) { setMessage('Достройте линию перспективы (ближний и дальний край) или нажмите «Убрать линию».', true); return; }
     if(roiPoints.length > 0 && roiPoints.length < 3) { setMessage('Для области инспекции нужно минимум 3 точки либо нажмите «Очистить» для проверки всего кадра.', true); return; }
     const button = document.getElementById('runButton');
     button.disabled = true;
@@ -266,7 +304,11 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
       await jsonResponse(await fetch('/roi-polygon', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({product_type:productType(), points:effectiveRoi}),
+        body:JSON.stringify({
+          product_type:productType(),
+          points:effectiveRoi,
+          perspective_line:perspectivePoints.length === 2 ? perspectivePoints : null,
+        }),
       }));
 
       setMessage('Выполняется инспекция...');
@@ -495,6 +537,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
   loadAcceptedCases();
   loadHistory();
   renderRoi();
+  renderPerspective();
 </script>
 </body>
 </html>"""

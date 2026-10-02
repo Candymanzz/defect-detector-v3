@@ -50,8 +50,10 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     selectedRoiMode,
     jointRoiPolygon,
     roiPolygonsByCameraId,
+    perspectiveLinesByCameraId,
     setJointRoiPolygon,
     setRoiPolygonForCamera,
+    setPerspectiveLineForCamera,
     fpZonesByCameraId,
   } = useReferenceSetupController(onClose, initialCameraId);
   const [selectedArchiveId, setSelectedArchiveId] = useState<string | null>(null);
@@ -332,6 +334,8 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     exclusionZones={fpZonesByCameraId[selectedSlot.cameraId] ?? []}
                     shapeMode={selectedRoiMode === "joint" ? "oriented-rect" : "polygon"}
                     allowRadiusMode={selectedRoiMode !== "joint"}
+                    perspectiveLine={perspectiveLinesByCameraId[selectedSlot.cameraId] ?? []}
+                    onPerspectiveLineChange={(points) => setPerspectiveLineForCamera(selectedSlot.cameraId, points)}
                     onChange={(points) => {
                       if (selectedRoiMode === "joint") {
                         setJointRoiPolygon(points);

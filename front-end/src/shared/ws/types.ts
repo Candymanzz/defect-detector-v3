@@ -397,6 +397,8 @@ export type ReferenceViewSlot = {
   joint_roi?: PixelRoi | null;
   /** Полигон шва [0,1]; только на joint_view_index. */
   joint_roi_polygon_norm?: InterestPointNorm[];
+  /** Линия перспективы [ближний край, дальний край], две точки [0,1]. */
+  perspective_line_norm?: InterestPointNorm[];
 };
 
 export type ClientReferenceBundlePayload = {

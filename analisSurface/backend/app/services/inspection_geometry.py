@@ -4,6 +4,7 @@
 1 = правый/нижний). Пиксельные маски строятся через polygon_mask_from_norm_points().
 """
 
+from functools import lru_cache
 from typing import Tuple
 
 import cv2
@@ -139,3 +140,56 @@ def combine_region_masks(
             continue
         region_mask &= ~(polygon_mask_from_norm_points(width, height, hole) > 0)
     return region_mask
+
+
+PerspectiveLine = Tuple[Tuple[float, float], Tuple[float, float]]
+
+_PERSPECTIVE_LINE_MIN_LENGTH = 0.05
+
+
+def validate_perspective_line(points: list[Tuple[float, float]]) -> PerspectiveLine:
+    """Линия перспективы: две точки [0, 1], от ближнего края изделия к дальнему."""
+    if len(points) != 2:
+        raise ValueError("Perspective line must contain exactly 2 points")
+    for idx, (x, y) in enumerate(points):
+        if x < 0 or x > 1 or y < 0 or y > 1:
+            raise ValueError(f"Perspective line point #{idx + 1} must be inside [0, 1]")
+    (x0, y0), (x1, y1) = points
+    if ((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5 < _PERSPECTIVE_LINE_MIN_LENGTH:
+        raise ValueError("Perspective line is too short")
+    return (float(x0), float(y0)), (float(x1), float(y1))
+
+
+@lru_cache(maxsize=8)
+def perspective_far_weights(
+    frame_width: int,
+    frame_height: int,
+    line: PerspectiveLine,
+    bbox: Tuple[int, int, int, int],
+    far_edge_fraction: float,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Веса «удалённости» для области bbox=(x, y, w, h) кадра.
+
+    Проекция пикселя на линию даёт t: 0 у ближнего конца, 1 у дальнего (с клипом).
+    Возвращает (smooth, far_edge): smoothstep(t) для всего изделия и вес только
+    последней доли far_edge_fraction линии, растущий от 0 до 1 к дальнему концу.
+    Массивы только для чтения и кэшируются между кадрами.
+    """
+    x, y, width, height = bbox
+    (nx0, ny0), (nx1, ny1) = line
+    # Проекцию считаем в пикселях, иначе при не квадратном кадре угол линии исказится.
+    px0, py0 = nx0 * (frame_width - 1), ny0 * (frame_height - 1)
+    dx = nx1 * (frame_width - 1) - px0
+    dy = ny1 * (frame_height - 1) - py0
+    length_sq = max(dx * dx + dy * dy, 1e-6)
+    xs = (np.arange(x, x + width, dtype=np.float32) - np.float32(px0)) * np.float32(dx / length_sq)
+    ys = (np.arange(y, y + height, dtype=np.float32) - np.float32(py0)) * np.float32(dy / length_sq)
+    t = np.clip(ys[:, np.newaxis] + xs[np.newaxis, :], 0.0, 1.0)
+    smooth = t * t * (3.0 - 2.0 * t)
+    far = np.clip((t - (1.0 - far_edge_fraction)) / far_edge_fraction, 0.0, 1.0)
+    far = far * far * (3.0 - 2.0 * far)
+    smooth = smooth.astype(np.float32, copy=False)
+    far = far.astype(np.float32, copy=False)
+    smooth.setflags(write=False)
+    far.setflags(write=False)
+    return smooth, far
