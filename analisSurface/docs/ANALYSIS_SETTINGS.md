@@ -16,7 +16,7 @@
 | `DELETE` | `/analysis-settings/{product_type}` | Сброс overrides для продукта |
 | `GET` | `/analysis-settings/{product_type}/simple` | Последние simple-knobs + эффективные settings |
 | `PUT` | `/analysis-settings/{product_type}/simple` | Быстрая настройка: `threshold` + `sensitivity` |
-| `GET` | `/analysis-settings/{product_type}/strengths` | **Силы групп** (0–100), лёгкий ответ |
+| `GET` | `/analysis-settings/{product_type}/strengths` | **Силы групп** (0–200), лёгкий ответ |
 | `PUT` | `/analysis-settings/{product_type}/strengths` | Сохранить силы групп |
 | `GET` | `/analysis-settings/{product_type}/detailed` | Силы + полные settings (расширенный ответ) |
 | `PUT` | `/analysis-settings/{product_type}/detailed` | Alias для `/strengths` |
@@ -41,11 +41,11 @@
   "overrides": { "...": "только изменённые поля" },
   "simple_knobs": { "threshold": 0.25, "sensitivity": 0.5 },
   "strength_knobs": {
-    "noise_tolerance": 50,
-    "scratch_sensitivity": 50,
-    "edge_suppression": 50,
-    "text_handling": 50,
-    "preprocess_strength": 50
+    "noise_tolerance": 100,
+    "scratch_sensitivity": 100,
+    "edge_suppression": 100,
+    "text_handling": 100,
+    "preprocess_strength": 100
   },
   "detector_id": "..."
 }
@@ -69,7 +69,7 @@
 }
 ```
 
-Если силы не сохраняли: `saved: false`, все поля `50`.
+Если силы не сохраняли: `saved: false`, все поля `100`.
 
 Поле `detector_id` добавляется middleware приложения ко всем JSON-ответам.
 

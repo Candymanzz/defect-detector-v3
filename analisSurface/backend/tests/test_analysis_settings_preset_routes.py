@@ -85,7 +85,7 @@ def test_detailed_settings_put_get_roundtrip() -> None:
     assert put_response.status_code == 200
     payload = put_response.json()
     assert payload["knobs"] == body
-    assert payload["settings"]["min_diff_signal"] == 12.0
+    assert payload["settings"]["min_diff_signal"] == 40.0
 
     get_response = client.get(f"/analysis-settings/{profile}/detailed")
     assert get_response.status_code == 200
@@ -106,11 +106,11 @@ def test_strength_knobs_get_defaults_when_not_saved() -> None:
     payload = response.json()
     assert payload["saved"] is False
     assert payload["strengths"] == {
-        "noise_tolerance": 50.0,
-        "scratch_sensitivity": 50.0,
-        "edge_suppression": 50.0,
-        "text_handling": 50.0,
-        "preprocess_strength": 50.0,
+        "noise_tolerance": 100.0,
+        "scratch_sensitivity": 100.0,
+        "edge_suppression": 100.0,
+        "text_handling": 100.0,
+        "preprocess_strength": 100.0,
     }
 
 
@@ -143,6 +143,63 @@ def test_strength_knobs_put_get_roundtrip() -> None:
     assert full.json()["simple_knobs"] == {"threshold": 0.28, "sensitivity": 0.75}
 
     client.delete(f"/analysis-settings/{profile}")
+
+
+def test_fractional_strength_is_preserved_and_scaled() -> None:
+    profile = "test-fractional-strength"
+    body = {
+        "noise_tolerance": 90.1,
+        "scratch_sensitivity": 100,
+        "edge_suppression": 100,
+        "text_handling": 100,
+        "preprocess_strength": 100,
+    }
+    try:
+        simple = client.put(
+            f"/analysis-settings/{profile}/simple",
+            json={"threshold": 0.25, "sensitivity": 0.8},
+        )
+        assert simple.status_code == 200
+        detailed = client.put(f"/analysis-settings/{profile}/detailed", json=body)
+        assert detailed.status_code == 200
+        assert detailed.json()["knobs"]["noise_tolerance"] == 90.1
+        assert detailed.json()["settings"]["min_diff_signal"] == expand_simple(0.25, 0.7208)["min_diff_signal"]
+        saved = client.get(f"/analysis-settings/{profile}/strengths")
+        assert saved.json()["strengths"]["noise_tolerance"] == 90.1
+    finally:
+        client.delete(f"/analysis-settings/{profile}")
+
+
+def test_strengths_above_100_roundtrip_and_limit() -> None:
+    profile = "test-boosted-strengths"
+    body = {
+        "noise_tolerance": 150,
+        "scratch_sensitivity": 125.5,
+        "edge_suppression": 200,
+        "text_handling": 100,
+        "preprocess_strength": 100,
+    }
+    try:
+        simple = client.put(
+            f"/analysis-settings/{profile}/simple",
+            json={"threshold": 0.25, "sensitivity": 0.5},
+        )
+        assert simple.status_code == 200
+        response = client.put(f"/analysis-settings/{profile}/strengths", json=body)
+        assert response.status_code == 200, response.text
+        assert response.json()["strengths"] == body
+        assert client.get(f"/analysis-settings/{profile}/strengths").json()["strengths"] == body
+        expanded = client.get(f"/analysis-settings/{profile}").json()["settings"]
+        assert expanded["min_diff_signal"] == expand_simple(0.25, 0.75)["min_diff_signal"]
+        assert expanded["edge_suppress_factor"] == expand_simple(0.25, 1.0)["edge_suppress_factor"]
+
+        invalid = client.put(
+            f"/analysis-settings/{profile}/strengths",
+            json={**body, "noise_tolerance": 200.1},
+        )
+        assert invalid.status_code == 422
+    finally:
+        client.delete(f"/analysis-settings/{profile}")
 
 
 def test_full_api_clears_preset_knobs() -> None:

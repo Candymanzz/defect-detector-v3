@@ -48,6 +48,24 @@ _SENSITIVE: dict[str, Any] = {
     "fp_trigger_diff_q90": 22.0,
 }
 
+# Дополнительный диапазон 100–200%. Конечные значения остаются в допустимых
+# границах AnalysisSettings, поэтому вся шкала доступна без раннего насыщения.
+_EXTRA_SENSITIVE: dict[str, Any] = {
+    "min_defect_area": 1,
+    "min_scratch_aspect": 1.25,
+    "min_diff_signal": 1.0,
+    "diff_percentile": 90.0,
+    "scratch_score_floor": 0.75,
+    "scratch_aspect_floor": 1.5,
+    "edge_suppress_factor": 0.9,
+    "text_min_contrast": 10,
+    "text_structure_threshold": 5,
+    "contrast_loss_boost": 5.0,
+    "contrast_loss_ref_grad": 10.0,
+    "contrast_loss_cur_grad": 2.0,
+    "clahe_clip_limit": 3.0,
+}
+
 _NOISE_FIELDS = ("min_diff_signal", "min_defect_area", "diff_percentile")
 _SCRATCH_FIELDS = ("min_scratch_aspect", "scratch_score_floor", "scratch_aspect_floor")
 _EDGE_FIELDS = ("edge_suppress_factor",)
@@ -69,7 +87,8 @@ STRENGTH_FIELD_NAMES = (
     "preprocess_strength",
 )
 
-DEFAULT_STRENGTHS: dict[str, float] = {name: 50.0 for name in STRENGTH_FIELD_NAMES}
+DEFAULT_STRENGTHS: dict[str, float] = {name: 100.0 for name in STRENGTH_FIELD_NAMES}
+MAX_STRENGTH = 200.0
 
 
 def _validate_unit_interval(name: str, value: float) -> float:
@@ -87,8 +106,8 @@ def _validate_percent(name: str, value: float) -> float:
         parsed = float(value)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{name} must be a number") from exc
-    if not 0.0 <= parsed <= 100.0:
-        raise ValueError(f"{name} must be in [0, 100]")
+    if not 0.0 <= parsed <= MAX_STRENGTH:
+        raise ValueError(f"{name} must be in [0, {MAX_STRENGTH:g}]")
     return parsed
 
 
@@ -106,40 +125,41 @@ def _lerp_numeric(a: float, b: float, t: float) -> float:
     return a + (b - a) * t
 
 
-def _stock_coeff(field: str, sensitivity_0_100: float) -> float:
-    sensitivity = max(0.0, min(100.0, float(sensitivity_0_100)))
+def _stock_coeff(field: str, sensitivity_0_200: float) -> float:
+    sensitivity = max(0.0, min(200.0, float(sensitivity_0_200)))
     stock = _STOCK[field]
     coarse_ratio = float(_COARSE[field]) / float(stock)
     sensitive_ratio = float(_SENSITIVE[field]) / float(stock)
     t = (sensitivity - 50.0) / 50.0
     if t <= 0.0:
         return _lerp_numeric(coarse_ratio, 1.0, t + 1.0)
-    return _lerp_numeric(1.0, sensitive_ratio, t)
+    if t <= 1.0:
+        return _lerp_numeric(1.0, sensitive_ratio, t)
+    extra_sensitive_ratio = float(_EXTRA_SENSITIVE[field]) / float(stock)
+    return _lerp_numeric(sensitive_ratio, extra_sensitive_ratio, (sensitivity - 100.0) / 100.0)
 
 
-def _apply_stock_value(field: str, sensitivity_0_100: float) -> Any:
+def _apply_stock_value(field: str, sensitivity_0_200: float) -> Any:
     stock = _STOCK[field]
     if isinstance(stock, bool):
         return stock
-    coeff = _stock_coeff(field, sensitivity_0_100)
+    coeff = _stock_coeff(field, sensitivity_0_200)
     raw = float(stock) * coeff
     if isinstance(stock, int) and not isinstance(stock, bool):
         return int(round(raw, 10))
     return round(raw, 6)
 
 
-def _apply_stock_fields(fields: tuple[str, ...], sensitivity_0_100: float, target: dict[str, Any]) -> None:
+def _apply_stock_fields(fields: tuple[str, ...], sensitivity_0_200: float, target: dict[str, Any]) -> None:
     for field in fields:
-        target[field] = _apply_stock_value(field, sensitivity_0_100)
+        target[field] = _apply_stock_value(field, sensitivity_0_200)
 
 
-def effective_group_sensitivity(global_sensitivity_0_100: float, change_strength_0_100: float) -> float:
-    """Сила изменения группы: 50 = стандарт, 0 = группа на стоке, 100 = усиленный отклик."""
+def effective_group_sensitivity(global_sensitivity_0_100: float, change_strength_0_200: float) -> float:
+    """Итог группы = общая × множитель группы, максимум 200%."""
     global_s = max(0.0, min(100.0, float(global_sensitivity_0_100)))
-    strength = max(0.0, min(100.0, float(change_strength_0_100)))
-    delta = global_s - 50.0
-    strength_mult = strength / 50.0
-    return max(0.0, min(100.0, 50.0 + delta * strength_mult))
+    strength = max(0.0, min(MAX_STRENGTH, float(change_strength_0_200)))
+    return global_s * strength / 100.0
 
 
 def normalize_strengths(raw: dict[str, Any] | None) -> dict[str, float]:
@@ -155,16 +175,16 @@ def normalize_strengths(raw: dict[str, Any] | None) -> dict[str, float]:
 def expand_merged(
     threshold: float,
     sensitivity: float,
-    noise_tolerance: float = 50.0,
-    scratch_sensitivity: float = 50.0,
-    edge_suppression: float = 50.0,
-    text_handling: float = 50.0,
-    preprocess_strength: float = 50.0,
+    noise_tolerance: float = 100.0,
+    scratch_sensitivity: float = 100.0,
+    edge_suppression: float = 100.0,
+    text_handling: float = 100.0,
+    preprocess_strength: float = 100.0,
 ) -> dict[str, Any]:
     """Чувствительность (simple) + силы групп (detailed) → полный AnalysisSettings.
 
-    sensitivity ∈ [0, 1] — единственная ручка чувствительности.
-    Силы ∈ [0, 100], 50 = стандарт: насколько сильно группа следует за sensitivity.
+    sensitivity ∈ [0, 1] — общий множитель для всех групп.
+    Силы ∈ [0, 200] — сохранённые значения групп, которые умножаются на sensitivity.
     """
     threshold = _validate_threshold(threshold)
     sensitivity = _validate_unit_interval("sensitivity", sensitivity)
@@ -214,5 +234,5 @@ def expand_merged(
 
 
 def expand_simple(threshold: float, sensitivity: float) -> dict[str, Any]:
-    """Simple без сохранённых сил — все группы со стандартной силой 50."""
+    """Simple без сохранённых значений групп — все группы имеют значение 100%."""
     return expand_merged(threshold, sensitivity)

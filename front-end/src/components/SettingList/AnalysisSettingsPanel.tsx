@@ -11,18 +11,19 @@ const FALLBACK_PROFILE = "reference-product";
 const DEFAULT_SIMPLE: SimpleAnalysisKnobs = { threshold: 0.25, sensitivity: 0.5 };
 const DEFAULT_PRO: ProAnalysisKnobs = {
   threshold: 0.25,
-  // Detailed/pro strength knobs are percentages in the Python API (0–100).
+  // Detailed/pro strength knobs are percentages in the Python API (0–200).
   // Threshold remains a unit interval value (0–1), just like in simple mode.
-  noise_tolerance: 50,
-  scratch_sensitivity: 50,
-  edge_suppression: 50,
-  text_handling: 50,
-  preprocess_strength: 50,
+  noise_tolerance: 100,
+  scratch_sensitivity: 100,
+  edge_suppression: 100,
+  text_handling: 100,
+  preprocess_strength: 100,
 };
+const MAX_PRO_STRENGTH = 200;
 
 const SIMPLE_FIELDS = [
   { name: "threshold", label: "Порог брака", hint: "Ниже — чувствительнее к дефектам, выше — строже к браку." },
-  { name: "sensitivity", label: "Чувствительность", hint: "Общая чувствительность алгоритма: от грубой до максимальной." },
+  { name: "sensitivity", label: "Чувствительность", hint: "Умножает значения расширенных настроек: например, 80% от 90% = 72%." },
 ] as const;
 
 const PRO_FIELDS = [
@@ -254,7 +255,9 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
 
       <p className="analysis-presets__intro">
         <span>
-          {mode === "simple" ? "Основные параметры для быстрой калибровки." : "Точная настройка отдельных групп алгоритма."}
+          {mode === "simple"
+            ? "Основные параметры для быстрой калибровки."
+            : "100% сохраняет общую чувствительность группы, до 200% — удваивает её. Итог может достигать 200%."}
         </span>
         {unlocked && (
           <button type="button" className="analysis-presets__lock-button" onClick={lockPro}>
@@ -267,11 +270,11 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
         {fields.map((field) => {
           const value = values[field.name as keyof typeof values];
           // Simple threshold/sensitivity are stored as 0–1, while detailed
-          // strength knobs returned by /pro are stored as 0–100 percentages.
+          // strength knobs returned by /pro are stored as 0–200 percentages.
           const isProStrength = mode === "pro" && field.name !== "threshold";
           const valueScale = isProStrength ? 1 : 100;
           const minValue = isProStrength ? 0 : field.name === "threshold" ? 0.01 : 0;
-          const maxValue = isProStrength ? 100 : 1;
+          const maxValue = isProStrength ? MAX_PRO_STRENGTH : 1;
           const sliderStep = isProStrength ? 0.1 : 0.001;
           const minimumPercent = minValue * valueScale;
           const maximumPercent = maxValue * valueScale;
@@ -298,7 +301,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
                     aria-label={`${field.label}, проценты`}
                     type="number"
                     min={minimumPercent}
-                    max="100"
+                    max={maximumPercent}
                     step="0.1"
                     inputMode="decimal"
                     value={(Number(value) * valueScale).toFixed(1)}

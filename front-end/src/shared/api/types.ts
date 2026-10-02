@@ -357,7 +357,7 @@ export type SimpleAnalysisKnobs = {
 export type ProAnalysisKnobs = {
   /** Threshold is a unit interval; detailed strengths below are percentages. */
   threshold: number;
-  /** Detailed strength values use the backend's 0–100 scale. */
+  /** Detailed strength values use the backend's 0–200 scale. */
   noise_tolerance: number;
   scratch_sensitivity: number;
   edge_suppression: number;
@@ -365,7 +365,7 @@ export type ProAnalysisKnobs = {
   preprocess_strength: number;
 };
 
-/** Силы групп алгоритма (0–100), без threshold/sensitivity — см. ANALYSIS_SETTINGS_INTEGRATION.md */
+/** Силы групп алгоритма (0–200), без threshold/sensitivity — см. ANALYSIS_SETTINGS_INTEGRATION.md */
 export type StrengthKnobs = {
   noise_tolerance: number;
   scratch_sensitivity: number;

@@ -188,9 +188,9 @@ def test_simple_threshold_only_changes_default_threshold() -> None:
 @pytest.mark.parametrize(
     "overrides,field,expected",
     [
-        ({"noise_tolerance": 0}, "min_diff_signal", 12.0),
+        ({"noise_tolerance": 0}, "min_diff_signal", 40.0),
         ({"noise_tolerance": 100}, "min_diff_signal", 4.0),
-        ({"scratch_sensitivity": 0}, "min_scratch_aspect", 3.0),
+        ({"scratch_sensitivity": 0}, "min_scratch_aspect", 5.0),
         ({"scratch_sensitivity": 100}, "min_scratch_aspect", 2.0),
     ],
 )

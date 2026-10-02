@@ -1,0 +1,14 @@
+{
+  "analysis_profile": "bench-lan1",
+  "simple": {
+    "threshold": 0.3,
+    "sensitivity": 0.5
+  },
+  "strengths": {
+    "noise_tolerance": 100.0,
+    "scratch_sensitivity": 100.0,
+    "edge_suppression": 100.0,
+    "text_handling": 100.0,
+    "preprocess_strength": 100.0
+  }
+}

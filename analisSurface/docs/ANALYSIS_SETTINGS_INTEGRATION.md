@@ -42,9 +42,9 @@
 |------|--------|
 | `overrides` | Развёрнутые 18 полей алгоритма (результат expand) |
 | `simple_knobs` | Порог + общая чувствительность (0–1) |
-| `detailed_knobs` | **Силы групп** (0–100), не вторая чувствительность |
+| `detailed_knobs` | **Силы групп** (0–200), не вторая чувствительность |
 
-При первом `PUT /simple` без сохранённых сил в JSON пишутся defaults (`50` для всех групп).
+При первом `PUT /simple` без сохранённых сил в JSON пишутся defaults (`100` для всех групп).
 
 Старый ключ `pro_knobs` (0–1) при загрузке мигрируется в `detailed_knobs` (`× 100`).
 
@@ -112,7 +112,7 @@ GET/PUT /api/orchestrator/analysis-settings/camera/{cameraId}/strengths
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `saved` | bool | `false` — в JSON ещё нет `detailed_knobs`, отданы defaults |
-| `strengths.*` | 0–100 | Сила отклика группы на движение `sensitivity` |
+| `strengths.*` | 0–200 | Множитель общей чувствительности; итог до 200% |
 
 ### Тело `PUT /strengths`
 
@@ -135,7 +135,7 @@ GET/PUT /api/orchestrator/analysis-settings/camera/{cameraId}/strengths
 | Было (pro) | Стало |
 |------------|--------|
 | `PUT .../pro` с 6–7 ручками включая threshold | `PUT .../simple` + `PUT .../strengths` |
-| `noise_tolerance` 0–1 | `noise_tolerance` 0–100 (сила, не чувствительность) |
+| `noise_tolerance` 0–1 | `noise_tolerance` 0–200 (множитель общей чувствительности) |
 | Отдельная pro-чувствительность | **Нет** — только `sensitivity` в simple |
 
 Фронт пока может звать `/pro` через оркестратор — нужно перейти на `/strengths` и убрать threshold из pro-панели.
@@ -159,7 +159,7 @@ GET/PUT /api/orchestrator/analysis-settings/camera/{cameraId}/strengths
 }
 ```
 
-`simple` обязателен; `detailed` опционален (силы для preview, defaults 50).
+`simple` обязателен; `detailed` опционален (силы для preview, defaults 100).
 
 ---
 

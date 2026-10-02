@@ -1491,7 +1491,7 @@ class InspectionService:
 
     @staticmethod
     def _migrate_legacy_pro_knobs(raw: dict[str, object]) -> dict[str, object]:
-        """pro_knobs (0–1) → detailed strengths (0–100), без threshold/sensitivity."""
+        """pro_knobs (0–1) → detailed strengths (0–200), без threshold/sensitivity."""
         migrated: dict[str, object] = {}
         for key in (
             "noise_tolerance",
@@ -1510,7 +1510,7 @@ class InspectionService:
     @staticmethod
     def _normalize_detailed_knobs(raw: dict[str, object]) -> dict[str, object]:
         normalized = normalize_strengths(raw)
-        return {key: int(round(value)) for key, value in normalized.items()}
+        return dict(normalized)
 
     def _load_analysis_settings(self) -> None:
         self._analysis_settings_overrides = {}
@@ -1551,6 +1551,18 @@ class InspectionService:
                         self._analysis_settings_detailed_knobs[analysis_profile] = self._migrate_legacy_pro_knobs(
                             pro_knobs
                         )
+                # Сохранённые overrides были рассчитаны старой формулой.
+                # Восстанавливаем их из исходных ползунков при загрузке.
+                simple = self._analysis_settings_simple_knobs.get(analysis_profile)
+                if simple and "threshold" in simple and "sensitivity" in simple:
+                    strengths = normalize_strengths(
+                        self._analysis_settings_detailed_knobs.get(analysis_profile)
+                    )
+                    self._analysis_settings_overrides[analysis_profile] = expand_merged(
+                        float(simple["threshold"]),
+                        float(simple["sensitivity"]),
+                        **strengths,
+                    )
         except Exception:
             self._analysis_settings_overrides = {}
             self._analysis_settings_simple_knobs = {}
@@ -1594,7 +1606,7 @@ class InspectionService:
             detailed_knobs = self._analysis_settings_detailed_knobs.get(analysis_profile)
             if detailed_knobs is not None:
                 entry["detailed_knobs"] = {
-                    key: int(round(float(value))) for key, value in detailed_knobs.items()
+                    key: float(value) for key, value in detailed_knobs.items()
                 }
             entries.append(entry)
         self._analysis_settings_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")
