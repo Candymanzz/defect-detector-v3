@@ -60,7 +60,7 @@ public final class BinaryInspectHeaders {
         gHeader.put("maxRotationDeg", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_rotation_deg"), 1.0));
         gHeader.put("maxJointDefectMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_defect_mm"), 0.5));
         gHeader.put("jointMinWidthMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("joint_min_width_mm"), 0.25));
-        gHeader.put("jointMaxWidthMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("joint_max_width_mm"), 3.0));
+        gHeader.put("jointMaxWidthMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("joint_max_width_mm"), 1.6));
         gHeader.put(
                 "maxJointParallelismDeg",
                 YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_parallelism_deg"), 5.0)
@@ -134,7 +134,11 @@ public final class BinaryInspectHeaders {
                 mainRoi = bbox;
             }
         }
-        if (positioningCfg != null && positioningCfg.get("main_roi") != null) {
+        // The regular ROI selected on the reference is the positioning anchor.
+        // A static rectangle is only a fallback when no interest polygon exists.
+        if (!(mainRoiPolygon instanceof List<?> poly && poly.size() >= 3)
+                && positioningCfg != null
+                && positioningCfg.get("main_roi") != null) {
             mainRoi = positioningCfg.get("main_roi");
         }
         pHeader.put("mainRoi", mainRoi);
@@ -407,6 +411,10 @@ public final class BinaryInspectHeaders {
         // inject anomaly threshold into this header.
         // Горячий путь: false; превью — {@link com.example.iml.orchestrator.integration.ui.UiArtifactsSidecar}.
         pyHeader.put("include_visuals", includeVisuals);
+        pyHeader.put(
+                "defer_learning_review",
+                YamlScalars.toBool(pythonCfg == null ? null : pythonCfg.get("defer_learning_review"), false)
+        );
         if (pythonCfg != null && pythonCfg.get("rois") != null) {
             pyHeader.put("rois", pythonCfg.get("rois"));
         }
@@ -415,17 +423,8 @@ public final class BinaryInspectHeaders {
         pyHeader.put("width", capture.header().get("width"));
         pyHeader.put("height", capture.header().get("height"));
         pyHeader.put("stride", capture.header().get("stride"));
-        if (YamlScalars.toBool(capture.header().get(InspectPositioningExecutor.HEADER_ALIGNED), false)) {
-            pyHeader.put(
-                    "alignment_h_ref_to_cur",
-                    List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
-            );
-        } else if (geomResp != null) {
-            Object h = geomResp.header().get("homographyRefToCurrent");
-            if (h != null) {
-                pyHeader.put("alignment_h_ref_to_cur", h);
-            }
-        }
+        // Positioning belongs to java-positioning. Python receives its aligned
+        // SHM and must not apply geometry H or perform another warp.
         return pyHeader;
     }
 
@@ -483,18 +482,6 @@ public final class BinaryInspectHeaders {
             pyHeader.put("image_url", String.valueOf(imageUrl).trim());
         }
 
-        // JPEG is the original archive/pin frame — send real H, never identity from HEADER_ALIGNED.
-        Object homography = null;
-        if (geomResp != null && geomResp.header() != null) {
-            homography = geomResp.header().get("homographyRefToCurrent");
-        }
-        if (homography == null) {
-            homography = cap.get("positioning_homography_ref_to_cur");
-        }
-        if (homography != null) {
-            pyHeader.put("alignment_h_ref_to_cur", homography);
-        }
-
         putEphemeralTestKnobs(pyHeader, cap);
 
         String job = String.valueOf(cap.getOrDefault("test_analyze_job_id", String.valueOf(cap.get("frame_id"))));
@@ -526,6 +513,12 @@ public final class BinaryInspectHeaders {
         Object poly = resolveMainRoiPolygonNorm(activeReference, null);
         if (poly != null) {
             pyHeader.put("roi_polygon_norm", poly);
+        }
+        if (activeReference != null
+                && activeReference.header() != null
+                && activeReference.header().get("perspective_line_norm") instanceof List<?> line
+                && line.size() == 2) {
+            pyHeader.put("perspective_line_norm", line);
         }
     }
 
@@ -566,7 +559,8 @@ public final class BinaryInspectHeaders {
                     "scratch_sensitivity", 0.5,
                     "edge_suppression", 0.5,
                     "text_handling", 0.5,
-                    "preprocess_strength", 0.5
+                    "preprocess_strength", 0.5,
+                    "far_edge_boost", 0.5
             )
                     : knobs);
         } else {

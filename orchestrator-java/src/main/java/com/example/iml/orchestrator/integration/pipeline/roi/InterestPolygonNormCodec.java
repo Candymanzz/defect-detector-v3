@@ -45,6 +45,14 @@ public final class InterestPolygonNormCodec {
         return out;
     }
 
+    /** Линия перспективы: ровно две точки; иначе пусто. */
+    public static List<Map<String, Object>> fromNormLine(List<FpZoneNorm.PointNorm> points) {
+        if (points == null || points.size() != 2) {
+            return List.of();
+        }
+        return List.of(point(points.get(0).x(), points.get(0).y()), point(points.get(1).x(), points.get(1).y()));
+    }
+
     /**
      * Охватывающий прямоугольник полигона в пикселях (для {@code mainRoi}).
      */

@@ -67,7 +67,13 @@ STRENGTH_FIELD_NAMES = (
     "edge_suppression",
     "text_handling",
     "preprocess_strength",
+    "far_edge_boost",
 )
+
+# Дальний край: отдельная ручка, не зависит от общей чувствительности.
+# 50 = текущие значения по умолчанию, 0 = только базовая перспективная компенсация.
+_FAR_EDGE_GAIN = (1.2, 1.35, 2.2)
+_FAR_EDGE_EDGE_FACTOR = (0.2, 0.35, 0.8)
 
 DEFAULT_STRENGTHS: dict[str, float] = {name: 50.0 for name in STRENGTH_FIELD_NAMES}
 
@@ -104,6 +110,12 @@ def _validate_threshold(value: float) -> float:
 
 def _lerp_numeric(a: float, b: float, t: float) -> float:
     return a + (b - a) * t
+
+
+def _far_edge_value(strength_0_100: float, low_mid_high: tuple[float, float, float]) -> float:
+    low, mid, high = low_mid_high
+    t = (max(0.0, min(100.0, float(strength_0_100))) - 50.0) / 50.0
+    return _lerp_numeric(low, mid, t + 1.0) if t <= 0.0 else _lerp_numeric(mid, high, t)
 
 
 def _stock_coeff(field: str, sensitivity_0_100: float) -> float:
@@ -160,6 +172,7 @@ def expand_merged(
     edge_suppression: float = 50.0,
     text_handling: float = 50.0,
     preprocess_strength: float = 50.0,
+    far_edge_boost: float = 50.0,
 ) -> dict[str, Any]:
     """Чувствительность (simple) + силы групп (detailed) → полный AnalysisSettings.
 
@@ -175,6 +188,7 @@ def expand_merged(
             "edge_suppression": edge_suppression,
             "text_handling": text_handling,
             "preprocess_strength": preprocess_strength,
+            "far_edge_boost": far_edge_boost,
         }
     )
     sensitivity_100 = sensitivity * 100.0
@@ -207,6 +221,11 @@ def expand_merged(
         _PREPROCESS_FIELDS,
         effective_group_sensitivity(sensitivity_100, strengths["preprocess_strength"]),
         result,
+    )
+
+    result["far_edge_max_gain"] = round(_far_edge_value(strengths["far_edge_boost"], _FAR_EDGE_GAIN), 6)
+    result["far_edge_edge_suppress_factor"] = round(
+        _far_edge_value(strengths["far_edge_boost"], _FAR_EDGE_EDGE_FACTOR), 6
     )
 
     AnalysisSettings.from_overrides(result)

@@ -110,7 +110,11 @@ public final class InspectPositioningExecutor {
                         );
                     }
                     log.info(
-                            "positioning_timing cam={} frame={} wall_ms={} service_ms={} orb_ms={} warp_ms={} ecc_ms={} write_ms={} "
+                            "positioning_timing cam={} frame={} wall_ms={} service_ms={} "
+                                    + "coarse_ms={} orb_ms={} warp_ms={} polish_ms={} ecc_ms={} post_polish_ms={} write_ms={} "
+                                    + "coarse_used={} coarse_rej={} coarse_fb={} "
+                                    + "orb_applied={} orb_fullframe={} orb_rej={} orb_fail={} "
+                                    + "polish_used={} ecc_skip={} ecc_applied={} ecc_rej={} post_polish_used={} "
                                     + "status={} shift=({}, {}) rot={} aligned={} "
                                     + "raw_abs={} coarse_abs={} orb_abs={} final_abs={} final_ncc={} residual=({}, {}) "
                                     + "coarse_shift=({}, {}) orb_good={} orb_inliers={} ecc_ok={} ecc_cc={}",
@@ -118,10 +122,25 @@ public final class InspectPositioningExecutor {
                             state.capture().header().get("frame_id"),
                             wallMs,
                             YamlScalars.toDouble(rh.get("stage_ms_total"), wallMs),
+                            YamlScalars.toDouble(rh.get("stage_ms_coarse"), 0.0),
                             YamlScalars.toDouble(rh.get("stage_ms_orb"), 0.0),
                             YamlScalars.toDouble(rh.get("stage_ms_warp"), 0.0),
+                            YamlScalars.toDouble(rh.get("stage_ms_residual_polish"), 0.0),
                             YamlScalars.toDouble(rh.get("stage_ms_ecc"), 0.0),
+                            YamlScalars.toDouble(rh.get("stage_ms_post_ecc_polish"), 0.0),
                             YamlScalars.toDouble(rh.get("stage_ms_write"), 0.0),
+                            rh.getOrDefault("coarse_used", rh.get("diag_coarse_used")),
+                            rh.getOrDefault("coarse_rejected", rh.get("diag_coarse_rejected")),
+                            rh.getOrDefault("coarse_residual_fallback", rh.get("diag_coarse_residual_fallback")),
+                            rh.getOrDefault("orb_applied", rh.get("diag_orb_applied")),
+                            rh.getOrDefault("orb_fullframe_fallback", rh.get("diag_orb_fullframe_fallback")),
+                            rh.getOrDefault("orb_rejected_quality", rh.get("diag_orb_rejected_quality")),
+                            rh.getOrDefault("orb_failed", rh.get("diag_orb_failed")),
+                            rh.getOrDefault("residual_polish", rh.get("diag_residual_polish")),
+                            rh.getOrDefault("ecc_skipped", rh.get("diag_ecc_skipped")),
+                            rh.getOrDefault("ecc_applied", rh.get("diag_ecc_applied")),
+                            rh.getOrDefault("ecc_rejected", rh.get("diag_ecc_rejected")),
+                            rh.getOrDefault("post_ecc_residual_polish", rh.get("diag_post_ecc_residual_polish")),
                             rh.getOrDefault("status", "?"),
                             rh.get("shiftXmm"),
                             rh.get("shiftYmm"),
@@ -178,6 +197,15 @@ public final class InspectPositioningExecutor {
             putIfPresent(captureHeader, "positioning_stage_ms_ecc", resp.header().get("stage_ms_ecc"));
             putIfPresent(captureHeader, "positioning_stage_ms_write", resp.header().get("stage_ms_write"));
             putIfPresent(captureHeader, "positioning_stage_ms_total", resp.header().get("stage_ms_total"));
+            putIfPresent(captureHeader, "positioning_stage_ms_coarse", resp.header().get("stage_ms_coarse"));
+            putIfPresent(captureHeader, "positioning_stage_ms_residual_polish", resp.header().get("stage_ms_residual_polish"));
+            putIfPresent(captureHeader, "positioning_stage_ms_post_ecc_polish", resp.header().get("stage_ms_post_ecc_polish"));
+            putIfPresent(captureHeader, "positioning_coarse_used", resp.header().get("coarse_used"));
+            putIfPresent(captureHeader, "positioning_orb_applied", resp.header().get("orb_applied"));
+            putIfPresent(captureHeader, "positioning_ecc_skipped", resp.header().get("ecc_skipped"));
+            putIfPresent(captureHeader, "positioning_ecc_applied", resp.header().get("ecc_applied"));
+            putIfPresent(captureHeader, "positioning_residual_polish", resp.header().get("residual_polish"));
+            putIfPresent(captureHeader, "positioning_post_ecc_polish", resp.header().get("post_ecc_residual_polish"));
             putIfPresent(captureHeader, "positioning_homography_ref_to_cur", resp.header().get("homographyRefToCurrent"));
             putIfPresent(captureHeader, "positioning_final_absdiff", resp.header().get("diag_final_mean_absdiff"));
             putIfPresent(captureHeader, "positioning_final_ncc", resp.header().get("diag_final_ncc"));

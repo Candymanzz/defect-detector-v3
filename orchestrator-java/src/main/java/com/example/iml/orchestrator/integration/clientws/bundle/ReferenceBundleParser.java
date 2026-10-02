@@ -60,11 +60,6 @@ public final class ReferenceBundleParser {
         if (productType == null) {
             throw new BundleParseException("invalid_product_type", "product_type required");
         }
-        int phaseId = payload.path("phase_id").asInt(0);
-        int groupId = payload.path("group_id").asInt(-1);
-        if (phaseId < 0) {
-            throw new BundleParseException("invalid_phase_id", "phase_id must be >= 0");
-        }
         JsonNode viewsNode = payload.path("views");
         if (!viewsNode.isArray() || viewsNode.size() == 0) {
             throw new BundleParseException("invalid_views", "views must be a non-empty array");
@@ -90,15 +85,9 @@ public final class ReferenceBundleParser {
             }
             views.add(slot);
         }
-        if (groupId < 0) {
-            int cameraBucket = views.stream().mapToInt(slot -> slot.frame().cameraId()).min().orElse(0) / 5;
-            groupId = phaseId * 2 + cameraBucket;
-        }
         List<FpZoneNorm> fpZones = parseFpZones(payload.path("fp_zones"));
         return new ReferenceBundleSnapshot(
                 productType,
-                phaseId,
-                groupId,
                 List.copyOf(views),
                 jointViewIndex,
                 heatmapW,
@@ -157,7 +146,46 @@ public final class ReferenceBundleParser {
                     "joint_roi_polygon_norm only allowed on views[" + jointViewIndex + "]"
             );
         }
-        return new ReferenceViewSlot(frame, interest, joint, List.copyOf(interestPolygon), List.copyOf(jointPolygon));
+        List<FpZoneNorm.PointNorm> perspectiveLine = parsePerspectiveLine(
+                viewNode.get("perspective_line_norm"),
+                ctx + ".perspective_line_norm"
+        );
+        return new ReferenceViewSlot(
+                frame,
+                interest,
+                joint,
+                List.copyOf(interestPolygon),
+                List.copyOf(jointPolygon),
+                List.copyOf(perspectiveLine)
+        );
+    }
+
+    /** Линия перспективы: отсутствует/пустая либо ровно две точки [0,1] (ближний → дальний край). */
+    private static List<FpZoneNorm.PointNorm> parsePerspectiveLine(JsonNode pts, String ctx)
+            throws BundleParseException {
+        if (pts == null || pts.isNull() || (pts.isArray() && pts.isEmpty())) {
+            return List.of();
+        }
+        if (!pts.isArray() || pts.size() != 2) {
+            throw new BundleParseException("invalid_perspective_line", ctx + " must contain exactly 2 points");
+        }
+        List<FpZoneNorm.PointNorm> points = new ArrayList<>(2);
+        for (int pi = 0; pi < 2; pi++) {
+            JsonNode p = pts.get(pi);
+            if (p == null || !p.isObject()) {
+                throw new BundleParseException("invalid_perspective_line", ctx + "[" + pi + "] must be object");
+            }
+            double nx = p.path("x").asDouble(Double.NaN);
+            double ny = p.path("y").asDouble(Double.NaN);
+            if (Double.isNaN(nx) || Double.isNaN(ny) || nx < 0 || nx > 1 || ny < 0 || ny > 1) {
+                throw new BundleParseException("invalid_perspective_line", ctx + "[" + pi + "] must be in [0,1]");
+            }
+            points.add(new FpZoneNorm.PointNorm(nx, ny));
+        }
+        if (Math.hypot(points.get(1).x() - points.get(0).x(), points.get(1).y() - points.get(0).y()) < 0.05) {
+            throw new BundleParseException("invalid_perspective_line", ctx + " is too short");
+        }
+        return points;
     }
 
     private static ShmFrameRefData parseFrame(JsonNode n, String ctx, Set<Integer> allowedCameraIds) throws BundleParseException {

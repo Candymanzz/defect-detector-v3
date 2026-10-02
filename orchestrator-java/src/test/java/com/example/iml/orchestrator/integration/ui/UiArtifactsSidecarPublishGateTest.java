@@ -29,10 +29,18 @@ class UiArtifactsSidecarPublishGateTest {
     }
 
     @Test
-    void blocksUntilAlignedWhenPositioningAttempted() {
+    void publishesRawDiagnosticFrameAfterPositioningReject() {
         Map<String, Object> cap = new LinkedHashMap<>();
         cap.put("positioning_ms", 40);
         cap.put("positioning_status", "FAIL");
+        cap.put(InspectPositioningExecutor.HEADER_ALIGNED, false);
+        assertTrue(UiArtifactsSidecar.shouldPublishUiFrameJpeg(REFERENCE, cap));
+    }
+
+    @Test
+    void blocksWhilePositioningHasNoTerminalStatus() {
+        Map<String, Object> cap = new LinkedHashMap<>();
+        cap.put("positioning_ms", 40);
         cap.put(InspectPositioningExecutor.HEADER_ALIGNED, false);
         assertFalse(UiArtifactsSidecar.shouldPublishUiFrameJpeg(REFERENCE, cap));
     }

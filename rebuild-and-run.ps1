@@ -19,6 +19,7 @@ Set-Location $RepoRoot
 
 $OrchestratorJar = Join-Path $RepoRoot "orchestrator-java\target\orchestrator-0.1.0-SNAPSHOT.jar"
 $GeometryJar = Join-Path $RepoRoot "java-geometry-service\target\java-geometry-service-0.1.0-SNAPSHOT.jar"
+$PositioningJar = Join-Path $RepoRoot "java-positioning-service\target\java-positioning-service-0.1.0-SNAPSHOT.jar"
 $PythonBackend = Join-Path $RepoRoot "analisSurface\backend"
 $PythonVenv = Join-Path $PythonBackend ".venv"
 $PythonExe = Join-Path $PythonVenv "Scripts\python.exe"
@@ -104,6 +105,13 @@ Invoke-BuildStep "Build java-geometry-service" {
 }
 if (-not (Test-Path $GeometryJar)) { throw "Build failed: $GeometryJar" }
 
+Invoke-BuildStep "Build java-positioning-service" {
+    Push-Location (Join-Path $RepoRoot "java-positioning-service")
+    mvn -q package -DskipTests
+    Pop-Location
+}
+if (-not (Test-Path $PositioningJar)) { throw "Build failed: $PositioningJar" }
+
 Invoke-BuildStep "Python venv + pip" {
     if (-not (Test-Path $PythonVenv)) {
         python -m venv $PythonVenv
@@ -166,11 +174,34 @@ if (-not $SkipCameraWorker) {
         cmake --build build --config Release
         Pop-Location
     }
+    # Ensure MVS runtime DLLs sit next to camera_worker.exe (also done by CMake POST_BUILD).
+    $mvsRuntime = Join-Path $RepoRoot "LightServer.v3\ThirdParty\MVS\Runtime\win64"
+    $workerOutDirs = @(
+        (Join-Path $CameraWorkerDir "build\Release"),
+        (Join-Path $CameraWorkerDir "build\Debug")
+    ) | Where-Object { Test-Path (Join-Path $_ "camera_worker.exe") }
+    if ((Test-Path (Join-Path $mvsRuntime "MvCameraControl.dll")) -and $workerOutDirs.Count -gt 0) {
+        foreach ($outDir in $workerOutDirs) {
+            Copy-Item (Join-Path $mvsRuntime "*.dll") $outDir -Force
+            Write-Host "Copied MVS Runtime DLLs -> $outDir"
+        }
+    }
   } else {
     $hasWorker = (Test-Path (Join-Path $CameraWorkerDir "build\Release\camera_worker.exe")) `
               -or (Test-Path (Join-Path $CameraWorkerDir "build\Debug\camera_worker.exe"))
     if ($hasWorker) {
         Write-Host "WARN: cmake not in PATH, using existing camera_worker.exe" -ForegroundColor Yellow
+        $mvsRuntime = Join-Path $RepoRoot "LightServer.v3\ThirdParty\MVS\Runtime\win64"
+        $workerOutDirs = @(
+            (Join-Path $CameraWorkerDir "build\Release"),
+            (Join-Path $CameraWorkerDir "build\Debug")
+        ) | Where-Object { Test-Path (Join-Path $_ "camera_worker.exe") }
+        if ((Test-Path (Join-Path $mvsRuntime "MvCameraControl.dll")) -and $workerOutDirs.Count -gt 0) {
+            foreach ($outDir in $workerOutDirs) {
+                Copy-Item (Join-Path $mvsRuntime "*.dll") $outDir -Force
+                Write-Host "Copied MVS Runtime DLLs -> $outDir"
+            }
+        }
     } else {
         throw "cmake not found and camera_worker.exe missing. Install CMake or use -SkipCameraWorker"
     }

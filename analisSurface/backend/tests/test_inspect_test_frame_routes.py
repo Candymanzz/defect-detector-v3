@@ -10,6 +10,7 @@ from app.api.inspection_routes import (
     _settings_from_test_knobs,
     load_test_frame_bgr,
     reset_test_frame_bgr_cache,
+    write_requested_visual_outputs,
 )
 from app.api.schemas import ShmFrameRequest, TestFrameInspectRequest as InspectTestFrameBody
 from app.main import app
@@ -22,6 +23,35 @@ client = TestClient(app)
 def _write_jpeg(path: Path, value: int) -> None:
     image = np.full((48, 64, 3), value, dtype=np.uint8)
     assert cv2.imwrite(str(path), image)
+
+
+def test_primary_shm_request_can_export_only_heatmap(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    output_path = tmp_path / "iml_shm" / "iml_ui_heatmap_cam_2_frame_41"
+    payload = ShmFrameRequest(
+        product_type="bench#cam=2",
+        shm_name="unused",
+        width=8,
+        height=6,
+        heatmap_u8_output_path=str(output_path),
+    )
+    result = type(
+        "Result",
+        (),
+        {
+            "heatmap_u8": np.arange(48, dtype=np.uint8).reshape(6, 8),
+            "aligned_image": None,
+            "diff_map": None,
+            "segmentation_mask": None,
+        },
+    )()
+
+    outputs = write_requested_visual_outputs(payload, result)
+
+    assert outputs["heatmap"].path == str(output_path)
+    assert outputs["heatmap"].width == 8
+    assert outputs["heatmap"].height == 6
+    assert output_path.read_bytes() == result.heatmap_u8.tobytes()
 
 
 def test_inspect_test_frame_cache_hit_skips_reread(tmp_path: Path, monkeypatch) -> None:
@@ -129,6 +159,7 @@ def test_inspect_shm_applies_temporary_pro_knobs(monkeypatch) -> None:
         shm_name="unused",
         width=8,
         height=8,
+        inspect_scale=0.75,
         analysis_test_settings={
             "mode": "pro",
             "knobs": {
@@ -146,6 +177,40 @@ def test_inspect_shm_applies_temporary_pro_knobs(monkeypatch) -> None:
     overrides = captured["temporary_analysis_overrides"]
     assert overrides["default_threshold"] == 0.42
     assert overrides["min_diff_signal"] != 12.0
+    assert captured["store_learning_review"] is True
+    assert captured["defer_learning_review"] is False
+    assert captured["inspect_scale_after_align"] == 0.75
+
+
+def test_visuals_inspection_forces_learning_review_skip(monkeypatch) -> None:
+    captured = {}
+    frame = np.zeros((8, 8, 3), dtype=np.uint8)
+    monkeypatch.setattr("app.api.inspection_routes._copy_shm_bgr_frame", lambda payload: frame)
+
+    def fake_inspect_frame(**kwargs):
+        captured.update(kwargs)
+        return "ok"
+
+    monkeypatch.setattr(inspection_service, "inspect_frame", fake_inspect_frame)
+    payload = ShmFrameRequest(
+        product_type="visuals-only",
+        shm_name="unused",
+        width=8,
+        height=8,
+        defer_learning_review=True,
+    )
+
+    assert (
+        _inspect_shm_sync(
+            payload,
+            include_visuals=True,
+            include_heatmap_u8=True,
+            force_skip_learning_review=True,
+        )
+        == "ok"
+    )
+    assert captured["store_learning_review"] is False
+    assert captured["defer_learning_review"] is True
 
 
 def test_inspect_test_frame_does_not_persist_knobs(tmp_path: Path) -> None:

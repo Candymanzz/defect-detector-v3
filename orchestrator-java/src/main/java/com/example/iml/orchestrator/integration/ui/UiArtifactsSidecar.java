@@ -920,7 +920,15 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (!positioningAttempted) {
             return true;
         }
-        return YamlScalars.toBool(cap.get(InspectPositioningExecutor.HEADER_ALIGNED), false);
+        if (YamlScalars.toBool(cap.get(InspectPositioningExecutor.HEADER_ALIGNED), false)) {
+            return true;
+        }
+        // A completed reject still has a valid pinned raw capture. Publish it for
+        // diagnostics so the UI does not appear frozen; it remains unaligned and
+        // the inspection pipeline reports the positioning reject.
+        String positioningStatus = String.valueOf(cap.getOrDefault("positioning_status", "")).trim();
+        return "FAIL".equalsIgnoreCase(positioningStatus)
+                || "ERROR".equalsIgnoreCase(positioningStatus);
     }
 
     /**
@@ -1089,7 +1097,16 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             if (geometryRuntimeConfig != null) {
                 geometryRuntimeConfig.applyToPythonHeader(pyHeader, pythonCfg, analysisProfile);
             }
-            Path heatmapOutRequested = FrameJpegWriter.imlShmFilePath("iml_ui_heatmap_cam_" + cameraId);
+            double inspectScale = YamlScalars.toDouble(
+                    pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
+                    1.0d
+            );
+            if (inspectScale < 0.999d) {
+                pyHeader.put("inspect_scale", inspectScale);
+            }
+            Path heatmapOutRequested = FrameJpegWriter.imlShmFilePath(
+                    "iml_ui_heatmap_cam_" + cameraId + "_frame_" + frameId
+            );
             pyHeader.put("heatmap_u8_output_path", heatmapOutRequested.toString());
             pyHeader.put(
                     "heatmap_max_width",

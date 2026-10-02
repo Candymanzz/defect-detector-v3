@@ -63,12 +63,12 @@ public final class PipelineInspectionTelemetry implements PipelineRunTelemetry {
                 : state.capture().header();
         long decisionMs = YamlScalars.nanosToMs(tDecisionEndNanos - tDecisionStartNanos);
         long fanoutMs = YamlScalars.nanosToMs(tFanoutEndNanos - tDecisionEndNanos);
-        double pyStageAlignMs = YamlScalars.toDouble(pyHeader.get("stage_ms_align"), 0.0);
-        double pyStageDiffMs = YamlScalars.toDouble(pyHeader.get("stage_ms_diff"), 0.0);
-        double pyStageAnomalyMs = YamlScalars.toDouble(pyHeader.get("stage_ms_anomaly"), 0.0);
-        double pyStageFpRecheckMs = YamlScalars.toDouble(pyHeader.get("stage_ms_fp_recheck"), 0.0);
-        double pyStageEncodeMs = YamlScalars.toDouble(pyHeader.get("stage_ms_encode"), 0.0);
-        double pyStageTotalMs = YamlScalars.toDouble(pyHeader.get("stage_ms_total"), 0.0);
+        double pyStageAlignMs = YamlScalars.toDouble(pyHeader.get("py_align_ms"), 0.0);
+        double pyStageDiffMs = YamlScalars.toDouble(pyHeader.get("py_diff_ms"), 0.0);
+        double pyStageAnomalyMs = YamlScalars.toDouble(pyHeader.get("py_anomaly_ms"), 0.0);
+        double pyStageFpRecheckMs = YamlScalars.toDouble(pyHeader.get("py_fp_recheck_ms"), 0.0);
+        double pyStageHeatmapMs = YamlScalars.toDouble(pyHeader.get("py_heatmap_ms"), 0.0);
+        double pyStageTotalMs = YamlScalars.toDouble(pyHeader.get("py_total_ms"), 0.0);
         long positioningMs = YamlScalars.toLong(capHeader.get("positioning_ms"), 0L);
 
         LinkedHashMap<String, Object> row = new LinkedHashMap<>();
@@ -88,6 +88,15 @@ public final class PipelineInspectionTelemetry implements PipelineRunTelemetry {
         row.put("positioning_warp_ms", YamlScalars.toDouble(capHeader.get("positioning_stage_ms_warp"), 0.0));
         row.put("positioning_ecc_ms", YamlScalars.toDouble(capHeader.get("positioning_stage_ms_ecc"), 0.0));
         row.put("positioning_write_ms", YamlScalars.toDouble(capHeader.get("positioning_stage_ms_write"), 0.0));
+        row.put("positioning_coarse_ms", YamlScalars.toDouble(capHeader.get("positioning_stage_ms_coarse"), 0.0));
+        row.put("positioning_polish_ms", YamlScalars.toDouble(capHeader.get("positioning_stage_ms_residual_polish"), 0.0));
+        row.put("positioning_post_polish_ms", YamlScalars.toDouble(capHeader.get("positioning_stage_ms_post_ecc_polish"), 0.0));
+        row.put("positioning_coarse_used", capHeader.get("positioning_coarse_used"));
+        row.put("positioning_orb_applied", capHeader.get("positioning_orb_applied"));
+        row.put("positioning_ecc_skipped", capHeader.get("positioning_ecc_skipped"));
+        row.put("positioning_ecc_applied", capHeader.get("positioning_ecc_applied"));
+        row.put("positioning_residual_polish", capHeader.get("positioning_residual_polish"));
+        row.put("positioning_post_ecc_polish", capHeader.get("positioning_post_ecc_polish"));
         row.put("python_ms", state.pythonMs());
         row.put("geometry_ms", state.geometryMs());
         row.put("capture_s", state.captureMs() / 1000.0);
@@ -107,8 +116,8 @@ public final class PipelineInspectionTelemetry implements PipelineRunTelemetry {
         row.put("py_anomaly_s", pyStageAnomalyMs / 1000.0);
         row.put("py_fp_recheck_ms", pyStageFpRecheckMs);
         row.put("py_fp_recheck_s", pyStageFpRecheckMs / 1000.0);
-        row.put("py_encode_ms", pyStageEncodeMs);
-        row.put("py_encode_s", pyStageEncodeMs / 1000.0);
+        row.put("py_heatmap_ms", pyStageHeatmapMs);
+        row.put("py_heatmap_s", pyStageHeatmapMs / 1000.0);
         row.put("py_reported_total_ms", pyStageTotalMs);
         row.put("py_reported_total_s", pyStageTotalMs / 1000.0);
         row.put("overall_pass", decision.overallPass());

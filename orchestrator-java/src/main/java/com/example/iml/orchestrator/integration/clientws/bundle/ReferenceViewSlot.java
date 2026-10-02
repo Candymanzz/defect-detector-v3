@@ -19,8 +19,27 @@ public record ReferenceViewSlot(
          * Полигон шва в норм. координатах кадра [0,1]; только на joint-view.
          * Пустой список — маска не применяется (только bbox {@link #jointRoi()}).
          */
-        List<FpZoneNorm.PointNorm> jointPolygonNorm
+        List<FpZoneNorm.PointNorm> jointPolygonNorm,
+        /**
+         * Линия перспективы в норм. координатах: [ближний край, дальний край].
+         * Пустой список — действует допущение по умолчанию («верх кадра дальше»).
+         */
+        List<FpZoneNorm.PointNorm> perspectiveLineNorm
 ) {
+    public ReferenceViewSlot(
+            ShmFrameRefData frame,
+            PixelRoi interestRoi,
+            PixelRoi jointRoi,
+            List<FpZoneNorm.PointNorm> interestPolygonNorm,
+            List<FpZoneNorm.PointNorm> jointPolygonNorm
+    ) {
+        this(frame, interestRoi, jointRoi, interestPolygonNorm, jointPolygonNorm, List.of());
+    }
+
+    public boolean hasPerspectiveLineNorm() {
+        return perspectiveLineNorm != null && perspectiveLineNorm.size() == 2;
+    }
+
     public boolean hasJointRoi() {
         return jointRoi != null;
     }

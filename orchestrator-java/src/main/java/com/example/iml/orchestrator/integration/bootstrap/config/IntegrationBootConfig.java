@@ -24,6 +24,7 @@ public record IntegrationBootConfig(
         boolean reloadReference,
         ReferenceSource referenceSource,
         int pythonParallelism,
+        int pythonRequestParallelism,
         int pythonServerPoolSize,
         List<String> pythonCommand,
         List<String> geometryCommand,
@@ -55,6 +56,16 @@ public record IntegrationBootConfig(
                 1,
                 YamlScalars.toInt(integration == null ? null : integration.get("python_server_pool_size"), pythonParallelism)
         );
+        int pythonRequestParallelism = Math.max(
+                1,
+                Math.min(
+                        cameraParallelism,
+                        YamlScalars.toInt(
+                                integration == null ? null : integration.get("python_request_parallelism"),
+                                pythonServerPoolSize
+                        )
+                )
+        );
         int stageQueueSize = Math.max(1, YamlScalars.toInt(integration == null ? null : integration.get("stage_queue_size"), cameraParallelism * 2));
         int inspectionCycleParallelism = Math.max(
                 1,
@@ -77,6 +88,7 @@ public record IntegrationBootConfig(
                 reloadReference,
                 referenceSource,
                 pythonParallelism,
+                pythonRequestParallelism,
                 pythonServerPoolSize,
                 List.of(),
                 List.of(),
@@ -101,6 +113,7 @@ public record IntegrationBootConfig(
                 reloadReference,
                 referenceSource,
                 pythonParallelism,
+                pythonRequestParallelism,
                 pythonServerPoolSize,
                 pythonCommand,
                 geometryCommand,

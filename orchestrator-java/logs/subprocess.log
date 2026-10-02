@@ -1,0 +1,14 @@
+2026-09-17 13:30:20.164 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit4080078353936450284\camera_runtime_settings.json cameras=2
+2026-09-17 13:30:20.172 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit16338387388101283222\camera_runtime_settings.json cameras=1
+2026-09-17 13:30:34.932 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-unexpected pid=11228 command=[cmd.exe, /c, exit /b 0]
+2026-09-17 13:30:34.946 WARN  [ForkJoinPool.commonPool-worker-1] c.e.i.o.i.s.ExternalServiceProcess - external service exit-test-unexpected pid=11228 exited unexpectedly code=0
+2026-09-17 13:30:34.948 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-close pid=13156 command=[cmd.exe, /c, ping -n 30 127.0.0.1 >nul]
+2026-09-17 13:30:34.949 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service exit-test-close pid=13156
+2026-09-17 13:30:34.955 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service exit-test-close stopped
+2026-09-22 09:29:05.295 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit1135512027232545463\camera_runtime_settings.json cameras=2
+2026-09-22 09:29:05.312 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit3222289907287669841\camera_runtime_settings.json cameras=1
+2026-09-22 09:29:20.060 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-unexpected pid=8528 command=[cmd.exe, /c, exit /b 0]
+2026-09-22 09:29:20.077 WARN  [ForkJoinPool.commonPool-worker-1] c.e.i.o.i.s.ExternalServiceProcess - external service exit-test-unexpected pid=8528 exited unexpectedly code=0
+2026-09-22 09:29:20.077 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-close pid=13004 command=[cmd.exe, /c, ping -n 30 127.0.0.1 >nul]
+2026-09-22 09:29:20.077 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service exit-test-close pid=13004
+2026-09-22 09:29:20.077 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service exit-test-close stopped

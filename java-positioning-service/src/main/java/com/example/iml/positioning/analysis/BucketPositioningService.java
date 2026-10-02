@@ -50,15 +50,24 @@ public final class BucketPositioningService {
     private static final Logger log = LogManager.getLogger(BucketPositioningService.class);
 
     /**
-     * ORB working resolution. 512 is ~2.2× fewer pixels than 768 and still yields stable inliers
-     * on bucket texture; target ≤100 ms/cam wall under a 10-process pool.
+     * Fast path for ≤150 ms/cam: ORB + warp + write only.
+     * Coarse FFT / residual polish / ECC were under 10% applied and ate 80–300 ms when they ran.
      */
-    private static final int MAX_ORB_DIM = 512;
-    /** Enough for ≥MIN_MATCHES inliers; 3500 mostly burned CPU without lifting PASS rate. */
-    private static final int ORB_FEATURES = 1600;
-    private static final int ORB_PYRAMID_LEVELS = 5;
+    private static final boolean ENABLE_COARSE = false;
+    private static final boolean ENABLE_RESIDUAL_POLISH = false;
+    private static final boolean ENABLE_ECC = false;
+    private static final boolean ENABLE_POST_ECC_POLISH = false;
+
+    /**
+     * ORB working resolution. 384 keeps inliers stable on bucket texture while cutting pixels
+     * vs 512; budget target ≤150 ms/cam wall under a 10-process pool.
+     */
+    private static final int MAX_ORB_DIM = 384;
+    /** Enough for ≥MIN_MATCHES inliers; 1600 was overkill once coarse/ECC were dropped. */
+    private static final int ORB_FEATURES = 900;
+    private static final int ORB_PYRAMID_LEVELS = 4;
     private static final double RANSAC_REPROJ_THRESHOLD = 5.0;
-    private static final int RANSAC_MAX_ITERS = 500;
+    private static final int RANSAC_MAX_ITERS = 200;
     private static final int MIN_MATCHES = 10;
     /** 2 pyramid levels + fewer iters — ECC was often 150–350 ms/cam. */
     private static final int ECC_LEVELS = 2;
@@ -136,9 +145,12 @@ public final class BucketPositioningService {
             Map<String, Object> logContext
     ) {
         long tTotal0 = System.nanoTime();
+        double stageMsCoarse = 0;
         double stageMsOrb = 0;
         double stageMsWarp = 0;
+        double stageMsResidualPolish = 0;
         double stageMsEcc = 0;
+        double stageMsPostEccPolish = 0;
         double stageMsWrite = 0;
         Mat working = null;
         Mat homographyCurToRef = null;
@@ -171,54 +183,63 @@ public final class BucketPositioningService {
                     fmt(q0.residualShiftY())
             );
 
-            // --- 1) Coarse translation via phase correlation (ROI only) ---
-            long tOrb0 = System.nanoTime();
-            Point coarseShift = estimateCoarseShift(reference, current, qualityRoi, request.mainRoiPolygonNorm());
+            // --- 1) Coarse translation (disabled on fast path; keep flags for usage logs) ---
+            long tCoarse0 = System.nanoTime();
+            boolean coarseRejected = false;
+            boolean coarseResidualFallback = false;
+            boolean ownAfterCoarse = false;
+            Point coarseShift = new Point(0, 0);
+            Mat afterCoarse = current;
+            QualityScore qCoarse = q0;
+            if (ENABLE_COARSE) {
+                coarseShift = estimateCoarseShift(reference, current, qualityRoi, request.mainRoiPolygonNorm());
+                afterCoarse = applyTranslation(current, coarseShift.x, coarseShift.y);
+                ownAfterCoarse = true;
+                qCoarse = measureQuality(reference, afterCoarse, qualityRoi, request.mainRoiPolygonNorm());
+                if (!isQualityImproved(q0, qCoarse)) {
+                    coarseRejected = true;
+                    log.warn(
+                            "positioning_diag {} stage=coarse REJECTED absdiff={}→{} residual={}→{}",
+                            ctx(logContext),
+                            fmt(q0.meanAbsDiff()),
+                            fmt(qCoarse.meanAbsDiff()),
+                            fmt(Math.hypot(q0.residualShiftX(), q0.residualShiftY())),
+                            fmt(Math.hypot(qCoarse.residualShiftX(), qCoarse.residualShiftY()))
+                    );
+                    afterCoarse.release();
+                    afterCoarse = current;
+                    ownAfterCoarse = false;
+                    coarseShift = new Point(0, 0);
+                    qCoarse = q0;
+                    ResidualPolish coarseRes = polishResidualTranslation(
+                            reference, afterCoarse, null, qualityRoi, request.mainRoiPolygonNorm());
+                    if (coarseRes.applied()) {
+                        coarseResidualFallback = true;
+                        afterCoarse = coarseRes.frame();
+                        ownAfterCoarse = true;
+                        coarseShift = new Point(coarseRes.dx(), coarseRes.dy());
+                        qCoarse = coarseRes.quality();
+                        if (coarseRes.homography() != null) {
+                            coarseRes.homography().release();
+                        }
+                        diag.put("coarse_residual_fallback", true);
+                    }
+                }
+            } else {
+                diag.put("coarse_disabled", true);
+            }
+            stageMsCoarse = nanosToMs(System.nanoTime() - tCoarse0);
+            boolean coarseUsed = ENABLE_COARSE && !coarseRejected
+                    && (Math.abs(coarseShift.x) > 1e-3 || Math.abs(coarseShift.y) > 1e-3);
+            if (coarseResidualFallback) {
+                coarseUsed = true;
+            }
             diag.put("coarse_dx_px", coarseShift.x);
             diag.put("coarse_dy_px", coarseShift.y);
-            Mat afterCoarse = applyTranslation(current, coarseShift.x, coarseShift.y);
-            QualityScore qCoarse = measureQuality(reference, afterCoarse, qualityRoi, request.mainRoiPolygonNorm());
-            if (!isQualityImproved(q0, qCoarse)) {
-                log.warn(
-                        "positioning_diag {} stage=coarse REJECTED absdiff={}→{} residual={}→{}",
-                        ctx(logContext),
-                        fmt(q0.meanAbsDiff()),
-                        fmt(qCoarse.meanAbsDiff()),
-                        fmt(Math.hypot(q0.residualShiftX(), q0.residualShiftY())),
-                        fmt(Math.hypot(qCoarse.residualShiftX(), qCoarse.residualShiftY()))
-                );
-                afterCoarse.release();
-                afterCoarse = current.clone();
-                coarseShift = new Point(0, 0);
-                qCoarse = q0;
-                diag.put("coarse_rejected", true);
-                diag.put("coarse_dx_px", 0.0);
-                diag.put("coarse_dy_px", 0.0);
-                // Coarse FFT often fails but quality residual is still usable — try ±residual.
-                ResidualPolish coarseRes = polishResidualTranslation(
-                        reference, afterCoarse, null, qualityRoi, request.mainRoiPolygonNorm());
-                if (coarseRes.applied()) {
-                    afterCoarse.release();
-                    afterCoarse = coarseRes.frame();
-                    coarseShift = new Point(coarseRes.dx(), coarseRes.dy());
-                    qCoarse = coarseRes.quality();
-                    if (coarseRes.homography() != null) {
-                        coarseRes.homography().release();
-                    }
-                    diag.put("coarse_residual_fallback", true);
-                    diag.put("coarse_dx_px", coarseShift.x);
-                    diag.put("coarse_dy_px", coarseShift.y);
-                    log.debug(
-                            "positioning_diag {} stage=coarse_residual_fallback shift=({}, {}) px absdiff={} residual=({}, {})",
-                            ctx(logContext),
-                            fmt(coarseShift.x),
-                            fmt(coarseShift.y),
-                            fmt(qCoarse.meanAbsDiff()),
-                            fmt(qCoarse.residualShiftX()),
-                            fmt(qCoarse.residualShiftY())
-                    );
-                }
-            }
+            diag.put("coarse_used", coarseUsed);
+            diag.put("coarse_rejected", coarseRejected);
+            diag.put("coarse_residual_fallback", coarseResidualFallback);
+            diag.put("stage_ms_coarse", stageMsCoarse);
             putQuality(diag, "coarse", qCoarse);
             log.debug(
                     "positioning_diag {} stage=coarse shift=({}, {}) px mean_absdiff={} ncc={} residual_shift=({}, {}) px",
@@ -232,6 +253,8 @@ public final class BucketPositioningService {
             );
 
             // --- 2) ORB rigid (translate+rotate) inside interest ROI only ---
+            long tOrb0 = System.nanoTime();
+            boolean orbFullframeFallback = false;
             Rect orbRoi = expandRect(
                     resolveMainRect(request, current.cols(), current.rows()),
                     current.cols(),
@@ -256,6 +279,7 @@ public final class BucketPositioningService {
                         || orbResult.refKeypoints() < ORB_MIN_REF_KEYPOINTS
                         || orbResult.inliers() < MIN_MATCHES);
                 if (preferFull) {
+                    orbFullframeFallback = true;
                     log.debug(
                             "positioning_diag {} stage=orb FALLBACK_FULLFRAME kp_ref={}→{} good={}->{} inliers={}->{}",
                             ctx(logContext),
@@ -282,6 +306,7 @@ public final class BucketPositioningService {
             diag.put("orb_inliers", orbResult.inliers());
             diag.put("orb_ok", !orbResult.homography().empty());
             diag.put("orb_model", "euclidean");
+            diag.put("orb_fullframe_fallback", orbFullframeFallback);
             log.debug(
                     "positioning_diag {} stage=orb model=euclidean kp_ref={} kp_cur={} good_matches={} inliers={} ok={}",
                     ctx(logContext),
@@ -295,6 +320,9 @@ public final class BucketPositioningService {
             long tWarp0 = System.nanoTime();
             Mat orbH = orbResult.homography();
             QualityScore qBeforeOrb = qCoarse;
+            boolean orbApplied = false;
+            boolean orbRejectedQuality = false;
+            boolean orbFailed = false;
             if (orbH != null && !orbH.empty()) {
                 Mat affine = null;
                 Mat orbCandidate = null;
@@ -318,7 +346,9 @@ public final class BucketPositioningService {
                         orbCandidate = null;
                         homographyCurToRef = composeCurToRef(coarseShift, orbH);
                         qOrbHold = qCand;
+                        orbApplied = true;
                     } else {
+                        orbRejectedQuality = true;
                         log.warn(
                                 "positioning_diag {} stage=orb REJECTED_quality absdiff={}→{} residual={}→{}",
                                 ctx(logContext),
@@ -331,8 +361,13 @@ public final class BucketPositioningService {
                         diag.put("orb_ok", false);
                         release(orbH);
                         orbH = new Mat();
-                        working = afterCoarse;
-                        afterCoarse = null;
+                        if (ownAfterCoarse) {
+                            working = afterCoarse;
+                            afterCoarse = null;
+                            ownAfterCoarse = false;
+                        } else {
+                            working = afterCoarse.clone();
+                        }
                         homographyCurToRef = translationHomography(coarseShift.x, coarseShift.y);
                         qOrbHold = qBeforeOrb;
                     }
@@ -340,47 +375,56 @@ public final class BucketPositioningService {
                     release(affine, orbCandidate);
                 }
             } else {
-                working = afterCoarse;
-                afterCoarse = null;
+                orbFailed = true;
+                if (ownAfterCoarse) {
+                    working = afterCoarse;
+                    afterCoarse = null;
+                    ownAfterCoarse = false;
+                } else {
+                    working = afterCoarse.clone();
+                }
                 homographyCurToRef = translationHomography(coarseShift.x, coarseShift.y);
                 qOrbHold = qBeforeOrb;
                 log.warn("positioning_diag {} stage=orb FAILED — falling back to coarse translation only", ctx(logContext));
             }
             stageMsWarp = nanosToMs(System.nanoTime() - tWarp0);
-            release(afterCoarse, orbH);
+            diag.put("orb_applied", orbApplied);
+            diag.put("orb_rejected_quality", orbRejectedQuality);
+            diag.put("orb_failed", orbFailed);
+            if (ownAfterCoarse) {
+                release(afterCoarse);
+            }
+            release(orbH);
 
             boolean matched = homographyCurToRef != null && !homographyCurToRef.empty();
             QualityScore qOrb = qOrbHold != null
                     ? qOrbHold
                     : measureQuality(reference, working, qualityRoi, request.mainRoiPolygonNorm());
 
-            // --- 2b) Residual translation polish (ORB often leaves a pure shift) ---
-            ResidualPolish residualPolish = polishResidualTranslation(
-                    reference, working, homographyCurToRef, qualityRoi, request.mainRoiPolygonNorm());
-            if (residualPolish.applied()) {
-                working.release();
-                working = residualPolish.frame();
-                if (homographyCurToRef != null) {
-                    homographyCurToRef.release();
+            // --- 2b) Residual polish (disabled on fast path) ---
+            long tPolish0 = System.nanoTime();
+            boolean residualPolishUsed = false;
+            if (ENABLE_RESIDUAL_POLISH) {
+                ResidualPolish residualPolish = polishResidualTranslation(
+                        reference, working, homographyCurToRef, qualityRoi, request.mainRoiPolygonNorm());
+                residualPolishUsed = residualPolish.applied();
+                if (residualPolishUsed) {
+                    working.release();
+                    working = residualPolish.frame();
+                    if (homographyCurToRef != null) {
+                        homographyCurToRef.release();
+                    }
+                    homographyCurToRef = residualPolish.homography();
+                    qOrb = residualPolish.quality();
+                    diag.put("residual_polish_dx", residualPolish.dx());
+                    diag.put("residual_polish_dy", residualPolish.dy());
                 }
-                homographyCurToRef = residualPolish.homography();
-                qOrb = residualPolish.quality();
-                diag.put("residual_polish", true);
-                diag.put("residual_polish_dx", residualPolish.dx());
-                diag.put("residual_polish_dy", residualPolish.dy());
-                log.debug(
-                        "positioning_diag {} stage=residual_polish shift=({}, {}) px mean_absdiff={} ncc={} residual_shift=({}, {}) px",
-                        ctx(logContext),
-                        fmt(residualPolish.dx()),
-                        fmt(residualPolish.dy()),
-                        fmt(qOrb.meanAbsDiff()),
-                        fmt(qOrb.ncc()),
-                        fmt(qOrb.residualShiftX()),
-                        fmt(qOrb.residualShiftY())
-                );
             } else {
-                diag.put("residual_polish", false);
+                diag.put("residual_polish_disabled", true);
             }
+            diag.put("residual_polish", residualPolishUsed);
+            stageMsResidualPolish = nanosToMs(System.nanoTime() - tPolish0);
+            diag.put("stage_ms_residual_polish", stageMsResidualPolish);
 
             AlignmentMetrics metrics = metricsFromHomography(homographyCurToRef, request.pixelsToMm());
             putQuality(diag, "orb", qOrb);
@@ -396,12 +440,17 @@ public final class BucketPositioningService {
                     fmt(qOrb.residualShiftY())
             );
 
-            // --- 3) Pyramid ECC affine with WARP_INVERSE_MAP (optional refine) ---
+            // --- 3) Pyramid ECC (disabled on fast path) ---
             long tEcc0 = System.nanoTime();
             QualityScore qBeforeEcc = qOrb;
             PositioningTuning tuning = request.tuning() == null ? PositioningTuning.defaults() : request.tuning();
-            boolean skipEcc = shouldSkipEcc(qBeforeEcc, tuning);
+            boolean skipEcc = !ENABLE_ECC || shouldSkipEcc(qBeforeEcc, tuning);
+            boolean eccApplied = false;
+            boolean eccRejected = false;
             diag.put("ecc_skipped", skipEcc);
+            if (!ENABLE_ECC) {
+                diag.put("ecc_disabled", true);
+            }
             if (skipEcc) {
                 stageMsEcc = nanosToMs(System.nanoTime() - tEcc0);
                 diag.put("ecc_ok", false);
@@ -409,14 +458,6 @@ public final class BucketPositioningService {
                 diag.put("ecc_ty", 0.0);
                 diag.put("ecc_angle_deg", 0.0);
                 diag.put("ecc_applied", false);
-                log.debug(
-                        "positioning_diag {} stage=ecc SKIPPED already_good ncc={} absdiff={} residual=({}, {})",
-                        ctx(logContext),
-                        fmt(qBeforeEcc.ncc()),
-                        fmt(qBeforeEcc.meanAbsDiff()),
-                        fmt(qBeforeEcc.residualShiftX()),
-                        fmt(qBeforeEcc.residualShiftY())
-                );
             } else {
                 Rect refineRect = expandRect(
                         resolveMainRect(request, current.cols(), current.rows()),
@@ -425,7 +466,6 @@ public final class BucketPositioningService {
                         0.15
                 );
                 double residualMag = Math.hypot(qBeforeEcc.residualShiftX(), qBeforeEcc.residualShiftY());
-                // Cap tightly — unrestricted ECC "improves" NCC while smearing the photo.
                 double eccMaxTx = ECC_MAX_TRANSLATION_PX;
                 if (Double.isFinite(residualMag) && residualMag > 1.0) {
                     eccMaxTx = Math.min(ECC_MAX_TRANSLATION_PX, Math.max(8.0, residualMag + 6.0));
@@ -457,7 +497,9 @@ public final class BucketPositioningService {
                         working.release();
                         working = ecc.refined();
                         qBeforeEcc = qEcc;
+                        eccApplied = true;
                     } else {
+                        eccRejected = true;
                         ecc.refined().release();
                         log.warn(
                                 "positioning_diag {} stage=ecc REJECTED_quality before_absdiff={} after_absdiff={} "
@@ -470,6 +512,7 @@ public final class BucketPositioningService {
                         );
                     }
                 } else if (ecc.refined() != working) {
+                    eccRejected = true;
                     ecc.refined().release();
                     log.warn(
                             "positioning_diag {} stage=ecc REJECTED_transform ok={} t=({}, {}) angle={}",
@@ -481,44 +524,34 @@ public final class BucketPositioningService {
                     );
                 }
                 diag.put("ecc_applied", acceptEcc);
-                log.debug(
-                        "positioning_diag {} stage=ecc ok={} applied={} cc={} affine_t=({}, {}) angle_deg={}",
-                        ctx(logContext),
-                        ecc.ok(),
-                        acceptEcc,
-                        fmt(ecc.correlation()),
-                        fmt(ecc.tx()),
-                        fmt(ecc.ty()),
-                        fmt(ecc.angleDeg())
-                );
             }
+            diag.put("ecc_rejected", eccRejected);
 
-            // Final residual translation polish if ECC skipped / left a pure shift.
-            double polishResidualMag = Math.hypot(qBeforeEcc.residualShiftX(), qBeforeEcc.residualShiftY());
-            if (polishResidualMag >= RESIDUAL_POLISH_MIN_PX && polishResidualMag <= RESIDUAL_POLISH_MAX_PX) {
-                ResidualPolish postEccPolish = polishResidualTranslation(
-                        reference, working, homographyCurToRef, qualityRoi, request.mainRoiPolygonNorm());
-                if (postEccPolish.applied()) {
-                    working.release();
-                    working = postEccPolish.frame();
-                    if (homographyCurToRef != null) {
-                        homographyCurToRef.release();
+            // Final residual polish (disabled on fast path).
+            long tPostPolish0 = System.nanoTime();
+            boolean postEccPolishUsed = false;
+            if (ENABLE_POST_ECC_POLISH) {
+                double polishResidualMag = Math.hypot(qBeforeEcc.residualShiftX(), qBeforeEcc.residualShiftY());
+                if (polishResidualMag >= RESIDUAL_POLISH_MIN_PX && polishResidualMag <= RESIDUAL_POLISH_MAX_PX) {
+                    ResidualPolish postEccPolish = polishResidualTranslation(
+                            reference, working, homographyCurToRef, qualityRoi, request.mainRoiPolygonNorm());
+                    if (postEccPolish.applied()) {
+                        postEccPolishUsed = true;
+                        working.release();
+                        working = postEccPolish.frame();
+                        if (homographyCurToRef != null) {
+                            homographyCurToRef.release();
+                        }
+                        homographyCurToRef = postEccPolish.homography();
+                        metrics = metricsFromHomography(homographyCurToRef, request.pixelsToMm());
                     }
-                    homographyCurToRef = postEccPolish.homography();
-                    metrics = metricsFromHomography(homographyCurToRef, request.pixelsToMm());
-                    diag.put("post_ecc_residual_polish", true);
-                    log.debug(
-                            "positioning_diag {} stage=post_ecc_polish shift=({}, {}) px mean_absdiff={} ncc={} residual=({}, {})",
-                            ctx(logContext),
-                            fmt(postEccPolish.dx()),
-                            fmt(postEccPolish.dy()),
-                            fmt(postEccPolish.quality().meanAbsDiff()),
-                            fmt(postEccPolish.quality().ncc()),
-                            fmt(postEccPolish.quality().residualShiftX()),
-                            fmt(postEccPolish.quality().residualShiftY())
-                    );
                 }
+            } else {
+                diag.put("post_ecc_polish_disabled", true);
             }
+            stageMsPostEccPolish = nanosToMs(System.nanoTime() - tPostPolish0);
+            diag.put("post_ecc_residual_polish", postEccPolishUsed);
+            diag.put("stage_ms_post_ecc_polish", stageMsPostEccPolish);
 
             QualityScore qFinal = measureQuality(reference, working, qualityRoi, request.mainRoiPolygonNorm());
             putQuality(diag, "final", qFinal);
@@ -595,15 +628,42 @@ public final class BucketPositioningService {
 
             double stageMsTotal = nanosToMs(System.nanoTime() - tTotal0);
             diag.put("status", overallPass ? "PASS" : "FAIL");
+            diag.put("stage_ms_orb", stageMsOrb);
+            diag.put("stage_ms_warp", stageMsWarp);
+            diag.put("stage_ms_ecc", stageMsEcc);
+            diag.put("stage_ms_write", stageMsWrite);
+            diag.put("stage_ms_total", stageMsTotal);
+            // One INFO line: per-stage ms + whether the stage actually contributed (for prune decisions).
             log.info(
-                    "positioning_diag {} stage=summary status={} written={} total_ms={} orb_ms={} warp_ms={} ecc_ms={} write_ms={}",
+                    "positioning_usage {} status={} written={} total_ms={} "
+                            + "coarse_ms={} coarse_used={} coarse_rejected={} coarse_residual_fb={} "
+                            + "orb_ms={} orb_applied={} orb_fullframe={} orb_rejected={} orb_failed={} orb_inliers={} "
+                            + "warp_ms={} polish_ms={} polish_used={} "
+                            + "ecc_ms={} ecc_skipped={} ecc_applied={} ecc_rejected={} "
+                            + "post_polish_ms={} post_polish_used={} write_ms={}",
                     ctx(logContext),
                     overallPass ? "PASS" : "FAIL",
                     alignedWritten,
                     fmt(stageMsTotal),
+                    fmt(stageMsCoarse),
+                    coarseUsed,
+                    coarseRejected,
+                    coarseResidualFallback,
                     fmt(stageMsOrb),
+                    orbApplied,
+                    orbFullframeFallback,
+                    orbRejectedQuality,
+                    orbFailed,
+                    orbResult.inliers(),
                     fmt(stageMsWarp),
+                    fmt(stageMsResidualPolish),
+                    residualPolishUsed,
                     fmt(stageMsEcc),
+                    skipEcc,
+                    eccApplied,
+                    eccRejected,
+                    fmt(stageMsPostEccPolish),
+                    postEccPolishUsed,
                     fmt(stageMsWrite)
             );
 

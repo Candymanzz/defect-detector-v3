@@ -155,7 +155,54 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             try {
                 BinaryProtocol.Message geomResp = geometry.command(gHeader);
                 geomResp = applyPoseQcFromPositioning(geomResp, state.capture(), gHeader);
-                if (log.isDebugEnabled()) {
+                long wallMs = YamlScalars.nanosToMs(System.nanoTime() - t0);
+                if (log != null) {
+                    Map<String, Object> rh = geomResp == null || geomResp.header() == null
+                            ? Map.of()
+                            : geomResp.header();
+                    log.info(
+                            "geometry_timing cam={} frame={} wall_ms={} service_ms={} "
+                                    + "prep_ms={} align_ms={} align_skipped={} warp_ms={} "
+                                    + "joint_ms={} joint_ran={} joint_found={} "
+                                    + "rim_ms={} wrinkles_ms={} concentricity_ms={} debug_ms={} "
+                                    + "status={} pose_locked={} shift=({}, {}) rot={} conc_mm={} "
+                                    + "joint_par={} joint_w={} joint_vis={} wrinkle={} rim_skew={} "
+                                    + "pass_align={} pass_conc={} pass_joint={} pass_wrinkle={} pass_rim={} overall={}",
+                            cameraId,
+                            state.capture().header().get("frame_id"),
+                            wallMs,
+                            YamlScalars.toDouble(rh.get("stage_ms_total"), wallMs),
+                            YamlScalars.toDouble(rh.get("stage_ms_prep"), 0.0),
+                            YamlScalars.toDouble(rh.get("stage_ms_align"), 0.0),
+                            rh.getOrDefault("align_skipped_pose_locked", rh.get("diag_align_skipped_pose_locked")),
+                            YamlScalars.toDouble(rh.get("stage_ms_warp"), 0.0),
+                            YamlScalars.toDouble(rh.get("stage_ms_joint"), 0.0),
+                            rh.getOrDefault("joint_ran", rh.get("diag_joint_ran")),
+                            rh.getOrDefault("joint_found", rh.get("diag_joint_found")),
+                            YamlScalars.toDouble(rh.get("stage_ms_rim_skew"), 0.0),
+                            YamlScalars.toDouble(rh.get("stage_ms_wrinkles"), 0.0),
+                            YamlScalars.toDouble(rh.get("stage_ms_concentricity"), 0.0),
+                            YamlScalars.toDouble(rh.get("stage_ms_debug"), 0.0),
+                            rh.getOrDefault("status", "?"),
+                            rh.getOrDefault("pose_locked", rh.get("diag_pose_locked")),
+                            rh.get("shiftXmm"),
+                            rh.get("shiftYmm"),
+                            rh.get("rotationDeg"),
+                            rh.get("concentricityMm"),
+                            rh.get("jointParallelismDeg"),
+                            rh.get("jointWidthMm"),
+                            rh.get("jointVisibility"),
+                            rh.get("wrinklesScore"),
+                            rh.get("jointRimSkewDeg"),
+                            rh.get("alignmentPass"),
+                            rh.get("concentricityPass"),
+                            rh.get("jointPass"),
+                            rh.get("wrinklesPass"),
+                            rh.get("rimSkewPass"),
+                            rh.get("overallPass")
+                    );
+                }
+                if (log != null && log.isDebugEnabled()) {
                     log.debug("{} cam={} frame={} => {}", geometry.supervisorLabel(), cameraId, state.capture().header().get("frame_id"), geomResp.header());
                 }
                 if (geometrySnapshotCache != null && geomResp.type() == BinaryProtocol.MSG_RESPONSE) {
@@ -168,7 +215,7 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
                         geomResp,
                         state.captureMs(),
                         state.pythonMs(),
-                        YamlScalars.nanosToMs(System.nanoTime() - t0)
+                        wallMs
                 );
             } finally {
                 geometrySlots.release();

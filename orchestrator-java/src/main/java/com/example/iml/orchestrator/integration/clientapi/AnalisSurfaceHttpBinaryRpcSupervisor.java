@@ -541,6 +541,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         }
         copyIfPresent(body, header, "alignment_h_ref_to_cur");
         copyIfPresent(body, header, "roi_polygon_norm");
+        copyIfPresent(body, header, "perspective_line_norm");
         if (header.get("simple") instanceof Map<?, ?> simple) {
             body.put("simple", simple);
         }
@@ -605,12 +606,6 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 }
             }
         }
-        Object heatmapOut = header.get("heatmap_u8_output_path");
-        if (heatmapOut != null && !String.valueOf(heatmapOut).isBlank()) {
-            synchronized (scopeLock("heatmap:" + String.valueOf(heatmapOut).trim())) {
-                return inspectShmVisuals(header);
-            }
-        }
         Map<String, Object> body = shmFrameJson(header);
         String invalid = validateRequiredShmFrameFields(body, "inspect-shm");
         if (invalid != null) {
@@ -628,6 +623,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         rememberLearnedReview(header, json);
         Map<String, Object> pyHeader = inspectJsonToStdioHeader(json);
         pyHeader.put("product_type", originalProductType);
+        appendHeatmapOutput(pyHeader, json);
         return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, pyHeader, new byte[0]);
     }
 
@@ -683,7 +679,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             return null;
         }
         String roiKey = runtimeKey(productType, cameraId);
-        String signature = roiSignature(points);
+        List<Map<String, Object>> perspectiveLine = perspectiveLinePoints(header);
+        String signature = roiSignature(points) + roiSignature(perspectiveLine);
         if (signature.equals(SHARED_ROI_SIGNATURES.get(roiKey))) {
             return null;
         }
@@ -694,6 +691,9 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             Map<String, Object> roiBody = new LinkedHashMap<>();
             roiBody.put("product_type", scopedProductType);
             roiBody.put("points", points);
+            if (perspectiveLine.size() == 2) {
+                roiBody.put("perspective_line", perspectiveLine);
+            }
             appendAlgorithmParams(roiBody, header);
             HttpResponse<byte[]> roiResp = httpPostJson("/roi-polygon", roiBody);
             if (roiResp.statusCode() / 100 != 2) {
@@ -706,6 +706,9 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
 
     private BinaryProtocol.Message inspectShmVisuals(Map<String, Object> header) throws IOException {
         Map<String, Object> body = shmFrameJson(header);
+        // The production inspect_shm request owns the learning-review record.
+        // This second pass exists only to export heatmaps/UI artifacts.
+        body.put("skip_learning_review", true);
         String invalid = validateRequiredShmFrameFields(body, "inspect-shm-visuals");
         if (invalid != null) {
             return new BinaryProtocol.Message(
@@ -873,9 +876,16 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         }
         copyIfPresent(body, header, "alignment_h_ref_to_cur");
         copyIfPresent(body, header, "roi_polygon_norm");
+        copyIfPresent(body, header, "perspective_line_norm");
+        copyIfPresent(body, header, "heatmap_u8_output_path");
+        copyIfPresent(body, header, "heatmap_max_width");
+        copyIfPresent(body, header, "inspect_scale");
         if (YamlScalars.toBool(header.get("test_analyze"), false)
                 || YamlScalars.toBool(header.get("skip_learning_review"), false)) {
             body.put("skip_learning_review", true);
+        }
+        if (YamlScalars.toBool(header.get("defer_learning_review"), false)) {
+            body.put("defer_learning_review", true);
         }
         if (header.get("analysis_test_settings") instanceof Map<?, ?> temporaryAnalysis && !temporaryAnalysis.isEmpty()) {
             body.put("analysis_test_settings", temporaryAnalysis);
@@ -990,7 +1000,21 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         h.put("learned_normal_adjustment", YamlScalars.toDouble(json.get("learned_normal_adjustment"), 0.0));
         Object excludedNormalZones = json.get("excluded_normal_zones");
         h.put("excluded_normal_zones", excludedNormalZones instanceof List<?> ? excludedNormalZones : List.of());
+        for (String timing : List.of("py_align_ms", "py_diff_ms", "py_anomaly_ms", "py_fp_recheck_ms", "py_heatmap_ms", "py_total_ms")) {
+            h.put(timing, YamlScalars.toDouble(json.get(timing), 0.0));
+        }
         return h;
+    }
+
+    private static void appendHeatmapOutput(Map<String, Object> header, Map<String, Object> json) {
+        Object value = json.get("heatmap_u8");
+        if (!(value instanceof Map<?, ?> heatmap)) {
+            return;
+        }
+        header.put("heatmap_u8_path", heatmap.get("path"));
+        header.put("heatmap_u8_width", heatmap.get("width"));
+        header.put("heatmap_u8_height", heatmap.get("height"));
+        header.put("heatmap_u8_stride", heatmap.get("stride"));
     }
 
     private void rememberLearnedReview(Map<String, Object> header, Map<String, Object> json) {
@@ -1240,6 +1264,17 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         } catch (Exception e) {
             return "err";
         }
+    }
+
+    /** Линия перспективы из заголовка запроса: ровно две нормализованные точки, иначе пусто. */
+    private static List<Map<String, Object>> perspectiveLinePoints(Map<String, Object> header) {
+        if (header != null && header.get("perspective_line_norm") instanceof List<?> list) {
+            List<Map<String, Object>> points = normalizeRoiPoints(list);
+            if (points.size() == 2) {
+                return points;
+            }
+        }
+        return List.of();
     }
 
     private static String roiSignature(List<Map<String, Object>> points) {

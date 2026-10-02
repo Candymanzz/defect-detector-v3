@@ -40,6 +40,19 @@ if (WIN32)
         target_include_directories(camera_worker PRIVATE "${MVS_ROOT}/Includes")
         target_link_libraries(camera_worker PRIVATE "${MVS_ROOT}/Libraries/win64/MvCameraControl.lib")
     endif ()
+
+    # Runtime DLLs must sit next to camera_worker.exe (PATH/VPN-independent load).
+    set(_MVS_RUNTIME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../LightServer.v3/ThirdParty/MVS/Runtime/win64")
+    if (EXISTS "${_MVS_RUNTIME_DIR}/MvCameraControl.dll")
+        add_custom_command(TARGET camera_worker POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${_MVS_RUNTIME_DIR}"
+                "$<TARGET_FILE_DIR:camera_worker>"
+            COMMENT "Copy MVS Runtime/win64 DLLs next to camera_worker.exe"
+        )
+    else ()
+        message(WARNING "camera-worker: MVS runtime DLLs not found at ${_MVS_RUNTIME_DIR}")
+    endif ()
 endif ()
 
 enable_testing()

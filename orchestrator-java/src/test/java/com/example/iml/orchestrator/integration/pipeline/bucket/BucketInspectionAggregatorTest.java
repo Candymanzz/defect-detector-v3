@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -78,27 +79,7 @@ class BucketInspectionAggregatorTest {
     }
 
     @Test
-    void captureOnlyGroupWithoutItsOwnReferenceDoesNotPublishVerdict() throws Exception {
-        aggregator = new BucketInspectionAggregator(
-                LogManager.getLogger(BucketInspectionAggregatorTest.class),
-                new BucketInspectionConfig(
-                        true,
-                        List.of(new BucketGroup(0, List.of(0, 1))),
-                        40L,
-                        1000L
-                )
-        );
-        List<BucketFanOutResult> published = new java.util.concurrent.CopyOnWriteArrayList<>();
-
-        aggregator.recordFrameResult(12L, 0, InspectionDecision.captureOnly(0, 210L), published::add);
-        aggregator.recordFrameResult(12L, 1, InspectionDecision.captureOnly(1, 211L), published::add);
-        Thread.sleep(80L);
-
-        assertTrue(published.isEmpty(), "capture-only frames are reference material, not an inspection verdict");
-    }
-
-    @Test
-    void publishesEachGroupImmediatelyWhenItsBucketIsReady() {
+    void twoGroupsPublishTogetherOnlyWhenBothBucketsReady() {
         aggregator = new BucketInspectionAggregator(
                 LogManager.getLogger(BucketInspectionAggregatorTest.class),
                 new BucketInspectionConfig(
@@ -116,8 +97,7 @@ class BucketInspectionAggregatorTest {
 
         aggregator.recordFrameResult(20L, 0, decision(0, 300L, true), fanOut);
         aggregator.recordFrameResult(20L, 1, decision(1, 301L, false), fanOut);
-        assertEquals(1, published.size(), "ready product must reach FINS/UI without waiting for its neighbour");
-        assertEquals(0, published.get(0).groupId());
+        assertEquals(0, published.size(), "line1 must wait for line2 before FINS/UI fanout");
 
         aggregator.recordFrameResult(20L, 2, decision(2, 302L, true), fanOut);
         aggregator.recordFrameResult(20L, 3, decision(3, 303L, true), fanOut);
@@ -129,62 +109,40 @@ class BucketInspectionAggregatorTest {
     }
 
     @Test
-    void phaseOnePublishesWithoutWaitingForPhaseZeroAndKeepsRawSequence() {
+    void firstRejectedFrameOffersImmediatePlasticHandleRejectBeforeBucketsComplete() {
         aggregator = new BucketInspectionAggregator(
                 LogManager.getLogger(BucketInspectionAggregatorTest.class),
                 new BucketInspectionConfig(
                         true,
                         List.of(
-                                new BucketGroup(0, 0, List.of(0)),
-                                new BucketGroup(0, 1, List.of(1)),
-                                new BucketGroup(1, 2, List.of(0)),
-                                new BucketGroup(1, 3, List.of(1))
+                                new BucketGroup(0, List.of(0, 1)),
+                                new BucketGroup(1, List.of(2, 3))
                         ),
                         1000L,
                         1000L
                 )
         );
+        AtomicInteger earlyRejects = new AtomicInteger();
         List<BucketFanOutResult> published = new ArrayList<>();
+        BucketFanOutSink fanOut = new BucketFanOutSink() {
+            @Override
+            public void publishBucket(BucketFanOutResult result) {
+                published.add(result);
+            }
 
-        aggregator.recordFrameResult(101L, 100L, 1, 101L, 0, decision(0, 401L, true), published::add);
-        aggregator.recordFrameResult(101L, 100L, 1, 101L, 1, decision(1, 402L, true), published::add);
-        assertEquals(List.of(2, 3), published.stream().map(BucketFanOutResult::groupId).toList());
+            @Override
+            public boolean publishEarlyPlasticHandleReject(long triggerSequence, int cameraId) {
+                assertEquals(21L, triggerSequence);
+                assertEquals(0, cameraId);
+                earlyRejects.incrementAndGet();
+                return true;
+            }
+        };
 
-        aggregator.recordFrameResult(100L, 100L, 0, 100L, 1, decision(1, 403L, true), published::add);
-        aggregator.recordFrameResult(100L, 100L, 0, 100L, 0, decision(0, 404L, true), published::add);
+        aggregator.recordFrameResult(21L, 0, decision(0, 310L, false), fanOut);
 
-        assertEquals(List.of(2, 3, 1, 0), published.stream().map(BucketFanOutResult::groupId).toList());
-        assertEquals(List.of(1, 1, 0, 0), published.stream().map(BucketFanOutResult::phaseId).toList());
-        assertEquals(101L, published.get(0).rawTriggerSequence());
-        assertEquals(100L, published.get(0).parentCycleId());
-    }
-
-    @Test
-    void missingNeighbourGroupDoesNotCreateSyntheticVerdict() throws Exception {
-        aggregator = new BucketInspectionAggregator(
-                LogManager.getLogger(BucketInspectionAggregatorTest.class),
-                new BucketInspectionConfig(
-                        true,
-                        List.of(
-                                new BucketGroup(0, 0, List.of(0)),
-                                new BucketGroup(0, 1, List.of(1))
-                        ),
-                        60L,
-                        1000L
-                )
-        );
-        List<BucketFanOutResult> published = new java.util.concurrent.CopyOnWriteArrayList<>();
-        aggregator.recordFrameResult(200L, 200L, 0, 200L, 0, decision(0, 500L, true), published::add);
-
-        Thread.sleep(120L);
-
-        assertEquals(1, published.size());
-        assertTrue(published.get(0).overallPass());
-        assertEquals(0, published.get(0).groupId());
-        aggregator.recordFrameResult(200L, 200L, 0, 200L, 1, decision(1, 501L, false), published::add);
-        assertEquals(2, published.size());
-        assertEquals(1, published.get(1).groupId());
-        assertTrue(!published.get(1).overallPass());
+        assertEquals(1, earlyRejects.get());
+        assertEquals(0, published.size(), "normal bucket/UI verdict still waits for all frames");
     }
 
     @Test

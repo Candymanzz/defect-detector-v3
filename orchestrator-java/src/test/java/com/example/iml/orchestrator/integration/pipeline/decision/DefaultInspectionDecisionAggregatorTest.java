@@ -59,8 +59,10 @@ class DefaultInspectionDecisionAggregatorTest {
 
     @Test
     void rejectsMissingOrAmbiguousStageResponses() {
-        assertFalse(aggregator.decide(1, capture, null, null).overallPass());
-        assertTrue(aggregator.decide(
+        InspectionDecision missing = aggregator.decide(1, capture, null, null);
+        assertFalse(missing.overallPass());
+        assertFalse(missing.hasAnomalyScore());
+        assertFalse(aggregator.decide(
                 1,
                 capture,
                 message(BinaryProtocol.MSG_RESPONSE, Map.of("ok", true, "status", "PASS")),
@@ -78,6 +80,29 @@ class DefaultInspectionDecisionAggregatorTest {
                 message(BinaryProtocol.MSG_RESPONSE, Map.of("ok", true, "status", "PASS")),
                 message(BinaryProtocol.MSG_ERROR, Map.of("status", "ERROR"))
         ).overallPass());
+    }
+
+    @Test
+    void exposesAnomalyOnlyWhenAnalysisActuallyProducedIt() {
+        InspectionDecision measuredDefect = aggregator.decide(
+                1,
+                capture,
+                message(BinaryProtocol.MSG_RESPONSE, Map.of(
+                        "ok", false,
+                        "status", "БРАК",
+                        "anomaly_score", 0.7
+                )),
+                null
+        );
+        InspectionDecision failedAnalysis = aggregator.decide(
+                1,
+                capture,
+                message(BinaryProtocol.MSG_ERROR, Map.of("status", "FAIL")),
+                null
+        );
+
+        assertTrue(measuredDefect.hasAnomalyScore());
+        assertFalse(failedAnalysis.hasAnomalyScore());
     }
 
     private static BinaryProtocol.Message message(int type, Map<String, Object> header) {

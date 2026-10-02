@@ -263,7 +263,7 @@ export type FrameArchiveHistoryFrame = {
   group_id?: number;
   overall_pass: boolean;
   action: string;
-  anomaly_score: number;
+  anomaly_score: number | null;
   python_status: string;
   geometry_status: string;
   product_type: string;
@@ -375,6 +375,8 @@ export type ProAnalysisKnobs = {
   edge_suppression: number;
   text_handling: number;
   preprocess_strength: number;
+  /** Усиление чувствительности на дальнем краю изделия (линия перспективы), 50 = стандарт. */
+  far_edge_boost: number;
 };
 
 /** Силы групп алгоритма (0–100), без threshold/sensitivity — см. ANALYSIS_SETTINGS_INTEGRATION.md */
@@ -384,6 +386,7 @@ export type StrengthKnobs = {
   edge_suppression: number;
   text_handling: number;
   preprocess_strength: number;
+  far_edge_boost: number;
 };
 
 export type StrengthKnobsResponse = {

@@ -30,6 +30,9 @@ type RoiContourEditorProps = {
   allowRadiusMode?: boolean;
   /** joint: только ориентированный прямоугольник по оси; interest: свободный полигон. */
   shapeMode?: RoiShapeMode;
+  /** Линия перспективы: [ближний край, дальний край]. Включает режим рисования линии. */
+  perspectiveLine?: NormPoint[];
+  onPerspectiveLineChange?: (points: NormPoint[]) => void;
   onChange: (points: NormPoint[]) => void;
 };
 
@@ -44,6 +47,8 @@ export function RoiContourEditor({
   disabled = false,
   allowRadiusMode = true,
   shapeMode = "polygon",
+  perspectiveLine = [],
+  onPerspectiveLineChange,
   onChange,
 }: RoiContourEditorProps) {
   const imageRef = useRef<HTMLImageElement>(null);
@@ -53,10 +58,13 @@ export function RoiContourEditor({
   const orientedPointerIdRef = useRef<number | null>(null);
   const widthInputFocusedRef = useRef(false);
   const [drawMode, setDrawMode] = useState<DrawMode>("polygon");
+  const [perspectiveMode, setPerspectiveMode] = useState(false);
   const [cursorPoint, setCursorPoint] = useState<NormPoint | null>(null);
   const [orientedDraft, setOrientedDraft] = useState<OrientedDraft>({ phase: "idle" });
   const [widthInputText, setWidthInputText] = useState(() => formatStripWidthPct(DEFAULT_HALF_WIDTH * 2));
   const isOriented = shapeMode === "oriented-rect";
+  const canEditPerspective = !isOriented && Boolean(onPerspectiveLineChange);
+  const perspectiveActive = canEditPerspective && perspectiveMode;
   const effectiveDrawMode = isOriented ? "polygon" : allowRadiusMode ? drawMode : "polygon";
   const svgPoints = points.map(toSvgPoint).join(" ");
   const edgeHandles = createEdgeHandles(points);
@@ -116,7 +124,19 @@ export function RoiContourEditor({
       ignoreNextClickRef.current = false;
       return;
     }
-    if (disabled || isOriented || effectiveDrawMode === "radius") return;
+    if (disabled || isOriented) return;
+
+    if (perspectiveActive) {
+      const linePoint = resolveNormPoint(event);
+      if (!linePoint) return;
+      // Первый клик — ближний край, второй — дальний; третий начинает линию заново.
+      const nextLine = perspectiveLine.length === 1 ? [perspectiveLine[0], linePoint] : [linePoint];
+      onPerspectiveLineChange?.(nextLine);
+      if (nextLine.length === 2) setPerspectiveMode(false);
+      return;
+    }
+
+    if (effectiveDrawMode === "radius") return;
 
     const nextPoint = resolveNormPoint(event);
     if (nextPoint) onChange([...points, nextPoint]);
@@ -197,7 +217,7 @@ export function RoiContourEditor({
   };
 
   const beginDrag = (event: PointerEvent<SVGCircleElement>, index: number, nextPoints = points) => {
-    if (disabled || isOriented || effectiveDrawMode !== "radius") return;
+    if (disabled || isOriented || perspectiveActive || effectiveDrawMode !== "radius") return;
 
     event.preventDefault();
     event.stopPropagation();
@@ -271,9 +291,34 @@ export function RoiContourEditor({
       disabled: disabled || (points.length === 0 && orientedDraft.phase === "idle"),
     },
     ...(!isOriented ? [{ title: "Весь кадр", onClick: handleUseFullFrame, disabled }] : []),
+    ...(canEditPerspective
+      ? [
+          {
+            title: perspectiveActive ? "Отмена линии" : "Линия перспективы",
+            onClick: () => {
+              if (!perspectiveActive) onPerspectiveLineChange?.([]);
+              setPerspectiveMode(!perspectiveActive);
+            },
+            disabled,
+            active: perspectiveActive,
+          },
+          {
+            title: "Убрать линию",
+            onClick: () => {
+              setPerspectiveMode(false);
+              onPerspectiveLineChange?.([]);
+            },
+            disabled: disabled || perspectiveLine.length === 0,
+          },
+        ]
+      : []),
   ];
 
-  const hint = isOriented
+  const hint = perspectiveActive
+    ? perspectiveLine.length === 0
+      ? "Кликните по ближнему краю изделия, затем по дальнему"
+      : "Теперь кликните по дальнему краю изделия"
+    : isOriented
     ? orientedDraft.phase === "width"
       ? "Задайте ширину мышью или числом ниже, затем клик / «Готово»"
       : orientedDraft.phase === "axis"
@@ -335,6 +380,24 @@ export function RoiContourEditor({
             ) : null,
           )}
           {!isOriented && points.length >= 2 && <polyline points={svgPoints} />}
+          {perspectiveLine.length === 2 && (
+            <line
+              className="roi-editor__perspective-line"
+              x1={perspectiveLine[0].x}
+              y1={perspectiveLine[0].y}
+              x2={perspectiveLine[1].x}
+              y2={perspectiveLine[1].y}
+            />
+          )}
+          {perspectiveLine.map((point, index) => (
+            <circle
+              key={`perspective-${index}`}
+              className={index === 0 ? "roi-editor__perspective-near" : "roi-editor__perspective-far"}
+              cx={point.x}
+              cy={point.y}
+              r="0.014"
+            />
+          ))}
           {!disabled && cursorPoint && (
             <g className="roi-editor__cursor">
               <line x1={cursorPoint.x - 0.02} y1={cursorPoint.y} x2={cursorPoint.x + 0.02} y2={cursorPoint.y} />

@@ -1,10 +1,12 @@
 import json
+import threading
 from pathlib import Path
 
 import cv2
 import numpy as np
 import pytest
 
+from app.services.analysis_settings import AnalysisSettings
 from app.services.analysis_settings_presets import expand_simple
 from app.services.inspection_geometry import (
     polygon_area,
@@ -13,6 +15,38 @@ from app.services.inspection_geometry import (
     validate_polygon_points,
 )
 from app.services.inspection_service import InspectionService
+
+
+def test_fp_zones_are_refreshed_between_server_processes(tmp_path: Path) -> None:
+    services = [
+        InspectionService(
+            learned_normals_dir=tmp_path / f"accepted-{index}",
+            reviews_dir=tmp_path / f"reviews-{index}",
+            session_wipe=True,
+        )
+        for index in range(2)
+    ]
+    for service in services:
+        service._anomaly_engine = None
+        service._fp_zones_file = tmp_path / "fp_zones.json"
+        service._fp_crops_dir = tmp_path / "fp_zone_crops"
+        service._fp_zones_generation = None
+        service._load_fp_zones()
+
+    writer, inspection_worker = services
+    zone = writer.add_fp_zone(
+        "camera-1::part-a",
+        [(0.1, 0.1), (0.3, 0.1), (0.3, 0.3), (0.1, 0.3)],
+        32,
+        32,
+        aligned=np.zeros((32, 32, 3), dtype=np.uint8),
+        reference_hash="reference-v1",
+    )
+
+    assert [item.id for item in inspection_worker.get_fp_zones("camera-1::part-a")] == [zone.id]
+
+    assert writer.delete_fp_zone(zone.id) is True
+    assert inspection_worker.get_fp_zones("camera-1::part-a") == []
 
 
 def test_validate_polygon_points_rejects_out_of_range() -> None:
@@ -38,6 +72,186 @@ def test_vertical_compensation_is_smooth_bounded_and_top_weighted() -> None:
     assert np.all(np.diff(gain) <= 1e-6)
     # The compensation is already gone before the lowest quarter of the frame.
     assert gain[75] == pytest.approx(1.0)
+
+
+def test_far_edge_boost_is_relative_to_top_of_roi_and_localized() -> None:
+    # Crop starts above the ROI; rows before roi_top keep full weight, then the
+    # boost fades to zero within the upper 35% of the ROI.
+    weight = InspectionService._far_edge_roi_weight(
+        row_count=121,
+        row_offset=20,
+        roi_top=40,
+        roi_bottom=140,
+    )
+
+    assert weight[0] == pytest.approx(1.0)
+    assert weight[20] == pytest.approx(1.0)
+    assert 0.0 < weight[40] < 1.0
+    assert weight[56] == pytest.approx(0.0)
+    assert np.all(weight[56:] == 0.0)
+
+
+@pytest.mark.parametrize("current_level", [85, 155])
+def test_smooth_shadow_and_glare_are_suppressed(current_level: int) -> None:
+    service = InspectionService.__new__(InspectionService)
+    robust = np.full((160, 220), 40, dtype=np.uint8)
+    reference = np.full_like(robust, 120)
+    current = np.full_like(robust, current_level)
+
+    corrected, confidence = service._suppress_smooth_illumination(
+        robust,
+        reference,
+        current,
+    )
+
+    assert float(np.mean(confidence)) > 0.5
+    assert float(np.mean(corrected)) < float(np.mean(robust)) * 0.35
+
+
+def test_illumination_filter_preserves_local_defect() -> None:
+    service = InspectionService.__new__(InspectionService)
+    reference = np.full((180, 240), 130, dtype=np.uint8)
+    current = np.full_like(reference, 100)
+    cv2.rectangle(current, (95, 65), (145, 115), 225, 3)
+    robust = np.full_like(reference, 45)
+
+    corrected, confidence = service._suppress_smooth_illumination(
+        robust,
+        reference,
+        current,
+    )
+
+    defect_border = np.zeros_like(reference, dtype=bool)
+    defect_border[62:119, 92:149] = True
+    defect_border[70:110, 100:140] = False
+    assert float(np.percentile(confidence[defect_border], 90)) < 0.5
+    assert float(np.percentile(corrected[defect_border], 90)) >= 30.0
+
+
+def test_saturated_glare_is_not_suppressed_to_pass() -> None:
+    service = InspectionService.__new__(InspectionService)
+    reference = np.full((160, 220), 125, dtype=np.uint8)
+    current = np.full_like(reference, 155)
+    current[45:115, 70:150] = 255
+    robust = np.full_like(reference, 40)
+    diagnostics: dict[str, object] = {}
+
+    corrected, confidence = service._suppress_smooth_illumination(
+        robust,
+        reference,
+        current,
+        diagnostics=diagnostics,
+    )
+
+    saturated = current >= 250
+    assert np.all(confidence[saturated] == 0.0)
+    assert np.array_equal(corrected[saturated], robust[saturated])
+    assert float(diagnostics["saturated_percent"]) > 10.0
+
+
+def test_illumination_diagnostics_report_before_after_energy() -> None:
+    service = InspectionService.__new__(InspectionService)
+    reference = np.full((120, 180), 120, dtype=np.uint8)
+    current = np.full_like(reference, 85)
+    robust = np.full_like(reference, 40)
+    diagnostics: dict[str, object] = {}
+
+    corrected, _ = service._suppress_smooth_illumination(
+        robust,
+        reference,
+        current,
+        diagnostics=diagnostics,
+    )
+
+    assert diagnostics["broad_illumination"] is True
+    assert float(diagnostics["shadow_percent"]) > 90.0
+    assert float(diagnostics["suppression_percent"]) > 50.0
+    assert float(diagnostics["corrected_energy"]) < float(diagnostics["raw_energy"])
+    assert float(np.mean(corrected)) < float(np.mean(robust))
+
+
+@pytest.mark.parametrize("orientation", ["horizontal", "vertical"])
+def test_thin_scratch_rejects_in_both_principal_directions(
+    inspection_service: InspectionService,
+    orientation: str,
+) -> None:
+    reference = np.full((180, 260, 3), 80, dtype=np.uint8)
+    current = reference.copy()
+    if orientation == "horizontal":
+        cv2.line(current, (45, 90), (215, 90), (145, 145, 145), 2, cv2.LINE_AA)
+    else:
+        cv2.line(current, (130, 20), (130, 160), (145, 145, 145), 2, cv2.LINE_AA)
+
+    inspection_service._anomaly_engine = None
+    inspection_service.set_reference_frame(f"scratch-{orientation}", reference)
+    result = inspection_service.inspect_frame(
+        f"scratch-{orientation}",
+        current,
+        threshold=0.45,
+        include_visuals=False,
+        alignment_h_ref_to_cur=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+    )
+
+    assert result.status == "БРАК"
+    assert result.anomaly_score > result.threshold
+
+
+def test_min_diff_signal_is_also_binary_threshold(
+    inspection_service: InspectionService,
+) -> None:
+    diff = np.zeros((100, 100, 3), dtype=np.uint8)
+    diff[40:50, 40:50] = 9
+    settings = AnalysisSettings.from_overrides(
+        {"use_patchcore": False, "min_diff_signal": 8.0, "min_defect_area": 4}
+    )
+
+    score, mask = inspection_service._run_anomaly_model(diff, settings)
+
+    assert score > 0.0
+    assert np.count_nonzero(mask) > 0
+
+
+def test_component_intensity_increases_local_score(
+    inspection_service: InspectionService,
+) -> None:
+    settings = AnalysisSettings.from_overrides(
+        {"use_patchcore": False, "min_diff_signal": 8.0, "min_defect_area": 4}
+    )
+    weak = np.zeros((100, 100, 3), dtype=np.uint8)
+    strong = weak.copy()
+    weak[40:50, 40:50] = 30
+    strong[40:50, 40:50] = 120
+
+    weak_score, _ = inspection_service._run_anomaly_model(weak, settings)
+    strong_score, _ = inspection_service._run_anomaly_model(strong, settings)
+
+    assert strong_score > weak_score
+
+
+def test_unchanged_full_roi_reuses_initial_anomaly_pass(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inspection_service.set_reference_frame("single-pass", gray_frame)
+    calls = 0
+    original = inspection_service._run_anomaly_model
+
+    def counted(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(inspection_service, "_run_anomaly_model", counted)
+    inspection_service.inspect_frame(
+        "single-pass",
+        gray_frame.copy(),
+        threshold=0.25,
+        include_visuals=False,
+        alignment_h_ref_to_cur=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+    )
+
+    assert calls == 1
 
 
 def test_inspect_identical_frames_passes(inspection_service: InspectionService, gray_frame: np.ndarray) -> None:
@@ -355,6 +569,41 @@ def test_heatmap_and_score_are_zero_outside_roi(
     assert int(result.heatmap_u8[32:38, 34:44].max()) > 0
 
 
+def test_expensive_difference_is_computed_only_on_roi_bbox(
+    inspection_service: InspectionService,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    height, width = 240, 320
+    reference = np.full((height, width, 3), 120, dtype=np.uint8)
+    product_type = "roi-cropped-diff"
+    inspection_service.set_reference_frame(product_type, reference)
+    inspection_service.set_roi_polygon(
+        product_type,
+        [(0.40, 0.35), (0.60, 0.35), (0.60, 0.65), (0.40, 0.65)],
+    )
+    computed_shapes: list[tuple[int, int]] = []
+    original = inspection_service._compute_advanced_difference
+
+    def record_shape(aligned: np.ndarray, expected: np.ndarray, settings, **kwargs):
+        computed_shapes.append(aligned.shape[:2])
+        return original(aligned, expected, settings, **kwargs)
+
+    monkeypatch.setattr(inspection_service, "_compute_advanced_difference", record_shape)
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+
+    result = inspection_service.inspect_frame(
+        product_type,
+        reference.copy(),
+        threshold=0.5,
+        include_visuals=True,
+        alignment_h_ref_to_cur=identity,
+    )
+
+    assert computed_shapes == [(168, 160)]
+    assert result.heatmap_u8 is not None
+    assert result.heatmap_u8.shape == (height, width)
+
+
 def test_heatmap_ignores_background_residual_when_mask_is_empty() -> None:
     service = InspectionService.__new__(InspectionService)
     mask = np.zeros((32, 40, 3), dtype=np.uint8)
@@ -437,6 +686,27 @@ def test_identity_homography_skips_realign(inspection_service: InspectionService
         alignment_h_ref_to_cur=identity,
     )
     assert np.array_equal(aligned, gray_frame)
+
+
+def test_inspection_never_runs_python_positioning(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inspection_service.set_reference_frame("positioned-upstream", gray_frame)
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("Python positioning must not run")
+
+    monkeypatch.setattr(inspection_service, "_align_to_reference", fail_if_called)
+    result = inspection_service.inspect_frame(
+        "positioned-upstream",
+        gray_frame.copy(),
+        threshold=0.5,
+        alignment_h_ref_to_cur=[1.0, 0.0, 12.0, 0.0, 1.0, 7.0, 0.0, 0.0, 1.0],
+    )
+
+    assert result.anomaly_score == pytest.approx(0.0)
 
 
 def test_activity_score_does_not_saturate_on_moderate_mask() -> None:
@@ -618,6 +888,45 @@ def test_local_heatmap_uses_post_exclusion_signal(
     assert all(zone["excluded_from_score"] is True for zone in replay.excluded_normal_zones)
 
 
+def test_production_u8_heatmap_uses_post_exclusion_signal(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+) -> None:
+    product_type = "production-post-exclusion-heatmap"
+    inspection_service.set_reference_frame(product_type, gray_frame)
+    acceptable = gray_frame.copy()
+    acceptable[10:30, 10:50] = 255
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+
+    original = inspection_service.inspect_frame(
+        product_type,
+        acceptable,
+        threshold=0.1,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+    )
+    review = inspection_service.get_learning_review(original.inspection_id)
+    assert review is not None and review["defects"]
+    inspection_service.accept_review_defect_as_normal(
+        original.inspection_id,
+        review["defects"][0]["id"],
+    )
+
+    replay = inspection_service.inspect_frame(
+        product_type,
+        acceptable,
+        threshold=0.1,
+        include_visuals=False,
+        include_heatmap_u8=True,
+        alignment_h_ref_to_cur=identity,
+    )
+
+    assert replay.status == "ГОДЕН"
+    assert replay.learned_normal_matches_count == 1
+    assert replay.heatmap_u8 is not None
+    assert int(np.count_nonzero(replay.heatmap_u8)) == 0
+
+
 def test_all_matched_saved_normals_are_exposed_as_excluded_zones(
     inspection_service: InspectionService,
 ) -> None:
@@ -742,8 +1051,10 @@ def test_learned_normal_matches_nearby_shifted_rescaled_shape(
     )
 
     shifted_frame = reference.copy()
-    shifted_frame[27:68, 55:60] = 255
-    shifted_frame[63:68, 55:109] = 255
+    # A few pixels of post-alignment jitter are allowed; the previous 12x7 px
+    # move was large enough to let an exception follow a different defect.
+    shifted_frame[22:65, 46:51] = 255
+    shifted_frame[61:66, 46:132] = 255
     shifted = inspection_service.inspect_frame(
         "portable-normal",
         shifted_frame,
@@ -803,7 +1114,200 @@ def test_learned_normal_does_not_match_same_shape_far_away(
     assert result.status == "БРАК"
 
 
-def test_learned_normal_matches_smaller_fragmented_shape(
+def test_learned_normal_does_not_follow_same_shape_to_another_position(
+    inspection_service: InspectionService,
+) -> None:
+    """A learned exception is tied to its location, not just defect shape."""
+    height, width = 120, 200
+    reference = np.full((height, width, 3), 80, dtype=np.uint8)
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame("strict-position-normal", reference)
+
+    accepted = reference.copy()
+    accepted[20:63, 43:48] = 255
+    accepted[59:64, 43:129] = 255
+    original = inspection_service.inspect_frame(
+        "strict-position-normal", accepted, threshold=0.1,
+        include_visuals=False, alignment_h_ref_to_cur=identity,
+    )
+    review = inspection_service.get_learning_review(original.inspection_id)
+    inspection_service.accept_review_defect_as_normal(
+        original.inspection_id, review["defects"][0]["id"],
+    )
+
+    moved = reference.copy()
+    # Eight pixels is still inside the former percentage-based center gate,
+    # but is not post-alignment jitter and must remain a real defect.
+    moved[20:63, 51:56] = 255
+    moved[59:64, 51:137] = 255
+    result = inspection_service.inspect_frame(
+        "strict-position-normal", moved, threshold=0.1,
+        include_visuals=False, alignment_h_ref_to_cur=identity,
+    )
+
+    assert result.learned_normal_matches_count == 0
+    assert result.status == "БРАК"
+    assert result.anomaly_score >= result.threshold
+
+
+def test_long_learned_normal_rejects_perpendicular_shift_inside_center_tolerance(
+    inspection_service: InspectionService,
+) -> None:
+    """A thin trace cannot use its long bbox diagonal as transverse allowance."""
+    height, width = 120, 200
+    reference = np.full((height, width, 3), 80, dtype=np.uint8)
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame("thin-trace-position", reference)
+
+    accepted = reference.copy()
+    accepted[20:101, 50:55] = 255
+    original = inspection_service.inspect_frame(
+        "thin-trace-position", accepted, threshold=0.08,
+        include_visuals=False, alignment_h_ref_to_cur=identity,
+    )
+    review = inspection_service.get_learning_review(original.inspection_id)
+    assert review is not None and review["defects"]
+    inspection_service.accept_review_defect_as_normal(
+        original.inspection_id, review["defects"][0]["id"],
+    )
+
+    # 8 px = 4% of frame width: this passed the former 8.5%-of-frame center
+    # gate and its bbox-gap check, despite being wider than the trace itself.
+    shifted = reference.copy()
+    shifted[20:101, 58:63] = 255
+    result = inspection_service.inspect_frame(
+        "thin-trace-position", shifted, threshold=0.08,
+        include_visuals=False, alignment_h_ref_to_cur=identity,
+    )
+
+    assert result.learned_normal_matches_count == 0
+    assert result.status == "БРАК"
+    assert result.anomaly_score >= result.threshold
+
+
+def test_matched_normal_does_not_suppress_weak_far_unmatched_defect(
+    inspection_service: InspectionService,
+) -> None:
+    reference = np.full((180, 260, 3), 70, dtype=np.uint8)
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame("normal-plus-far-weak", reference)
+
+    accepted = reference.copy()
+    cv2.rectangle(accepted, (20, 25), (115, 125), (175, 175, 175), -1)
+    first = inspection_service.inspect_frame(
+        "normal-plus-far-weak", accepted, threshold=0.06,
+        include_visuals=False, alignment_h_ref_to_cur=identity,
+    )
+    review = inspection_service.get_learning_review(first.inspection_id)
+    inspection_service.accept_review_defect_as_normal(
+        first.inspection_id, review["defects"][0]["id"],
+    )
+
+    combined = accepted.copy()
+    cv2.line(combined, (205, 48), (207, 120), (255, 255, 255), 3, cv2.LINE_AA)
+    result = inspection_service.inspect_frame(
+        "normal-plus-far-weak", combined, threshold=0.06,
+        include_visuals=True, alignment_h_ref_to_cur=identity,
+    )
+
+    assert result.learned_normal_matches_count == 1
+    assert result.status == "БРАК"
+    assert result.anomaly_score >= result.threshold
+    assert result.heatmap_u8 is not None
+    assert np.count_nonzero(result.heatmap_u8[42:126, 198:214]) > 0
+
+
+def test_attached_new_branch_is_not_hidden_with_thin_learned_normal(
+    inspection_service: InspectionService,
+) -> None:
+    reference = np.full((160, 240, 3), 60, dtype=np.uint8)
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame("thin-normal-with-branch", reference)
+
+    accepted = reference.copy()
+    cv2.line(accepted, (45, 30), (45, 112), (230, 230, 230), 5, cv2.LINE_AA)
+    cv2.line(accepted, (45, 108), (105, 108), (230, 230, 230), 5, cv2.LINE_AA)
+    first = inspection_service.inspect_frame(
+        "thin-normal-with-branch", accepted, threshold=0.08,
+        include_visuals=False, alignment_h_ref_to_cur=identity,
+    )
+    review = inspection_service.get_learning_review(first.inspection_id)
+    inspection_service.accept_review_defect_as_normal(
+        first.inspection_id, review["defects"][0]["id"],
+    )
+
+    changed = accepted.copy()
+    cv2.line(changed, (72, 108), (125, 70), (0, 0, 255), 6, cv2.LINE_AA)
+    result = inspection_service.inspect_frame(
+        "thin-normal-with-branch", changed, threshold=0.08,
+        include_visuals=True, alignment_h_ref_to_cur=identity,
+    )
+
+    assert result.status == "БРАК"
+    assert result.anomaly_score >= result.threshold
+    assert result.heatmap_u8 is not None
+    assert np.count_nonzero(result.heatmap_u8[62:114, 68:132]) > 0
+
+
+def test_far_position_gate_is_invariant_to_inspect_scale(
+    inspection_service: InspectionService,
+) -> None:
+    reference = np.full((160, 240, 3), 80, dtype=np.uint8)
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame("scaled-position-bound", reference)
+    accepted = reference.copy()
+    cv2.rectangle(accepted, (35, 45), (65, 78), (220, 220, 220), -1)
+    first = inspection_service.inspect_frame(
+        "scaled-position-bound", accepted, threshold=0.08,
+        include_visuals=False, alignment_h_ref_to_cur=identity,
+        inspect_scale_after_align=0.5,
+    )
+    review = inspection_service.get_learning_review(first.inspection_id)
+    inspection_service.accept_review_defect_as_normal(
+        first.inspection_id, review["defects"][0]["id"],
+    )
+
+    moved = reference.copy()
+    cv2.rectangle(moved, (120, 45), (150, 78), (220, 220, 220), -1)
+    result = inspection_service.inspect_frame(
+        "scaled-position-bound", moved, threshold=0.08,
+        include_visuals=False, alignment_h_ref_to_cur=identity,
+        inspect_scale_after_align=0.5,
+    )
+
+    assert result.learned_normal_matches_count == 0
+    assert result.status == "БРАК"
+
+
+def test_inspect_scale_resizes_aligned_frame_and_reference_as_one_pair(
+    inspection_service: InspectionService,
+) -> None:
+    reference = np.full((160, 240, 3), 80, dtype=np.uint8)
+    current = reference.copy()
+    current[50:75, 90:120] = 140
+    product_type = "scaled-pair"
+    identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    inspection_service.set_reference_frame(product_type, reference)
+    full_resolution_reference_hash = inspection_service._reference_hashes[product_type]
+
+    result = inspection_service.inspect_frame(
+        product_type,
+        current,
+        threshold=0.5,
+        include_visuals=False,
+        alignment_h_ref_to_cur=identity,
+        inspect_scale_after_align=0.75,
+    )
+
+    assert inspection_service._last_aligned[product_type].shape[:2] == (120, 180)
+    assert inspection_service._last_diff_maps[product_type].shape[:2] == (120, 180)
+    assert inspection_service._reference_hashes[product_type] == full_resolution_reference_hash
+    review = inspection_service.get_learning_review(result.inspection_id)
+    assert review is not None
+    assert review["reference_hash"] == full_resolution_reference_hash
+
+
+def test_learned_normal_does_not_follow_smaller_fragmented_shape_to_new_position(
     inspection_service: InspectionService,
 ) -> None:
     height, width = 120, 200
@@ -842,8 +1346,8 @@ def test_learned_normal_matches_smaller_fragmented_shape(
         alignment_h_ref_to_cur=identity,
     )
 
-    assert result.learned_normal_matches_count == 1 or result.rechecked_zones_count >= 1
-    assert result.status == "ГОДЕН"
+    assert result.status == "БРАК"
+    assert result.anomaly_score >= result.threshold
 
 
 def test_one_learned_normal_does_not_suppress_multiple_distant_matches(
@@ -1097,7 +1601,7 @@ def test_learned_horizontal_scratch_does_not_suppress_vertical_scratch(
     assert result.status == "БРАК"
 
 
-def test_learned_bent_trace_matches_nearby_smaller_rotated_copy(
+def test_learned_bent_trace_does_not_follow_smaller_rotated_copy_to_new_position(
     inspection_service: InspectionService,
 ) -> None:
     reference = np.full((240, 320, 3), 80, dtype=np.uint8)
@@ -1143,8 +1647,8 @@ def test_learned_bent_trace_matches_nearby_smaller_rotated_copy(
         alignment_h_ref_to_cur=identity,
     )
 
-    assert result.learned_normal_matches_count == 1 or result.rechecked_zones_count >= 1
-    assert result.anomaly_score < result.threshold
+    assert result.anomaly_score >= result.threshold
+    assert result.status == "БРАК"
 
 
 def test_learning_reviews_fifo_evicts_oldest_on_disk(
@@ -1172,6 +1676,42 @@ def test_learning_reviews_fifo_evicts_oldest_on_disk(
     assert service.get_learning_review(inspection_ids[1]) is not None
     assert service.get_learning_review(inspection_ids[3]) is not None
     assert len(service.list_learning_reviews()) == 3
+
+
+def test_learning_review_can_be_saved_after_verdict_returns(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+) -> None:
+    inspection_service.set_reference_frame("deferred", gray_frame)
+    inspection_service._deferred_learning_reviews._defer_delay_s = 0
+    real_add = inspection_service._learning_reviews.add
+    writer_started = threading.Event()
+    allow_write = threading.Event()
+
+    def blocked_add(**kwargs):
+        writer_started.set()
+        assert allow_write.wait(timeout=2)
+        return real_add(**kwargs)
+
+    inspection_service._learning_reviews.add = blocked_add
+    current = gray_frame.copy()
+    current[10:30, 10:50] = 255
+
+    result = inspection_service.inspect_frame(
+        "deferred",
+        current,
+        threshold=0.1,
+        include_visuals=False,
+        defer_learning_review=True,
+    )
+
+    assert result.inspection_id is not None
+    assert writer_started.wait(timeout=1)
+    assert inspection_service.get_learning_review(result.inspection_id) is None
+
+    allow_write.set()
+    inspection_service._deferred_learning_reviews._queue.join()
+    assert inspection_service.get_learning_review(result.inspection_id) is not None
 
 
 def test_accepted_normal_is_wiped_on_service_restart(

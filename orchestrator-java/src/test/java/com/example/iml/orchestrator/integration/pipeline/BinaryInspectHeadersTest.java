@@ -73,7 +73,7 @@ class BinaryInspectHeadersTest {
         assertEquals(otherHeader.get("mainRoi"), otherHeader.get("wrinklesRoi"));
         assertEquals(0.5, jointHeader.get("maxJointDefectMm"));
         assertEquals(0.25, jointHeader.get("jointMinWidthMm"));
-        assertEquals(3.0, jointHeader.get("jointMaxWidthMm"));
+        assertEquals(1.6, jointHeader.get("jointMaxWidthMm"));
         assertEquals(5.0, jointHeader.get("maxJointParallelismDeg"));
         assertEquals(0.8, jointHeader.get("maxJointTaperMm"));
         assertEquals(0.5, jointHeader.get("jointSeamSegmentationSensitivity"));
@@ -232,6 +232,63 @@ class BinaryInspectHeadersTest {
     }
 
     @Test
+    void positioningUsesRegularReferenceRoiAndPythonGetsNoHomography() {
+        List<Map<String, Object>> regularRoi = List.of(
+                Map.of("x", 0.20, "y", 0.25),
+                Map.of("x", 0.80, "y", 0.25),
+                Map.of("x", 0.80, "y", 0.75),
+                Map.of("x", 0.20, "y", 0.75)
+        );
+        ReferenceSnapshot reference = new ReferenceSnapshot("product", Map.of(
+                "width", 2448,
+                "height", 2048,
+                "interest_polygon_norm", regularRoi,
+                "joint_roi_norm", Map.of("x", 0.01, "y", 0.01, "width", 0.05, "height", 0.05),
+                "shm_name", "ref_shm",
+                "shm_offset", 0,
+                "stride", 7344
+        ));
+
+        Map<String, Object> positioning = BinaryInspectHeaders.positioningHeader(
+                1,
+                capture,
+                reference,
+                Map.of("main_roi", Map.of("x", 0, "y", 0, "width", 20, "height", 20)),
+                Map.of("main_roi", Map.of("x", 5, "y", 5, "width", 10, "height", 10))
+        );
+        Map<String, Object> python = BinaryInspectHeaders.pythonInspectHeader(
+                1, "product", "surface", capture,
+                new BinaryProtocol.Message(
+                        BinaryProtocol.MSG_RESPONSE,
+                        Map.of("homographyRefToCurrent", List.of(1, 0, 12, 0, 1, 7, 0, 0, 1)),
+                        new byte[0]
+                ),
+                Map.of(),
+                false
+        );
+
+        assertEquals(regularRoi, positioning.get("mainRoiPolygonNorm"));
+        assertEquals(Map.of("x", 489, "y", 511, "width", 1470, "height", 1026), positioning.get("mainRoi"));
+        assertFalse(positioning.containsKey("jointRoi"));
+        assertFalse(python.containsKey("alignment_h_ref_to_cur"));
+    }
+
+    @Test
+    void pythonHeaderForwardsDeferredLearningReviewSetting() {
+        Map<String, Object> header = BinaryInspectHeaders.pythonInspectHeader(
+                1,
+                "bench-lan1",
+                "surface",
+                capture,
+                null,
+                Map.of("defer_learning_review", true),
+                false
+        );
+
+        assertEquals(true, header.get("defer_learning_review"));
+    }
+
+    @Test
     void geometryRuntimeDoesNotInjectAnomalyThresholdIntoPythonHeader() {
         Map<String, Object> header = new HashMap<>(BinaryInspectHeaders.pythonInspectHeader(
                 1,
@@ -282,7 +339,7 @@ class BinaryInspectHeadersTest {
         assertEquals("inspect_test_frame", header.get("op"));
         assertEquals("/tmp/iml-test-pins/x/frame.jpg", header.get("file_path"));
         assertEquals("0:42", header.get("cache_key"));
-        assertEquals(List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.1), header.get("alignment_h_ref_to_cur"));
+        assertFalse(header.containsKey("alignment_h_ref_to_cur"));
         assertTrue(header.get("simple") instanceof Map<?, ?>);
         @SuppressWarnings("unchecked")
         Map<String, Object> simple = (Map<String, Object>) header.get("simple");

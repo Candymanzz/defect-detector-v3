@@ -25,6 +25,8 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -44,6 +46,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     private volatile ClientWsSessionState lastSessionState = ClientWsSessionState.NO_REFERENCE;
     /** Кэш D4405: удержание reject до PASS только при пластиковой ручке. */
     private volatile boolean plasticHandleMode;
+    private final Set<Long> earlyPlasticRejectSequences = ConcurrentHashMap.newKeySet();
 
     private FanOutCoordinator(
             PlcFinsPublisher plcPublisher,
@@ -128,9 +131,16 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         // Приоритет ПЛК: сначала FINS (ждём фронт бита), потом UI bucket.
         // Эталон задан → FINS reject по линии ведра (group 0 → line1, group 1 → line2).
         // Агрегатор шлёт оба ведра одного seq пакетом — здесь просто запись в очередь FINS.
+        BucketFanOutResult effectiveResult = result;
+        if (plasticHandleMode && earlyPlasticRejectSequences.contains(result.triggerSequence()) && result.overallPass()) {
+            effectiveResult = new BucketFanOutResult(
+                    result.groupId(), result.triggerSequence(), false,
+                    result.bucketCameraIds(), result.frameDecisions()
+            );
+        }
         if (inspectionEnabled()) {
             if (plcPublisher != null) {
-                plcPublisher.publishBucket(result, true, plasticHandleMode);
+                plcPublisher.publishBucket(effectiveResult, true, plasticHandleMode);
             }
         } else {
             log.debug(
@@ -140,8 +150,34 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
             );
         }
         if (clientWsServer != null) {
-            clientWsServer.notifyInspectBucketResult(result);
+            clientWsServer.notifyInspectBucketResult(effectiveResult);
         }
+    }
+
+    @Override
+    public boolean publishEarlyPlasticHandleReject(long triggerSequence, int cameraId) {
+        if (!plasticHandleMode || !inspectionEnabled() || plcPublisher == null) {
+            return false;
+        }
+        if (!earlyPlasticRejectSequences.add(triggerSequence)) {
+            return true;
+        }
+        ServiceHealthGate gate = healthGate;
+        if (gate != null && !gate.healthyForVision()) {
+            earlyPlasticRejectSequences.remove(triggerSequence);
+            return false;
+        }
+        log.info(
+                "plastic handle early reject seq={} first_reject_camera={} - reject all bucket lines immediately",
+                triggerSequence, cameraId
+        );
+        plcPublisher.publishRejectAllGroupsAndAwait(triggerSequence);
+        return true;
+    }
+
+    @Override
+    public void finishSequence(long triggerSequence) {
+        earlyPlasticRejectSequences.remove(triggerSequence);
     }
 
     /**

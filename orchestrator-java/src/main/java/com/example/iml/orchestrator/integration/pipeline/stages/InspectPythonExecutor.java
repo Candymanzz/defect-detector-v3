@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.pipeline.stages;
 
 import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
@@ -12,8 +13,10 @@ import com.example.iml.orchestrator.integration.clientapi.AnalisSurfaceHttpBinar
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -24,6 +27,12 @@ public final class InspectPythonExecutor implements PythonInspectStage {
 
     private final Logger log;
     private final GeometryRuntimeConfig inspectionRuntimeConfig;
+    /**
+     * One fair FIFO lane per Python process/client.  Letting two inspections enter the
+     * same FastAPI process at once makes both CPU-bound OpenCV pipelines slower and
+     * produces large tail-latency spikes.  Different pool members still run in parallel.
+     */
+    private final Map<BinaryRpcSupervisor, Semaphore> pythonFifoLanes = new ConcurrentHashMap<>();
 
     public InspectPythonExecutor(Logger log) {
         this(log, null);
@@ -176,6 +185,25 @@ public final class InspectPythonExecutor implements PythonInspectStage {
             } else {
                 pyHeader = BinaryInspectHeaders.pythonInspectHeader(
                         cameraId, productType, detectorId, state.capture(), state.geom(), pythonCfg, false, activeReference);
+                long frameId = YamlScalars.toLong(state.capture().header().get("frame_id"), -1L);
+                boolean deferHeatmap = YamlScalars.toBool(
+                        pythonCfg == null ? null : pythonCfg.get("defer_heatmap"),
+                        false
+                );
+                if (!deferHeatmap) {
+                    pyHeader.put(
+                            "heatmap_u8_output_path",
+                            FrameJpegWriter.imlShmFilePath(
+                                    "iml_ui_heatmap_cam_" + cameraId + "_frame_" + frameId
+                            ).toString()
+                    );
+                    pyHeader.put(
+                            "heatmap_max_width",
+                            Math.max(1, YamlScalars.toInt(
+                                    pythonCfg == null ? null : pythonCfg.get("heatmap_preview_max_width"), 512
+                            ))
+                    );
+                }
                 applyAnalysisProfileAndRuntimeOverrides(pyHeader, cameraId, productType, pythonCfg);
                 Object temporaryAnalysis = state.capture().header().get("analysis_test_settings");
                 if (temporaryAnalysis instanceof Map<?, ?> temporary && !temporary.isEmpty()) {
@@ -185,29 +213,47 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                         pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
                         1.0
                 );
-                boolean captureAlreadyDownscaled = state.capture() != null
-                        && state.capture().header() != null
-                        && YamlScalars.toDouble(state.capture().header().get("downscale_scale"), 1.0d) < 0.999d;
-                if (inspectScale < 0.999d && !captureAlreadyDownscaled) {
-                    PythonInspectDownscaleSupport.applyDownscaleToPythonHeader(pyHeader, cameraId, inspectScale);
+                if (inspectScale < 0.999d) {
+                    // Keep current/reference SHM descriptors at the same full resolution.
+                    // Python aligns first and then resizes the pair atomically, avoiding
+                    // the historic full-reference/downscaled-frame mismatch.
+                    pyHeader.put("inspect_scale", inspectScale);
                 }
             }
-            pythonSlots.acquire();
+            Semaphore fifoLane = pythonFifoLanes.computeIfAbsent(python, ignored -> new Semaphore(1, true));
+            long tQueue0 = System.nanoTime();
+            fifoLane.acquire();
             try {
-                BinaryProtocol.Message pyResp = python.command(pyHeader);
-                if (log.isDebugEnabled()) {
-                    log.debug("{} cam={} frame={} => {}", python.supervisorLabel(), cameraId, state.capture().header().get("frame_id"), pyResp.header());
+                pythonSlots.acquire();
+                try {
+                    long tCommand0 = System.nanoTime();
+                    BinaryProtocol.Message rawResp = python.command(pyHeader);
+                    long commandMs = YamlScalars.nanosToMs(System.nanoTime() - tCommand0);
+                    long queueMs = YamlScalars.nanosToMs(tCommand0 - tQueue0);
+                    Map<String, Object> responseHeader = new LinkedHashMap<>(
+                            rawResp == null || rawResp.header() == null ? Map.of() : rawResp.header()
+                    );
+                    responseHeader.put("python_queue_ms", queueMs);
+                    responseHeader.put("python_rpc_ms", commandMs);
+                    BinaryProtocol.Message pyResp = rawResp == null
+                            ? new BinaryProtocol.Message(BinaryProtocol.MSG_ERROR, responseHeader, new byte[0])
+                            : new BinaryProtocol.Message(rawResp.type(), Map.copyOf(responseHeader), rawResp.payload());
+                    if (log.isDebugEnabled()) {
+                        log.debug("{} cam={} frame={} => {}", python.supervisorLabel(), cameraId, state.capture().header().get("frame_id"), pyResp.header());
+                    }
+                    return new PipelineState(
+                            state.capture(),
+                            pyResp,
+                            state.geom(),
+                            state.captureMs(),
+                            YamlScalars.nanosToMs(System.nanoTime() - t0),
+                            state.geometryMs()
+                    );
+                } finally {
+                    pythonSlots.release();
                 }
-                return new PipelineState(
-                        state.capture(),
-                        pyResp,
-                        state.geom(),
-                        state.captureMs(),
-                        YamlScalars.nanosToMs(System.nanoTime() - t0),
-                        state.geometryMs()
-                );
             } finally {
-                pythonSlots.release();
+                fifoLane.release();
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
