@@ -193,6 +193,64 @@ def test_saturated_glare_is_not_suppressed_to_pass() -> None:
     assert float(diagnostics["saturated_percent"]) > 10.0
 
 
+def test_colored_glare_uses_desaturation_as_supporting_evidence() -> None:
+    service = InspectionService.__new__(InspectionService)
+    reference_bgr = np.full((160, 220, 3), (55, 105, 165), dtype=np.uint8)
+    current_bgr = cv2.addWeighted(
+        reference_bgr,
+        0.72,
+        np.full_like(reference_bgr, 235),
+        0.28,
+        0.0,
+    )
+    reference = cv2.cvtColor(reference_bgr, cv2.COLOR_BGR2GRAY)
+    current = cv2.cvtColor(current_bgr, cv2.COLOR_BGR2GRAY)
+    robust = np.full_like(reference, 40)
+    diagnostics: dict[str, object] = {}
+
+    corrected, confidence = service._suppress_smooth_illumination(
+        robust,
+        reference,
+        current,
+        reference_bgr=reference_bgr,
+        current_bgr=current_bgr,
+        diagnostics=diagnostics,
+    )
+
+    assert float(np.mean(confidence)) > 0.5
+    assert float(np.mean(corrected)) < float(np.mean(robust)) * 0.4
+    assert float(diagnostics["color_consistent_percent"]) > 90.0
+
+
+def test_neighbor_compensation_does_not_hide_scratch_inside_colored_glare() -> None:
+    service = InspectionService.__new__(InspectionService)
+    reference_bgr = np.full((180, 240, 3), (60, 110, 165), dtype=np.uint8)
+    current_bgr = cv2.addWeighted(
+        reference_bgr,
+        0.72,
+        np.full_like(reference_bgr, 225),
+        0.28,
+        0.0,
+    )
+    cv2.line(current_bgr, (120, 25), (120, 155), (20, 20, 20), 3, cv2.LINE_AA)
+    reference = cv2.cvtColor(reference_bgr, cv2.COLOR_BGR2GRAY)
+    current = cv2.cvtColor(current_bgr, cv2.COLOR_BGR2GRAY)
+    robust = np.full_like(reference, 40)
+    robust[:, 117:124] = 58
+
+    corrected, confidence = service._suppress_smooth_illumination(
+        robust,
+        reference,
+        current,
+        reference_bgr=reference_bgr,
+        current_bgr=current_bgr,
+    )
+
+    scratch = np.s_[30:150, 118:123]
+    assert float(np.percentile(confidence[scratch], 90)) < 0.2
+    assert float(np.percentile(corrected[scratch], 90)) >= 55.0
+
+
 def test_illumination_diagnostics_report_before_after_energy() -> None:
     service = InspectionService.__new__(InspectionService)
     reference = np.full((120, 180), 120, dtype=np.uint8)

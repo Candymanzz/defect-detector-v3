@@ -60,6 +60,7 @@ _ILLUMINATION_MIN_SHIFT = 6.0
 _ILLUMINATION_FULL_SHIFT = 22.0
 _ILLUMINATION_DETAIL_SCALE = 18.0
 _ILLUMINATION_GRADIENT_SCALE = 32.0
+_ILLUMINATION_CHROMA_SCALE = 0.10
 _ILLUMINATION_LOCAL_MAX_SUPPRESSION = 0.30
 _ILLUMINATION_COHERENT_LOCAL_MAX_SUPPRESSION = 0.55
 _ILLUMINATION_BROAD_MAX_SUPPRESSION = 0.75
@@ -2544,6 +2545,8 @@ class InspectionService:
                 robust_gray,
                 illumination_ref_gray,
                 illumination_cur_gray,
+                reference_bgr=reference,
+                current_bgr=aligned,
                 diagnostics=illumination_diagnostics,
             )
 
@@ -2645,6 +2648,8 @@ class InspectionService:
         reference_gray: np.ndarray,
         current_gray: np.ndarray,
         *,
+        reference_bgr: Optional[np.ndarray] = None,
+        current_bgr: Optional[np.ndarray] = None,
         diagnostics: Optional[dict[str, object]] = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Suppress broad shadow/glare while retaining local structural changes."""
@@ -2656,6 +2661,7 @@ class InspectionService:
                 glare_percent=0.0,
                 saturated_percent=0.0,
                 structural_protected_percent=0.0,
+                color_consistent_percent=0.0,
                 broad_illumination=False,
                 coherent_local_illumination=False,
                 suppression_percent=0.0,
@@ -2687,15 +2693,55 @@ class InspectionService:
         # only pixels preserving both are eligible for illumination suppression.
         detail_delta = np.abs((cur_float - low_cur) - (ref_float - low_ref))
         detail_confidence = _gaussian_similarity(detail_delta, _ILLUMINATION_DETAIL_SCALE)
+        # Estimate illumination from the neighbourhood, compensate it, and then
+        # compare gradients with the same area of the reference.  This removes
+        # the edge of a cast shadow while a scratch remains as a local residual.
+        gain = np.clip(low_ref / np.maximum(low_cur, 8.0), 0.45, 2.20)
+        compensated_cur = np.clip(cur_float * gain, 0.0, 255.0)
+
         ref_gx = cv2.Sobel(ref_float, cv2.CV_32F, 1, 0, ksize=3)
         ref_gy = cv2.Sobel(ref_float, cv2.CV_32F, 0, 1, ksize=3)
         cur_gx = cv2.Sobel(cur_float, cv2.CV_32F, 1, 0, ksize=3)
         cur_gy = cv2.Sobel(cur_float, cv2.CV_32F, 0, 1, ksize=3)
-        gradient_delta = cv2.magnitude(cur_gx - ref_gx, cur_gy - ref_gy)
+        compensated_gx = cv2.Sobel(compensated_cur, cv2.CV_32F, 1, 0, ksize=3)
+        compensated_gy = cv2.Sobel(compensated_cur, cv2.CV_32F, 0, 1, ksize=3)
+        raw_gradient_delta = cv2.magnitude(cur_gx - ref_gx, cur_gy - ref_gy)
+        compensated_gradient_delta = cv2.magnitude(
+            compensated_gx - ref_gx,
+            compensated_gy - ref_gy,
+        )
+        gradient_delta = np.minimum(raw_gradient_delta, compensated_gradient_delta)
         gradient_confidence = _gaussian_similarity(gradient_delta, _ILLUMINATION_GRADIENT_SCALE)
+
+        # Colour is supporting evidence, not a standalone veto. Shadows usually
+        # preserve channel ratios; glare moves them towards neutral. Keep a
+        # non-zero floor because genuinely grey products have little chroma.
+        color_confidence = np.ones_like(light_confidence, dtype=np.float32)
+        if (
+            reference_bgr is not None
+            and current_bgr is not None
+            and reference_bgr.shape[:2] == (height, width)
+            and current_bgr.shape[:2] == (height, width)
+        ):
+            ref_bgr = reference_bgr.astype(np.float32) / 255.0
+            cur_bgr = current_bgr.astype(np.float32) / 255.0
+            ref_sum = np.maximum(np.sum(ref_bgr, axis=2, keepdims=True), 0.05)
+            cur_sum = np.maximum(np.sum(cur_bgr, axis=2, keepdims=True), 0.05)
+            chroma_delta = np.linalg.norm(ref_bgr / ref_sum - cur_bgr / cur_sum, axis=2)
+            shadow_color = _gaussian_similarity(chroma_delta, _ILLUMINATION_CHROMA_SCALE)
+            ref_spread = np.max(ref_bgr, axis=2) - np.min(ref_bgr, axis=2)
+            cur_spread = np.max(cur_bgr, axis=2) - np.min(cur_bgr, axis=2)
+            glare_color = np.clip((ref_spread - cur_spread + 0.04) / 0.12, 0.0, 1.0)
+            signed_shift_for_color = low_cur - low_ref
+            color_confidence = np.where(
+                signed_shift_for_color >= 0.0,
+                np.maximum(shadow_color, glare_color),
+                shadow_color,
+            ).astype(np.float32)
 
         confidence = np.multiply(light_confidence, detail_confidence)
         np.multiply(confidence, gradient_confidence, out=confidence)
+        confidence *= 0.65 + 0.35 * color_confidence
         confidence = confidence.astype(np.float32, copy=False)
         confidence = cv2.GaussianBlur(confidence, (9, 9), 0)
 
@@ -2757,6 +2803,10 @@ class InspectionService:
                 glare_percent=round(100.0 * np.count_nonzero(glare_mask) / pixels, 3),
                 saturated_percent=round(100.0 * np.count_nonzero(saturated_mask) / pixels, 3),
                 structural_protected_percent=round(100.0 * np.count_nonzero(structural_mask) / pixels, 3),
+                color_consistent_percent=round(
+                    100.0 * np.count_nonzero(color_confidence >= 0.70) / pixels,
+                    3,
+                ),
                 broad_illumination=bool(broad),
                 coherent_local_illumination=bool(coherent_local),
                 suppression_percent=round(
