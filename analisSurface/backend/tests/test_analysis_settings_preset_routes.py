@@ -54,6 +54,7 @@ def test_legacy_pro_endpoint_roundtrips_new_strengths() -> None:
         "edge_suppression": 45,
         "text_handling": 60,
         "preprocess_strength": 75,
+        "far_edge_boost": 80,
     }
 
     put_response = client.put(f"/analysis-settings/{profile}/pro", json=body)
@@ -75,6 +76,7 @@ def test_detailed_settings_put_get_roundtrip() -> None:
         "edge_suppression": 50,
         "text_handling": 50,
         "preprocess_strength": 50,
+        "far_edge_boost": 80,
     }
 
     client.put(
@@ -111,6 +113,7 @@ def test_strength_knobs_get_defaults_when_not_saved() -> None:
         "edge_suppression": 50.0,
         "text_handling": 50.0,
         "preprocess_strength": 50.0,
+        "far_edge_boost": 50.0,
     }
 
 
@@ -122,6 +125,7 @@ def test_strength_knobs_put_get_roundtrip() -> None:
         "edge_suppression": 50,
         "text_handling": 25,
         "preprocess_strength": 100,
+        "far_edge_boost": 80,
     }
     client.put(
         f"/analysis-settings/{profile}/simple",

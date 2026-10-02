@@ -363,6 +363,8 @@ export type ProAnalysisKnobs = {
   edge_suppression: number;
   text_handling: number;
   preprocess_strength: number;
+  /** Усиление чувствительности на дальнем краю изделия (линия перспективы), 50 = стандарт. */
+  far_edge_boost: number;
 };
 
 /** Силы групп алгоритма (0–100), без threshold/sensitivity — см. ANALYSIS_SETTINGS_INTEGRATION.md */
@@ -372,6 +374,7 @@ export type StrengthKnobs = {
   edge_suppression: number;
   text_handling: number;
   preprocess_strength: number;
+  far_edge_boost: number;
 };
 
 export type StrengthKnobsResponse = {

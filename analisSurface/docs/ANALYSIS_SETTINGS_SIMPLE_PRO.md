@@ -131,6 +131,7 @@ Content-Type: application/json
 | `edge_suppression` | `edge_suppress_factor` |
 | `text_handling` | `text_min_contrast`, `text_structure_threshold`, `contrast_loss_*` |
 | `preprocess_strength` | `enable_clahe`, `clahe_clip_limit` |
+| `far_edge_boost` | `far_edge_max_gain`, `far_edge_edge_suppress_factor` — отдельная ручка, от `sensitivity` не зависит |
 
 ---
 

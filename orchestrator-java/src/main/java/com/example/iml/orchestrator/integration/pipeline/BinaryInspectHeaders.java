@@ -557,7 +557,8 @@ public final class BinaryInspectHeaders {
                     "scratch_sensitivity", 0.5,
                     "edge_suppression", 0.5,
                     "text_handling", 0.5,
-                    "preprocess_strength", 0.5
+                    "preprocess_strength", 0.5,
+                    "far_edge_boost", 0.5
             )
                     : knobs);
         } else {

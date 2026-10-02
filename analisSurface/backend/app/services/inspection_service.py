@@ -54,8 +54,6 @@ _FP_CROP_MIN = 64
 _VERTICAL_COMPENSATION_MAX_GAIN = 1.20
 _VERTICAL_COMPENSATION_ACTIVE_HEIGHT = 0.75
 _FAR_EDGE_ACTIVE_ROI_HEIGHT = 0.35
-_FAR_EDGE_MAX_TOTAL_GAIN = 1.35
-_FAR_EDGE_EDGE_SUPPRESS_FACTOR = 0.35
 
 # Smooth illumination changes keep local texture and gradients, unlike a real
 # scratch/tear. Suppress them conservatively before structural defect boosts.
@@ -1523,6 +1521,7 @@ class InspectionService:
             "edge_suppression",
             "text_handling",
             "preprocess_strength",
+            "far_edge_boost",
         ):
             if key in raw:
                 value = float(raw[key])
@@ -2585,7 +2584,7 @@ class InspectionService:
             smooth_weight, far_edge_weight = perspective_weights
             if smooth_weight.shape != robust_gray.shape[:2]:
                 raise ValueError("Perspective weights do not match the diff crop")
-            extra_gain = _FAR_EDGE_MAX_TOTAL_GAIN / _VERTICAL_COMPENSATION_MAX_GAIN
+            extra_gain = self._far_edge_extra_gain(settings)
             row_gain = (
                 1.0 + (_VERTICAL_COMPENSATION_MAX_GAIN - 1.0) * smooth_weight
             ) * (1.0 + (extra_gain - 1.0) * far_edge_weight)
@@ -2608,7 +2607,7 @@ class InspectionService:
                     roi_top,
                     roi_bottom,
                 )
-                extra_gain = _FAR_EDGE_MAX_TOTAL_GAIN / _VERTICAL_COMPENSATION_MAX_GAIN
+                extra_gain = self._far_edge_extra_gain(settings)
                 row_gain = row_gain * (1.0 + (extra_gain - 1.0) * far_edge_weight)
             robust_float = robust_gray.astype(np.float32)
             robust_float *= row_gain[:, np.newaxis]
@@ -2636,7 +2635,7 @@ class InspectionService:
         else:
             far_edge_factor = max(
                 float(settings.edge_suppress_factor),
-                _FAR_EDGE_EDGE_SUPPRESS_FACTOR,
+                float(settings.far_edge_edge_suppress_factor),
             )
             edge_factors = settings.edge_suppress_factor + (
                 far_edge_factor - settings.edge_suppress_factor
@@ -2788,6 +2787,12 @@ class InspectionService:
                 corrected_energy=round(corrected_energy, 1),
             )
         return np.clip(corrected, 0.0, 255.0).astype(np.uint8), confidence
+
+    @staticmethod
+    def _far_edge_extra_gain(settings: AnalysisSettings) -> float:
+        """Доп. усиление на дальнем краю сверх общей перспективной компенсации."""
+        total = max(float(settings.far_edge_max_gain), _VERTICAL_COMPENSATION_MAX_GAIN)
+        return total / _VERTICAL_COMPENSATION_MAX_GAIN
 
     def _perspective_weights_for(
         self,

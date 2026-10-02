@@ -24,6 +24,10 @@ class AnalysisSettings:
     clahe_clip_limit: float = 1.2
     fp_recheck_enabled: bool = True
     fp_trigger_diff_q90: float = 22.0
+    # Дальний край изделия (линия перспективы / верх кадра по умолчанию).
+    far_edge_max_gain: float = 1.35
+    far_edge_edge_suppress_factor: float = 0.35
+
     @classmethod
     def defaults(cls) -> "AnalysisSettings":
         return cls()
@@ -82,6 +86,10 @@ class AnalysisSettings:
             raise ValueError("clahe_clip_limit must be > 0")
         if self.fp_trigger_diff_q90 < 0.0:
             raise ValueError("fp_trigger_diff_q90 must be >= 0")
+        if not 1.0 <= self.far_edge_max_gain <= 4.0:
+            raise ValueError("far_edge_max_gain must be in [1, 4]")
+        if not 0.0 <= self.far_edge_edge_suppress_factor <= 1.0:
+            raise ValueError("far_edge_edge_suppress_factor must be in [0, 1]")
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

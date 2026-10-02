@@ -87,3 +87,42 @@ def test_roi_route_stores_and_returns_perspective_line() -> None:
         shared_service.perspective_lines.pop(product_type, None)
         shared_service.roi_polygons.pop(product_type, None)
         shared_service.references.pop(product_type, None)
+
+
+def test_far_edge_settings_are_validated_and_scale_the_far_side(
+    inspection_service: InspectionService,
+) -> None:
+    with pytest.raises(ValueError):
+        AnalysisSettings.from_overrides({"far_edge_max_gain": 0.5})
+    with pytest.raises(ValueError):
+        AnalysisSettings.from_overrides({"far_edge_edge_suppress_factor": 1.5})
+
+    reference = np.full((120, 200, 3), 120, dtype=np.uint8)
+    current = reference.copy()
+    current[50:70, 10:30] = 150
+    weights = perspective_far_weights(200, 120, ((1.0, 0.5), (0.0, 0.5)), (0, 0, 200, 120), 0.35)
+
+    def far_side_mean(gain: float) -> float:
+        settings = AnalysisSettings.from_overrides({"far_edge_max_gain": gain})
+        diff = inspection_service._compute_advanced_difference(
+            current, reference, settings, vertical_compensation=True, perspective_weights=weights
+        )
+        return float(diff[50:70, 10:30].mean())
+
+    assert far_side_mean(2.5) > far_side_mean(1.35)
+
+
+def test_far_edge_boost_slider_maps_to_gain_and_edge_factor() -> None:
+    from app.services.analysis_settings_presets import expand_merged
+
+    default = expand_merged(0.25, 0.5)
+    assert default["far_edge_max_gain"] == pytest.approx(1.35)
+    assert default["far_edge_edge_suppress_factor"] == pytest.approx(0.35)
+
+    weak = expand_merged(0.25, 0.5, far_edge_boost=0)
+    strong = expand_merged(0.25, 0.5, far_edge_boost=100)
+    assert weak["far_edge_max_gain"] == pytest.approx(1.2)
+    assert strong["far_edge_max_gain"] == pytest.approx(2.2)
+    assert strong["far_edge_edge_suppress_factor"] > default["far_edge_edge_suppress_factor"]
+    # Общая чувствительность не должна двигать дальний край.
+    assert expand_merged(0.25, 1.0)["far_edge_max_gain"] == pytest.approx(1.35)
