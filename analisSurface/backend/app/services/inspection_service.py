@@ -18,7 +18,7 @@ import numpy as np
 from PIL import Image
 
 from app.runtime import get_application_id
-from app.file_logging import log_analysis_stage
+from app.file_logging import log_analysis_settings, log_analysis_stage
 from app.services.analysis_settings import AnalysisSettings
 from app.services.analysis_settings_presets import (
     DEFAULT_STRENGTHS,
@@ -651,26 +651,29 @@ class InspectionService:
         source: str = "",
     ) -> None:
         details: dict[str, object] = {
-            "analysis_profile": analysis_profile,
             "source": source,
             "threshold": settings.default_threshold if threshold is None else threshold,
             "inspection_enabled": settings.inspection_enabled,
-            "expanded_settings": json.dumps(settings.to_dict(), ensure_ascii=False, sort_keys=True),
+            "expanded_settings": settings.to_dict(),
         }
         if simple_knobs and "sensitivity" in simple_knobs:
             sensitivity = float(simple_knobs["sensitivity"]) * 100.0
             strengths = normalize_strengths(detailed_knobs)
             details["global_sensitivity_pct"] = sensitivity
-            details["group_sliders"] = json.dumps(strengths, ensure_ascii=False, sort_keys=True)
-            details["effective_groups"] = json.dumps(
-                {
-                    name: round(effective_group_sensitivity(sensitivity, value), 4)
-                    for name, value in strengths.items()
-                },
-                ensure_ascii=False,
-                sort_keys=True,
-            )
-        log_analysis_stage("analysis_settings", event, product_type=analysis_profile, extra=details)
+            details["group_sliders"] = strengths
+            details["effective_groups"] = {
+                name: round(effective_group_sensitivity(sensitivity, value), 4)
+                for name, value in strengths.items()
+            }
+        log_analysis_settings(event, analysis_profile, details)
+        analysis_details = {
+            "analysis_profile": analysis_profile,
+            **{
+                key: json.dumps(value, ensure_ascii=False, sort_keys=True) if isinstance(value, dict) else value
+                for key, value in details.items()
+            },
+        }
+        log_analysis_stage("analysis_settings", event, product_type=analysis_profile, extra=analysis_details)
 
     def expand_settings_for_profile(
         self,
@@ -1037,6 +1040,11 @@ class InspectionService:
         if not settings.inspection_enabled:
             # Нулевая общая чувствительность выключает именно детекцию брака,
             # а не просто выбирает самый грубый набор порогов.
+            log_analysis_settings(
+                "inspection_disabled",
+                settings_key,
+                {"source": settings_source, "threshold": inspection_threshold, "verdict": "ГОДЕН"},
+            )
             log_analysis_stage(
                 "analysis_settings",
                 "inspection disabled; verdict forced to ГОДЕН",

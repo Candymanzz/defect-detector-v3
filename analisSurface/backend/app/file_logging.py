@@ -69,14 +69,14 @@ def _ensure_initialized() -> None:
                 f"started_at={_timestamp()}",
                 f"session_dir={_SESSION_DIR}",
                 f"log_health_checks={_log_health_checks()}",
-                "files=requests.log,responses.log,analysis.log,errors.log,slow.log",
+                "files=requests.log,responses.log,analysis.log,analysis_settings.log,errors.log,slow.log",
                 "notes=health endpoints skipped unless ANALIS_SURFACE_LOG_HEALTH=1",
             ]
         )
         (_SESSION_DIR / "session.txt").write_text(session_meta + "\n", encoding="utf-8")
-        for name in ("requests", "responses", "analysis", "errors", "slow"):
+        for name in ("requests", "responses", "analysis", "analysis_settings", "errors", "slow"):
             (_SESSION_DIR / f"{name}.log").write_text(
-                f"=== {name} log started: {_SESSION_DIR / f'{name}.log'} ===\n",
+                "" if name == "analysis_settings" else f"=== {name} log started: {_SESSION_DIR / f'{name}.log'} ===\n",
                 encoding="utf-8",
             )
         _INITIALIZED = True
@@ -210,6 +210,17 @@ def log_analysis_stage(
     if extra:
         lines.append(" ".join(f"{key}={value}" for key, value in extra.items()))
     _append("analysis", lines)
+
+
+def log_analysis_settings(event: str, analysis_profile: str, details: Mapping[str, Any]) -> None:
+    """Отдельный JSONL-журнал сохранённых и применённых настроек анализа."""
+    record = {
+        "timestamp": _timestamp(),
+        "event": event,
+        "analysis_profile": analysis_profile,
+        **details,
+    }
+    _append("analysis_settings", [json.dumps(record, ensure_ascii=False, sort_keys=True)])
 
 
 def log_error(

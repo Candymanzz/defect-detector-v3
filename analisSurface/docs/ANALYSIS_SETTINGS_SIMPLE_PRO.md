@@ -160,7 +160,8 @@ python3 -m pytest tests/test_analysis_settings_preset_matrix.py -s -k table
 ## Связанный код
 
 При включённом файловом логировании изменения и применение настроек пишутся в
-`backend/logs/<дата_время>/analysis.log` со `stage=analysis_settings`.
+`backend/logs/<дата_время>/analysis_settings.log` — по одной JSON-записи на событие.
+Копия события остаётся в `analysis.log` со `stage=analysis_settings`.
 События `saved_simple`, `saved_detailed`, `saved_direct`, `reset` фиксируют сохранение;
 `applied_inspection` — настройки, реально применённые к кадру. Запись содержит
 профиль, источник настроек, порог, признак `inspection_enabled`, полные параметры
