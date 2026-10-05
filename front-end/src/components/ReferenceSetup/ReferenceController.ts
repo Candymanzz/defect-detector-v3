@@ -40,12 +40,14 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const [referenceName, setReferenceName] = useState("");
   const [isFullReferenceReplacement, setIsFullReferenceReplacement] = useState(false);
   const [isRoiOnlyEditMode, setIsRoiOnlyEditMode] = useState(false);
+  const [autoSubmitCameraIds, setAutoSubmitCameraIds] = useState<number[] | null>(null);
   const [referenceSubmission, setReferenceSubmission] = useState<ReferenceSubmissionState | null>(null);
   const referencePreviewResumeTimerRef = useRef<number | null>(null);
   const isReferencePreviewPausedRef = useRef(false);
   const hasReferenceRef = useRef(false);
   const pendingReferenceMessageIdsRef = useRef<Set<string>>(new Set());
   const pendingReferenceCameraIdsByMessageIdRef = useRef<Record<string, number[]>>({});
+  const sendReferenceForGroupsRef = useRef<((targetGroups: number[][]) => void) | null>(null);
   const referenceCommitSyncRef = useRef<{
     cameraIds: number[];
     cameraGroups: number[][];
@@ -365,6 +367,41 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     setMessage("Новые кадры получены. Задайте ROI и подтвердите новый эталон.");
   };
 
+  const handleRefreshFramesKeepingRoi = async () => {
+    if (activeCameraIds.length === 0 || !hasAnyStoredReferenceForActiveGroup) {
+      setMessage("Нет действующего эталона, ROI которого можно сохранить");
+      return;
+    }
+    if (!referenceRoi.hasRequiredRoisForCameraIds(activeCameraIds)) {
+      setMessage("В текущем эталоне не задан ROI для всех камер группы");
+      return;
+    }
+
+    setIsNewReferenceMode(true);
+    setIsFullReferenceReplacement(false);
+    setIsRoiOnlyEditMode(true);
+    setReplacementCameraIds(activeCameraIds);
+    setReferenceName("");
+    setMessage(`Обновление кадров с сохранением ROI: ${activeCameraIds.join(", ")}...`);
+
+    const { loadedCameraIds, snapshotCameraIds, missingCameraIds } = await captureLatestImages(activeCameraIds);
+    const capturedCameraIds = [...new Set([...loadedCameraIds, ...snapshotCameraIds])].sort(
+      (left, right) => left - right,
+    );
+    setReplacementCameraIds(capturedCameraIds);
+
+    if (capturedCameraIds.length !== activeCameraIds.length) {
+      setAutoSubmitCameraIds(null);
+      setMessage(
+        `Новый эталон не отправлен. Не получены кадры камер: ${missingCameraIds.join(", ")}`,
+      );
+      return;
+    }
+
+    setMessage("Кадры обновлены. ROI сохранён, отправка нового эталона...");
+    setAutoSubmitCameraIds(capturedCameraIds);
+  };
+
   const handleToggleCameraReplacement = async (cameraId: number) => {
     referenceRoi.setSelectedCameraId(cameraId);
     setIsFullReferenceReplacement(false);
@@ -521,6 +558,27 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       setMessage(error instanceof Error ? error.message : String(error));
     }
   };
+  useEffect(() => {
+    sendReferenceForGroupsRef.current = sendReferenceForGroups;
+  });
+
+  useEffect(() => {
+    if (!autoSubmitCameraIds) {
+      return;
+    }
+    const framesAreReady = autoSubmitCameraIds.every(
+      (cameraId) => referenceFrames.framesByCameraId[cameraId] && imageUrlsByCameraId[cameraId],
+    );
+    if (!framesAreReady) {
+      return;
+    }
+
+    const timerId = window.setTimeout(() => {
+      setAutoSubmitCameraIds(null);
+      sendReferenceForGroupsRef.current?.([autoSubmitCameraIds]);
+    }, 0);
+    return () => window.clearTimeout(timerId);
+  }, [autoSubmitCameraIds, imageUrlsByCameraId, referenceFrames.framesByCameraId]);
 
   const handleSelectCamera = (cameraId: number) => {
     referenceRoi.setSelectedCameraId(cameraId);
@@ -563,6 +621,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     referenceSubmission,
     handleCaptureNewReferenceFrames,
     handleCreateNewReference,
+    handleRefreshFramesKeepingRoi,
     handleToggleCameraReplacement,
     handleSendAllReferences,
     handleSelectCamera,
