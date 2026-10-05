@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { MutableRefObject } from "react";
 import { orchestratorApi } from "../../shared/api";
 import {
   getArchivedReferenceGroup,
   getReferenceImage,
-  resolveReferenceBundleImages,
   stageReferenceBundleContours,
 } from "../../shared/referenceImages";
 import { orchestratorWs } from "../../shared/ws";
@@ -16,19 +15,12 @@ import { useReferenceRoi } from "./useReferenceRoi";
 
 const CAMERAS_PER_REFERENCE_GROUP = 5;
 const REFERENCE_PREVIEW_PAUSE_TIMEOUT_MS = 15000;
-const EMPTY_CAMERA_IDS: number[] = [];
 
 export type ReferenceSubmissionState = {
   state: "pending" | "confirmed" | "rejected";
   cameraIds: number[];
   frameIdsByCameraId: Record<number, string>;
   submittedAtMs: number;
-};
-
-export type ReferenceGroupContext = {
-  phaseId: number;
-  groupId: number;
-  cameraIds: number[];
 };
 
 export function useReferenceSetupController(onClose: () => void, initialCameraId: number | null = null) {
@@ -55,37 +47,14 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     resetEditedFpZonesForCameraIds: (cameraIds: number[]) => void;
     resetEditedRoisForCameraIds: (cameraIds: number[]) => void;
   } | null>(null);
-  const referenceGroups = useMemo(() => createReferenceGroups(cameraIds), [cameraIds]);
-  const cameraGroups = referenceGroups.map((group) => group.cameraIds);
-  const activeReferenceGroup = referenceGroups[activeGroupIndex];
-  const activeCameraIds = useMemo(
-    () => referenceGroups[activeGroupIndex]?.cameraIds ?? EMPTY_CAMERA_IDS,
-    [activeGroupIndex, referenceGroups],
-  );
-  const referenceFrames0 = useReferenceFrames(referenceGroups[0]?.cameraIds ?? EMPTY_CAMERA_IDS, referenceGroups[0]);
-  const referenceFrames1 = useReferenceFrames(referenceGroups[1]?.cameraIds ?? EMPTY_CAMERA_IDS, referenceGroups[1]);
-  const referenceFrames2 = useReferenceFrames(referenceGroups[2]?.cameraIds ?? EMPTY_CAMERA_IDS, referenceGroups[2]);
-  const referenceFrames3 = useReferenceFrames(referenceGroups[3]?.cameraIds ?? EMPTY_CAMERA_IDS, referenceGroups[3]);
-  const referenceFramesByGroup = [referenceFrames0, referenceFrames1, referenceFrames2, referenceFrames3];
-  const referenceFrames = referenceFramesByGroup[activeGroupIndex] ?? referenceFrames0;
-  const referenceFrameHandlersRef = useRef(referenceFramesByGroup.map((frames) => frames.handlePreviewFrame));
-  useEffect(() => {
-    referenceFrameHandlersRef.current = [
-      referenceFrames0.handlePreviewFrame,
-      referenceFrames1.handlePreviewFrame,
-      referenceFrames2.handlePreviewFrame,
-      referenceFrames3.handlePreviewFrame,
-    ];
-  }, [
-    referenceFrames0.handlePreviewFrame,
-    referenceFrames1.handlePreviewFrame,
-    referenceFrames2.handlePreviewFrame,
-    referenceFrames3.handlePreviewFrame,
-  ]);
+  const cameraGroups = splitCameraGroups(cameraIds);
+  const activeCameraIds = cameraGroups[activeGroupIndex] ?? [];
+  const referenceFrames = useReferenceFrames(cameraIds);
   const referenceRoi = useReferenceRoi(cameraIds, cameraGroups, activeGroupIndex, initialCameraId, !isNewReferenceMode);
   const referenceFpZones = useReferenceFpZones(cameraGroups, activeGroupIndex, !isNewReferenceMode);
   const {
     captureLatestImages,
+    handlePreviewFrame,
     imageUrlsByCameraId,
     loadStoredReferenceImages,
     refreshLatestImages,
@@ -93,14 +62,10 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const cameraSlots = referenceFrames.cameraSlots.filter((slot) => activeCameraIds.includes(slot.cameraId));
   const submissionCameraIds =
     isNewReferenceMode && replacementCameraIds.length > 0
-      ? replacementCameraIds.filter((cameraId) => activeCameraIds.includes(cameraId))
+      ? replacementCameraIds
       : activeCameraIds;
   const hasAnyStoredReferenceForActiveGroup =
-    Boolean(activeReferenceGroup) &&
-    activeCameraIds.some(
-      (cameraId) =>
-        Boolean(getReferenceImage(cameraId, activeReferenceGroup.phaseId, activeReferenceGroup.groupId)),
-    );
+    activeCameraIds.some((cameraId) => Boolean(getReferenceImage(cameraId)));
   const canSendAllReferences = Boolean(
     submissionCameraIds.length > 0 &&
     submissionCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId]) &&
@@ -162,19 +127,13 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           enableReferencePreviewImages();
           break;
         case "server.preview_frame":
-          // Reference frames must come from a phase-tagged DI3 capture.
+          handlePreviewFrame(message.payload);
           break;
         case "server.preview_batch":
-          // Generic preview has no phase/group identity and is unsafe here.
-          break;
-        case "server.inspect_result": {
-          const result = message.payload;
-          const targetGroupIndex = resolveReferenceGroupIndex(referenceGroups, result);
-          if (targetGroupIndex >= 0) {
-            referenceFrameHandlersRef.current[targetGroupIndex]?.(result);
+          for (const previewFrame of message.payload.frames) {
+            handlePreviewFrame(previewFrame);
           }
           break;
-        }
         case "server.stream_started":
         case "server.stream_stopped":
           // Temporarily disabled: ReferenceSetup does not manage server streams.
@@ -218,9 +177,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           break;
         }
         case "server.error":
-          for (const messageId of pendingReferenceMessageIdsRef.current) {
-            resolveReferenceBundleImages(messageId, false);
-          }
           pendingReferenceMessageIdsRef.current.clear();
           resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
           setMessage(`${message.payload.code}: ${message.payload.message}`);
@@ -244,7 +200,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
         enableReferencePreviewImages();
       }
     };
-  }, [referenceGroups]);
+  }, [handlePreviewFrame]);
 
   useEffect(() => {
     if (status.state === "open") {
@@ -253,7 +209,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   }, [status.state]);
 
   useEffect(() => {
-    if (activeCameraIds.length === 0) {
+    if (cameraIds.length === 0) {
       return;
     }
 
@@ -279,23 +235,23 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     return () => {
       cancelled = true;
     };
-  }, [activeCameraIds.length, activeReferenceGroup?.phaseId, refreshLatestImages]);
+  }, [cameraIds, refreshLatestImages]);
 
   useEffect(() => {
-    if (status.state !== "open" || activeCameraIds.length === 0 || isReferencePreviewPausedRef.current) {
+    if (status.state !== "open" || cameraIds.length === 0 || isReferencePreviewPausedRef.current) {
       return;
     }
 
-    const missingCameraIds = activeCameraIds.filter((cameraId) => !referenceFrames.framesByCameraId[cameraId]);
+    const missingCameraIds = cameraIds.filter((cameraId) => !referenceFrames.framesByCameraId[cameraId]);
     if (missingCameraIds.length > 0) {
       return;
     }
 
     pauseReferencePreview(isReferencePreviewPausedRef);
     window.setTimeout(() => {
-      setMessage(`Кадры группы ${activeGroupIndex + 1} получены: камеры ${activeCameraIds.join(", ")}`);
+      setMessage(`Reference frames locked for cameras: ${cameraIds.join(", ")}`);
     }, 0);
-  }, [activeCameraIds, activeGroupIndex, referenceFrames.framesByCameraId, status.state]);
+  }, [cameraIds, referenceFrames.framesByCameraId, status.state]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -309,11 +265,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   }, [onClose]);
 
   const handleSendAllReferences = () => {
-    if (!activeReferenceGroup) {
-      setMessage("Список настроенных камер пуст");
-      return;
-    }
-    sendReferenceForGroups([{ ...activeReferenceGroup, cameraIds: submissionCameraIds }]);
+    sendReferenceForGroups([submissionCameraIds]);
   };
 
   const handleCaptureNewReferenceFrames = async () => {
@@ -401,14 +353,14 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     }
   };
 
-  const sendReferenceForGroups = (targetGroups: ReferenceGroupContext[]) => {
-    const groupsToSend = targetGroups.filter((group) => group.cameraIds.length > 0);
+  const sendReferenceForGroups = (targetGroups: number[][]) => {
+    const groupsToSend = targetGroups.filter((groupCameraIds) => groupCameraIds.length > 0);
     if (groupsToSend.length === 0) {
       setMessage("Список настроенных камер пуст");
       return;
     }
 
-    for (const { cameraIds: groupCameraIds } of groupsToSend) {
+    for (const groupCameraIds of groupsToSend) {
       const missingFrameCameraIds = groupCameraIds.filter((cameraId) => !referenceFrames.framesByCameraId[cameraId]);
       if (missingFrameCameraIds.length > 0) {
         setMessage(`Не получены кадры камер: ${missingFrameCameraIds.join(", ")}`);
@@ -432,10 +384,10 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     try {
       setReferenceSubmission({
         state: "pending",
-        cameraIds: groupsToSend.flatMap((group) => group.cameraIds),
+        cameraIds: groupsToSend.flatMap((groupCameraIds) => groupCameraIds),
         frameIdsByCameraId: Object.fromEntries(
-          groupsToSend.flatMap((group) =>
-            group.cameraIds.map((cameraId) => [cameraId, String(referenceFrames.framesByCameraId[cameraId]!.frame_id)]),
+          groupsToSend.flatMap((groupCameraIds) =>
+            groupCameraIds.map((cameraId) => [cameraId, String(referenceFrames.framesByCameraId[cameraId]!.frame_id)]),
           ),
         ),
         submittedAtMs: Date.now(),
@@ -443,7 +395,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       startReferenceResumeTimeout(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
       pendingReferenceMessageIdsRef.current.clear();
       pendingReferenceCameraIdsByMessageIdRef.current = {};
-      for (const { cameraIds: groupCameraIds, phaseId, groupId } of groupsToSend) {
+      for (const groupCameraIds of groupsToSend) {
         const payload = createReferenceBundleFromCameraFrames(
           groupCameraIds,
           referenceRoi.getJointCameraIdForCameraIds(groupCameraIds),
@@ -451,8 +403,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           referenceRoi.roiPolygonsByCameraId,
           referenceRoi.getJointRoiPolygonForCameraIds(groupCameraIds),
           referenceFpZones.getFpZonesForCameraIds(groupCameraIds),
-          phaseId,
-          groupId,
         );
         const messageId = orchestratorWs.sendReferenceBundle(payload, imageUrlsByCameraId);
         pendingReferenceCameraIdsByMessageIdRef.current[messageId] = groupCameraIds;
@@ -468,7 +418,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       }
       setMessage(
         groupsToSend.length === 1
-          ? `Эталон группы ${groupsToSend[0].groupId + 1} отправлен для камер ${groupsToSend[0].cameraIds.join(", ")}`
+          ? `Reference bundle sent for cameras ${groupsToSend[0].join(", ")}`
           : `Reference bundles sent for ${groupsToSend.length} groups`,
       );
       resumePreviewAfterReference(referencePreviewResumeTimerRef, isReferencePreviewPausedRef);
@@ -530,7 +480,6 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     cameraIds,
     ...referenceFrames,
     cameraGroups,
-    activeReferenceGroup,
     activeGroupIndex,
     setActiveGroupIndex,
     cameraSlots,
@@ -549,42 +498,12 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   };
 }
 
-export function createReferenceGroups(cameraIds: number[]): ReferenceGroupContext[] {
-  const cameraGroups: number[][] = [];
+function splitCameraGroups(cameraIds: number[]) {
+  const groups: number[][] = [];
   for (let index = 0; index < cameraIds.length; index += CAMERAS_PER_REFERENCE_GROUP) {
-    cameraGroups.push(cameraIds.slice(index, index + CAMERAS_PER_REFERENCE_GROUP));
+    groups.push(cameraIds.slice(index, index + CAMERAS_PER_REFERENCE_GROUP));
   }
-  return [0, 1].flatMap((phaseId) =>
-    cameraGroups.slice(0, 2).map((groupCameraIds, cameraSetIndex) => ({
-      phaseId,
-      groupId: phaseId * 2 + cameraSetIndex,
-      cameraIds: groupCameraIds,
-    })),
-  );
-}
-
-export function resolveReferenceGroupIndex(
-  referenceGroups: ReferenceGroupContext[],
-  result: { camera_id: number; phase_id?: number; group_id?: number },
-) {
-  const cameraMatches = referenceGroups
-    .map((group, index) => ({ group, index }))
-    .filter(({ group }) => group.cameraIds.includes(result.camera_id));
-  if (cameraMatches.length === 0) {
-    return -1;
-  }
-
-  const phaseId = result.phase_id ?? 0;
-  const groupId = result.group_id;
-  if (groupId != null && groupId >= 0) {
-    const exact = cameraMatches.find(({ group }) => group.phaseId === phaseId && group.groupId === groupId);
-    if (exact) {
-      return exact.index;
-    }
-  }
-
-  const phaseMatch = cameraMatches.find(({ group }) => group.phaseId === phaseId);
-  return phaseMatch?.index ?? -1;
+  return groups;
 }
 
 function resolveInitialGroupIndex(cameraIds: number[], initialCameraId: number | null) {

@@ -5,7 +5,6 @@
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
   padding-top: 20px;
   border-bottom: 1px solid #22252a;
 }
@@ -18,35 +17,10 @@
   font-size: 20px;
 }
 
-.app-header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-}
-
-.app-header-left .logo {
-  flex: 0 0 auto;
-  width: min(180px, 28vw);
-}
-
-.app-header-left h1 {
-  margin: 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .app-header-right {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex: 0 0 auto;
-  position: relative;
-  z-index: 2;
 }
 
 .app-header-plc-button {
@@ -66,12 +40,9 @@
   border-radius: 8px;
   background: #171b20;
   color: #7f8d89;
-  font: inherit;
   font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
-  cursor: pointer;
-  user-select: none;
 }
 
 .app-header-handle-mode > span {
@@ -86,9 +57,9 @@
   border-color: #8a3a3a;
 }
 
-.app-header-handle-mode[data-busy="true"] {
+.app-header-handle-switch input:disabled + span {
   cursor: wait;
-  opacity: 0.75;
+  opacity: 0.65;
 }
 
 .app-header-handle-switch {
@@ -96,7 +67,13 @@
   flex: 0 0 48px;
   width: 48px;
   height: 26px;
-  pointer-events: none;
+}
+
+.app-header-handle-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
 }
 
 .app-header-handle-switch > span {
@@ -105,6 +82,7 @@
   border: 1px solid #52605b;
   border-radius: 999px;
   background: #27312e;
+  cursor: pointer;
   transition:
     background 160ms ease,
     border-color 160ms ease;
@@ -125,28 +103,19 @@
     background 160ms ease;
 }
 
-.app-header-handle-mode[data-plastic="true"] .app-header-handle-switch > span {
+.app-header-handle-switch input:checked + span {
   border-color: #00d96b;
   background: #08783e;
 }
 
-.app-header-handle-mode[data-plastic="true"] .app-header-handle-switch > span::after {
+.app-header-handle-switch input:checked + span::after {
   transform: translateX(22px);
   background: #fff;
 }
 
-.app-header-handle-mode:focus-visible {
+.app-header-handle-switch input:focus-visible + span {
   outline: 2px solid #72f2a8;
   outline-offset: 2px;
-}
-
-.app-header-handle-error {
-  max-width: 220px;
-  color: #f87171;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: normal;
-  line-height: 1.25;
 }
 
 .app-header-status {

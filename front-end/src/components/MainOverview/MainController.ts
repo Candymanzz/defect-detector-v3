@@ -9,7 +9,6 @@ import type {
   CameraImageUrlsById,
   InspectionControlState,
   InspectionHistoryItem,
-  InspectionProduct,
   MainOverviewData,
   ModalInspectionSnapshot,
   SelectedCamera,
@@ -30,22 +29,6 @@ export const FALLBACK_CAMERA_IDS = Array.from(
   { length: CAMERAS_PER_OBJECT * FALLBACK_OBJECT_COUNT },
   (_, index) => index,
 );
-
-export function createDefaultInspectionProducts(cameraIds: number[]): InspectionProduct[] {
-  const cameraGroups = chunkItems(cameraIds, CAMERAS_PER_OBJECT).slice(0, FALLBACK_OBJECT_COUNT);
-  return [0, 1].flatMap((phaseId) =>
-    cameraGroups.map((groupCameraIds, cameraSetIndex) => {
-        const groupId = cameraSetIndex + phaseId * FALLBACK_OBJECT_COUNT;
-        return {
-          key: `${phaseId}:${groupId}`,
-          phaseId,
-          groupId,
-          cameraIds: groupCameraIds,
-          resultsByCameraId: {},
-        };
-      }),
-  );
-}
 export async function loadMainOverviewData(): Promise<MainOverviewData> {
   const backendCameraIds = await loadBackendCameraIds();
 
@@ -157,7 +140,6 @@ export function resolveCardInspectImageUrl(
 
 export function createModalInspectionSnapshot(
   camera: SelectedCamera,
-  productContext: { productKey: string; phaseId: number; groupId: number } | undefined,
   inspectResult: InspectResultPayload | undefined,
   artifactInspectResult: InspectResultPayload | undefined,
   previewFrameId: string | undefined,
@@ -172,15 +154,14 @@ export function createModalInspectionSnapshot(
     ? (resolveImmutableInspectionImageUrl(snapshotResult) ?? createWsFrameImageUrl(snapshotResult))
     : undefined;
   const matchingPreviewImageUrl =
-    !snapshotResult || previewFrameId === snapshotResult.frame_id ? previewImageUrl : undefined;
-  const referenceImage = getReferenceImage(camera.cameraId, productContext?.phaseId, productContext?.groupId);
+    snapshotResult && previewFrameId === snapshotResult.frame_id ? previewImageUrl : undefined;
+  const referenceImage = getReferenceImage(camera.cameraId);
 
   return {
     ...camera,
-    ...productContext,
     initialFrameId: snapshotResult?.frame_id,
     inspectResult: snapshotResult,
-    cameraImageUrl: inspectImageUrl ?? matchingPreviewImageUrl ?? previewImageUrl,
+    cameraImageUrl: inspectImageUrl ?? matchingPreviewImageUrl,
     heatmapUrl: snapshotResult ? resolveInspectHeatmapUrl(snapshotResult) : undefined,
     referenceImageUrl: referenceImage?.imageUrl,
     referenceRoiPoints: referenceImage?.roiPoints.map((point) => ({ ...point })),
@@ -206,19 +187,11 @@ export function updateModalSnapshotResult(
   currentSnapshot: ModalInspectionSnapshot,
   inspectResult: InspectResultPayload,
 ) {
-  const nextHeatmapUrl = resolveInspectHeatmapUrl(inspectResult);
-  // Immediate test-analyze notifies arrive without heatmap; keep the last map/descriptor until the final one lands.
-  const retainPreviousHeatmap =
-    Boolean(inspectResult.test_analyze) && !inspectResult.heatmap && currentSnapshot.inspectResult?.heatmap;
-  const displayInspectResult = retainPreviousHeatmap
-    ? { ...inspectResult, heatmap: currentSnapshot.inspectResult?.heatmap ?? null }
-    : inspectResult;
   return {
     ...currentSnapshot,
-    inspectResult: displayInspectResult,
-    cameraImageUrl:
-      resolveImmutableInspectionImageUrl(displayInspectResult) ?? createWsFrameImageUrl(displayInspectResult),
-    heatmapUrl: nextHeatmapUrl ?? (inspectResult.test_analyze ? currentSnapshot.heatmapUrl : undefined),
+    inspectResult,
+    cameraImageUrl: resolveImmutableInspectionImageUrl(inspectResult) ?? createWsFrameImageUrl(inspectResult),
+    heatmapUrl: resolveInspectHeatmapUrl(inspectResult),
   };
 }
 
@@ -245,9 +218,6 @@ export function upsertInspectionHistoryItem(items: InspectionHistoryItem[], next
 }
 
 export function resolveInspectionId(inspectResult: InspectResultPayload) {
-  if (inspectResult.test_analyze) {
-    return "тест";
-  }
   return inspectResult.inspection_id ?? inspectResult.frame_id;
 }
 
@@ -274,13 +244,11 @@ export type ArchivedInspectionHistoryLoadResult = {
 
 export async function loadArchivedInspectionHistory(
   cameraIds: number[],
-  phaseId?: number,
-  groupId?: number,
 ): Promise<ArchivedInspectionHistoryLoadResult> {
   const histories = await Promise.all(
     cameraIds.map(async (cameraId) => {
       try {
-        const response = await orchestratorApi.getFrameArchiveHistory(cameraId, phaseId, groupId);
+        const response = await orchestratorApi.getFrameArchiveHistory(cameraId);
         setInspectionHistoryLimit(response.max_frames_per_camera);
         const frames = await Promise.all(response.frames.map((frame) => enrichArchivedFrameHeatmapSize(frame)));
         return {
@@ -338,8 +306,6 @@ export function archivedFrameToInspectResult(
   const frameHttpPath = frame.frame_url;
   return {
     camera_id: cameraId,
-    phase_id: frame.phase_id ?? 0,
-    group_id: frame.group_id ?? -1,
     frame_id: frame.frame_id,
     inspection_id: frame.inspection_id,
     session_state: "READY",
@@ -386,7 +352,7 @@ function archivedFrameToHistoryItem(cameraId: number, frame: FrameArchiveHistory
   return {
     frameId: frame.frame_id,
     inspectionId: frame.inspection_id,
-    result: resolveInspectionResultState(inspectResult) ?? (frame.overall_pass ? "pass" : "fail"),
+    result: frame.overall_pass ? "pass" : "fail",
     inspectResult,
   };
 }
@@ -495,40 +461,11 @@ function resolveInspectHeatmapUrl(inspectResult: InspectResultPayload) {
   if (!inspectResult.heatmap) {
     return undefined;
   }
-
-  // Test runs publish a unique immutable bundle for this exact rerun. Prefer it over
-  // the camera-wide latest heatmap, which can be overwritten by a production cycle.
-  if (inspectResult.test_analyze) {
-    if (inspectResult.heatmap.http_path) {
-      return withCacheBust(orchestratorApi.url(inspectResult.heatmap.http_path), inspectResult.server_ts_ms);
-    }
-    if (inspectResult.artifact_bundle_id) {
-      return withCacheBust(
-        orchestratorApi.url(
-          `/api/inspection-artifacts/${encodeURIComponent(inspectResult.artifact_bundle_id)}/heatmap.u8`,
-        ),
-        inspectResult.server_ts_ms,
-      );
-    }
-    return withCacheBust(orchestratorApi.heatmapUrl(inspectResult.camera_id), inspectResult.server_ts_ms);
-  }
-
   const framePath = inspectResult.http_path ?? inspectResult.current?.http_path;
   if (framePath?.includes("/api/frame-archive/") && framePath.endsWith("/frame.jpg")) {
     return orchestratorApi.url(framePath.replace(/\/frame\.jpg$/, "/heatmap.u8"));
   }
   return resolveHeatmapSourceUrlOrUndefined(inspectResult.heatmap);
-}
-
-function withCacheBust(url: string | undefined, version: number | undefined) {
-  if (!url) {
-    return undefined;
-  }
-  if (version === undefined || !Number.isFinite(version)) {
-    return url;
-  }
-  const separator = url.includes("?") ? "&" : "?";
-  return `${url}${separator}t=${version}`;
 }
 
 function resolveHeatmapSourceUrlOrUndefined(heatmap: HeatmapDescriptor) {
@@ -568,11 +505,4 @@ function createCameraCardData(
 
 function getObjectName(index: number) {
   return `Объект ${Math.floor(index / CAMERAS_PER_OBJECT) + 1}`;
-}
-
-function chunkItems<T>(items: T[], chunkSize: number) {
-  return Array.from({ length: Math.ceil(items.length / chunkSize) }, (_, groupIndex) => {
-    const startIndex = groupIndex * chunkSize;
-    return items.slice(startIndex, startIndex + chunkSize);
-  });
 }

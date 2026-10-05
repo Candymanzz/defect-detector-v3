@@ -103,8 +103,8 @@ export function InspectionHistoryModal({
 function InspectionResultCard({ item }: { item: InspectionHistoryItem }) {
   const result = item.inspectResult;
   const imageUrl = resolveInspectionImageUrl(result);
-  const referenceImageUrl = getReferenceImage(result.camera_id, result.phase_id, result.group_id)?.imageUrl;
-  const heatmapBackgroundUrl = referenceImageUrl ?? imageUrl;
+  const referenceImageUrl = getReferenceImage(result.camera_id)?.imageUrl;
+  const comparisonImageUrl = referenceImageUrl ?? imageUrl;
   const heatmap = resolveInspectionHeatmap(result);
 
   return (
@@ -119,32 +119,15 @@ function InspectionResultCard({ item }: { item: InspectionHistoryItem }) {
 
       <div className="inspection-history-modal__media">
         <figure>
-          <figcaption>Кадр</figcaption>
+          <figcaption>Эталон</figcaption>
           <div className="inspection-history-modal__image-wrap">
             <PreviewImage
               alt={`Инспекция ${item.inspectionId}, камера ${result.camera_id}`}
               className="inspection-history-modal__image"
-              emptyLabel="Кадр недоступен"
+              emptyLabel="Эталон недоступен"
               placeholderClassName="inspection-history-modal__placeholder"
-              src={imageUrl}
+              src={comparisonImageUrl}
             />
-          </div>
-        </figure>
-
-        <figure>
-          <figcaption>Эталон</figcaption>
-          <div className="inspection-history-modal__image-wrap">
-            {referenceImageUrl ? (
-              <PreviewImage
-                alt={`Эталон камеры ${result.camera_id}`}
-                className="inspection-history-modal__image"
-                emptyLabel="Эталон недоступен"
-                placeholderClassName="inspection-history-modal__placeholder"
-                src={referenceImageUrl}
-              />
-            ) : (
-              <div className="inspection-history-modal__placeholder">Эталон не задан</div>
-            )}
           </div>
         </figure>
 
@@ -154,7 +137,7 @@ function InspectionResultCard({ item }: { item: InspectionHistoryItem }) {
             <HeatmapViewer
               cameraId={result.camera_id}
               heatmap={heatmap}
-              backgroundImageUrl={heatmapBackgroundUrl}
+              backgroundImageUrl={comparisonImageUrl}
             />
           ) : (
             <div className="inspection-history-modal__placeholder">Тепловая карта отсутствует</div>

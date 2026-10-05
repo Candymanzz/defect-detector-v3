@@ -172,16 +172,6 @@ export type LightEndpointBrightness = {
 
 export type LightBrightnessPercent = number | string;
 
-export type InspectionLayoutGroup = {
-  phase_id: number;
-  group_id: number;
-  camera_ids: number[];
-};
-
-export type InspectionLayout = {
-  groups: InspectionLayoutGroup[];
-};
-
 export type LightBrightnessSettings = {
   default_brightness_percent: number;
   endpoints: LightEndpointBrightness[];
@@ -252,8 +242,6 @@ export type FrameArchiveSettingsUpdateResponse = {
 export type FrameArchiveHistoryFrame = {
   frame_id: string;
   inspection_id: string;
-  phase_id?: number;
-  group_id?: number;
   overall_pass: boolean;
   action: string;
   anomaly_score: number;
@@ -362,48 +350,6 @@ export type ProAnalysisKnobs = {
   edge_suppression: number;
   text_handling: number;
   preprocess_strength: number;
-};
-
-export type ClientModeResponse = {
-  ok: boolean;
-  session_state: string;
-  test_mode: boolean;
-  message?: string;
-};
-
-export type TestAnalyzeResponse = {
-  ok: boolean;
-  jobId: string;
-  cameraId: number;
-  frameId: number;
-};
-
-export type AcceptLearnedNormalsRequest = {
-  frameId: string | number;
-  productType: string;
-  cameraId?: number;
-  note?: string;
-};
-
-export type AcceptLearnedNormalsResponse = {
-  saved?: boolean;
-  accepted_count?: number;
-  inspection_id?: string;
-  learned_review_id?: string;
-  accepted_case_ids?: string[];
-  accepted_cases?: LearnedNormalCase[];
-  affects_original_pipeline_decision?: boolean;
-  [key: string]: unknown;
-};
-
-export type LearnedNormalCase = {
-  id: string;
-  product_type: string;
-  source_inspection_id?: string;
-  source_defect_id?: string;
-  created_at?: string;
-  note?: string;
-  enabled?: boolean;
 };
 
 export type AnalysisPresetResponse<TKnobs> = AnalysisSettingsResponse & {

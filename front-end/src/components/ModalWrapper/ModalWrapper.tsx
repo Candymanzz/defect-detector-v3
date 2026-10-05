@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { HttpError, orchestratorApi } from "../../shared/api";
 import type { GeometryInspectResponse } from "../../shared/api";
-import { resolveInspectionResultState, isCaptureOnlyInspectResult } from "../../shared/inspectResult";
+import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { updateReferenceFpZones } from "../../shared/referenceImages";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import { orchestratorWs } from "../../shared/ws";
@@ -16,8 +16,6 @@ type ModalWrapperProps = {
   isOpen: boolean;
   title: string;
   cameraId?: number;
-  phaseId?: number;
-  groupId?: number;
   cameraImageUrl?: string;
   inspectHeatmapUrl?: string;
   inspectResult?: InspectResultPayload;
@@ -29,7 +27,6 @@ type ModalWrapperProps = {
   selectedInspectionFrameId?: string;
   dangerHeaderAction?: ReactNode;
   headerActions?: ReactNode;
-  analysisSettingsContent?: ReactNode;
   onInspectionSelect?: (frameId: string) => void;
   onClose: () => void;
 };
@@ -61,8 +58,6 @@ export function ModalWrapper({
   isOpen,
   title,
   cameraId,
-  phaseId,
-  groupId,
   cameraImageUrl,
   inspectHeatmapUrl,
   inspectResult,
@@ -74,11 +69,10 @@ export function ModalWrapper({
   selectedInspectionFrameId,
   dangerHeaderAction,
   headerActions,
-  analysisSettingsContent,
   onInspectionSelect,
   onClose,
 }: ModalWrapperProps) {
-  const displayedCurrentImageUrl = cameraImageUrl;
+  const displayedCurrentImageUrl = inspectResult ? cameraImageUrl : undefined;
   const inspectResultSyncState = getInspectResultSyncState(inspectResult, displayedCurrentImageUrl, inspectHeatmapUrl);
   const inspectionResultState = resolveInspectionResultState(inspectResult);
   const modalClassName = inspectionResultState ? `modal modal--${inspectionResultState}` : "modal";
@@ -87,8 +81,6 @@ export function ModalWrapper({
     cameraId,
     inspectResult?.frame_id,
     inspectResult?.geometry_status,
-    inspectResult?.server_ts_ms,
-    inspectResult?.test_analyze,
   );
   const [editedFpZones, setEditedFpZones] = useState<FpZoneNorm[]>(() => copyFpZones(referenceFpZones ?? []));
   const [fpZonesStatus, setFpZonesStatus] = useState<FpZonesStatus>({ state: "idle", text: "" });
@@ -128,13 +120,6 @@ export function ModalWrapper({
           <h2>{title}</h2>
           <div className="modal__header-actions">
             {dangerHeaderAction}
-            {inspectionResultState === "fail" && inspectResult?.learned_review_id && inspectResult.detector.product_type && (
-              <LearnFrameAction
-                key={`${inspectResult.camera_id}-${inspectResult.frame_id}-${inspectResult.learned_review_id}`}
-                inspectResult={inspectResult}
-                productType={inspectResult.detector.product_type}
-              />
-            )}
             {headerActions}
             <button
               aria-label="Закрыть"
@@ -166,29 +151,24 @@ export function ModalWrapper({
           />
           <ImagePanel
             imageUrl={displayedCurrentImageUrl}
-            label={inspectResult ? "Последний кадр инспекции" : "Последний кадр"}
+            label="Последний кадр инспекции"
           />
           <HeatmapPanel
-            key={`heatmap-${cameraId}-${inspectResult?.server_ts_ms ?? "none"}-${inspectResult?.artifact_bundle_id ?? "no-bundle"}`}
             cameraId={cameraId}
             cameraImageUrl={displayedCurrentImageUrl}
             heatmapUrl={inspectHeatmapUrl}
             inspectResult={inspectResult}
           />
-          {analysisSettingsContent ?? (
-            <GeometryDeviationViewer
-              error={geometrySnapshot.error}
-              geometry={geometrySnapshot.geometry}
-              loading={geometrySnapshot.loading}
-            />
-          )}
+          <GeometryDeviationViewer
+            error={geometrySnapshot.error}
+            geometry={geometrySnapshot.geometry}
+            loading={geometrySnapshot.loading}
+          />
         </div>
 
         {cameraId !== undefined && referenceImageUrl && (
           <FpZonesRuntimePanel
             cameraId={cameraId}
-            phaseId={phaseId}
-            groupId={groupId}
             disabled={fpZonesStatus.state === "saving" || fpZonesStatus.state === "loading"}
             heatmapSize={resolveFpZonesHeatmapSize(inspectResult)}
             imageUrl={referenceImageUrl}
@@ -222,7 +202,7 @@ export function ModalWrapper({
         )}
 
         <InspectResultPanel
-          key={`inspect-${inspectResult?.camera_id ?? "x"}-${inspectResult?.server_ts_ms ?? 0}-${inspectResult?.anomaly_score ?? "na"}`}
+          geometry={geometrySnapshot.geometry}
           inspectResult={inspectResult}
         />
       </section>
@@ -230,51 +210,8 @@ export function ModalWrapper({
   );
 }
 
-function LearnFrameAction({ inspectResult, productType }: { inspectResult: InspectResultPayload; productType: string }) {
-  const [state, setState] = useState<"idle" | "saving" | "success" | "error">("idle");
-  const [message, setMessage] = useState("");
-
-  const handleAccept = async () => {
-    setState("saving");
-    setMessage("Кадр отправляется в дообучение…");
-    try {
-      const result = await orchestratorApi.acceptLearnedNormals({
-        frameId: inspectResult.frame_id,
-        cameraId: inspectResult.camera_id,
-        productType,
-      });
-      const count = result.accepted_count ?? result.accepted_case_ids?.length ?? result.accepted_cases?.length ?? 0;
-      setState("success");
-      setMessage(`Кадр добавлен в анализ${count > 0 ? `: сохранено фрагментов — ${count}` : ""}.`);
-    } catch (error) {
-      const status = error instanceof HttpError ? error.status : undefined;
-      setState("error");
-      setMessage(
-        status === 404
-          ? "Кадр уже не в сессии. Выберите свежий БРАК."
-          : status === 409
-            ? "Кадр уже добавлен или в нём нечего дообучать."
-            : error instanceof Error
-              ? error.message
-              : "Не удалось добавить кадр в анализ.",
-      );
-    }
-  };
-
-  return (
-    <div className="modal__learning-action" data-state={state}>
-      <button className="modal__action" type="button" disabled={state === "saving" || state === "success"} onClick={handleAccept}>
-        {state === "saving" ? "Добавление…" : state === "success" ? "Добавлено в анализ" : "Добавить кадр в анализ"}
-      </button>
-      {message && <span role={state === "error" ? "alert" : "status"}>{message}</span>}
-    </div>
-  );
-}
-
 function FpZonesRuntimePanel({
   cameraId,
-  phaseId,
-  groupId,
   imageUrl,
   productType,
   roiPoints,
@@ -286,8 +223,6 @@ function FpZonesRuntimePanel({
   onStatusChange,
 }: {
   cameraId: number;
-  phaseId?: number;
-  groupId?: number;
   imageUrl: string;
   productType?: string;
   roiPoints?: InterestPointNorm[];
@@ -344,8 +279,6 @@ function FpZonesRuntimePanel({
     try {
       onStatusChange({ state: "saving", text: "Сохранение FP zones..." });
       const messageId = orchestratorWs.sendFpZonesUpdate({
-        phase_id: phaseId ?? 0,
-        group_id: groupId ?? -1,
         heatmap_width: heatmapSize.width,
         heatmap_height: heatmapSize.height,
         fp_zones: fpZones,
@@ -353,7 +286,7 @@ function FpZonesRuntimePanel({
 
       waitForFpZonesAck(messageId)
         .then(() => {
-          updateReferenceFpZones([cameraId], fpZones, phaseId, groupId);
+          updateReferenceFpZones([cameraId], fpZones);
           onStatusChange({ state: "success", text: "FP zones обновлены" });
         })
         .catch((error: unknown) => {
@@ -419,8 +352,6 @@ function useGeometrySnapshot(
   cameraId: number | undefined,
   frameId: string | undefined,
   geometryStatus: string | undefined,
-  serverTsMs: number | undefined,
-  testAnalyze: boolean | undefined,
 ): GeometrySnapshotState {
   const [state, setState] = useState<GeometrySnapshotState>({
     geometry: null,
@@ -430,16 +361,6 @@ function useGeometrySnapshot(
 
   useEffect(() => {
     if (!isOpen || cameraId === undefined) {
-      return;
-    }
-
-    const normalizedStatus = geometryStatus?.trim().toUpperCase();
-    if (normalizedStatus === "SKIPPED" || normalizedStatus === "SKIP") {
-      setState({
-        geometry: null,
-        loading: false,
-        error: "Геометрия пропущена для этого кадра",
-      });
       return;
     }
 
@@ -454,15 +375,6 @@ function useGeometrySnapshot(
       .getGeometryLatestSnapshot(cameraId)
       .then((snapshot) => {
         if (controller.signal.aborted) {
-          return;
-        }
-        // Avoid showing a stale geometry snapshot from another frame during test re-runs.
-        if (frameId !== undefined && String(snapshot.frameId) !== String(frameId)) {
-          setState({
-            geometry: null,
-            loading: false,
-            error: testAnalyze ? "Нет свежего снимка геометрии для тестового кадра" : null,
-          });
           return;
         }
         setState({
@@ -489,7 +401,7 @@ function useGeometrySnapshot(
       });
 
     return () => controller.abort();
-  }, [isOpen, cameraId, frameId, geometryStatus, serverTsMs, testAnalyze]);
+  }, [isOpen, cameraId, frameId, geometryStatus]);
 
   if (!isOpen || cameraId === undefined) {
     return EMPTY_GEOMETRY_SNAPSHOT;
@@ -682,8 +594,13 @@ function HeatmapPanel({
   );
 }
 
-function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPayload }) {
-  const resultState = resolveInspectionResultState(inspectResult);
+function InspectResultPanel({
+  inspectResult,
+  geometry,
+}: {
+  inspectResult?: InspectResultPayload;
+  geometry?: GeometryInspectResponse | null;
+}) {
   return (
     <section
       className="modal-inspect-result"
@@ -691,30 +608,77 @@ function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPa
     >
       <header className="modal-inspect-result__header">
         <h3>Результат инспекции</h3>
-        {inspectResult && (
-          <span>
-            {inspectResult.test_analyze || inspectResult.inspection_id === "тест"
-              ? "тест"
-              : `кадр ${inspectResult.frame_id}`}
-          </span>
-        )}
+        {inspectResult && <span>кадр {inspectResult.frame_id}</span>}
       </header>
 
       {inspectResult ? (
-        <dl className="modal-inspect-result__summary modal-inspect-result__summary--compact">
-          <InspectResultField
-            label="Результат"
-            value={resultState === "pass" ? "Годен" : resultState === "fail" ? "Брак" : "—"}
-          />
-          <InspectResultField
-            label="Аномалия"
-            value={formatAnomalyPercent(inspectResult.anomaly_score)}
-          />
-        </dl>
+        <>
+          <dl className="modal-inspect-result__summary">
+            <InspectResultField
+              label="камера"
+              value={inspectResult.camera_id}
+            />
+            <InspectResultField
+              label="состояние"
+              value={inspectResult.session_state}
+            />
+            <InspectResultField
+              label="изделие"
+              value={inspectResult.detector.product_type}
+            />
+            <InspectResultField
+              label="детектор"
+              value={inspectResult.detector.detector_id}
+            />
+            <InspectResultField
+              label="активный вид"
+              value={inspectResult.active_reference_view_index}
+            />
+            <InspectResultField
+              label="FP зоны"
+              value={inspectResult.fp_zones.length}
+            />
+            <InspectResultField
+              label="тепловая карта"
+              value={inspectResult.heatmap ? `${inspectResult.heatmap.width}x${inspectResult.heatmap.height}` : "нет"}
+            />
+            <InspectResultField
+              label="время сервера"
+              value={formatServerTime(inspectResult.server_ts_ms)}
+            />
+            <InspectResultField
+              label="радиус отклонения"
+              value={
+                geometry?.deviationRadiusMm !== undefined
+                  ? `${Number(geometry.deviationRadiusMm).toFixed(3)} мм`
+                  : undefined
+              }
+            />
+          </dl>
+
+          <div className="modal-inspect-result__decision">{formatInspectDecisionLine(inspectResult, geometry)}</div>
+
+          <InspectResultRaw inspectResult={inspectResult} />
+        </>
       ) : (
         <div className="modal-inspect-result__empty">Синхронизированного результата инспекции ещё нет</div>
       )}
     </section>
+  );
+}
+
+function InspectResultRaw({ inspectResult }: { inspectResult: InspectResultPayload }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <details
+      className="modal-inspect-result__details"
+      open={isOpen}
+      onToggle={(event) => setIsOpen(event.currentTarget.open)}
+    >
+      <summary>Исходный результат</summary>
+      {isOpen && <pre className="modal-inspect-result__raw">{JSON.stringify(inspectResult, null, 2)}</pre>}
+    </details>
   );
 }
 
@@ -727,9 +691,32 @@ function InspectResultField({ label, value }: { label: string; value?: string | 
   );
 }
 
-function formatAnomalyPercent(score?: number) {
-  if (score === undefined || !Number.isFinite(score)) return "—";
-  return `${(score * 100).toFixed(2)}%`;
+function formatInspectDecisionLine(inspectResult: InspectResultPayload, geometry?: GeometryInspectResponse | null) {
+  const deviation = geometry?.deviationRadiusMm !== undefined ? Number(geometry.deviationRadiusMm).toFixed(3) : "-";
+  return [
+    `общий результат: ${formatOptionalValue(inspectResult.overall_pass)}`,
+    `действие: ${formatOptionalValue(inspectResult.action)}`,
+    `оценка аномалии: ${formatOptionalValue(inspectResult.anomaly_score)}`,
+    `статус Python: ${formatOptionalValue(inspectResult.python_status)}`,
+    `статус геометрии: ${formatOptionalValue(inspectResult.geometry_status)}`,
+    `радиус отклонения, мм: ${deviation}`,
+  ].join(" | ");
+}
+
+function formatOptionalValue(value: string | number | boolean | undefined) {
+  if (value === undefined) {
+    return "-";
+  }
+
+  return String(value);
+}
+
+function formatServerTime(serverTsMs: number) {
+  if (!Number.isFinite(serverTsMs) || serverTsMs <= 0) {
+    return "-";
+  }
+
+  return new Date(serverTsMs).toLocaleTimeString();
 }
 
 function resolveFpZonesHeatmapSize(inspectResult: InspectResultPayload | undefined) {
@@ -798,12 +785,6 @@ function getInspectResultSyncState(
   }
 
   if (inspectResultImageUrl) {
-    if (isCaptureOnlyInspectResult(inspectResult)) {
-      return {
-        state: "synced" as const,
-        label: `Снятый кадр ${inspectResult.frame_id}${inspectResult.python_status === "NO_REFERENCE" ? " — эталон не задан" : ""}`,
-      };
-    }
     return {
       state: "loading" as const,
       label: `Кадр инспекции ${inspectResult.frame_id} получен, тепловая карта готовится`,

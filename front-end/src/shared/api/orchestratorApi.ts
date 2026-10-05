@@ -6,10 +6,6 @@ import type {
   AnalysisPresetResponse,
   SimpleAnalysisKnobs,
   ProAnalysisKnobs,
-  ClientModeResponse,
-  TestAnalyzeResponse,
-  AcceptLearnedNormalsRequest,
-  AcceptLearnedNormalsResponse,
   CameraRuntimeSettings,
   CameraRuntimeSettingsUpdate,
   FpZonesResponse,
@@ -17,12 +13,10 @@ import type {
   GeometryRuntimeConfig,
   InspectionStateResponse,
   InspectionResetResponse,
-  InspectionLayout,
   LightBrightnessSettings,
   LightBrightnessUpdateRequest,
   LightBrightnessUpdateResponse,
   LightModeSettings,
-  LearnedNormalCase,
   LineDirection,
   LineDirectionSettings,
   LineDirectionUpdateResponse,
@@ -57,10 +51,6 @@ export const orchestratorApi = {
 
   async listCameras() {
     return http.json<UiCameraList>("/api/cameras");
-  },
-
-  async getInspectionLayout() {
-    return http.json<InspectionLayout>("/api/inspection-layout");
   },
 
   async getLatestSnapshot(cameraId: number) {
@@ -255,12 +245,8 @@ export const orchestratorApi = {
     });
   },
 
-  async getFrameArchiveHistory(cameraId: number, phaseId?: number, groupId?: number) {
-    const params = new URLSearchParams();
-    if (phaseId != null) params.set("phase_id", String(phaseId));
-    if (groupId != null) params.set("group_id", String(groupId));
-    const query = params.size > 0 ? `?${params.toString()}` : "";
-    return http.json<FrameArchiveHistoryResponse>(`/api/frame-archive/cameras/${cameraId}/history${query}`);
+  async getFrameArchiveHistory(cameraId: number) {
+    return http.json<FrameArchiveHistoryResponse>(`/api/frame-archive/cameras/${cameraId}/history`);
   },
 
   async deleteFrameArchiveFrame(cameraId: number, frameId: string | number) {
@@ -363,66 +349,6 @@ export const orchestratorApi = {
       `${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}/pro`,
       { method: "PUT", body: knobs },
     );
-  },
-
-  async getClientMode() {
-    return http.json<ClientModeResponse>("/api/client/mode");
-  },
-
-  async setTestMode(enabled: boolean) {
-    return http.json<ClientModeResponse>("/api/client/mode/test", {
-      method: "POST",
-      body: { enabled },
-    });
-  },
-
-  async testAnalyzeArchiveFrame(cameraId: number, frameId: string) {
-    return http.json<TestAnalyzeResponse>("/api/client/inspection/test-analyze", {
-      method: "POST",
-      body: { cameraId, frameId, source: "archive" },
-    });
-  },
-
-  async acceptLearnedNormals(request: AcceptLearnedNormalsRequest) {
-    return http.json<AcceptLearnedNormalsResponse>("/api/client/learning/accept-all-as-normal", {
-      method: "POST",
-      body: {
-        frameId: request.frameId,
-        productType: request.productType,
-        cameraId: request.cameraId,
-        note: request.note ?? "",
-      },
-    });
-  },
-
-  async getLearningReviews(productType: string, cameraId?: number) {
-    const query = new URLSearchParams({ product_type: productType });
-    if (cameraId !== undefined) {
-      query.set("cameraId", String(cameraId));
-    }
-    return http.json<{ reviews: unknown[] }>(`/api/client/learning/reviews?${query}`);
-  },
-
-  async getLearnedNormals(productType: string, cameraId: number) {
-    const query = new URLSearchParams({ productType, cameraId: String(cameraId) });
-    return http.json<{ cases: LearnedNormalCase[] }>(`/api/client/learning/accepted-cases?${query}`);
-  },
-
-  learnedNormalImageUrl(caseId: string) {
-    return http.url(`/api/client/learning/accepted-cases/${encodeURIComponent(caseId)}/image`);
-  },
-
-  async deleteLearnedNormal(caseId: string) {
-    return http.json<{ deleted: boolean; case_id?: string }>(
-      `/api/client/learning/accepted-cases/${encodeURIComponent(caseId)}`,
-      { method: "DELETE" },
-    );
-  },
-
-  async clearLearnedNormals() {
-    return http.json<{ deleted: boolean; cases_count?: number }>("/api/client/learning/accepted-cases", {
-      method: "DELETE",
-    });
   },
 
   async resetAnalysisSettings(productType: string) {

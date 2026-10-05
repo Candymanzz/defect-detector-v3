@@ -706,8 +706,8 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
             </div>
           </details>
 
-          <details id="analysis-settings" className="setting-list__collapsible-setting setting-list__analysis">
-            <summary className="setting-list__section-header" tabIndex={-1}>
+          <details className="setting-list__collapsible-setting setting-list__analysis">
+            <summary className="setting-list__section-header">
               <h3>Настройки анализа</h3>
               <strong>{analysisScopeText}</strong>
             </summary>

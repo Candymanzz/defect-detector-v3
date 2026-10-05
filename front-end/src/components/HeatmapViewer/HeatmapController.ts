@@ -139,6 +139,9 @@ function resolveHeatmapUrl(path: string) {
 }
 
 function resolveHeatmapCacheKey(heatmap: HeatmapDescriptor) {
+  if (heatmap.http_path) {
+    return `path:${heatmap.http_path}`;
+  }
   if (heatmap.artifact_id) {
     return `artifact:${heatmap.artifact_id}`;
   }

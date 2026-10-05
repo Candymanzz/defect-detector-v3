@@ -3,8 +3,7 @@ import type { CSSProperties, MouseEvent } from "react";
 import "../ModalWrapper/ModalWrapper.css";
 import "./ReferenceSetup.css";
 import { RoiContourEditor } from "../RoiContourEditor";
-import { orchestratorApi } from "../../shared/api";
-import type { LearnedNormalCase } from "../../shared/api/types";
+import { FpZoneEditor } from "../FpZoneEditor";
 import {
   deleteArchivedReferenceGroup,
   getArchivedReferenceGroups,
@@ -22,11 +21,11 @@ type ReferenceSetupProps = {
 
 export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps) {
   const {
+    status,
     message,
     cameraSlots,
     cameraGroups,
     activeGroupIndex,
-    activeReferenceGroup,
     setActiveGroupIndex,
     jointCameraId,
     hasJointRoi,
@@ -46,7 +45,9 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     setJointRoiPolygon,
     setRoiPolygonForCamera,
     fpZonesByCameraId,
+    setFpZonesForCameraId,
   } = useReferenceSetupController(onClose, initialCameraId);
+  const [isFpZoneMode, setIsFpZoneMode] = useState(false);
   const [selectedArchiveId, setSelectedArchiveId] = useState<string | null>(null);
   const selectedSlot = cameraSlots.find((slot) => slot.cameraId === selectedCameraId);
   const editorKey = `${selectedRoiMode}-${selectedCameraId}`;
@@ -56,14 +57,11 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   const activeCameraIds = cameraSlots.map((slot) => slot.cameraId);
   const activeGroupKey = createCameraGroupKey(activeCameraIds);
   const activeGroupArchivedReferences = archivedReferences.filter(
-    (archive) =>
-      createCameraGroupKey(archive.cameraIds) === activeGroupKey &&
-      (archive.bundle.phase_id ?? 0) === (activeReferenceGroup?.phaseId ?? 0) &&
-      (archive.bundle.group_id ?? -1) === (activeReferenceGroup?.groupId ?? -1),
+    (archive) => createCameraGroupKey(archive.cameraIds) === activeGroupKey,
   );
   const activeReferenceKey = useSyncExternalStore(
     subscribeReferenceImages,
-    () => createActiveReferenceKey(activeCameraIds, activeReferenceGroup?.phaseId, activeReferenceGroup?.groupId),
+    () => createActiveReferenceKey(activeCameraIds),
     () => "",
   );
   const selectedArchive =
@@ -72,24 +70,11 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   const activeArchive = activeGroupArchivedReferences.find(
     (archive) => createArchiveReferenceKey(archive) === activeReferenceKey,
   );
-  const selectedProductType = selectedSlot?.frame?.detector.product_type;
-  const learnedNormals = useLearnedNormals(selectedSlot?.cameraId, selectedProductType);
+  const fpZoneSlot = selectedSlot ?? cameraSlots[0];
+  const selectedFpZones = fpZoneSlot ? (fpZonesByCameraId[fpZoneSlot.cameraId] ?? []) : [];
   const readyCameraCount = cameraSlots.filter(
     (slot) => Boolean(slot.frame) && (roiPolygonsByCameraId[slot.cameraId]?.length ?? 0) >= 3,
   ).length;
-  const bucketStatuses = cameraGroups.map((groupCameraIds, groupIndex) => {
-    const group = cameraGroups[groupIndex] ? { phaseId: Math.floor(groupIndex / 2), groupId: groupIndex } : undefined;
-    const storedCameraCount = groupCameraIds.filter((cameraId) =>
-      Boolean(getReferenceImage(cameraId, group?.phaseId, group?.groupId)),
-    ).length;
-    const isActiveDraftReady =
-      groupIndex === activeGroupIndex && readyCameraCount === groupCameraIds.length && groupCameraIds.length > 0;
-    return {
-      storedCameraCount,
-      ready: isActiveDraftReady || (storedCameraCount === groupCameraIds.length && groupCameraIds.length > 0),
-    };
-  });
-  const readyBucketCount = bucketStatuses.filter((bucket) => bucket.ready).length;
   const hasSetupError = /не получен|не задан|не отправлен|ошиб|отклон/i.test(message);
   const shouldStartNewReference = hasAnyStoredReferenceForActiveGroup && !isNewReferenceMode;
   const primaryReferenceLabel = shouldStartNewReference
@@ -163,45 +148,32 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
 
           <div className="reference-setup__layout">
             <aside className="reference-setup__sidebar reference-setup__sidebar--cameras">
-              <div className="reference-setup__bucket-heading">
-                <div>
-                  <h3>Эталоны для четырёх вёдер</h3>
-                  <p>Каждое ведро настраивается отдельно. Нужно сохранить все 4 эталона.</p>
-                </div>
-                <strong>{readyBucketCount} / 4 готовы</strong>
-              </div>
+              <h3>Группа камер</h3>
               <div
                 className="reference-setup__group-switch"
                 role="tablist"
-                aria-label="Эталоны четырёх вёдер"
+                aria-label="Группы камер"
               >
-                {cameraGroups.map((groupCameraIds, groupIndex) => {
-                  const bucketStatus = bucketStatuses[groupIndex];
-                  return (
-                    <button
-                      key={`${groupIndex}:${groupCameraIds.join("-")}`}
-                      aria-selected={groupIndex === activeGroupIndex}
-                      className={
-                        groupIndex === activeGroupIndex
-                          ? "reference-setup__group-tab reference-setup__group-tab--active"
-                          : "reference-setup__group-tab"
-                      }
-                      data-ready={bucketStatus?.ready}
-                      role="tab"
-                      type="button"
-                      onClick={() => setActiveGroupIndex(groupIndex)}
-                    >
-                      <span className="reference-setup__bucket-title">
-                        Ведро {groupIndex + 1}
-                        <i>{bucketStatus?.ready ? "Готово" : "Нужно настроить"}</i>
-                      </span>
-                      <span>Камеры {groupCameraIds.join(", ")}</span>
-                    </button>
-                  );
-                })}
+                {cameraGroups.map((groupCameraIds, groupIndex) => (
+                  <button
+                    key={groupCameraIds.join("-")}
+                    aria-selected={groupIndex === activeGroupIndex}
+                    className={
+                      groupIndex === activeGroupIndex
+                        ? "reference-setup__group-tab reference-setup__group-tab--active"
+                        : "reference-setup__group-tab"
+                    }
+                    role="tab"
+                    type="button"
+                    onClick={() => setActiveGroupIndex(groupIndex)}
+                  >
+                    Группа {groupIndex + 1}
+                    <span>Камеры {groupCameraIds.join(", ")}</span>
+                  </button>
+                ))}
               </div>
 
-              <h3>Ведро {activeGroupIndex + 1} · камеры эталона</h3>
+              <h3>Камеры группы {activeGroupIndex + 1}</h3>
               <div className="reference-setup__camera-list">
                 {cameraSlots.map((slot) => {
                   const hasFrame = Boolean(slot.frame);
@@ -217,6 +189,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                       data-ready={hasFrame && hasRoi}
                       type="button"
                       onClick={() => {
+                        setIsFpZoneMode(false);
                         handleSelectCamera(slot.cameraId);
                       }}
                     >
@@ -230,9 +203,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                         <strong>Камера {slot.cameraId}</strong>
                         <small>{hasFrame ? "Кадр получен" : "Кадр не получен"}</small>
                         <small data-state={hasRoi ? "ready" : "missing"}>{hasRoi ? "ROI задан" : "ROI не задан"}</small>
-                        <small>
-                          Доп. кадров: {slot.cameraId === selectedSlot?.cameraId ? learnedNormals.cases.length : "—"}
-                        </small>
+                        <small>Исключающих зон: {fpZonesByCameraId[slot.cameraId]?.length ?? 0}</small>
                       </span>
                       <span
                         className="reference-setup__camera-state"
@@ -281,6 +252,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     }
                     type="button"
                     onClick={() => {
+                      setIsFpZoneMode(false);
                       handleSelectJointRoi(selectedSlot.cameraId);
                     }}
                   >
@@ -290,7 +262,16 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               </header>
 
               <div className="reference-setup__editor">
-                {selectedSlot?.imageUrl ? (
+                {isFpZoneMode && fpZoneSlot?.imageUrl ? (
+                  <FpZoneEditor
+                    key={`${fpZoneSlot.cameraId}-${selectedFpZones.length}`}
+                    imageUrl={fpZoneSlot.imageUrl}
+                    roiPoints={roiPolygonsByCameraId[fpZoneSlot.cameraId] ?? []}
+                    zones={selectedFpZones}
+                    disabled={status.state !== "open"}
+                    onChange={(zones) => setFpZonesForCameraId(fpZoneSlot.cameraId, zones)}
+                  />
+                ) : selectedSlot?.imageUrl ? (
                   <RoiContourEditor
                     key={editorKey}
                     imageUrl={selectedSlot.imageUrl}
@@ -339,12 +320,13 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 </header>
                 <button
                   className={
-                    selectedRoiMode === "interest"
+                    !isFpZoneMode && selectedRoiMode === "interest"
                       ? "reference-setup__object-row reference-setup__object-row--active"
                       : "reference-setup__object-row"
                   }
                   type="button"
                   onClick={() => {
+                    setIsFpZoneMode(false);
                     if (selectedSlot) handleSelectCamera(selectedSlot.cameraId);
                   }}
                 >
@@ -354,37 +336,50 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               </section>
               <section className="reference-setup__object-section">
                 <header>
-                  <span>Доп. кадры анализа</span>
+                  <span>Исключающие зоны</span>
                   <i data-kind="fp" />
                 </header>
-                {learnedNormals.loading && <div className="reference-setup__learned-empty">Загрузка…</div>}
-                {learnedNormals.error && (
-                  <div className="reference-setup__learned-empty" role="alert">{learnedNormals.error}</div>
-                )}
-                {!learnedNormals.loading && !learnedNormals.error && learnedNormals.cases.length === 0 && (
-                  <div className="reference-setup__learned-empty">Для камеры пока нет добавленных кадров</div>
-                )}
-                <div className="reference-setup__learned-grid">
-                  {learnedNormals.cases.map((item, index) => (
-                    <figure key={item.id} className="reference-setup__learned-card">
-                      <button
-                        className="reference-setup__learned-delete"
-                        type="button"
-                        aria-label={`Удалить дополнительный фрагмент ${index + 1}`}
-                        title="Удалить из анализа"
-                        disabled={learnedNormals.deletingId === item.id}
-                        onClick={() => void learnedNormals.remove(item.id)}
-                      >
-                        {learnedNormals.deletingId === item.id ? "…" : "×"}
-                      </button>
-                      <img
-                        src={orchestratorApi.learnedNormalImageUrl(item.id)}
-                        alt={`Дополнительный фрагмент ${index + 1}`}
-                      />
-                      <figcaption>{item.note || `Фрагмент ${index + 1}`}</figcaption>
-                    </figure>
-                  ))}
-                </div>
+                {selectedFpZones.map((zone, index) => (
+                  <div
+                    className="reference-setup__object-row"
+                    key={zone.id ?? index}
+                  >
+                    <i data-kind="fp" /> {zone.note || `Зона ${index + 1}`}
+                  </div>
+                ))}
+                <button
+                  className={
+                    isFpZoneMode
+                      ? "reference-setup__button reference-setup__button--fp reference-setup__button--active"
+                      : "reference-setup__button reference-setup__button--fp"
+                  }
+                  type="button"
+                  aria-pressed={isFpZoneMode}
+                  disabled={!fpZoneSlot?.imageUrl}
+                  onClick={() => setIsFpZoneMode(true)}
+                >
+                  Редактировать зоны
+                </button>
+                <button
+                  className="reference-setup__button reference-setup__button--fp"
+                  type="button"
+                  disabled={!fpZoneSlot?.imageUrl}
+                  onClick={() => {
+                    if (!fpZoneSlot) return;
+                    const nextIndex = selectedFpZones.length + 1;
+                    setFpZonesForCameraId(fpZoneSlot.cameraId, [
+                      ...selectedFpZones,
+                      {
+                        id: createFpZoneId(),
+                        note: `Зона ${nextIndex}`,
+                        points_norm_heatmap: [],
+                      },
+                    ]);
+                    setIsFpZoneMode(true);
+                  }}
+                >
+                  ＋ Добавить ещё зону
+                </button>
               </section>
               <section className="reference-setup__object-section">
                 <header>
@@ -403,7 +398,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               </aside>
               <div className="reference-setup__footer">
                 <div className="reference-setup__readiness">
-                  <strong>Готовность эталона ведра {activeGroupIndex + 1}</strong>
+                  <strong>Готовность группы {activeGroupIndex + 1}</strong>
                   <span>
                     {readyCameraCount} из {cameraSlots.length} камер готовы
                   </span>
@@ -607,70 +602,17 @@ function formatArchiveTime(createdAtMs: number) {
   return new Date(createdAtMs).toLocaleTimeString();
 }
 
-function useLearnedNormals(cameraId?: number, productType?: string) {
-  const requestKey = cameraId !== undefined && productType ? `${cameraId}:${productType}` : "";
-  const [result, setResult] = useState<{
-    key: string;
-    cases: LearnedNormalCase[];
-    error: string | null;
-  }>({ key: "", cases: [], error: null });
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (cameraId === undefined || !productType) return;
-    let active = true;
-    orchestratorApi
-      .getLearnedNormals(productType, cameraId)
-      .then((payload) => {
-        if (active) setResult({ key: requestKey, cases: payload.cases ?? [], error: null });
-      })
-      .catch((error) => {
-        if (active) {
-          setResult({
-            key: requestKey,
-            cases: [],
-            error: error instanceof Error ? error.message : "Не удалось загрузить дополнительные кадры",
-          });
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [cameraId, productType, requestKey]);
-
-  const remove = async (caseId: string) => {
-    setDeletingId(caseId);
-    try {
-      await orchestratorApi.deleteLearnedNormal(caseId);
-      setResult((current) => ({
-        ...current,
-        cases: current.cases.filter((item) => item.id !== caseId),
-        error: null,
-      }));
-    } catch (error) {
-      setResult((current) => ({
-        ...current,
-        error: error instanceof Error ? error.message : "Не удалось удалить дополнительный кадр",
-      }));
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  if (!requestKey) return { cases: [], error: null, loading: false, deletingId, remove };
-  return {
-    cases: result.key === requestKey ? result.cases : [],
-    error: result.key === requestKey ? result.error : null,
-    loading: result.key !== requestKey,
-    deletingId,
-    remove,
-  };
+function createFpZoneId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `fp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function createActiveReferenceKey(cameraIds: number[], phaseId?: number, groupId?: number) {
+function createActiveReferenceKey(cameraIds: number[]) {
   return cameraIds
     .map((cameraId) => {
-      const referenceImage = getReferenceImage(cameraId, phaseId, groupId);
+      const referenceImage = getReferenceImage(cameraId);
       return referenceImage ? createReferenceImageKey(cameraId, referenceImage) : "";
     })
     .filter(Boolean)

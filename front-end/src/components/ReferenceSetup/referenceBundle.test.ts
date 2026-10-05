@@ -4,13 +4,12 @@ import type { PreviewFramePayload } from "../../shared/ws";
 import { createCirclePolygonFromRadius } from "../RoiContourEditor/circleRoi";
 import { createOrientedRectFromAxis } from "../RoiContourEditor/orientedRectRoi";
 import { createReferenceBundleFromCameraFrames } from "./referenceBundle";
-import { createReferenceGroups, resolveReferenceGroupIndex } from "./ReferenceController";
 
 function previewFrame(cameraId: number): PreviewFramePayload {
   return {
     camera_id: cameraId,
     frame_id: `frame-${cameraId}`,
-    session_state: "READY",
+    session_state: "ready",
     current: {
       camera_id: cameraId,
       frame_id: `frame-${cameraId}`,
@@ -37,15 +36,6 @@ const roi = [
 const jointRoi = createOrientedRectFromAxis({ x: 0.2, y: 0.5 }, { x: 0.8, y: 0.5 }, 0.04);
 
 describe("createReferenceBundleFromCameraFrames", () => {
-  it("maps two photos from ten cameras to four reference groups", () => {
-    expect(createReferenceGroups([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])).toEqual([
-      { phaseId: 0, groupId: 0, cameraIds: [0, 1, 2, 3, 4] },
-      { phaseId: 0, groupId: 1, cameraIds: [5, 6, 7, 8, 9] },
-      { phaseId: 1, groupId: 2, cameraIds: [0, 1, 2, 3, 4] },
-      { phaseId: 1, groupId: 3, cameraIds: [5, 6, 7, 8, 9] },
-    ]);
-  });
-
   it("builds bundle for configured cameras", () => {
     const bundle = createReferenceBundleFromCameraFrames(
       [0, 1],
@@ -61,22 +51,6 @@ describe("createReferenceBundleFromCameraFrames", () => {
     expect(bundle.views).toHaveLength(2);
     expect(bundle.views[1].joint_roi).not.toBeNull();
     expect(bundle.views[1].joint_roi_polygon_norm).toHaveLength(4);
-  });
-
-  it("binds a reference to its capture phase and group", () => {
-    const bundle = createReferenceBundleFromCameraFrames(
-      [5],
-      5,
-      { 5: previewFrame(5) },
-      { 5: roi },
-      [],
-      [],
-      1,
-      3,
-    );
-
-    expect(bundle.phase_id).toBe(1);
-    expect(bundle.group_id).toBe(3);
   });
 
   it("accepts circular ROI from radius as interest_polygon_norm for inspect services", () => {
@@ -164,23 +138,5 @@ describe("createReferenceBundleFromCameraFrames", () => {
         [],
       ),
     ).toThrow(/same resolution/);
-  });
-});
-
-describe("resolveReferenceGroupIndex", () => {
-  const groups = createReferenceGroups([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-
-  it("matches a capture by phase and group", () => {
-    expect(resolveReferenceGroupIndex(groups, { camera_id: 7, phase_id: 1, group_id: 3 })).toBe(3);
-    expect(resolveReferenceGroupIndex(groups, { camera_id: 1, phase_id: 0, group_id: 0 })).toBe(0);
-  });
-
-  it("falls back to camera and phase when group_id is missing", () => {
-    expect(resolveReferenceGroupIndex(groups, { camera_id: 8, phase_id: 1 })).toBe(3);
-    expect(resolveReferenceGroupIndex(groups, { camera_id: 8, phase_id: 0, group_id: -1 })).toBe(1);
-  });
-
-  it("returns -1 for an unknown camera", () => {
-    expect(resolveReferenceGroupIndex(groups, { camera_id: 99, phase_id: 0, group_id: 0 })).toBe(-1);
   });
 });

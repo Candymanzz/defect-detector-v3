@@ -12,7 +12,6 @@ type ArchiveHistoryViewerProps = {
   historyByCameraId: Record<number, InspectionHistoryItem[]>;
   onClose: () => void;
   onChanged?: () => void | Promise<void>;
-  isProductScoped?: boolean;
 };
 
 export function ArchiveHistoryViewer({
@@ -20,7 +19,6 @@ export function ArchiveHistoryViewer({
   historyByCameraId,
   onClose,
   onChanged,
-  isProductScoped = false,
 }: ArchiveHistoryViewerProps) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -93,19 +91,7 @@ export function ArchiveHistoryViewer({
     setStatusMessage(null);
     setStatusError(false);
     try {
-      const response = isProductScoped
-        ? {
-            deleted: (
-              await Promise.allSettled(
-                tiles.flatMap((tile) =>
-                  tile.results.map((item) =>
-                    orchestratorApi.deleteFrameArchiveFrame(item.inspectResult.camera_id, item.frameId),
-                  ),
-                ),
-              )
-            ).filter((result) => result.status === "fulfilled").length,
-          }
-        : await orchestratorApi.clearFrameArchive(cameraIds);
+      const response = await orchestratorApi.clearFrameArchive(cameraIds);
       setSelectedKey(null);
       setStatusMessage(`Архив очищен (${response.deleted} кадров)`);
       await onChanged?.();

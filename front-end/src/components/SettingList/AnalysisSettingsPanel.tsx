@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { orchestratorApi } from "../../shared/api";
 import type { ProAnalysisKnobs, SimpleAnalysisKnobs } from "../../shared/api";
@@ -31,23 +31,10 @@ const PRO_FIELDS = [
   { name: "preprocess_strength", label: "Предобработка изображения", hint: "Сила выравнивания локального контраста." },
 ] as const;
 
-type Props = {
-  selectedCameraId: number | null;
-  profile?: string;
-  testFrameId?: string;
-  onSaveComplete?: () => Promise<void> | void;
-  hideSaveAction?: boolean;
-};
-export type AnalysisSettingsPanelHandle = { save: () => Promise<void> };
+type Props = { selectedCameraId: number | null; profile?: string };
 type Mode = "simple" | "pro";
 
-export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Props>(function AnalysisSettingsPanel({
-  selectedCameraId,
-  profile = FALLBACK_PROFILE,
-  testFrameId,
-  onSaveComplete,
-  hideSaveAction = false,
-}, ref) {
+export function AnalysisSettingsPanel({ selectedCameraId, profile = FALLBACK_PROFILE }: Props) {
   const [mode, setMode] = useState<Mode>("simple");
   const [simple, setSimple] = useState(DEFAULT_SIMPLE);
   const [pro, setPro] = useState(DEFAULT_PRO);
@@ -59,76 +46,18 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
     kind: "loading",
     text: "Загрузка настроек…",
   });
-  const previewRequestIdRef = useRef(0);
-  const previewTimerRef = useRef<number | null>(null);
-  const hydratedRef = useRef(false);
-  const userEditedSimpleRef = useRef(false);
-  const userEditedProRef = useRef(false);
 
   useEffect(() => {
     let active = true;
-    hydratedRef.current = false;
-    userEditedSimpleRef.current = false;
-    userEditedProRef.current = false;
     loadSimple(selectedCameraId, profile)
       .then((response) => {
         if (!active) return;
         setSimple(response.knobs ?? { threshold: response.settings.default_threshold, sensitivity: 0.5 });
-        hydratedRef.current = true;
-        setStatus({
-          kind: "success",
-          text: selectedCameraId === null ? "Настройки для всех камер загружены" : `Настройки камеры ${selectedCameraId} загружены`,
-        });
+        setStatus({ kind: "success", text: "Настройки загружены" });
       })
       .catch((error) => active && setStatus({ kind: "error", text: errorMessage(error) }));
     return () => { active = false; };
   }, [selectedCameraId, profile]);
-
-  useEffect(() => {
-    if (!hydratedRef.current || (!userEditedSimpleRef.current && !userEditedProRef.current)) {
-      return;
-    }
-    if (previewTimerRef.current !== null) {
-      window.clearTimeout(previewTimerRef.current);
-    }
-    const requestId = ++previewRequestIdRef.current;
-    const persistSimple = userEditedSimpleRef.current;
-    const persistPro = userEditedProRef.current;
-    const preview = selectedCameraId !== null && Boolean(testFrameId);
-    previewTimerRef.current = window.setTimeout(() => {
-      setStatus({
-        kind: "saving",
-        text: preview ? `Сохранение и проверка на кадре ${testFrameId}…` : "Сохранение…",
-      });
-      void Promise.resolve()
-        .then(() => (persistSimple ? saveSimple(selectedCameraId, simple) : undefined))
-        .then(() => (persistPro ? savePro(selectedCameraId, pro) : undefined))
-        .then(() => (preview ? orchestratorApi.testAnalyzeArchiveFrame(selectedCameraId, testFrameId!) : undefined))
-        .then(() => {
-          if (requestId === previewRequestIdRef.current) {
-            setStatus({
-              kind: "success",
-              text: preview
-                ? `Настройки сохранены, кадр ${testFrameId} пересчитан`
-                : selectedCameraId === null
-                  ? "Настройки сохранены для всех камер"
-                  : `Настройки камеры ${selectedCameraId} сохранены`,
-            });
-          }
-        })
-        .catch((error) => {
-          if (requestId === previewRequestIdRef.current) {
-            setStatus({ kind: "error", text: errorMessage(error) });
-          }
-        });
-    }, 450);
-    return () => {
-      if (previewTimerRef.current !== null) {
-        window.clearTimeout(previewTimerRef.current);
-        previewTimerRef.current = null;
-      }
-    };
-  }, [pro, selectedCameraId, simple, testFrameId]);
 
   const unlock = () => {
     if (password !== ACCESS_CODE) {
@@ -149,42 +78,15 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
       .catch((error) => setStatus({ kind: "error", text: errorMessage(error) }));
   };
 
-  const persist = async () => {
-    if (!hydratedRef.current) {
-      const error = new Error("Настройки анализа ещё загружаются");
-      setStatus({ kind: "error", text: error.message });
-      throw error;
-    }
-    if (previewTimerRef.current !== null) {
-      window.clearTimeout(previewTimerRef.current);
-      previewTimerRef.current = null;
-    }
-    previewRequestIdRef.current += 1;
+  const save = () => {
     setStatus({ kind: "saving", text: "Сохранение…" });
     const request = mode === "simple"
-      ? saveSimple(selectedCameraId, simple)
-      : savePro(selectedCameraId, pro);
-    try {
-      await request;
-      if (!hideSaveAction) {
-        if (selectedCameraId !== null && testFrameId) {
-          await orchestratorApi.testAnalyzeArchiveFrame(selectedCameraId, testFrameId);
-          setStatus({ kind: "success", text: `Сохранено, кадр ${testFrameId} пересчитан` });
-          return;
-        }
-        await onSaveComplete?.();
-      }
-      setStatus({
-        kind: "success",
-        text: selectedCameraId === null ? "Настройки применены ко всем камерам" : `Настройки применены к камере ${selectedCameraId}`,
-      });
-    } catch (error) {
-      setStatus({ kind: "error", text: errorMessage(error) });
-      throw error;
-    }
+      ? saveSimple(selectedCameraId, profile, simple)
+      : savePro(selectedCameraId, profile, pro);
+    request
+      .then(() => setStatus({ kind: "success", text: "Настройки сохранены" }))
+      .catch((error) => setStatus({ kind: "error", text: errorMessage(error) }));
   };
-
-  useImperativeHandle(ref, () => ({ save: persist }));
 
   const openPro = () => {
     if (unlocked) {
@@ -237,13 +139,8 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
                 value={value} disabled={busy}
                 onChange={(event: ChangeEvent<HTMLInputElement>) => {
                   const next = Number(event.target.value);
-                  if (mode === "simple") {
-                    userEditedSimpleRef.current = true;
-                    setSimple((current) => ({ ...current, [field.name]: next }));
-                  } else {
-                    userEditedProRef.current = true;
-                    setPro((current) => ({ ...current, [field.name]: next }));
-                  }
+                  if (mode === "simple") setSimple((current) => ({ ...current, [field.name]: next }));
+                  else setPro((current) => ({ ...current, [field.name]: next }));
                 }}
               />
               <small>{field.hint}</small>
@@ -254,7 +151,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
 
       <div className="analysis-presets__footer">
         <span data-kind={status.kind} aria-live="polite">{status.text}</span>
-        {!hideSaveAction && <Button type="button" disabled={busy} onClick={() => void persist()}>Сохранить</Button>}
+        <Button type="button" disabled={busy} onClick={save}>Сохранить</Button>
       </div>
 
       {showUnlock && (
@@ -282,53 +179,17 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
       )}
     </div>
   );
-});
+}
 
 function loadSimple(cameraId: number | null, profile: string) {
-  return cameraId === null ? loadAllCamerasSimple(profile) : orchestratorApi.getCameraSimpleAnalysisSettings(cameraId);
+  return cameraId === null ? orchestratorApi.getSimpleAnalysisSettings(profile) : orchestratorApi.getCameraSimpleAnalysisSettings(cameraId);
 }
-function saveSimple(cameraId: number | null, knobs: SimpleAnalysisKnobs) {
-  return cameraId === null ? saveAllCamerasSimple(knobs) : orchestratorApi.setCameraSimpleAnalysisSettings(cameraId, knobs);
+function saveSimple(cameraId: number | null, profile: string, knobs: SimpleAnalysisKnobs) {
+  return cameraId === null ? orchestratorApi.setSimpleAnalysisSettings(profile, knobs) : orchestratorApi.setCameraSimpleAnalysisSettings(cameraId, knobs);
 }
 function loadPro(cameraId: number | null, profile: string) {
-  return cameraId === null ? loadAllCamerasPro(profile) : orchestratorApi.getCameraProAnalysisSettings(cameraId);
+  return cameraId === null ? orchestratorApi.getProAnalysisSettings(profile) : orchestratorApi.getCameraProAnalysisSettings(cameraId);
 }
-function savePro(cameraId: number | null, knobs: ProAnalysisKnobs) {
-  return cameraId === null ? saveAllCamerasPro(knobs) : orchestratorApi.setCameraProAnalysisSettings(cameraId, knobs);
-}
-
-async function loadAllCamerasSimple(fallbackProfile: string) {
-  const cameras = (await orchestratorApi.listCameras()).cameras;
-  return cameras.length > 0
-    ? orchestratorApi.getCameraSimpleAnalysisSettings(cameras[0])
-    : orchestratorApi.getSimpleAnalysisSettings(fallbackProfile);
-}
-
-async function loadAllCamerasPro(fallbackProfile: string) {
-  const cameras = (await orchestratorApi.listCameras()).cameras;
-  return cameras.length > 0
-    ? orchestratorApi.getCameraProAnalysisSettings(cameras[0])
-    : orchestratorApi.getProAnalysisSettings(fallbackProfile);
-}
-
-async function saveAllCamerasSimple(knobs: SimpleAnalysisKnobs) {
-  const cameras = (await orchestratorApi.listCameras()).cameras;
-  if (cameras.length === 0) {
-    throw new Error("Список камер пуст — настройки не сохранены");
-  }
-  const responses = await Promise.all(
-    cameras.map((cameraId) => orchestratorApi.setCameraSimpleAnalysisSettings(cameraId, knobs)),
-  );
-  return responses[0];
-}
-
-async function saveAllCamerasPro(knobs: ProAnalysisKnobs) {
-  const cameras = (await orchestratorApi.listCameras()).cameras;
-  if (cameras.length === 0) {
-    throw new Error("Список камер пуст — настройки не сохранены");
-  }
-  const responses = await Promise.all(
-    cameras.map((cameraId) => orchestratorApi.setCameraProAnalysisSettings(cameraId, knobs)),
-  );
-  return responses[0];
+function savePro(cameraId: number | null, profile: string, knobs: ProAnalysisKnobs) {
+  return cameraId === null ? orchestratorApi.setProAnalysisSettings(profile, knobs) : orchestratorApi.setCameraProAnalysisSettings(cameraId, knobs);
 }

@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   compareInspectResults,
-  createDefaultInspectionProducts,
-  createModalInspectionSnapshot,
   upsertInspectionHistoryItem,
 } from "./MainController";
 import type { InspectResultPayload } from "../../shared/ws";
@@ -12,7 +10,7 @@ function inspectResult(frameId: string, serverTs: number): InspectResultPayload 
   return {
     camera_id: 0,
     frame_id: frameId,
-    session_state: "READY",
+    session_state: "ready",
     current: {
       camera_id: 0,
       frame_id: frameId,
@@ -27,23 +25,11 @@ function inspectResult(frameId: string, serverTs: number): InspectResultPayload 
     heatmap: null,
     active_reference_view_index: 0,
     detector: {},
-    fp_zones: [],
     server_ts_ms: serverTs,
   };
 }
 
 describe("MainController helpers", () => {
-  it("creates two products for each set of five cameras", () => {
-    const products = createDefaultInspectionProducts([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-
-    expect(products.map(({ phaseId, groupId, cameraIds }) => ({ phaseId, groupId, cameraIds }))).toEqual([
-      { phaseId: 0, groupId: 0, cameraIds: [0, 1, 2, 3, 4] },
-      { phaseId: 0, groupId: 1, cameraIds: [5, 6, 7, 8, 9] },
-      { phaseId: 1, groupId: 2, cameraIds: [0, 1, 2, 3, 4] },
-      { phaseId: 1, groupId: 3, cameraIds: [5, 6, 7, 8, 9] },
-    ]);
-  });
-
   it("compareInspectResults sorts by frame id then timestamp", () => {
     const left = inspectResult("10", 100);
     const right = inspectResult("9", 200);
@@ -73,20 +59,5 @@ describe("MainController helpers", () => {
 
     expect(updated).toHaveLength(1);
     expect(updated[0].result).toBe("fail");
-  });
-
-  it("opens a camera modal with the latest frame even without an inspect result", () => {
-    const snapshot = createModalInspectionSnapshot(
-      { cameraId: 2, objectName: "Объект 1" },
-      { productKey: "0:0", phaseId: 0, groupId: 0 },
-      undefined,
-      undefined,
-      "42",
-      "/api/frames/2.jpg",
-      [],
-    );
-
-    expect(snapshot.inspectResult).toBeUndefined();
-    expect(snapshot.cameraImageUrl).toBe("/api/frames/2.jpg");
   });
 });

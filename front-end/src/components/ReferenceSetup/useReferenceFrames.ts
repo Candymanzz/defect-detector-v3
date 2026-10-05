@@ -5,9 +5,7 @@ import type { UiLatestSnapshot } from "../../shared/api/types";
 import { getReferenceImage, isReferenceImageUrlInUse } from "../../shared/referenceImages";
 import type { PreviewFramePayload } from "../../shared/ws";
 
-export type ReferenceFrameScope = { phaseId: number; groupId: number };
-
-export function useReferenceFrames(cameraIds: number[], scope?: ReferenceFrameScope) {
+export function useReferenceFrames(cameraIds: number[]) {
   const liveFramesByCameraIdRef = useRef<Record<number, PreviewFramePayload>>({});
   const liveImageUrlsByCameraIdRef = useRef<Record<number, string>>({});
   const lockedCameraIdsRef = useRef<Record<number, boolean>>({});
@@ -18,10 +16,7 @@ export function useReferenceFrames(cameraIds: number[], scope?: ReferenceFrameSc
   const cameraSlots = cameraIds.map((cameraId) => ({
     cameraId,
     frame: framesByCameraId[cameraId],
-    imageUrl:
-      imageUrlsByCameraId[cameraId] ??
-      snapshotImageUrlsByCameraId[cameraId] ??
-      getReferenceImage(cameraId, scope?.phaseId, scope?.groupId)?.imageUrl,
+    imageUrl: imageUrlsByCameraId[cameraId] ?? snapshotImageUrlsByCameraId[cameraId] ?? getReferenceImage(cameraId)?.imageUrl,
   }));
   const hasRequiredReferenceFrames =
     cameraIds.length > 0 && cameraIds.every((cameraId) => framesByCameraId[cameraId]);
@@ -32,8 +27,6 @@ export function useReferenceFrames(cameraIds: number[], scope?: ReferenceFrameSc
         cameraId,
         setFramesByCameraId,
         setImageUrlsByCameraId,
-        false,
-        scope,
       );
 
       if (storedLoaded) {
@@ -61,13 +54,13 @@ export function useReferenceFrames(cameraIds: number[], scope?: ReferenceFrameSc
       }
 
       const snapshotLoaded = await loadSnapshotImage(
-          cameraId,
-          setSnapshotImageUrlsByCameraId,
-          setFramesByCameraId,
-          setImageUrlsByCameraId,
-          lockedCameraIdsRef,
-          pendingCameraIdsRef,
-        );
+        cameraId,
+        setSnapshotImageUrlsByCameraId,
+        setFramesByCameraId,
+        setImageUrlsByCameraId,
+        lockedCameraIdsRef,
+        pendingCameraIdsRef,
+      );
 
       return snapshotLoaded
         ? {
@@ -91,8 +84,6 @@ export function useReferenceFrames(cameraIds: number[], scope?: ReferenceFrameSc
         cameraId,
         setFramesByCameraId,
         setImageUrlsByCameraId,
-        false,
-        scope,
       );
 
       if (storedLoaded) {
@@ -133,7 +124,7 @@ export function useReferenceFrames(cameraIds: number[], scope?: ReferenceFrameSc
       snapshotCameraIds,
       missingCameraIds,
     };
-  }, [cameraIds, scope]);
+  }, [cameraIds]);
 
   const captureLatestImages = useCallback(async (targetCameraIds = cameraIds) => {
     const loadedCameraIds: number[] = [];
@@ -142,14 +133,14 @@ export function useReferenceFrames(cameraIds: number[], scope?: ReferenceFrameSc
 
     for (const cameraId of targetCameraIds) {
       const snapshotLoaded = await loadSnapshotImage(
-          cameraId,
-          setSnapshotImageUrlsByCameraId,
-          setFramesByCameraId,
-          setImageUrlsByCameraId,
-          lockedCameraIdsRef,
-          pendingCameraIdsRef,
-          true,
-        );
+        cameraId,
+        setSnapshotImageUrlsByCameraId,
+        setFramesByCameraId,
+        setImageUrlsByCameraId,
+        lockedCameraIdsRef,
+        pendingCameraIdsRef,
+        true,
+      );
 
       if (snapshotLoaded) {
         snapshotCameraIds.push(cameraId);
@@ -177,7 +168,7 @@ export function useReferenceFrames(cameraIds: number[], scope?: ReferenceFrameSc
       snapshotCameraIds,
       missingCameraIds,
     };
-  }, [cameraIds, scope]);
+  }, [cameraIds]);
 
   const loadStoredReferenceImages = useCallback((targetCameraIds = cameraIds) => {
     const loadedCameraIds: number[] = [];
@@ -189,7 +180,6 @@ export function useReferenceFrames(cameraIds: number[], scope?: ReferenceFrameSc
         setFramesByCameraId,
         setImageUrlsByCameraId,
         true,
-        scope,
       );
 
       if (loaded) {
@@ -203,7 +193,7 @@ export function useReferenceFrames(cameraIds: number[], scope?: ReferenceFrameSc
       loadedCameraIds,
       missingCameraIds,
     };
-  }, [cameraIds, scope]);
+  }, [cameraIds]);
 
   const handlePreviewFrame = useCallback((previewFrame: PreviewFramePayload) => {
     const imagePath = previewFrame.http_path ?? previewFrame.current.http_path;
@@ -270,9 +260,8 @@ function commitStoredReferenceFrame(
   setFramesByCameraId: Dispatch<SetStateAction<Record<number, PreviewFramePayload>>>,
   setImageUrlsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
   overwrite = false,
-  scope?: ReferenceFrameScope,
 ) {
-  const referenceImage = getReferenceImage(cameraId, scope?.phaseId, scope?.groupId);
+  const referenceImage = getReferenceImage(cameraId);
   if (!referenceImage) {
     return false;
   }
