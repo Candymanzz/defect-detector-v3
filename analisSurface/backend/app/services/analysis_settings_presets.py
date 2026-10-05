@@ -79,6 +79,32 @@ _FAR_EDGE_EDGE_FACTOR = (0.2, 0.35, 0.8)
 DEFAULT_STRENGTHS: dict[str, float] = {name: 50.0 for name in STRENGTH_FIELD_NAMES}
 
 
+# Допустимые границы итоговых полей (как в AnalysisSettings.validate).
+# Внутренние ручки (knob_ranges) могут выходить за 0..100 — поле просто упрётся в границу.
+_FIELD_BOUNDS: dict[str, tuple[float, float]] = {
+    "min_diff_signal": (0.0, float("inf")),
+    "min_defect_area": (1.0, float("inf")),
+    "diff_percentile": (50.0, 100.0),
+    "min_scratch_aspect": (1.0, float("inf")),
+    "scratch_score_floor": (0.0, 1.0),
+    "scratch_aspect_floor": (1.0, float("inf")),
+    "edge_suppress_factor": (0.0, 1.0),
+    "text_min_contrast": (0.0, 255.0),
+    "text_structure_threshold": (0.0, 255.0),
+    "contrast_loss_boost": (1.0, float("inf")),
+    "contrast_loss_ref_grad": (0.0, float("inf")),
+    "contrast_loss_cur_grad": (0.0, float("inf")),
+    "clahe_clip_limit": (0.01, float("inf")),
+    "far_edge_max_gain": (1.0, 4.0),
+    "far_edge_edge_suppress_factor": (0.0, 1.0),
+}
+
+
+def _bound(field: str, value: float) -> float:
+    low, high = _FIELD_BOUNDS.get(field, (float("-inf"), float("inf")))
+    return max(low, min(high, value))
+
+
 def _validate_unit_interval(name: str, value: float) -> float:
     try:
         parsed = float(value)
@@ -158,14 +184,14 @@ def _anchors(field: str, defaults: tuple[float, float, float]) -> tuple[float, f
 def _interpolate(percent_0_100: float, anchors: tuple[float, float, float]) -> float:
     """Кусочно-линейно: 0 -> at_0, 50 -> at_50, 100 -> at_100; любой шаг (0.1 %) считается сам."""
     at_0, at_50, at_100 = anchors
-    percent = max(0.0, min(100.0, float(percent_0_100)))
+    percent = float(percent_0_100)
     if percent <= 50.0:
         return _lerp_numeric(at_0, at_50, percent / 50.0)
     return _lerp_numeric(at_50, at_100, (percent - 50.0) / 50.0)
 
 
 def _far_edge_value(field: str, strength_0_100: float, low_mid_high: tuple[float, float, float]) -> float:
-    return _interpolate(strength_0_100, _anchors(field, low_mid_high))
+    return _bound(field, _interpolate(strength_0_100, _anchors(field, low_mid_high)))
 
 
 def _stock_coeff(field: str, sensitivity_0_100: float) -> float:
@@ -178,9 +204,12 @@ def _apply_stock_value(field: str, sensitivity_0_100: float) -> Any:
     stock = _STOCK[field]
     if isinstance(stock, bool):
         return stock
-    value = _interpolate(
-        sensitivity_0_100,
-        _anchors(field, (float(_COARSE[field]), float(stock), float(_SENSITIVE[field]))),
+    value = _bound(
+        field,
+        _interpolate(
+            sensitivity_0_100,
+            _anchors(field, (float(_COARSE[field]), float(stock), float(_SENSITIVE[field]))),
+        ),
     )
     if isinstance(stock, int):
         return int(round(value))
@@ -192,13 +221,18 @@ def _apply_stock_fields(fields: tuple[str, ...], sensitivity_0_100: float, targe
         target[field] = _apply_stock_value(field, sensitivity_0_100)
 
 
+def _sensitivity_limits() -> tuple[float, float]:
+    ends = (_knob_internal("sensitivity", 0.0), _knob_internal("sensitivity", 100.0))
+    return min(ends), max(ends)
+
+
 def effective_group_sensitivity(global_sensitivity_0_100: float, change_strength_0_100: float) -> float:
     """Сила изменения группы: 50 = стандарт, 0 = группа на стоке, 100 = усиленный отклик."""
-    global_s = max(0.0, min(100.0, float(global_sensitivity_0_100)))
-    strength = max(0.0, min(100.0, float(change_strength_0_100)))
-    delta = global_s - 50.0
-    strength_mult = strength / 50.0
-    return max(0.0, min(100.0, 50.0 + delta * strength_mult))
+    # Потолок/пол — диапазон sensitivity из knob_ranges (по умолчанию 0..100).
+    delta = float(global_sensitivity_0_100) - 50.0
+    strength_mult = float(change_strength_0_100) / 50.0
+    low, high = _sensitivity_limits()
+    return max(low, min(high, 50.0 + delta * strength_mult))
 
 
 def normalize_strengths(raw: dict[str, Any] | None) -> dict[str, float]:
