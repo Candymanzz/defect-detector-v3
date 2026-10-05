@@ -60,3 +60,36 @@ def test_effective_group_sensitivity() -> None:
 
 def test_stock_coeff_endpoints() -> None:
     assert _stock_coeff("min_diff_signal", 50) == pytest.approx(1.0)
+
+
+def test_setting_ranges_from_config_override_anchors_and_interpolate(monkeypatch):
+    from app.services import analysis_settings_presets as presets
+
+    monkeypatch.setattr(
+        presets,
+        "get_python_detector_settings",
+        lambda: {"setting_ranges": {"min_diff_signal": {"at_0": 100.0, "at_100": 0.0}}},
+    )
+    # at_50 не задан -> дефолтный сток (12.0)
+    assert presets._apply_stock_value("min_diff_signal", 0.0) == 100.0
+    assert presets._apply_stock_value("min_diff_signal", 50.0) == 12.0
+    assert presets._apply_stock_value("min_diff_signal", 100.0) == 0.0
+    # 0.1 % шаг считается сам: 100 + (12-100) * 0.1/50
+    assert presets._apply_stock_value("min_diff_signal", 0.1) == round(100.0 - 88.0 * 0.002, 6)
+    # поля без override остаются по умолчанию
+    assert presets._apply_stock_value("min_scratch_aspect", 0.0) == 5.0
+
+
+def test_knob_ranges_remap_frontend_percent(monkeypatch):
+    from app.services import analysis_settings_presets as presets
+
+    base = presets.expand_merged(0.5, 0.0)
+    monkeypatch.setattr(
+        presets,
+        "get_python_detector_settings",
+        lambda: {"knob_ranges": {"sensitivity": {"at_0": 50, "at_100": 100}}},
+    )
+    assert presets._knob_internal("sensitivity", 0.0) == 50.0
+    assert presets._knob_internal("sensitivity", 0.1) == 50.05
+    assert presets._knob_internal("noise_tolerance", 30.0) == 30.0
+    assert presets.expand_merged(0.5, 0.0)["min_diff_signal"] != base["min_diff_signal"]

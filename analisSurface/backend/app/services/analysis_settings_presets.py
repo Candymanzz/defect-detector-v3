@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.detector_settings import get_python_detector_settings
 from app.services.analysis_settings import AnalysisSettings
 
 _STOCK = AnalysisSettings.defaults().to_dict()
@@ -112,32 +113,78 @@ def _lerp_numeric(a: float, b: float, t: float) -> float:
     return a + (b - a) * t
 
 
-def _far_edge_value(strength_0_100: float, low_mid_high: tuple[float, float, float]) -> float:
-    low, mid, high = low_mid_high
-    t = (max(0.0, min(100.0, float(strength_0_100))) - 50.0) / 50.0
-    return _lerp_numeric(low, mid, t + 1.0) if t <= 0.0 else _lerp_numeric(mid, high, t)
+def _configured_ranges() -> dict[str, Any]:
+    """python_detector.setting_ranges из config: {поле: {at_0, at_50, at_100}}."""
+    raw = get_python_detector_settings().get("setting_ranges")
+    return raw if isinstance(raw, dict) else {}
+
+
+def _knob_internal(name: str, percent_0_100: float) -> float:
+    """Фронтовые 0..100 % -> внутреннее значение ручки по python_detector.knob_ranges.
+
+    knob_ranges.<name>: {at_0, at_100} (по умолчанию 0 и 100); между ними линейно.
+    """
+    percent = max(0.0, min(100.0, float(percent_0_100)))
+    raw = get_python_detector_settings().get("knob_ranges")
+    entry = raw.get(name) if isinstance(raw, dict) else None
+    if not isinstance(entry, dict):
+        return percent
+    try:
+        at_0 = float(entry.get("at_0", 0.0))
+        at_100 = float(entry.get("at_100", 100.0))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"knob_ranges.{name} at_0/at_100 must be numbers") from exc
+    return _lerp_numeric(at_0, at_100, percent / 100.0)
+
+
+def _anchors(field: str, defaults: tuple[float, float, float]) -> tuple[float, float, float]:
+    """Значения поля при 0 / 50 / 100 %. Недостающие якоря берутся из дефолтов."""
+    entry = _configured_ranges().get(field)
+    if not isinstance(entry, dict):
+        return defaults
+    resolved = []
+    for key, default in zip(("at_0", "at_50", "at_100"), defaults):
+        value = entry.get(key)
+        if value is None:
+            resolved.append(default)
+            continue
+        try:
+            resolved.append(float(value))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"setting_ranges.{field}.{key} must be a number") from exc
+    return resolved[0], resolved[1], resolved[2]
+
+
+def _interpolate(percent_0_100: float, anchors: tuple[float, float, float]) -> float:
+    """Кусочно-линейно: 0 -> at_0, 50 -> at_50, 100 -> at_100; любой шаг (0.1 %) считается сам."""
+    at_0, at_50, at_100 = anchors
+    percent = max(0.0, min(100.0, float(percent_0_100)))
+    if percent <= 50.0:
+        return _lerp_numeric(at_0, at_50, percent / 50.0)
+    return _lerp_numeric(at_50, at_100, (percent - 50.0) / 50.0)
+
+
+def _far_edge_value(field: str, strength_0_100: float, low_mid_high: tuple[float, float, float]) -> float:
+    return _interpolate(strength_0_100, _anchors(field, low_mid_high))
 
 
 def _stock_coeff(field: str, sensitivity_0_100: float) -> float:
-    sensitivity = max(0.0, min(100.0, float(sensitivity_0_100)))
-    stock = _STOCK[field]
-    coarse_ratio = float(_COARSE[field]) / float(stock)
-    sensitive_ratio = float(_SENSITIVE[field]) / float(stock)
-    t = (sensitivity - 50.0) / 50.0
-    if t <= 0.0:
-        return _lerp_numeric(coarse_ratio, 1.0, t + 1.0)
-    return _lerp_numeric(1.0, sensitive_ratio, t)
+    stock = float(_STOCK[field])
+    anchors = _anchors(field, (float(_COARSE[field]), stock, float(_SENSITIVE[field])))
+    return _interpolate(sensitivity_0_100, anchors) / stock
 
 
 def _apply_stock_value(field: str, sensitivity_0_100: float) -> Any:
     stock = _STOCK[field]
     if isinstance(stock, bool):
         return stock
-    coeff = _stock_coeff(field, sensitivity_0_100)
-    raw = float(stock) * coeff
-    if isinstance(stock, int) and not isinstance(stock, bool):
-        return int(round(raw, 10))
-    return round(raw, 6)
+    value = _interpolate(
+        sensitivity_0_100,
+        _anchors(field, (float(_COARSE[field]), float(stock), float(_SENSITIVE[field]))),
+    )
+    if isinstance(stock, int):
+        return int(round(value))
+    return round(value, 6)
 
 
 def _apply_stock_fields(fields: tuple[str, ...], sensitivity_0_100: float, target: dict[str, Any]) -> None:
@@ -191,7 +238,8 @@ def expand_merged(
             "far_edge_boost": far_edge_boost,
         }
     )
-    sensitivity_100 = sensitivity * 100.0
+    sensitivity_100 = _knob_internal("sensitivity", sensitivity * 100.0)
+    strengths = {name: _knob_internal(name, value) for name, value in strengths.items()}
 
     result: dict[str, Any] = {"default_threshold": threshold}
     for field in _FIXED_FIELDS:
@@ -223,9 +271,9 @@ def expand_merged(
         result,
     )
 
-    result["far_edge_max_gain"] = round(_far_edge_value(strengths["far_edge_boost"], _FAR_EDGE_GAIN), 6)
+    result["far_edge_max_gain"] = round(_far_edge_value("far_edge_max_gain", strengths["far_edge_boost"], _FAR_EDGE_GAIN), 6)
     result["far_edge_edge_suppress_factor"] = round(
-        _far_edge_value(strengths["far_edge_boost"], _FAR_EDGE_EDGE_FACTOR), 6
+        _far_edge_value("far_edge_edge_suppress_factor", strengths["far_edge_boost"], _FAR_EDGE_EDGE_FACTOR), 6
     )
 
     AnalysisSettings.from_overrides(result)
