@@ -3,6 +3,7 @@ import type { FrameArchiveHistoryFrame, UiLatestSnapshot } from "../../shared/ap
 import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { compareFrameIds } from "../../shared/lib/frameIds";
 import { getReferenceImage } from "../../shared/referenceImages";
+import type { InspectionBucket } from "../../shared/inspectionBuckets";
 import type { HeatmapDescriptor, InspectResultPayload, PreviewFramePayload } from "../../shared/ws";
 import type {
   CameraCardData,
@@ -145,6 +146,7 @@ export function createModalInspectionSnapshot(
   previewFrameId: string | undefined,
   previewImageUrl: string | undefined,
   inspectionHistory: InspectionHistoryItem[],
+  bucket?: InspectionBucket,
 ): ModalInspectionSnapshot {
   const snapshotResult =
     inspectResult && artifactInspectResult?.frame_id === inspectResult.frame_id
@@ -155,7 +157,7 @@ export function createModalInspectionSnapshot(
     : undefined;
   const matchingPreviewImageUrl =
     snapshotResult && previewFrameId === snapshotResult.frame_id ? previewImageUrl : undefined;
-  const referenceImage = getReferenceImage(camera.cameraId);
+  const referenceImage = getReferenceImage(camera.cameraId, bucket?.phaseId, bucket?.groupId);
 
   return {
     ...camera,

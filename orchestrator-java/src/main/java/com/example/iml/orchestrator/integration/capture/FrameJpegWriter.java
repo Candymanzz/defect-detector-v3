@@ -116,6 +116,24 @@ public final class FrameJpegWriter {
         return inShmDir;
     }
 
+    /**
+     * Точный файл SHM. Без подстановки {@code iml_cam_N_frame}: иначе эталон фазы 2
+     * молча становится последним кадром кольца, часто кадром другой фазы.
+     */
+    public static Path resolveExactShmPath(String shmName) {
+        if (shmName == null || shmName.isBlank()) {
+            return null;
+        }
+        Path direct = Path.of(shmName);
+        if (direct.isAbsolute()) {
+            return Files.isRegularFile(direct) ? direct : null;
+        }
+        String base = shmName.startsWith("/") ? shmName.substring(1) : shmName;
+        base = base.replace('/', '_');
+        Path inShmDir = imlShmFilePath(base);
+        return Files.isRegularFile(inShmDir) ? inShmDir : null;
+    }
+
     /** Каталог общей памяти: Linux /dev/shm, Windows %LOCALAPPDATA%\\iml_shm. */
     public static Path imlShmFilePath(String fileNameInShmDir) {
         String os = System.getProperty("os.name", "").toLowerCase();

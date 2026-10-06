@@ -953,3 +953,61 @@
 2026-09-28 06:01:29.206 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-1 brightness 80% -> 33%
 2026-09-28 06:01:29.206 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
 2026-09-28 06:01:29.208 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-10-06 00:07:37.230 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 00:07:37.232 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 00:07:37.232 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 00:07:37.232 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 00:07:37.232 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 00:07:37.233 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 00:07:37.236 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 00:07:37.236 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 00:07:37.238 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 00:07:37.239 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 00:07:37.239 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 00:07:37.239 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 00:07:37.240 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 00:07:37.242 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 00:07:37.243 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 00:07:37.245 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 00:07:37.245 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 00:07:37.245 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 00:07:37.247 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 00:07:37.247 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 00:07:37.249 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 00:07:37.371 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-10-06 00:07:37.371 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-10-06 00:07:37.371 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-10-06 00:07:37.374 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit3833711068294162401\light_brightness_settings.json default=42 endpoints=2
+2026-10-06 00:07:37.377 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit2032659964134784287\bom.json default=67 endpoints=1
+2026-10-06 00:07:37.390 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-1 brightness 80% -> 33%
+2026-10-06 00:07:37.390 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-10-06 00:07:37.392 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-10-06 01:29:03.269 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 01:29:03.272 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 01:29:03.272 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 01:29:03.272 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 01:29:03.272 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 01:29:03.273 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 01:29:03.276 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 01:29:03.277 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 01:29:03.278 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 01:29:03.279 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 01:29:03.280 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 01:29:03.280 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 01:29:03.281 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 01:29:03.282 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 01:29:03.283 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 01:29:03.285 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 01:29:03.286 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 01:29:03.286 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 01:29:03.287 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 01:29:03.288 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 01:29:03.290 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 01:29:03.412 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-10-06 01:29:03.412 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-10-06 01:29:03.412 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-10-06 01:29:03.415 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit11990504508090700796\light_brightness_settings.json default=42 endpoints=2
+2026-10-06 01:29:03.419 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit148660330600260013\bom.json default=67 endpoints=1
+2026-10-06 01:29:03.427 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-1 brightness 80% -> 33%
+2026-10-06 01:29:03.427 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-10-06 01:29:03.429 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%

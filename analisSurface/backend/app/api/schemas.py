@@ -175,6 +175,9 @@ class ShmFrameRequest(BaseModel):
     algorithm_params: Optional[dict] = None
     analysis_profile: Optional[str] = None
     alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None  # 3x3 от geometry
+    camera_id: Optional[int] = None
+    frame_id: Optional[str | int] = None
+    phase_id: Optional[int] = None
 
 
 class ShmVisualsRequest(ShmFrameRequest):

@@ -172,6 +172,8 @@ export function ModalWrapper({
             disabled={fpZonesStatus.state === "saving" || fpZonesStatus.state === "loading"}
             heatmapSize={resolveFpZonesHeatmapSize(inspectResult)}
             imageUrl={referenceImageUrl}
+            phaseId={inspectResult?.phase_id}
+            groupId={inspectResult?.group_id}
             productType={inspectResult?.detector.product_type}
             roiPoints={referenceRoiPoints}
             status={fpZonesStatus}
@@ -219,6 +221,8 @@ function FpZonesRuntimePanel({
   heatmapSize,
   status,
   disabled,
+  phaseId,
+  groupId,
   onChange,
   onStatusChange,
 }: {
@@ -230,6 +234,8 @@ function FpZonesRuntimePanel({
   heatmapSize: { width: number; height: number };
   status: FpZonesStatus;
   disabled: boolean;
+  phaseId?: number;
+  groupId?: number;
   onChange: (zones: FpZoneNorm[]) => void;
   onStatusChange: (status: FpZonesStatus) => void;
 }) {
@@ -286,7 +292,7 @@ function FpZonesRuntimePanel({
 
       waitForFpZonesAck(messageId)
         .then(() => {
-          updateReferenceFpZones([cameraId], fpZones);
+          updateReferenceFpZones([cameraId], fpZones, phaseId, groupId);
           onStatusChange({ state: "success", text: "FP zones обновлены" });
         })
         .catch((error: unknown) => {

@@ -3,6 +3,7 @@ package com.example.iml.orchestrator.integration.clientws.service;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.clientws.config.ClientWsConfig;
 import com.example.iml.orchestrator.integration.clientws.exception.ClientWsKopcheniSyncException;
+import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.python.AnalisSurfacePoolSupport;
 import org.apache.logging.log4j.Logger;
 
@@ -44,7 +45,16 @@ public final class ClientWsKopcheniBroadcaster {
             return;
         }
         ClientWsKopcheniSyncException last = null;
-        for (BinaryRpcSupervisor py : AnalisSurfacePoolSupport.uniqueServerClients(pool)) {
+        List<BinaryRpcSupervisor> targets = serversFor(pool, header);
+        if (targets.isEmpty()) {
+            log.warn(
+                    "client_ws kopcheni sync skipped: no analisSurface server for phase={} op={}",
+                    header.get("phase_id"),
+                    header.get("op")
+            );
+            return;
+        }
+        for (BinaryRpcSupervisor py : targets) {
             try {
                 py.command(header);
             } catch (IOException e) {
@@ -58,5 +68,22 @@ public final class ClientWsKopcheniBroadcaster {
         if (last != null) {
             throw last;
         }
+    }
+
+    /**
+     * Команда с {@code phase_id} уходит только на порты этой фазы.
+     * Без фазы (сброс контекста и прочее) — на все процессы.
+     */
+    private static List<BinaryRpcSupervisor> serversFor(
+            List<? extends BinaryRpcSupervisor> pool,
+            Map<String, Object> header
+    ) {
+        if (header != null && header.get("phase_id") != null) {
+            return AnalisSurfacePoolSupport.uniqueServerClientsForPhase(
+                    pool,
+                    YamlScalars.toInt(header.get("phase_id"), 0)
+            );
+        }
+        return AnalisSurfacePoolSupport.uniqueServerClients(pool);
     }
 }

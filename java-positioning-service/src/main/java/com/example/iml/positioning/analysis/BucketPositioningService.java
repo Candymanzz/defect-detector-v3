@@ -552,10 +552,9 @@ public final class BucketPositioningService {
                 );
             }
 
-            // Пишем aligned SHM только при удачном качестве. Иначе оркестратор/Python
-            // могут пометить кадр как pre-aligned (identity H) и получить ложный БРАК.
+            // Качество FAIL не отменяет запись: совмещение делает только этот сервис.
+            // Python получает готовый кадр и не запускает свой ORB/ECC.
             if (request.writeAligned()
-                    && !stillMisaligned
                     && !outputName.isEmpty()
                     && working != null
                     && !working.empty()) {
@@ -563,7 +562,7 @@ public final class BucketPositioningService {
                 try {
                     shmWriter.writeBgrMat(outputName, working);
                     alignedWritten = true;
-                    diag.put("write_source", "warped_working");
+                    diag.put("write_source", stillMisaligned ? "warped_working_quality_fail" : "warped_working");
                 } catch (Exception e) {
                     writeError = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
                     diag.put("write_error", writeError);
@@ -575,8 +574,6 @@ public final class BucketPositioningService {
                     );
                 }
                 stageMsWrite = nanosToMs(System.nanoTime() - tWrite0);
-            } else if (stillMisaligned) {
-                diag.put("write_source", "skipped_misaligned");
             }
 
             boolean withinSoftTolerance = matched
@@ -1144,13 +1141,29 @@ public final class BucketPositioningService {
         return residualBetter && after.meanAbsDiff() <= before.meanAbsDiff() + 0.75;
     }
 
-    /** Accept ORB when absdiff improves a lot even if residual stays large (ECC/polish will finish). */
+    /**
+     * Accept ORB when the pose actually moves toward the reference.
+     * A large absdiff drop, an NCC lift, or a real residual-shift drop is enough;
+     * ECC and residual polish finish the rest. Texture absdiff alone must not
+     * discard a warp that reduced the shift.
+     */
     private static boolean isOrbResidualAcceptable(QualityScore before, QualityScore after) {
         if (before == null || after == null) {
             return false;
         }
         if (!Double.isFinite(after.meanAbsDiff()) || !Double.isFinite(before.meanAbsDiff())) {
             return false;
+        }
+        double beforeRes = Math.hypot(before.residualShiftX(), before.residualShiftY());
+        double afterRes = Math.hypot(after.residualShiftX(), after.residualShiftY());
+        boolean residualDropped = Double.isFinite(beforeRes)
+                && Double.isFinite(afterRes)
+                && beforeRes >= 4.0
+                && afterRes + 1.5 < beforeRes
+                && afterRes <= beforeRes * 0.7
+                && after.meanAbsDiff() <= before.meanAbsDiff() + 1.5;
+        if (residualDropped) {
+            return true;
         }
         // Big absdiff wins, or clear NCC lift without wrecking absdiff.
         if (after.meanAbsDiff() <= before.meanAbsDiff() * 0.72

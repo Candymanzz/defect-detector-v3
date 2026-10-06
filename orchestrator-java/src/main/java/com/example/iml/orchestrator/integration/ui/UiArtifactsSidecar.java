@@ -225,7 +225,6 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 }
             }
             deleteTemporaryArtifact(resolvedSourceHeatmap.path(), "unused source heatmap");
-            LineFramePinService.releasePinnedCapture(capture.header());
             return;
         }
         boolean storeCurrent = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("store_current_jpeg"), true);
@@ -239,7 +238,6 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 }
             }
             deleteTemporaryArtifact(resolvedSourceHeatmap.path(), "disabled source heatmap");
-            LineFramePinService.releasePinnedCapture(capture.header());
             return;
         }
 
@@ -267,8 +265,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             );
             return;
         }
-        // Freeze no longer retains line-pin paths; free per-cycle SHM asap.
-        LineFramePinService.releasePinnedCapture(capture.header());
+        // Pin остаётся до TTL: окно эталона шлёт это имя позже. Иначе сохранение
+        // не находит файл фазы и подставляет живой кадр другой фазы.
         if (!isLatestPublish(cameraId, publishSequence)) {
             deleteTemporaryArtifact(sourceHeatmap.path(), "stale source heatmap");
             deleteFrozenFrameIfOwned(frozenFrame, "stale frozen inspection frame");
@@ -415,7 +413,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     // capacity on a heatmap that the UI will immediately replace.
                     // Archive the frame JPEG immediately so a superseded publish still persists history.
                     if (!isLatestPublish(cameraId, publishSequence)) {
-                        saveFrameArchiveImmediately(
+                        FrameArchiveService archive = frameArchiveService;
+                        boolean archived = saveFrameArchiveImmediately(
                                 cameraId,
                                 frameId,
                                 inspectionId,
@@ -427,6 +426,19 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 null,
                                 0,
                                 0
+                        );
+                        notifyArchivedFrame(
+                                ws,
+                                archive,
+                                archived,
+                                cameraId,
+                                frameId,
+                                productType,
+                                detectorId,
+                                inspectionId,
+                                decision,
+                                cap,
+                                bundleId
                         );
                         return;
                     }
@@ -446,7 +458,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 frozenFrame,
                                 width,
                                 height,
-                                stride
+                                stride,
+                                YamlScalars.toBool(cap.get("positioning_aligned"), false)
                         );
                     }
                     Path heatmapU8 = heatmapSource.path();
@@ -536,12 +549,13 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             hasHm ? uw : 0,
                             hasHm ? uh : 0
                     );
-                    // The JPEG-ready result was already sent above.  A second message is
-                    // useful only when this pass adds a heatmap; sending the same
-                    // frame-only result again made capture-only frames appear twice.
-                    if (ws != null && hasHm) {
+                    // The first message points at the live artifact, which the panel must not
+                    // show. After the archive JPEG exists, send that path even without a heatmap
+                    // so the card can swap to this frame. test-analyze keeps the live URL.
+                    boolean testAnalyze = YamlScalars.toBool(cap.get("test_analyze"), false);
+                    boolean archiveReadyForPanel = archived && !testAnalyze && archive != null;
+                    if (ws != null && (archiveReadyForPanel || hasHm)) {
                         try {
-                            boolean testAnalyze = YamlScalars.toBool(cap.get("test_analyze"), false);
                             // test-analyze must keep live artifact URLs so the UI can show the freshly
                             // generated heatmap instead of the immutable archive copy for this frame.
                             String frameHttpPath = !testAnalyze && archived && archive != null
@@ -601,6 +615,43 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             deleteFrozenFrameIfOwned(frozenFrame, "rejected frozen inspection frame");
             droppedUiPublishTasks.increment();
             log.warn("ui publish rejected camera_id={} frame_id={} dropped_total={}", cameraId, frameId, droppedUiPublishTasks.sum());
+        }
+    }
+
+    private void notifyArchivedFrame(
+            ClientWebSocketServer ws,
+            FrameArchiveService archive,
+            boolean archived,
+            int cameraId,
+            long frameId,
+            String productType,
+            String detectorId,
+            long inspectionId,
+            InspectionDecision decision,
+            Map<String, Object> captureHeader,
+            String bundleId
+    ) {
+        if (ws == null || !archived || archive == null || YamlScalars.toBool(captureHeader.get("test_analyze"), false)) {
+            return;
+        }
+        try {
+            ws.notifyInspectResult(
+                    cameraId,
+                    productType,
+                    detectorId,
+                    inspectionId,
+                    decision,
+                    captureHeader,
+                    null,
+                    0,
+                    0,
+                    archive.frameArtifactHttpPath(cameraId, frameId, "frame.jpg"),
+                    null,
+                    false,
+                    bundleId
+            );
+        } catch (Exception e) {
+            log.debug("client_ws inspect_result archive cam={}: {}", cameraId, e.getMessage());
         }
     }
 
@@ -804,7 +855,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             FrozenFrame frozenFrame,
             int width,
             int height,
-            int stride
+            int stride,
+            boolean positioningAligned
     ) {
         if (uiVisualsPython == null) {
             return HeatmapArtifact.empty();
@@ -819,6 +871,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             pyHeader.put("op", "inspect_shm");
             pyHeader.put("camera_id", cameraId);
             pyHeader.put("frame_id", frameId);
+            pyHeader.put("phase_id", YamlScalars.toInt(activeReference.header().get("phase_id"), 0));
             pyHeader.put("product_type", productType);
             pyHeader.put("detector_id", detectorId);
             pyHeader.put("include_visuals", false);
@@ -836,7 +889,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     ? null
                     : geometry.header().get("homographyRefToCurrent");
             String frozenName = frozenFrame.shmName() == null ? "" : frozenFrame.shmName();
-            if (frozenName.contains("iml_pos")) {
+            if (positioningAligned || frozenName.contains("iml_pos")) {
                 pyHeader.put(
                         "alignment_h_ref_to_cur",
                         java.util.List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)

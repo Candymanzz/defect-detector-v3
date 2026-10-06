@@ -6,6 +6,35 @@
   min-width: 0;
 }
 
+.camera-overviews--four {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.camera-overview__header {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.camera-overview__header h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.camera-overview__header span {
+  color: #b9c7c3;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 1400px) {
+  .camera-overviews--four {
+    grid-template-columns: 1fr;
+  }
+}
+
 .camera-overview {
   width: 100%;
   min-width: 0;

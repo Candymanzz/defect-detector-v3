@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 class InspectPythonExecutorPhaseAffinityTest {
 
     @Test
-    void pinsEachPhaseToItsServerWhileBalancingClientsWithinServer() {
+    void pinsPhaseZeroToOddPortsAndPhaseOneToEvenPorts() {
         List<BinaryRpcSupervisor> pool = List.of(
                 http("c0", "http://127.0.0.1:8000"),
                 http("c1", "http://127.0.0.1:8001"),
@@ -23,12 +23,12 @@ class InspectPythonExecutorPhaseAffinityTest {
         AtomicInteger rr = new AtomicInteger();
 
         BinaryRpcSupervisor phase0a = InspectPythonExecutor.selectPython(pool, rr, 0);
-        BinaryRpcSupervisor phase1 = InspectPythonExecutor.selectPython(pool, rr, 1);
         BinaryRpcSupervisor phase0b = InspectPythonExecutor.selectPython(pool, rr, 0);
+        BinaryRpcSupervisor phase1 = InspectPythonExecutor.selectPython(pool, rr, 1);
 
-        assertEquals("http://127.0.0.1:8000", ((AnalisSurfaceHttpBinaryRpcSupervisor) phase0a).baseUrl());
-        assertEquals("http://127.0.0.1:8001", ((AnalisSurfaceHttpBinaryRpcSupervisor) phase1).baseUrl());
-        assertEquals("http://127.0.0.1:8000", ((AnalisSurfaceHttpBinaryRpcSupervisor) phase0b).baseUrl());
+        assertEquals("http://127.0.0.1:8001", ((AnalisSurfaceHttpBinaryRpcSupervisor) phase0a).baseUrl());
+        assertEquals("http://127.0.0.1:8001", ((AnalisSurfaceHttpBinaryRpcSupervisor) phase0b).baseUrl());
+        assertEquals("http://127.0.0.1:8000", ((AnalisSurfaceHttpBinaryRpcSupervisor) phase1).baseUrl());
         assertNotSame(phase0a, phase0b);
     }
 

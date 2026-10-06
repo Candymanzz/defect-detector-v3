@@ -34,7 +34,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
 
     private static final Logger LOG = LogManager.getLogger(AnalisSurfaceHttpBinaryRpcSupervisor.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    /** Общий кэш подписей эталона/ROI для всего HTTP-пула (round-robin не дублирует upload). */
+    /** Кэш подписей эталона/ROI отдельно на каждый порт: фазы не делят одну запись. */
     private static final ConcurrentHashMap<String, String> SHARED_REFERENCE_SIGNATURES = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, String> SHARED_ROI_SIGNATURES = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Object> SCOPE_LOCKS = new ConcurrentHashMap<>();
@@ -680,6 +680,9 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             body.put("detector_id", header.get("detector_id"));
         }
         copyIfPresent(body, header, "alignment_h_ref_to_cur");
+        copyIfPresent(body, header, "camera_id");
+        copyIfPresent(body, header, "frame_id");
+        copyIfPresent(body, header, "phase_id");
         appendAlgorithmParams(body, header);
         return body;
     }
@@ -952,8 +955,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         return SCOPE_LOCKS.computeIfAbsent(key, ignored -> new Object());
     }
 
-    private static String runtimeKey(String productType, int cameraId) {
-        return scopedProductType(productType, cameraId);
+    private String runtimeKey(String productType, int cameraId) {
+        return baseUrl + "|" + scopedProductType(productType, cameraId);
     }
 
     private static String scopedProductType(String productType, int cameraId) {

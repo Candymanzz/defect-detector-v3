@@ -10,7 +10,7 @@ function inspectResult(frameId: string, serverTs: number): InspectResultPayload 
   return {
     camera_id: 0,
     frame_id: frameId,
-    session_state: "ready",
+    session_state: "READY",
     current: {
       camera_id: 0,
       frame_id: frameId,
@@ -23,6 +23,7 @@ function inspectResult(frameId: string, serverTs: number): InspectResultPayload 
       channels: 3,
     },
     heatmap: null,
+    fp_zones: [],
     active_reference_view_index: 0,
     detector: {},
     server_ts_ms: serverTs,

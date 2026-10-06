@@ -72,14 +72,14 @@ public final class FpZonesUpdateWsHandler implements WsMessageHandler {
                 List<FpZoneNorm> cameraZones = zones.stream()
                         .filter(zone -> zone.cameraId() == null || zone.cameraId() == cameraId)
                         .toList();
-                app.kopcheniBroadcaster().broadcast(
-                        AnalisSurfaceClientWsSync.replaceFpZones(
-                                scopedProductType(productType, snapshot.phaseId(), cameraId),
-                                normalizedHw,
-                                normalizedHh,
-                                cameraZones
-                        )
+                var fpHeader = AnalisSurfaceClientWsSync.replaceFpZones(
+                        scopedProductType(productType, snapshot.phaseId(), cameraId),
+                        normalizedHw,
+                        normalizedHh,
+                        cameraZones
                 );
+                fpHeader.put("phase_id", snapshot.phaseId());
+                app.kopcheniBroadcaster().broadcast(fpHeader);
             }
         } catch (ClientWsKopcheniSyncException e) {
             app.log().warn("client_ws kopcheni replace_fp_zones failed: {}", e.getMessage());

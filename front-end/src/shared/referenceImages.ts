@@ -12,6 +12,8 @@ export type StoredReferenceImage = {
   imageUrl: string;
   frame: ShmFrameRefData;
   productType: string;
+  phaseId?: number;
+  groupId?: number;
   committedAtMs?: number;
   roiPoints: InterestPointNorm[];
   jointRoiPoints?: InterestPointNorm[];
@@ -27,7 +29,11 @@ export type ArchivedReferenceGroup = {
   images: Array<StoredReferenceImage & { cameraId: number }>;
 };
 
-const referenceImagesByCameraId = new Map<number, StoredReferenceImage>();
+const referenceImagesBySlot = new Map<string, StoredReferenceImage>();
+
+function referenceSlotKey(phaseId: number, groupId: number | undefined, cameraId: number) {
+  return `${Math.max(0, phaseId)}:${groupId ?? -1}:${cameraId}`;
+}
 const archivedReferenceGroups: ArchivedReferenceGroup[] = [];
 let archivedReferenceGroupsVersion = 0;
 let archivedReferenceGroupsSnapshotVersion = -1;
@@ -121,7 +127,9 @@ export function commitReferenceBundleImages(
   jointCameraId?: number,
   jointRoiPoints?: InterestPointNorm[],
 ) {
-  const nextReferenceImagesByCameraId = new Map(referenceImagesByCameraId);
+  const phaseId = bundle.phase_id ?? 0;
+  const groupId = bundle.group_id;
+  const nextReferenceImagesBySlot = new Map(referenceImagesBySlot);
   const nextReferenceImageVersion = referenceImageVersion + 1;
   const updatedCameraIds = new Set<number>();
 
@@ -135,8 +143,10 @@ export function commitReferenceBundleImages(
     if (baseImageUrl) {
       const referenceImage = {
         imageUrl: versionReferenceImageUrl(baseImageUrl, nextReferenceImageVersion),
-        frame: createDurableReferenceFrame(view.frame),
+        frame: createDurableReferenceFrame(view.frame, phaseId),
         productType: bundle.product_type,
+        phaseId,
+        groupId,
         committedAtMs: Date.now(),
         roiPoints: copyRoiPoints(roiPointsByCameraId?.[cameraId] ?? view.interest_polygon_norm),
         jointRoiPoints:
@@ -148,38 +158,37 @@ export function commitReferenceBundleImages(
         fpZones: copyFpZonesForCamera(bundle.fp_zones, cameraId),
       };
 
-      nextReferenceImagesByCameraId.set(cameraId, referenceImage);
+      nextReferenceImagesBySlot.set(referenceSlotKey(phaseId, groupId, cameraId), referenceImage);
     }
   });
 
-  if (nextReferenceImagesByCameraId.size === 0) {
+  if (updatedCameraIds.size === 0) {
     return;
   }
 
-  archiveCurrentReferenceGroup([...updatedCameraIds]);
+  archiveCurrentReferenceGroup([...updatedCameraIds], phaseId, groupId);
 
-  referenceImagesByCameraId.forEach((referenceImage, cameraId) => {
-    if (!updatedCameraIds.has(cameraId)) {
-      return;
+  for (const cameraId of updatedCameraIds) {
+    const referenceImage = referenceImagesBySlot.get(referenceSlotKey(phaseId, groupId, cameraId));
+    const nextReferenceImage = nextReferenceImagesBySlot.get(referenceSlotKey(phaseId, groupId, cameraId));
+    if (!referenceImage) {
+      continue;
     }
     if (
       referenceImage.imageUrl.startsWith("blob:") &&
       !isImageUrlArchived(referenceImage.imageUrl) &&
-      !Array.from(nextReferenceImagesByCameraId.values()).some(
-        (nextReferenceImage) => nextReferenceImage.imageUrl.startsWith(referenceImage.imageUrl),
-      )
+      !nextReferenceImage?.imageUrl.startsWith(referenceImage.imageUrl)
     ) {
       URL.revokeObjectURL(referenceImage.imageUrl.split("?")[0]);
     }
-  });
-  referenceImagesByCameraId.clear();
-  nextReferenceImagesByCameraId.forEach((referenceImage, cameraId) => {
-    referenceImagesByCameraId.set(cameraId, referenceImage);
+  }
+  referenceImagesBySlot.clear();
+  nextReferenceImagesBySlot.forEach((referenceImage, slotKey) => {
+    referenceImagesBySlot.set(slotKey, referenceImage);
   });
   referenceImageVersion = nextReferenceImageVersion;
 
-  // Keep the newly accepted reference selectable as well as the superseded one.
-  archiveCurrentReferenceGroup([...updatedCameraIds]);
+  archiveCurrentReferenceGroup([...updatedCameraIds], phaseId, groupId);
   queuePersistReferenceState();
 
   emitReferenceImageChange();
@@ -189,27 +198,55 @@ export function getReferenceImageUrl(cameraId?: number) {
   return getReferenceImage(cameraId)?.imageUrl;
 }
 
-export function getReferenceImage(cameraId?: number) {
-  return cameraId === undefined ? undefined : referenceImagesByCameraId.get(cameraId);
+export function getReferenceImage(cameraId?: number, phaseId?: number, groupId?: number) {
+  if (cameraId === undefined) {
+    return undefined;
+  }
+  if (phaseId === undefined) {
+    const matches = Array.from(referenceImagesBySlot.values()).filter(
+      (image) => image.frame.camera_id === cameraId,
+    );
+    return matches.length === 1 ? matches[0] : undefined;
+  }
+  const activeImage = referenceImagesBySlot.get(referenceSlotKey(phaseId, groupId, cameraId));
+  if (activeImage) {
+    return activeImage;
+  }
+  return archivedReferenceGroups
+    .find(
+      (archive) =>
+        (archive.bundle.phase_id ?? 0) === phaseId &&
+        (archive.bundle.group_id ?? -1) === groupId &&
+        archive.cameraIds.includes(cameraId),
+    )
+    ?.images.find((image) => image.cameraId === cameraId);
 }
 
 export function getReferenceImagesSnapshot() {
-  return Array.from(referenceImagesByCameraId.entries())
-    .map(([cameraId, referenceImage]) => ({ cameraId, ...copyStoredReferenceImage(referenceImage) }))
-    .sort((left, right) => left.cameraId - right.cameraId);
+  return Array.from(referenceImagesBySlot.values())
+    .map((referenceImage) => ({
+      cameraId: referenceImage.frame.camera_id,
+      ...copyStoredReferenceImage(referenceImage),
+    }))
+    .sort(
+      (left, right) =>
+        left.cameraId - right.cameraId ||
+        (left.phaseId ?? 0) - (right.phaseId ?? 0) ||
+        (left.groupId ?? -1) - (right.groupId ?? -1),
+    );
 }
 
 export function clearReferenceImages() {
-  if (referenceImagesByCameraId.size === 0 && pendingReferenceBundles.size === 0) {
+  if (referenceImagesBySlot.size === 0 && pendingReferenceBundles.size === 0) {
     return;
   }
 
-  referenceImagesByCameraId.forEach((referenceImage) => {
+  referenceImagesBySlot.forEach((referenceImage) => {
     if (referenceImage.imageUrl.startsWith("blob:") && !isImageUrlArchived(referenceImage.imageUrl)) {
       URL.revokeObjectURL(referenceImage.imageUrl.split("?")[0]);
     }
   });
-  referenceImagesByCameraId.clear();
+  referenceImagesBySlot.clear();
   pendingReferenceBundles.clear();
   referenceImageVersion += 1;
   queuePersistReferenceState();
@@ -258,10 +295,10 @@ export function subscribeReferenceImages(listener: ReferenceImageListener) {
   };
 }
 
-function archiveCurrentReferenceGroup(cameraIds: number[]) {
+function archiveCurrentReferenceGroup(cameraIds: number[], phaseId: number, groupId: number | undefined) {
   const images = cameraIds
     .map((cameraId) => {
-      const referenceImage = referenceImagesByCameraId.get(cameraId);
+      const referenceImage = referenceImagesBySlot.get(referenceSlotKey(phaseId, groupId, cameraId));
       return referenceImage ? { cameraId, ...copyStoredReferenceImage(referenceImage) } : null;
     })
     .filter((referenceImage): referenceImage is StoredReferenceImage & { cameraId: number } => Boolean(referenceImage));
@@ -300,6 +337,8 @@ function createArchivedReferenceGroup(
   const jointFrame = sortedImages[jointViewIndex]?.frame ?? sortedImages[0].frame;
   const bundle: ClientReferenceBundlePayload = {
     product_type: sortedImages[0].productType,
+    phase_id: sortedImages[0].phaseId ?? 0,
+    ...(sortedImages[0].groupId == null ? {} : { group_id: sortedImages[0].groupId }),
     joint_view_index: jointViewIndex,
     heatmap_width: jointFrame.width,
     heatmap_height: jointFrame.height,
@@ -358,6 +397,8 @@ function copyStoredReferenceImage(referenceImage: StoredReferenceImage): StoredR
     imageUrl: referenceImage.imageUrl,
     frame: { ...referenceImage.frame },
     productType: referenceImage.productType,
+    phaseId: referenceImage.phaseId,
+    groupId: referenceImage.groupId,
     committedAtMs: referenceImage.committedAtMs,
     roiPoints: copyRoiPoints(referenceImage.roiPoints),
     jointRoiPoints: referenceImage.jointRoiPoints ? copyRoiPoints(referenceImage.jointRoiPoints) : undefined,
@@ -393,6 +434,8 @@ function createPixelRoiFromPolygon(points: InterestPointNorm[], frameWidth: numb
 function isDuplicateArchive(archive: ArchivedReferenceGroup) {
   return archivedReferenceGroups.some(
     (existingArchive) =>
+      (existingArchive.bundle.phase_id ?? 0) === (archive.bundle.phase_id ?? 0) &&
+      (existingArchive.bundle.group_id ?? -1) === (archive.bundle.group_id ?? -1) &&
       existingArchive.cameraIds.join(",") === archive.cameraIds.join(",") &&
       archive.cameraIds.every(
         (cameraId) => existingArchive.imageUrlsByCameraId[cameraId] === archive.imageUrlsByCameraId[cameraId],
@@ -408,7 +451,7 @@ function isImageUrlArchived(imageUrl: string) {
 
 function isImageUrlInUse(imageUrl: string) {
   return (
-    Array.from(referenceImagesByCameraId.values()).some((referenceImage) => referenceImage.imageUrl === imageUrl) ||
+    Array.from(referenceImagesBySlot.values()).some((referenceImage) => referenceImage.imageUrl === imageUrl) ||
     isImageUrlArchived(imageUrl)
   );
 }
@@ -429,12 +472,25 @@ function copyRoiPoints(points: InterestPointNorm[]) {
   }));
 }
 
-export function updateReferenceFpZones(cameraIds: number[], zones: FpZoneNorm[]) {
+export function updateReferenceFpZones(
+  cameraIds: number[],
+  zones: FpZoneNorm[],
+  phaseId?: number,
+  groupId?: number,
+) {
   let changed = false;
-  for (const cameraId of cameraIds) {
-    const referenceImage = referenceImagesByCameraId.get(cameraId);
-    if (!referenceImage) continue;
-    referenceImagesByCameraId.set(cameraId, {
+  for (const [slotKey, referenceImage] of referenceImagesBySlot) {
+    const cameraId = referenceImage.frame.camera_id;
+    if (!cameraIds.includes(cameraId)) continue;
+    if (phaseId !== undefined && (referenceImage.phaseId ?? 0) !== phaseId) continue;
+    if (groupId !== undefined && referenceImage.groupId !== groupId) continue;
+    if (phaseId === undefined) {
+      const slotsForCamera = Array.from(referenceImagesBySlot.values()).filter(
+        (image) => image.frame.camera_id === cameraId,
+      );
+      if (slotsForCamera.length !== 1) continue;
+    }
+    referenceImagesBySlot.set(slotKey, {
       ...referenceImage,
       fpZones: copyFpZonesForCamera(zones, cameraId),
     });
@@ -444,10 +500,10 @@ export function updateReferenceFpZones(cameraIds: number[], zones: FpZoneNorm[])
   if (changed) queuePersistReferenceState();
 }
 
-function createDurableReferenceFrame(frame: ShmFrameRefData): ShmFrameRefData {
+function createDurableReferenceFrame(frame: ShmFrameRefData, phaseId = 0): ShmFrameRefData {
   return {
     ...frame,
-    shm_name: `/iml_ref_cam${frame.camera_id}`,
+    shm_name: `/iml_ref_phase${Math.max(0, phaseId)}_cam${frame.camera_id}`,
     shm_offset: 0,
     expires_at_ms: undefined,
     ttl_ms: undefined,
@@ -502,20 +558,24 @@ async function hydratePersistedReferenceState() {
   if (typeof indexedDB === "undefined") return;
   try {
     const state = await readPersistedReferenceState();
-    if (!state || state.version !== 1 || referenceImagesByCameraId.size > 0) return;
+    if (!state || state.version !== 1 || referenceImagesBySlot.size > 0) return;
     const objectUrls = new Map(state.blobs.map(([key, blob]) => [key, URL.createObjectURL(blob)]));
     const resolveUrl = (key: string) => objectUrls.get(key);
 
     for (const persisted of state.activeImages) {
       const imageUrl = resolveUrl(persisted.imageKey);
       if (!imageUrl) continue;
-      referenceImagesByCameraId.set(persisted.cameraId, restorePersistedReferenceImage(persisted, imageUrl));
+      const image = restorePersistedReferenceImage(persisted, imageUrl);
+      referenceImagesBySlot.set(
+        referenceSlotKey(image.phaseId ?? 0, image.groupId, persisted.cameraId),
+        image,
+      );
     }
     archivedReferenceGroups.splice(0, archivedReferenceGroups.length);
     for (const archive of state.archives) {
       const images = archive.images.flatMap(({ cameraId, imageKey, ...image }) => {
         const imageUrl = resolveUrl(imageKey);
-        return imageUrl ? [{ cameraId, ...image, imageUrl, frame: createDurableReferenceFrame(image.frame) }] : [];
+        return imageUrl ? [{ cameraId, ...image, imageUrl, frame: createDurableReferenceFrame(image.frame, image.phaseId ?? 0) }] : [];
       });
       if (images.length !== archive.images.length) continue;
       archivedReferenceGroups.push({
@@ -525,11 +585,21 @@ async function hydratePersistedReferenceState() {
         jointCameraId: archive.jointCameraId,
         bundle: {
           ...archive.bundle,
-          views: archive.bundle.views.map((view) => ({ ...view, frame: createDurableReferenceFrame(view.frame) })),
+          views: archive.bundle.views.map((view) => ({
+            ...view,
+            frame: createDurableReferenceFrame(view.frame, archive.bundle.phase_id ?? 0),
+          })),
         },
         imageUrlsByCameraId: Object.fromEntries(images.map((image) => [image.cameraId, image.imageUrl])),
         images,
       });
+      for (const image of images) {
+        const phaseId = image.phaseId ?? archive.bundle.phase_id ?? 0;
+        const groupId = image.groupId ?? archive.bundle.group_id;
+        const slotKey = referenceSlotKey(phaseId, groupId, image.cameraId);
+        if (referenceImagesBySlot.has(slotKey)) continue;
+        referenceImagesBySlot.set(slotKey, image);
+      }
     }
     referenceImageVersion += 1;
     markArchivedReferenceGroupsChanged();
@@ -542,8 +612,10 @@ async function hydratePersistedReferenceState() {
 function restorePersistedReferenceImage(persisted: PersistedReferenceImage, imageUrl: string): StoredReferenceImage {
   return {
     imageUrl,
-    frame: createDurableReferenceFrame(persisted.frame),
+    frame: createDurableReferenceFrame(persisted.frame, persisted.phaseId ?? 0),
     productType: persisted.productType,
+    phaseId: persisted.phaseId,
+    groupId: persisted.groupId,
     committedAtMs: persisted.committedAtMs,
     roiPoints: copyRoiPoints(persisted.roiPoints),
     jointRoiPoints: persisted.jointRoiPoints ? copyRoiPoints(persisted.jointRoiPoints) : undefined,

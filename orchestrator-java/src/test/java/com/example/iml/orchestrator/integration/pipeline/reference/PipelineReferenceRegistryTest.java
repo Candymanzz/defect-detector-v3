@@ -10,6 +10,7 @@ import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -19,6 +20,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PipelineReferenceRegistryTest {
@@ -91,6 +93,39 @@ class PipelineReferenceRegistryTest {
         assertEquals("/iml_ref_phase1_cam0", registry.get(1, 0).header().get("shm_name"));
         assertEquals(registry.get(0, 0), registry.get(0));
         assertEquals("product-0#phase=1#cam=0", registry.get(1, 0).productType());
+    }
+
+    @Test
+    void missingPhasePinDoesNotCopyTheLiveCameraBuffer() throws Exception {
+        int cameraId = 90;
+        Path live = FrameJpegWriter.imlShmFilePath("iml_cam_" + cameraId + "_frame");
+        Path parent = live.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+        byte[] liveBytes = new byte[4 * 3 * 2];
+        liveBytes[0] = 9;
+        Files.write(live, liveBytes);
+        Path durable = FrameJpegWriter.imlShmFilePath("iml_ref_phase1_cam" + cameraId);
+        Files.deleteIfExists(durable);
+
+        Map<String, Object> header = Map.of(
+                "camera_id", cameraId,
+                "frame_id", 28,
+                "shm_name", "/iml_line_pin_cam90_f28_missing",
+                "shm_offset", 0L,
+                "width", 4,
+                "height", 2,
+                "stride", 12
+        );
+
+        IOException error = assertThrows(
+                IOException.class,
+                () -> PipelineReferenceRegistry.pinDurableReference(header, 1, cameraId)
+        );
+        assertTrue(error.getMessage().contains("iml_line_pin_cam90_f28_missing"));
+        assertTrue(Files.notExists(durable));
+        Files.deleteIfExists(live);
     }
 
     private static ReferenceBundleSnapshot bucketSnapshot(int firstCameraId, int jointCameraId, String shmPrefix)

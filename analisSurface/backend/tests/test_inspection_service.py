@@ -321,13 +321,27 @@ def test_identity_homography_skips_realign(inspection_service: InspectionService
     assert inspection_service._is_identity_homography(identity)
     assert not inspection_service._is_identity_homography([1.0, 0.0, 5.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])
 
-    aligned = inspection_service._align_to_reference(
+    aligned, align_mode = inspection_service._align_to_reference(
         gray_frame.copy(),
         gray_frame,
         "bench",
         alignment_h_ref_to_cur=identity,
     )
+    assert align_mode == "identity"
     assert np.array_equal(aligned, gray_frame)
+
+
+def test_pose_gap_reports_horizontal_shift() -> None:
+    reference = np.full((80, 120, 3), 30, dtype=np.uint8)
+    cv2.rectangle(reference, (30, 20), (70, 55), (210, 210, 210), -1)
+    shifted = np.zeros_like(reference)
+    shifted[:, 8:] = reference[:, :-8]
+
+    gap = InspectionService._measure_pose_gap(shifted, reference)
+
+    assert abs(abs(gap["dx"]) - 8.0) < 2.0
+    assert abs(gap["dy"]) < 2.0
+    assert gap["residual_px"] >= 4.0
 
 
 def test_activity_score_does_not_saturate_on_moderate_mask() -> None:

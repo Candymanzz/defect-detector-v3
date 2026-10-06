@@ -8,10 +8,32 @@ import { StatusCard } from "../../shared/ui/StatusCard";
 import { createCameraCards, createSelectedCamera } from "./MainController";
 import { resolveCardInspectImageUrl } from "./MainController";
 import { useMainOverview } from "./useMainOverview";
-import type { InspectionStats } from "./type";
+import type { InspectionHistoryItem, InspectionStats } from "./type";
+import type { InspectResultPayload } from "../../shared/ws";
+import { createInspectionBuckets } from "../../shared/inspectionBuckets";
+import type { InspectionBucket } from "../../shared/inspectionBuckets";
 import "./MainOverview.css";
 
-const CAMERAS_PER_OVERVIEW = 5;
+function frameForBucket(result: InspectResultPayload | undefined, bucket: InspectionBucket) {
+  if (!result || !bucket.cameraIds.includes(result.camera_id)) {
+    return undefined;
+  }
+  if ((result.phase_id ?? 0) !== bucket.phaseId) {
+    return undefined;
+  }
+  if (result.group_id != null && result.group_id !== bucket.groupId) {
+    return undefined;
+  }
+  return result;
+}
+
+function previewMatchesBucket(phaseId: number | undefined, bucket: InspectionBucket) {
+  return (phaseId ?? 0) === bucket.phaseId;
+}
+
+function historyForBucket(items: InspectionHistoryItem[] | undefined, bucket: InspectionBucket) {
+  return (items ?? []).filter((item) => frameForBucket(item.inspectResult, bucket));
+}
 
 type MainOverviewProps = {
   inspectionResetVersion: number;
@@ -30,7 +52,8 @@ export function MainOverview({
 }: MainOverviewProps) {
   const controller = useMainOverview(inspectionResetVersion);
   const cameraCards = createCameraCards(controller.cameraIds, controller.previewImageUrlsByCameraId);
-  const cameraCardGroups = chunkItems(cameraCards, CAMERAS_PER_OVERVIEW);
+  const cameraCardById = new Map(cameraCards.map((camera) => [camera.cameraId, camera]));
+  const buckets = createInspectionBuckets(controller.cameraIds);
   const modalInspectionControlState = controller.modalSnapshot
     ? controller.inspectionControlByCameraId[controller.modalSnapshot.cameraId]
     : undefined;
@@ -40,18 +63,33 @@ export function MainOverview({
   }, [controller.inspectionStats, onInspectionStatsChange]);
 
   return (
-    <div className="camera-overviews" ref={rootRef}>
-      {cameraCardGroups.map((cameraGroup, groupIndex) => (
+    <div className={`camera-overviews ${buckets.length > 2 ? "camera-overviews--four" : ""}`} ref={rootRef}>
+      {buckets.map((bucket) => (
         <section
           className="camera-overview"
-          aria-label={`Кадры камер для объекта ${groupIndex + 1}`}
-          key={groupIndex}
+          aria-label={bucket.label}
+          key={bucket.key}
         >
+          <header className="camera-overview__header">
+            <h2>{bucket.label}</h2>
+            <span>Фаза {bucket.phaseId + 1} · камеры {bucket.cameraIds.join(", ")}</span>
+          </header>
           <div className="camera-grid">
-            {cameraGroup.map((camera) => {
+            {bucket.cameraIds.map((cameraId) => {
+              const camera = cameraCardById.get(cameraId);
+              if (!camera) {
+                return null;
+              }
               const inspectionControlState = controller.inspectionControlByCameraId[camera.cameraId];
-              const inspectResult = controller.inspectResultsByCameraId[camera.cameraId];
-              const artifactInspectResult = controller.inspectArtifactResultsByCameraId[camera.cameraId];
+              const inspectResult = frameForBucket(
+                controller.framesByBucketKey[bucket.key]?.[camera.cameraId] ??
+                  controller.inspectResultsByCameraId[camera.cameraId],
+                bucket,
+              );
+              const artifactInspectResult = frameForBucket(
+                controller.inspectArtifactResultsByCameraId[camera.cameraId],
+                bucket,
+              );
               const isInspectionEnabled = inspectionControlState?.isEnabled ?? true;
               // Soft-stop: inspection is off, but capture-only frames must still render on the card.
               const isCaptureOnlyFrame = isCaptureOnlyInspectResult(inspectResult);
@@ -62,8 +100,12 @@ export function MainOverview({
               const inspectImageUrl = resolveCardInspectImageUrl(
                 showLiveInspectFrame ? inspectResult : undefined,
                 showInspectionArtifacts ? artifactInspectResult : undefined,
-                controller.previewFrameIdsByCameraId[camera.cameraId],
-                controller.previewImageUrlsByCameraId[camera.cameraId],
+                previewMatchesBucket(controller.previewPhaseByCameraId[camera.cameraId], bucket)
+                  ? controller.previewFrameIdsByCameraId[camera.cameraId]
+                  : undefined,
+                previewMatchesBucket(controller.previewPhaseByCameraId[camera.cameraId], bucket)
+                  ? controller.previewImageUrlsByCameraId[camera.cameraId]
+                  : undefined,
               );
               const isInspectionActionPending =
                 inspectionControlState?.state === "starting" || inspectionControlState?.state === "stopping";
@@ -87,12 +129,17 @@ export function MainOverview({
                   inspectionResult={inspectionResultState}
                   onOpen={() =>
                     controller.openInspectionModal(
-                      createSelectedCamera(camera),
+                      createSelectedCamera({ ...camera, objectName: bucket.label }),
                       inspectResult,
                       showInspectionArtifacts ? artifactInspectResult : undefined,
-                      controller.previewFrameIdsByCameraId[camera.cameraId],
-                      controller.previewImageUrlsByCameraId[camera.cameraId],
-                      controller.inspectionHistoryByCameraId[camera.cameraId] ?? [],
+                      previewMatchesBucket(controller.previewPhaseByCameraId[camera.cameraId], bucket)
+                        ? controller.previewFrameIdsByCameraId[camera.cameraId]
+                        : undefined,
+                      previewMatchesBucket(controller.previewPhaseByCameraId[camera.cameraId], bucket)
+                        ? controller.previewImageUrlsByCameraId[camera.cameraId]
+                        : undefined,
+                      historyForBucket(controller.inspectionHistoryByCameraId[camera.cameraId], bucket),
+                      bucket,
                     )
                   }
                   onSelect={() => onSettingsCameraToggle(camera.cameraId)}
@@ -103,8 +150,13 @@ export function MainOverview({
           </div>
 
           <InspectionHistory
-            cameraIds={cameraGroup.map((camera) => camera.cameraId)}
-            historyByCameraId={controller.inspectionHistoryByCameraId}
+            cameraIds={bucket.cameraIds}
+            historyByCameraId={Object.fromEntries(
+              bucket.cameraIds.map((cameraId) => [
+                cameraId,
+                historyForBucket(controller.inspectionHistoryByCameraId[cameraId], bucket),
+              ]),
+            )}
             archiveHistoryState={controller.archiveHistoryState}
             archiveHistoryMessage={controller.archiveHistoryMessage}
             onLoadArchivedHistory={(ids) => void controller.loadArchivedHistory(ids)}
@@ -167,13 +219,6 @@ export function MainOverview({
       )}
     </div>
   );
-}
-
-function chunkItems<T>(items: T[], chunkSize: number) {
-  return Array.from({ length: Math.ceil(items.length / chunkSize) }, (_, groupIndex) => {
-    const startIndex = groupIndex * chunkSize;
-    return items.slice(startIndex, startIndex + chunkSize);
-  });
 }
 
 function getInspectionActionLabel(state: "idle" | "starting" | "stopping" | "error" | undefined, isEnabled: boolean) {

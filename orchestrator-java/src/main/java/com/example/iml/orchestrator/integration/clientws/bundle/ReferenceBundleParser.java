@@ -82,13 +82,34 @@ public final class ReferenceBundleParser {
         Set<Integer> allowedCameraIds = new HashSet<>(cameraIds);
         Set<Integer> seenCameraIds = new HashSet<>();
         List<ReferenceViewSlot> views = new ArrayList<>(viewCount);
+        boolean allFramesDeclarePhase = true;
+        Set<String> declaredFrameIds = new HashSet<>();
         for (int i = 0; i < viewCount; i++) {
+            JsonNode frameNode = viewsNode.get(i).path("frame");
+            if (frameNode.hasNonNull("phase_id")) {
+                int framePhase = frameNode.get("phase_id").asInt(-1);
+                if (framePhase != phaseId) {
+                    throw new BundleParseException(
+                            "phase_mismatch",
+                            "views[" + i + "].frame.phase_id=" + framePhase + " does not match bundle phase_id=" + phaseId
+                    );
+                }
+            } else {
+                allFramesDeclarePhase = false;
+            }
+            declaredFrameIds.add(frameNode.path("frame_id").asText(""));
             ReferenceViewSlot slot = parseViewSlot(viewsNode.get(i), i, jointViewIndex, allowedCameraIds);
             int cameraId = slot.frame().cameraId();
             if (!seenCameraIds.add(cameraId)) {
                 throw new BundleParseException("invalid_views", "duplicate camera_id in views: " + cameraId);
             }
             views.add(slot);
+        }
+        if (allFramesDeclarePhase && declaredFrameIds.size() > 1) {
+            throw new BundleParseException(
+                    "reference_cycle_mismatch",
+                    "phase_id=" + phaseId + " reference frames must share one frame_id, got " + declaredFrameIds
+            );
         }
         if (groupId < 0) {
             int cameraBucket = views.stream().mapToInt(slot -> slot.frame().cameraId()).min().orElse(0) / 5;

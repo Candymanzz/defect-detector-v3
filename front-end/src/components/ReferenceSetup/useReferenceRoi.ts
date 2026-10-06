@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { getReferenceImage } from "../../shared/referenceImages";
+import type { InspectionBucket } from "../../shared/inspectionBuckets";
 import type { InterestPointNorm } from "../../shared/ws";
 import { isValidJointRoiPolygon, isValidRoiPolygon } from "./referenceRoi";
 
@@ -7,15 +8,18 @@ export type ReferenceRoiEditMode = "interest" | "joint";
 
 export function useReferenceRoi(
   cameraIds: number[],
-  cameraGroups: number[][],
+  cameraGroups: InspectionBucket[],
   activeGroupIndex: number,
   initialSelectedCameraId: number | null = null,
   useStoredRois = true,
 ) {
-  const activeCameraIds = cameraGroups[activeGroupIndex] ?? cameraIds;
+  const activeGroup = cameraGroups[activeGroupIndex];
+  const activeCameraIds = activeGroup?.cameraIds ?? cameraIds;
+  const activeGroupId = activeGroup?.groupId ?? 0;
+  const activePhaseId = activeGroup?.phaseId ?? 0;
   const initialCameraId = resolveCameraId(activeCameraIds, initialSelectedCameraId);
   const [editedRoiPolygonsByCameraId, setEditedRoiPolygonsByCameraId] = useState<
-    Record<number, InterestPointNorm[]>
+    Record<string, InterestPointNorm[]>
   >({});
   const [editedJointRoiPolygonsByGroupKey, setEditedJointRoiPolygonsByGroupKey] = useState<
     Record<string, InterestPointNorm[]>
@@ -24,18 +28,18 @@ export function useReferenceRoi(
   const [selectedCameraIdState, setSelectedCameraIdState] = useState(initialCameraId);
   const [selectedRoiMode, setSelectedRoiMode] = useState<ReferenceRoiEditMode>("interest");
   const roiPolygonsByCameraId = useStoredRois
-    ? mergeStoredCameraRois(cameraIds, editedRoiPolygonsByCameraId)
-    : copyEditedCameraRois(cameraIds, editedRoiPolygonsByCameraId);
+    ? mergeStoredCameraRois(activeCameraIds, editedRoiPolygonsByCameraId, activePhaseId, activeGroupId)
+    : copyEditedCameraRois(activeCameraIds, editedRoiPolygonsByCameraId, activeGroupId);
   const jointRoiPolygonsByKey = useStoredRois
     ? mergeStoredJointRois(cameraGroups, editedJointRoiPolygonsByGroupKey)
     : copyEditedJointRois(editedJointRoiPolygonsByGroupKey);
   const selectedCameraId = resolveCameraId(activeCameraIds, selectedCameraIdState);
-  const jointGroupKey = createGroupKey(activeCameraIds);
+  const jointGroupKey = createGroupKey(activeGroup);
   const jointCameraId = resolveCameraId(
     activeCameraIds,
-    jointCameraIdsByGroupKey[jointGroupKey] ?? findStoredJointCameraId(activeCameraIds),
+    jointCameraIdsByGroupKey[jointGroupKey] ?? findStoredJointCameraId(activeGroup),
   );
-  const jointRoiKey = createJointRoiKey(activeCameraIds, jointCameraId);
+  const jointRoiKey = createJointRoiKey(activeGroup, jointCameraId);
   const jointRoiPolygon = jointRoiPolygonsByKey[jointRoiKey] ?? [];
   const hasSelectedCameraRoi = isValidRoiPolygon(roiPolygonsByCameraId[selectedCameraId]);
   const hasRequiredCameraRois =
@@ -44,16 +48,22 @@ export function useReferenceRoi(
   const jointViewIndex = activeCameraIds.indexOf(jointCameraId);
 
   const getJointCameraIdForCameraIds = (targetCameraIds: number[]) => {
-    const groupKey = createGroupKey(targetCameraIds);
+    const group = cameraGroups.find((candidate) => sameCameras(candidate.cameraIds, targetCameraIds) && candidate.groupId === activeGroupId)
+      ?? activeGroup;
+    const groupKey = createGroupKey(group);
     return resolveCameraId(
       targetCameraIds,
-      jointCameraIdsByGroupKey[groupKey] ?? findStoredJointCameraId(targetCameraIds),
+      jointCameraIdsByGroupKey[groupKey] ?? findStoredJointCameraId(group),
     );
   };
 
   const getJointRoiPolygonForCameraIds = (targetCameraIds: number[]) => {
+    const group =
+      cameraGroups.find(
+        (candidate) => sameCameras(candidate.cameraIds, targetCameraIds) && candidate.groupId === activeGroupId,
+      ) ?? activeGroup;
     const targetJointCameraId = getJointCameraIdForCameraIds(targetCameraIds);
-    return jointRoiPolygonsByKey[createJointRoiKey(targetCameraIds, targetJointCameraId)] ?? [];
+    return jointRoiPolygonsByKey[createJointRoiKey(group, targetJointCameraId)] ?? [];
   };
 
   const hasRequiredRoisForCameraIds = (targetCameraIds: number[]) =>
@@ -65,7 +75,7 @@ export function useReferenceRoi(
 
     setEditedRoiPolygonsByCameraId((prev) => ({
       ...prev,
-      [targetCameraId]: copyRoiPolygon(points),
+      [roiEditKey(activeGroupId, targetCameraId)]: copyRoiPolygon(points),
     }));
   };
 
@@ -95,14 +105,16 @@ export function useReferenceRoi(
   const resetEditedRoisForCameraIds = (targetCameraIds: number[]) => {
     const targetCameraIdSet = new Set(targetCameraIds);
     setEditedRoiPolygonsByCameraId((previous) =>
-      Object.fromEntries(Object.entries(previous).filter(([cameraId]) => !targetCameraIdSet.has(Number(cameraId)))),
+      Object.fromEntries(
+        Object.entries(previous).filter(([roiKey]) => {
+          const cameraId = Number(roiKey.split(":")[1]);
+          return !roiKey.startsWith(`${activeGroupId}:`) || !targetCameraIdSet.has(cameraId);
+        }),
+      ),
     );
     setEditedJointRoiPolygonsByGroupKey((previous) =>
       Object.fromEntries(
-        Object.entries(previous).filter(([roiKey]) => {
-          const keyCameraIds = roiKey.split(":")[0].split(",").map(Number);
-          return !keyCameraIds.every((cameraId) => targetCameraIdSet.has(cameraId));
-        }),
+        Object.entries(previous).filter(([roiKey]) => !roiKey.startsWith(`${jointGroupKey}:`)),
       ),
     );
   };
@@ -131,11 +143,12 @@ export function useReferenceRoi(
 
 function copyEditedCameraRois(
   cameraIds: number[],
-  editedRois: Record<number, InterestPointNorm[]>,
+  editedRois: Record<string, InterestPointNorm[]>,
+  groupId: number,
 ) {
   const copied: Record<number, InterestPointNorm[]> = {};
   for (const cameraId of cameraIds) {
-    const editedPoints = editedRois[cameraId];
+    const editedPoints = editedRois[roiEditKey(groupId, cameraId)];
     if (editedPoints) {
       copied[cameraId] = copyRoiPolygon(editedPoints);
     }
@@ -166,13 +179,15 @@ function resolveCameraId(cameraIds: number[], cameraId: number | null) {
 
 function mergeStoredCameraRois(
   cameraIds: number[],
-  editedRois: Record<number, InterestPointNorm[]>,
+  editedRois: Record<string, InterestPointNorm[]>,
+  phaseId: number,
+  groupId: number,
 ) {
   const merged: Record<number, InterestPointNorm[]> = {};
 
   for (const cameraId of cameraIds) {
-    const editedPoints = editedRois[cameraId];
-    const storedPoints = getReferenceImage(cameraId)?.roiPoints;
+    const editedPoints = editedRois[roiEditKey(groupId, cameraId)];
+    const storedPoints = getReferenceImage(cameraId, phaseId, groupId)?.roiPoints;
     const points = editedPoints ?? storedPoints;
 
     if (points) {
@@ -184,16 +199,16 @@ function mergeStoredCameraRois(
 }
 
 function mergeStoredJointRois(
-  cameraGroups: number[][],
+  cameraGroups: InspectionBucket[],
   editedRois: Record<string, InterestPointNorm[]>,
 ) {
   const merged: Record<string, InterestPointNorm[]> = {};
 
-  for (const groupCameraIds of cameraGroups) {
-    for (const cameraId of groupCameraIds) {
-      const roiKey = createJointRoiKey(groupCameraIds, cameraId);
+  for (const group of cameraGroups) {
+    for (const cameraId of group.cameraIds) {
+      const roiKey = createJointRoiKey(group, cameraId);
       const editedPoints = editedRois[roiKey];
-      const storedPoints = getReferenceImage(cameraId)?.jointRoiPoints;
+      const storedPoints = getReferenceImage(cameraId, group.phaseId, group.groupId)?.jointRoiPoints;
       const points = editedPoints ?? storedPoints;
 
       if (points) {
@@ -205,14 +220,29 @@ function mergeStoredJointRois(
   return merged;
 }
 
-function findStoredJointCameraId(cameraIds: number[]) {
-  return cameraIds.find((cameraId) => isValidJointRoiPolygon(getReferenceImage(cameraId)?.jointRoiPoints)) ?? null;
+function findStoredJointCameraId(group: InspectionBucket | undefined) {
+  if (!group) {
+    return null;
+  }
+  return (
+    group.cameraIds.find((cameraId) =>
+      isValidJointRoiPolygon(getReferenceImage(cameraId, group.phaseId, group.groupId)?.jointRoiPoints),
+    ) ?? null
+  );
 }
 
-function createGroupKey(cameraIds: number[]) {
-  return cameraIds.join(",");
+function createGroupKey(group: InspectionBucket | undefined) {
+  return group ? `${group.phaseId}:${group.groupId}` : "";
 }
 
-function createJointRoiKey(cameraIds: number[], cameraId: number) {
-  return `${createGroupKey(cameraIds)}:${cameraId}`;
+function createJointRoiKey(group: InspectionBucket | undefined, cameraId: number) {
+  return `${createGroupKey(group)}:${cameraId}`;
+}
+
+function roiEditKey(groupId: number, cameraId: number) {
+  return `${groupId}:${cameraId}`;
+}
+
+function sameCameras(left: number[], right: number[]) {
+  return left.length === right.length && left.every((cameraId, index) => cameraId === right[index]);
 }

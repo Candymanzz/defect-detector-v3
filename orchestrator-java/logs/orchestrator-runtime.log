@@ -9233,3 +9233,466 @@
 2026-09-28 06:01:44.033 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=C:\Users\Administrator\AppData\Local\Temp\junit14901120184942453683\settings.json max_frames_per_camera=2
 2026-09-28 06:01:44.035 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 2
 2026-09-28 06:01:44.039 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit10121734341248447201 max_frames_per_camera=5
+2026-09-29 22:57:08.429 INFO  [main] c.e.i.o.i.p.s.InspectGeometryExecutorTest - integration cam=0: geometry skipped (client reference without joint ROI)
+2026-09-29 22:57:08.447 INFO  [main] c.e.i.o.i.p.s.InspectGeometryExecutorTest - positioning_timing cam=0 frame=15 wall_ms=0 service_ms=0.0 orb_ms=0.0 warp_ms=0.0 ecc_ms=0.0 write_ms=0.0 status=? shift=(null, null) rot=null aligned=null raw_abs=null coarse_abs=null orb_abs=null final_abs=null final_ncc=null residual=(null, null) coarse_shift=(null, null) orb_good=null orb_inliers=null ecc_ok=null ecc_cc=null
+2026-09-29 22:57:08.447 INFO  [main] c.e.i.o.i.p.s.InspectGeometryExecutorTest - integration cam=0: geometry skipped (client reference without joint ROI)
+2026-09-29 22:57:08.454 INFO  [main] c.e.i.o.i.p.s.InspectGeometryExecutorTest - integration cam=2: geometry skipped (geometry_enabled=false)
+2026-09-30 01:56:50.391 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=0 group=0 product_type=product-0 frame_id=frame-0 shm=/iml_ref_phase0_cam0 source_shm=bucket-a-cam-0
+2026-09-30 01:56:50.395 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=1 group=0 product_type=product-0 frame_id=frame-1 shm=/iml_ref_phase0_cam1 source_shm=bucket-a-cam-1
+2026-09-30 01:56:50.396 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=2 group=0 product_type=product-0 frame_id=frame-2 shm=/iml_ref_phase0_cam2 source_shm=bucket-a-cam-2
+2026-09-30 01:56:50.397 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=3 group=0 product_type=product-0 frame_id=frame-3 shm=/iml_ref_phase0_cam3 source_shm=bucket-a-cam-3
+2026-09-30 01:56:50.397 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=4 group=0 product_type=product-0 frame_id=frame-4 shm=/iml_ref_phase0_cam4 source_shm=bucket-a-cam-4
+2026-09-30 01:56:50.401 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=5 group=1 product_type=product-5 frame_id=frame-5 shm=/iml_ref_phase0_cam5 source_shm=bucket-b-cam-5
+2026-09-30 01:56:50.402 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=6 group=1 product_type=product-5 frame_id=frame-6 shm=/iml_ref_phase0_cam6 source_shm=bucket-b-cam-6
+2026-09-30 01:56:50.402 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=7 group=1 product_type=product-5 frame_id=frame-7 shm=/iml_ref_phase0_cam7 source_shm=bucket-b-cam-7
+2026-09-30 01:56:50.403 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=8 group=1 product_type=product-5 frame_id=frame-8 shm=/iml_ref_phase0_cam8 source_shm=bucket-b-cam-8
+2026-09-30 01:56:50.404 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=9 group=1 product_type=product-5 frame_id=frame-9 shm=/iml_ref_phase0_cam9 source_shm=bucket-b-cam-9
+2026-09-30 01:56:50.432 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=0 group=0 product_type=product-0 frame_id=frame-0 shm=/iml_ref_phase0_cam0 source_shm=phase0-cam-0
+2026-09-30 01:56:50.433 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=1 group=0 product_type=product-0 frame_id=frame-1 shm=/iml_ref_phase0_cam1 source_shm=phase0-cam-1
+2026-09-30 01:56:50.434 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=2 group=0 product_type=product-0 frame_id=frame-2 shm=/iml_ref_phase0_cam2 source_shm=phase0-cam-2
+2026-09-30 01:56:50.434 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=3 group=0 product_type=product-0 frame_id=frame-3 shm=/iml_ref_phase0_cam3 source_shm=phase0-cam-3
+2026-09-30 01:56:50.435 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=4 group=0 product_type=product-0 frame_id=frame-4 shm=/iml_ref_phase0_cam4 source_shm=phase0-cam-4
+2026-09-30 01:56:50.437 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=0 group=2 product_type=product-0 frame_id=frame-0 shm=/iml_ref_phase1_cam0 source_shm=phase1-cam-0
+2026-09-30 01:56:50.438 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=1 group=2 product_type=product-0 frame_id=frame-1 shm=/iml_ref_phase1_cam1 source_shm=phase1-cam-1
+2026-09-30 01:56:50.438 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=2 group=2 product_type=product-0 frame_id=frame-2 shm=/iml_ref_phase1_cam2 source_shm=phase1-cam-2
+2026-09-30 01:56:50.439 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=3 group=2 product_type=product-0 frame_id=frame-3 shm=/iml_ref_phase1_cam3 source_shm=phase1-cam-3
+2026-09-30 01:56:50.440 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=4 group=2 product_type=product-0 frame_id=frame-4 shm=/iml_ref_phase1_cam4 source_shm=phase1-cam-4
+2026-09-30 02:56:27.961 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=0 group=0 product_type=product-0 frame_id=frame-0 shm=/iml_ref_phase0_cam0 source_shm=bucket-a-cam-0
+2026-09-30 02:56:27.965 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=1 group=0 product_type=product-0 frame_id=frame-1 shm=/iml_ref_phase0_cam1 source_shm=bucket-a-cam-1
+2026-09-30 02:56:27.966 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=2 group=0 product_type=product-0 frame_id=frame-2 shm=/iml_ref_phase0_cam2 source_shm=bucket-a-cam-2
+2026-09-30 02:56:27.966 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=3 group=0 product_type=product-0 frame_id=frame-3 shm=/iml_ref_phase0_cam3 source_shm=bucket-a-cam-3
+2026-09-30 02:56:27.967 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=4 group=0 product_type=product-0 frame_id=frame-4 shm=/iml_ref_phase0_cam4 source_shm=bucket-a-cam-4
+2026-09-30 02:56:27.970 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=5 group=1 product_type=product-5 frame_id=frame-5 shm=/iml_ref_phase0_cam5 source_shm=bucket-b-cam-5
+2026-09-30 02:56:27.971 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=6 group=1 product_type=product-5 frame_id=frame-6 shm=/iml_ref_phase0_cam6 source_shm=bucket-b-cam-6
+2026-09-30 02:56:27.972 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=7 group=1 product_type=product-5 frame_id=frame-7 shm=/iml_ref_phase0_cam7 source_shm=bucket-b-cam-7
+2026-09-30 02:56:27.972 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=8 group=1 product_type=product-5 frame_id=frame-8 shm=/iml_ref_phase0_cam8 source_shm=bucket-b-cam-8
+2026-09-30 02:56:27.973 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=9 group=1 product_type=product-5 frame_id=frame-9 shm=/iml_ref_phase0_cam9 source_shm=bucket-b-cam-9
+2026-09-30 02:56:27.991 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=0 group=0 product_type=product-0 frame_id=frame-0 shm=/iml_ref_phase0_cam0 source_shm=phase0-cam-0
+2026-09-30 02:56:27.992 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=1 group=0 product_type=product-0 frame_id=frame-1 shm=/iml_ref_phase0_cam1 source_shm=phase0-cam-1
+2026-09-30 02:56:27.993 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=2 group=0 product_type=product-0 frame_id=frame-2 shm=/iml_ref_phase0_cam2 source_shm=phase0-cam-2
+2026-09-30 02:56:27.994 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=3 group=0 product_type=product-0 frame_id=frame-3 shm=/iml_ref_phase0_cam3 source_shm=phase0-cam-3
+2026-09-30 02:56:27.995 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=4 group=0 product_type=product-0 frame_id=frame-4 shm=/iml_ref_phase0_cam4 source_shm=phase0-cam-4
+2026-09-30 02:56:27.996 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=0 group=2 product_type=product-0 frame_id=frame-0 shm=/iml_ref_phase1_cam0 source_shm=phase1-cam-0
+2026-09-30 02:56:27.997 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=1 group=2 product_type=product-0 frame_id=frame-1 shm=/iml_ref_phase1_cam1 source_shm=phase1-cam-1
+2026-09-30 02:56:27.998 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=2 group=2 product_type=product-0 frame_id=frame-2 shm=/iml_ref_phase1_cam2 source_shm=phase1-cam-2
+2026-09-30 02:56:27.999 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=3 group=2 product_type=product-0 frame_id=frame-3 shm=/iml_ref_phase1_cam3 source_shm=phase1-cam-3
+2026-09-30 02:56:28.000 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=4 group=2 product_type=product-0 frame_id=frame-4 shm=/iml_ref_phase1_cam4 source_shm=phase1-cam-4
+2026-10-06 00:07:25.171 INFO  [phase-one-unpinned] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait cam=0 parent_cycle=56 phase=1 waiting_for_phase=0
+2026-10-06 00:07:25.250 INFO  [phase-one-unpinned] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait_done cam=0 parent_cycle=56 phase=1
+2026-10-06 00:07:25.257 INFO  [phase-one-begin] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait cam=0 parent_cycle=55 phase=1 waiting_for_phase=0
+2026-10-06 00:07:25.342 INFO  [phase-one-begin] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait_done cam=0 parent_cycle=55 phase=1
+2026-10-06 00:07:36.972 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit5144249533900503265\camera_runtime_settings.json cameras=2
+2026-10-06 00:07:36.980 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit10577844782328874125\camera_runtime_settings.json cameras=1
+2026-10-06 00:07:37.013 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit9392736832410424088\geometry_runtime_settings.json profiles=2
+2026-10-06 00:07:37.020 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit4603659057442276576\geometry_runtime_settings.json profiles=1
+2026-10-06 00:07:37.020 INFO  [main] c.e.i.o.i.c.GeometryRuntimeConfig - geometry runtime overrides restored from store profiles=1
+2026-10-06 00:07:37.023 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit13663010876769670815\geometry_runtime_settings.json profiles=0
+2026-10-06 00:07:37.043 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit786477408663542605\archive max_frames_per_camera=10
+2026-10-06 00:07:37.101 INFO  [uitest-ut] c.e.i.o.i.c.UiTestAnalyzeServiceTest - ui test-analyze done jobId=9b3f696cff7242cd9cb4372833bf29fa cam=0 frame=42 pass=true python=OK geometry=OK
+2026-10-06 00:07:37.131 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit15824476380464509851\archive max_frames_per_camera=10
+2026-10-06 00:07:37.138 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit17211937630041016750\archive max_frames_per_camera=10
+2026-10-06 00:07:37.183 INFO  [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=di3_trigger phase=0 parent_cycle=77 raw_seq=43 cameras=10
+2026-10-06 00:07:37.184 DEBUG [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=wait_frame_start phase=0 cam=1 parent_cycle=77 raw_seq=43
+2026-10-06 00:07:37.184 WARN  [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=phase1_trigger_while_phase0_capture parent_cycle=77 since_phase0_di3_ms=1 busy=[cam=1 phase0_wait_frame_ms=0] hint=DI3#2 ??????, ????? ????? ??? ? wait_frame phase 0 (?????? ?? ????ger?, ??? ???????)
+2026-10-06 00:07:37.185 INFO  [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=di3_trigger phase=1 parent_cycle=77 raw_seq=44 cameras=10 since_phase0_di3_ms=1
+2026-10-06 00:07:37.188 INFO  [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=di3_trigger phase=0 parent_cycle=88 raw_seq=50 cameras=10
+2026-10-06 00:07:37.188 DEBUG [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=wait_frame_start phase=0 cam=3 parent_cycle=88 raw_seq=50
+2026-10-06 00:07:37.188 WARN  [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=phase1_wait_frame_while_phase0 cam=3 parent_cycle=88 phase0_raw_seq=50 phase1_raw_seq=51 phase0_wait_frame_ms=0 hint=DI3#2 arm wait_frame, ?? worker ??? ? wait_frame phase 0 — ???? ???????? ????? phase 1
+2026-10-06 00:07:37.188 DEBUG [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=wait_frame_start phase=1 cam=3 parent_cycle=88 raw_seq=51
+2026-10-06 00:07:37.190 INFO  [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=di3_trigger phase=0 parent_cycle=99 raw_seq=60 cameras=10
+2026-10-06 00:07:37.197 DEBUG [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=wait_frame_start phase=0 cam=2 parent_cycle=99 raw_seq=60
+2026-10-06 00:07:37.198 INFO  [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=capture_ok phase=0 cam=2 parent_cycle=99 raw_seq=60 frame_id=1001 since_di3_ms=8 orch_ms=55 worker_latency_ms=48
+2026-10-06 00:07:37.203 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins disabled (plc_fins.enabled=false)
+2026-10-06 00:07:37.206 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-10-06 00:07:37.206 WARN  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result client_ws unavailable — bucket verdict will not be sent to UI
+2026-10-06 00:07:37.207 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-10-06 00:07:37.208 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-10-06 00:07:37.208 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=false unhealthy=[io_input_monitor])
+2026-10-06 00:07:37.209 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-10-06 00:07:37.230 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 00:07:37.232 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 00:07:37.232 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 00:07:37.232 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 00:07:37.232 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 00:07:37.233 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 00:07:37.236 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 00:07:37.236 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 00:07:37.238 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 00:07:37.239 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 00:07:37.239 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 00:07:37.239 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 00:07:37.240 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 00:07:37.242 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 00:07:37.243 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 00:07:37.245 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 00:07:37.245 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 00:07:37.245 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 00:07:37.247 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 00:07:37.247 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 00:07:37.249 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 00:07:37.371 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-10-06 00:07:37.371 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-10-06 00:07:37.371 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-10-06 00:07:37.374 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit3833711068294162401\light_brightness_settings.json default=42 endpoints=2
+2026-10-06 00:07:37.377 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit2032659964134784287\bom.json default=67 endpoints=1
+2026-10-06 00:07:37.390 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-1 brightness 80% -> 33%
+2026-10-06 00:07:37.390 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-10-06 00:07:37.392 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-10-06 00:07:37.439 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:37.439 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=10 phase=0 group=0 pass=true
+2026-10-06 00:07:37.441 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket capture-only suppressed parent=12 phase=0 group=0 frames=2/2 timeout=false
+2026-10-06 00:07:37.540 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-10-06 00:07:37.540 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=20 phase=0 group=0 pass=false
+2026-10-06 00:07:37.540 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:37.541 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=20 phase=0 group=1 pass=true
+2026-10-06 00:07:37.542 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=200 group=0 pass=true frames=1/1 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:37.542 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=200 phase=0 group=0 pass=true
+2026-10-06 00:07:37.677 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=200 group=1 pass=false frames=1/1 reject_cameras=[1] seam_strict=false
+2026-10-06 00:07:37.677 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=200 phase=0 group=1 pass=false
+2026-10-06 00:07:37.679 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=101 group=2 pass=true frames=1/1 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:37.680 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=100 phase=1 group=2 pass=true
+2026-10-06 00:07:37.680 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=101 group=3 pass=true frames=1/1 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:37.680 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=100 phase=1 group=3 pass=true
+2026-10-06 00:07:37.681 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=100 group=1 pass=true frames=1/1 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:37.681 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=100 phase=0 group=1 pass=true
+2026-10-06 00:07:37.682 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=100 group=0 pass=true frames=1/1 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:37.682 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=100 phase=0 group=0 pass=true
+2026-10-06 00:07:37.683 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-10-06 00:07:37.683 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=11 phase=0 group=0 pass=false
+2026-10-06 00:07:37.684 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=31 group=0 seam_strict=false sibling_vis=0.8 joint_cam=0 joint_pass=true par=2.0 width=1.2 strict_pass=false force_reject=false
+2026-10-06 00:07:37.685 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=31 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:37.685 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=31 phase=0 group=0 pass=true
+2026-10-06 00:07:37.686 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=30 group=0 seam_strict=false sibling_vis=0.05 joint_cam=0 joint_pass=true par=2.0 width=1.2 strict_pass=false force_reject=false
+2026-10-06 00:07:37.686 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=30 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:37.686 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=30 phase=0 group=0 pass=true
+2026-10-06 00:07:37.688 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=32 group=0 seam_strict=true sibling_vis=0.05 joint_cam=0 joint_pass=false par=2.0 width=0.3 strict_pass=false force_reject=true
+2026-10-06 00:07:37.688 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=32 group=0 pass=false frames=2/2 reject_cameras=[] seam_strict=true
+2026-10-06 00:07:37.688 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=32 phase=0 group=0 pass=false
+2026-10-06 00:07:39.711 INFO  [pool-3-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=100 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:39.711 INFO  [pool-3-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=100 group=1 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:39.711 INFO  [pool-3-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection group immediate fanout parent=100 phase=0 group=0 pass=true
+2026-10-06 00:07:39.711 INFO  [pool-3-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection group immediate fanout parent=100 phase=0 group=1 pass=true
+2026-10-06 00:07:40.688 INFO  [pool-4-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=150 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:40.688 INFO  [pool-4-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection group immediate fanout parent=150 phase=0 group=0 pass=true
+2026-10-06 00:07:43.342 INFO  [pool-4-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=150 group=1 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:43.342 INFO  [pool-4-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection group immediate fanout parent=150 phase=0 group=1 pass=true
+2026-10-06 00:07:43.359 INFO  [main] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=300 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:43.360 INFO  [main] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection group immediate fanout parent=300 phase=0 group=0 pass=true
+2026-10-06 00:07:47.366 WARN  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket timeout seq=300 group=1 received=3/5 cameras=[5, 6, 7]
+2026-10-06 00:07:47.366 INFO  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=300 group=1 pass=false frames=3/5 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:47.366 INFO  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection group immediate fanout parent=300 phase=0 group=1 pass=false
+2026-10-06 00:07:48.460 INFO  [pool-5-thread-18] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection bucket complete seq=101 group=3 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:48.460 INFO  [pool-5-thread-18] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection group immediate fanout parent=100 phase=1 group=3 pass=true
+2026-10-06 00:07:48.492 INFO  [pool-5-thread-15] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection bucket complete seq=101 group=2 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:48.492 INFO  [pool-5-thread-15] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection group immediate fanout parent=100 phase=1 group=2 pass=true
+2026-10-06 00:07:48.571 INFO  [pool-5-thread-1] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection bucket complete seq=100 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:48.571 INFO  [pool-5-thread-1] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection group immediate fanout parent=100 phase=0 group=0 pass=true
+2026-10-06 00:07:48.632 INFO  [pool-5-thread-10] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection bucket complete seq=100 group=1 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-10-06 00:07:48.632 INFO  [pool-5-thread-10] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection group immediate fanout parent=100 phase=0 group=1 pass=true
+2026-10-06 00:07:48.637 INFO  [main] c.e.i.o.i.p.d.DefaultInspectionDecisionAggregatorTest - inspection_decision cam=1 frame=42 overall=false action=REJECT py_ok=false py_status=UNKNOWN anomaly=0.0 threshold=null geom_pass=true geom_status=UNKNOWN align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-10-06 00:07:48.637 INFO  [main] c.e.i.o.i.p.d.DefaultInspectionDecisionAggregatorTest - inspection_decision cam=1 frame=42 overall=true action=ACCEPT py_ok=true py_status=PASS anomaly=0.0 threshold=null geom_pass=true geom_status=UNKNOWN align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-10-06 00:07:48.638 INFO  [main] c.e.i.o.i.p.d.DefaultInspectionDecisionAggregatorTest - inspection_decision cam=1 frame=42 overall=false action=REJECT py_ok=false py_status=PASS anomaly=0.0 threshold=null geom_pass=true geom_status=PASS align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-10-06 00:07:48.638 INFO  [main] c.e.i.o.i.p.d.DefaultInspectionDecisionAggregatorTest - inspection_decision cam=1 frame=42 overall=false action=REJECT py_ok=true py_status=PASS anomaly=0.0 threshold=null geom_pass=false geom_status=ERROR align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-10-06 00:07:48.639 INFO  [main] c.e.i.o.i.p.d.DefaultInspectionDecisionAggregatorTest - inspection_decision cam=1 frame=42 overall=true action=ACCEPT py_ok=true py_status=PASS anomaly=0.1 threshold=null geom_pass=true geom_status=PASS align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-10-06 00:07:48.650 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=0 group=0 product_type=product-0#phase=0#cam=0 frame_id=frame-0 shm=/iml_ref_phase0_cam0 source_shm=bucket-a-cam-0 python_servers=[]
+2026-10-06 00:07:48.652 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=1 group=0 product_type=product-0#phase=0#cam=1 frame_id=frame-1 shm=/iml_ref_phase0_cam1 source_shm=bucket-a-cam-1 python_servers=[]
+2026-10-06 00:07:48.653 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=2 group=0 product_type=product-0#phase=0#cam=2 frame_id=frame-2 shm=/iml_ref_phase0_cam2 source_shm=bucket-a-cam-2 python_servers=[]
+2026-10-06 00:07:48.654 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=3 group=0 product_type=product-0#phase=0#cam=3 frame_id=frame-3 shm=/iml_ref_phase0_cam3 source_shm=bucket-a-cam-3 python_servers=[]
+2026-10-06 00:07:48.655 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=4 group=0 product_type=product-0#phase=0#cam=4 frame_id=frame-4 shm=/iml_ref_phase0_cam4 source_shm=bucket-a-cam-4 python_servers=[]
+2026-10-06 00:07:48.658 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=5 group=1 product_type=product-5#phase=0#cam=5 frame_id=frame-5 shm=/iml_ref_phase0_cam5 source_shm=bucket-b-cam-5 python_servers=[]
+2026-10-06 00:07:48.659 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=6 group=1 product_type=product-5#phase=0#cam=6 frame_id=frame-6 shm=/iml_ref_phase0_cam6 source_shm=bucket-b-cam-6 python_servers=[]
+2026-10-06 00:07:48.660 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=7 group=1 product_type=product-5#phase=0#cam=7 frame_id=frame-7 shm=/iml_ref_phase0_cam7 source_shm=bucket-b-cam-7 python_servers=[]
+2026-10-06 00:07:48.660 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=8 group=1 product_type=product-5#phase=0#cam=8 frame_id=frame-8 shm=/iml_ref_phase0_cam8 source_shm=bucket-b-cam-8 python_servers=[]
+2026-10-06 00:07:48.661 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=9 group=1 product_type=product-5#phase=0#cam=9 frame_id=frame-9 shm=/iml_ref_phase0_cam9 source_shm=bucket-b-cam-9 python_servers=[]
+2026-10-06 00:07:48.669 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=0 group=0 product_type=product-0#phase=0#cam=0 frame_id=frame-0 shm=/iml_ref_phase0_cam0 source_shm=phase0-cam-0 python_servers=[]
+2026-10-06 00:07:48.670 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=1 group=0 product_type=product-0#phase=0#cam=1 frame_id=frame-1 shm=/iml_ref_phase0_cam1 source_shm=phase0-cam-1 python_servers=[]
+2026-10-06 00:07:48.670 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=2 group=0 product_type=product-0#phase=0#cam=2 frame_id=frame-2 shm=/iml_ref_phase0_cam2 source_shm=phase0-cam-2 python_servers=[]
+2026-10-06 00:07:48.671 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=3 group=0 product_type=product-0#phase=0#cam=3 frame_id=frame-3 shm=/iml_ref_phase0_cam3 source_shm=phase0-cam-3 python_servers=[]
+2026-10-06 00:07:48.671 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=4 group=0 product_type=product-0#phase=0#cam=4 frame_id=frame-4 shm=/iml_ref_phase0_cam4 source_shm=phase0-cam-4 python_servers=[]
+2026-10-06 00:07:48.673 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=0 group=2 product_type=product-0#phase=1#cam=0 frame_id=frame-0 shm=/iml_ref_phase1_cam0 source_shm=phase1-cam-0 python_servers=[]
+2026-10-06 00:07:48.674 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=1 group=2 product_type=product-0#phase=1#cam=1 frame_id=frame-1 shm=/iml_ref_phase1_cam1 source_shm=phase1-cam-1 python_servers=[]
+2026-10-06 00:07:48.675 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=2 group=2 product_type=product-0#phase=1#cam=2 frame_id=frame-2 shm=/iml_ref_phase1_cam2 source_shm=phase1-cam-2 python_servers=[]
+2026-10-06 00:07:48.676 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=3 group=2 product_type=product-0#phase=1#cam=3 frame_id=frame-3 shm=/iml_ref_phase1_cam3 source_shm=phase1-cam-3 python_servers=[]
+2026-10-06 00:07:48.676 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=4 group=2 product_type=product-0#phase=1#cam=4 frame_id=frame-4 shm=/iml_ref_phase1_cam4 source_shm=phase1-cam-4 python_servers=[]
+2026-10-06 00:07:48.683 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-10-06 00:07:48.686 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=2: capture-only frame=23 delivered to ui (geometry/python skipped — no reference)
+2026-10-06 00:07:48.689 INFO  [pool-19-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_decision cam=0 frame=7 overall=true action=ACCEPT py_ok=true py_status=PASS anomaly=0.05 threshold=null geom_pass=true geom_status=PASS align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-10-06 00:07:48.689 INFO  [pool-19-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_timing cam=0 frame=7 positioning_ms=0 capture_to_geometry_done_ms=0 capture_to_python_done_ms=0 capture_frame_to_inspection_end_ms=2
+2026-10-06 00:07:48.690 INFO  [pool-19-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - stage_timing cam=0 frame=7 total_ms=2 pipeline_ms=6 reference_ms=0 capture_ms=1 positioning_ms=0 python_ms=3 geometry_ms=2 decision_ms=0 fanout_ms=0 pos_orb_ms=0.0 pos_warp_ms=0.0 pos_ecc_ms=0.0 pos_write_ms=0.0 py_align_ms=0.0 py_diff_ms=0.0 py_anomaly_ms=0.0 py_fp_recheck_ms=0.0 py_encode_ms=0.0 py_total_ms=0.0
+2026-10-06 00:07:48.691 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-10-06 00:07:48.693 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=1: capture-only frame=11 delivered to ui (geometry/python skipped — no reference)
+2026-10-06 00:07:48.697 INFO  [phase-one-unpinned] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait cam=0 parent_cycle=56 phase=1 waiting_for_phase=0
+2026-10-06 00:07:48.793 INFO  [phase-one-unpinned] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait_done cam=0 parent_cycle=56 phase=1
+2026-10-06 00:07:48.796 INFO  [phase-one-begin] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait cam=0 parent_cycle=55 phase=1 waiting_for_phase=0
+2026-10-06 00:07:48.887 INFO  [phase-one-begin] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait_done cam=0 parent_cycle=55 phase=1
+2026-10-06 00:07:48.894 INFO  [main] c.e.i.o.i.p.s.InspectGeometryExecutorTest - integration cam=0: geometry skipped (client reference without joint ROI)
+2026-10-06 00:07:48.896 INFO  [main] c.e.i.o.i.p.s.InspectGeometryExecutorTest - positioning_timing cam=0 frame=15 wall_ms=0 service_ms=0.0 orb_ms=0.0 warp_ms=0.0 ecc_ms=0.0 write_ms=0.0 status=? shift=(null, null) rot=null aligned=null raw_abs=null coarse_abs=null orb_abs=null final_abs=null final_ncc=null residual=(null, null) coarse_shift=(null, null) orb_good=null orb_inliers=null ecc_ok=null ecc_cc=null
+2026-10-06 00:07:48.896 INFO  [main] c.e.i.o.i.p.s.InspectGeometryExecutorTest - integration cam=0: geometry skipped (client reference without joint ROI)
+2026-10-06 00:07:48.898 INFO  [main] c.e.i.o.i.p.s.InspectGeometryExecutorTest - integration cam=2: geometry skipped (geometry_enabled=false)
+2026-10-06 00:07:51.182 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-unexpected pid=12588 command=[cmd.exe, /c, exit /b 0]
+2026-10-06 00:07:51.200 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-close pid=13928 command=[cmd.exe, /c, ping -n 30 127.0.0.1 >nul]
+2026-10-06 00:07:51.201 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service exit-test-close pid=13928
+2026-10-06 00:07:51.207 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service exit-test-close stopped
+2026-10-06 00:07:51.636 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-10-06 00:07:51.638 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window DI2? — accept frames until +80 ms, then cancel leftovers
+2026-10-06 00:07:51.638 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-10-06 00:07:51.729 INFO  [pool-61-thread-1] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=di2_low frames=1/2 leftover_cancel=[]
+2026-10-06 00:07:51.795 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-10-06 00:07:51.795 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window skip open — already collecting frames=0/4
+2026-10-06 00:07:51.796 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-10-06 00:07:51.796 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-10-06 00:07:51.796 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-10-06 00:07:51.796 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-10-06 00:07:51.796 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[]
+2026-10-06 00:07:51.797 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-10-06 00:07:51.798 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-10-06 00:07:51.799 WARN  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window duplicate frame ignored cam=0 phase=0 parent_cycle=1 frames=1/4
+2026-10-06 00:07:51.799 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-10-06 00:07:51.799 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-10-06 00:07:51.799 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-10-06 00:07:51.799 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[]
+2026-10-06 00:07:51.801 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-10-06 00:07:51.801 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-10-06 00:07:51.801 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/2 cam=0 phase=1 parent_cycle=1
+2026-10-06 00:07:51.801 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=2/2 leftover_cancel=[]
+2026-10-06 00:07:51.801 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-10-06 00:07:51.801 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=test frames=0/2 leftover_cancel=[]
+2026-10-06 00:07:51.804 WARN  [main] c.e.i.o.i.t.DiShutdownControllerTest - DI4=1 — ?????????? ??????????: lights Off, vision_ready=0, vision_fault=1, stop orchestrator (di4_shutdown)
+2026-10-06 00:07:51.853 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-10-06 00:07:51.853 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-10-06 00:07:52.290 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-10-06 00:07:52.290 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-10-06 00:07:52.290 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-10-06 00:07:52.290 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-10-06 00:07:52.290 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-10-06 00:07:52.290 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-10-06 00:07:52.291 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-10-06 00:07:52.302 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit7424795658528429195 max_frames_per_camera=2
+2026-10-06 00:07:52.303 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=C:\Users\Administrator\AppData\Local\Temp\junit7424795658528429195\settings.json max_frames_per_camera=2
+2026-10-06 00:07:52.304 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 2
+2026-10-06 00:07:52.317 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit1289364568521578553 max_frames_per_camera=20
+2026-10-06 00:07:52.318 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=C:\Users\Administrator\AppData\Local\Temp\junit1289364568521578553\settings.json max_frames_per_camera=37
+2026-10-06 00:07:52.318 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 37
+2026-10-06 00:07:52.319 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings loaded path=C:\Users\Administrator\AppData\Local\Temp\junit1289364568521578553\settings.json max_frames_per_camera=37
+2026-10-06 00:07:52.319 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit1289364568521578553 max_frames_per_camera=37
+2026-10-06 00:07:52.320 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit11636815617357053032 max_frames_per_camera=5
+2026-10-06 00:07:52.324 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit9716037328331848706 max_frames_per_camera=2
+2026-10-06 00:07:52.325 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=C:\Users\Administrator\AppData\Local\Temp\junit9716037328331848706\settings.json max_frames_per_camera=2
+2026-10-06 00:07:52.325 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 2
+2026-10-06 00:07:52.347 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit13841431787659991886 max_frames_per_camera=5
+2026-10-06 00:07:52.350 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit12767579152340389229 max_frames_per_camera=5
+2026-10-06 00:07:52.350 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=C:\Users\Administrator\AppData\Local\Temp\junit12767579152340389229\settings.json max_frames_per_camera=5
+2026-10-06 00:07:52.351 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 5
+2026-10-06 00:07:52.378 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=C:\Users\Administrator\AppData\Local\Temp\junit12767579152340389229\settings.json max_frames_per_camera=2
+2026-10-06 00:07:52.380 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 2
+2026-10-06 00:07:52.384 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit1159017474162000901 max_frames_per_camera=5
+2026-10-06 00:08:15.486 INFO  [phase-one-unpinned] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait cam=0 parent_cycle=56 phase=1 waiting_for_phase=0
+2026-10-06 00:08:15.564 INFO  [phase-one-unpinned] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait_done cam=0 parent_cycle=56 phase=1
+2026-10-06 00:08:15.571 INFO  [phase-one-begin] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait cam=0 parent_cycle=55 phase=1 waiting_for_phase=0
+2026-10-06 00:08:15.659 INFO  [main] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_pinned cam=0 parent_cycle=55 phase=0 next_phase_released=true
+2026-10-06 00:08:15.660 INFO  [phase-one-begin] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait_done cam=0 parent_cycle=55 phase=1
+2026-10-06 00:16:22.956 INFO  [phase-one-begin] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait cam=0 parent_cycle=55 phase=1 waiting_for_phase=0
+2026-10-06 00:16:23.038 INFO  [phase-one-begin] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait_done cam=0 parent_cycle=55 phase=1
+2026-10-06 01:29:03.030 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit15633291473646413446\camera_runtime_settings.json cameras=2
+2026-10-06 01:29:03.039 INFO  [main] c.e.i.o.i.c.CameraSettingsStore - camera settings store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit6089004022531014984\camera_runtime_settings.json cameras=1
+2026-10-06 01:29:03.072 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit12627720007142538805\geometry_runtime_settings.json profiles=2
+2026-10-06 01:29:03.078 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit8028723546440786484\geometry_runtime_settings.json profiles=1
+2026-10-06 01:29:03.078 INFO  [main] c.e.i.o.i.c.GeometryRuntimeConfig - geometry runtime overrides restored from store profiles=1
+2026-10-06 01:29:03.082 INFO  [main] c.e.i.o.i.c.GeometryRuntimeStore - geometry runtime store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit11558857276251367701\geometry_runtime_settings.json profiles=0
+2026-10-06 01:29:03.103 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit5615797485278134464\archive max_frames_per_camera=10
+2026-10-06 01:29:03.159 INFO  [uitest-ut] c.e.i.o.i.c.UiTestAnalyzeServiceTest - ui test-analyze done jobId=69b8fa1784ab40d2be2cb69985e76e81 cam=0 frame=42 pass=true python=OK geometry=OK
+2026-10-06 01:29:03.179 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit9467822885317925907\archive max_frames_per_camera=10
+2026-10-06 01:29:03.187 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit2160592087600753808\archive max_frames_per_camera=10
+2026-10-06 01:29:03.229 INFO  [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=di3_trigger phase=0 parent_cycle=77 raw_seq=43 cameras=10
+2026-10-06 01:29:03.229 DEBUG [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=wait_frame_start phase=0 cam=1 parent_cycle=77 raw_seq=43
+2026-10-06 01:29:03.230 WARN  [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=phase1_trigger_while_phase0_capture parent_cycle=77 since_phase0_di3_ms=0 busy=[cam=1 phase0_wait_frame_ms=0] hint=DI3#2 ??????, ????? ????? ??? ? wait_frame phase 0 (?????? ?? ????ger?, ??? ???????)
+2026-10-06 01:29:03.230 INFO  [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=di3_trigger phase=1 parent_cycle=77 raw_seq=44 cameras=10 since_phase0_di3_ms=0
+2026-10-06 01:29:03.233 INFO  [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=di3_trigger phase=0 parent_cycle=88 raw_seq=50 cameras=10
+2026-10-06 01:29:03.233 DEBUG [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=wait_frame_start phase=0 cam=3 parent_cycle=88 raw_seq=50
+2026-10-06 01:29:03.233 WARN  [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=phase1_wait_frame_while_phase0 cam=3 parent_cycle=88 phase0_raw_seq=50 phase1_raw_seq=51 phase0_wait_frame_ms=0 hint=DI3#2 arm wait_frame, ?? worker ??? ? wait_frame phase 0 — ???? ???????? ????? phase 1
+2026-10-06 01:29:03.234 DEBUG [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=wait_frame_start phase=1 cam=3 parent_cycle=88 raw_seq=51
+2026-10-06 01:29:03.236 INFO  [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=di3_trigger phase=0 parent_cycle=99 raw_seq=60 cameras=10
+2026-10-06 01:29:03.243 DEBUG [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=wait_frame_start phase=0 cam=2 parent_cycle=99 raw_seq=60
+2026-10-06 01:29:03.244 INFO  [main] two-phase-capture-diagnostics-test - sync_diag channel=inspect event=capture_ok phase=0 cam=2 parent_cycle=99 raw_seq=60 frame_id=1001 since_di3_ms=8 orch_ms=55 worker_latency_ms=48
+2026-10-06 01:29:03.247 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins disabled (plc_fins.enabled=false)
+2026-10-06 01:29:03.250 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc: FINS only (ready sticky + reject lines + fault; no IO-box DO1-4)
+2026-10-06 01:29:03.252 WARN  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result client_ws unavailable — bucket verdict will not be sent to UI
+2026-10-06 01:29:03.252 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true unhealthy=[])
+2026-10-06 01:29:03.252 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-10-06 01:29:03.253 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=false vision_fault=true (reference_active=true healthy=false unhealthy=[io_input_monitor])
+2026-10-06 01:29:03.253 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true unhealthy=[])
+2026-10-06 01:29:03.269 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 01:29:03.272 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 01:29:03.272 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 01:29:03.272 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 01:29:03.272 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 01:29:03.273 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 01:29:03.276 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 01:29:03.277 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 01:29:03.278 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 01:29:03.279 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 01:29:03.280 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 01:29:03.280 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 01:29:03.281 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 01:29:03.282 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 01:29:03.283 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 01:29:03.285 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 01:29:03.286 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash Off (DI2 falling)
+2026-10-06 01:29:03.286 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 01:29:03.287 INFO  [interval-flash] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash On (DI2 rising)
+2026-10-06 01:29:03.288 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 01:29:03.290 INFO  [main] c.e.i.o.i.l.IntervalFlashControllerTest - interval_flash close: bank Off
+2026-10-06 01:29:03.412 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-0 brightness 80% -> 42%
+2026-10-06 01:29:03.412 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 42%
+2026-10-06 01:29:03.412 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 42% -> 55%
+2026-10-06 01:29:03.415 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit11990504508090700796\light_brightness_settings.json default=42 endpoints=2
+2026-10-06 01:29:03.419 INFO  [main] c.e.i.o.i.l.LightBrightnessStore - light brightness store loaded path=C:\Users\Administrator\AppData\Local\Temp\junit148660330600260013\bom.json default=67 endpoints=1
+2026-10-06 01:29:03.427 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-1 brightness 80% -> 33%
+2026-10-06 01:29:03.427 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light brightness deferred until after capture Off (memory updated)
+2026-10-06 01:29:03.429 INFO  [main] c.e.i.o.i.l.LightTriggerClient - light camera-3 brightness 80% -> 55%
+2026-10-06 01:29:03.454 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=10 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:03.454 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=10 phase=0 group=0 pass=true
+2026-10-06 01:29:03.456 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket capture-only suppressed parent=12 phase=0 group=0 frames=2/2 timeout=false
+2026-10-06 01:29:03.556 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-10-06 01:29:03.556 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=20 phase=0 group=0 pass=false
+2026-10-06 01:29:03.556 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=20 group=1 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:03.557 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=20 phase=0 group=1 pass=true
+2026-10-06 01:29:03.558 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=200 group=0 pass=true frames=1/1 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:03.558 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=200 phase=0 group=0 pass=true
+2026-10-06 01:29:03.693 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=200 group=1 pass=false frames=1/1 reject_cameras=[1] seam_strict=false
+2026-10-06 01:29:03.693 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=200 phase=0 group=1 pass=false
+2026-10-06 01:29:03.695 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=101 group=2 pass=true frames=1/1 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:03.695 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=100 phase=1 group=2 pass=true
+2026-10-06 01:29:03.696 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=101 group=3 pass=true frames=1/1 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:03.696 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=100 phase=1 group=3 pass=true
+2026-10-06 01:29:03.697 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=100 group=1 pass=true frames=1/1 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:03.697 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=100 phase=0 group=1 pass=true
+2026-10-06 01:29:03.697 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=100 group=0 pass=true frames=1/1 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:03.697 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=100 phase=0 group=0 pass=true
+2026-10-06 01:29:03.699 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=11 group=0 pass=false frames=2/2 reject_cameras=[1] seam_strict=false
+2026-10-06 01:29:03.699 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=11 phase=0 group=0 pass=false
+2026-10-06 01:29:03.700 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=31 group=0 seam_strict=false sibling_vis=0.8 joint_cam=0 joint_pass=true par=2.0 width=1.2 strict_pass=false force_reject=false
+2026-10-06 01:29:03.701 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=31 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:03.701 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=31 phase=0 group=0 pass=true
+2026-10-06 01:29:03.702 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=30 group=0 seam_strict=false sibling_vis=0.05 joint_cam=0 joint_pass=true par=2.0 width=1.2 strict_pass=false force_reject=false
+2026-10-06 01:29:03.702 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=30 group=0 pass=true frames=2/2 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:03.702 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=30 phase=0 group=0 pass=true
+2026-10-06 01:29:03.703 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket seam_gate seq=32 group=0 seam_strict=true sibling_vis=0.05 joint_cam=0 joint_pass=false par=2.0 width=0.3 strict_pass=false force_reject=true
+2026-10-06 01:29:03.703 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection bucket complete seq=32 group=0 pass=false frames=2/2 reject_cameras=[] seam_strict=true
+2026-10-06 01:29:03.704 INFO  [main] c.e.i.o.i.p.b.BucketInspectionAggregatorTest - inspection group immediate fanout parent=32 phase=0 group=0 pass=false
+2026-10-06 01:29:05.726 INFO  [pool-3-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=100 group=1 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:05.726 INFO  [pool-3-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=100 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:05.726 INFO  [pool-3-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection group immediate fanout parent=100 phase=0 group=1 pass=true
+2026-10-06 01:29:05.726 INFO  [pool-3-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection group immediate fanout parent=100 phase=0 group=0 pass=true
+2026-10-06 01:29:06.699 INFO  [pool-4-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=150 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:06.699 INFO  [pool-4-thread-5] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection group immediate fanout parent=150 phase=0 group=0 pass=true
+2026-10-06 01:29:09.347 INFO  [pool-4-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=150 group=1 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:09.347 INFO  [pool-4-thread-10] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection group immediate fanout parent=150 phase=0 group=1 pass=true
+2026-10-06 01:29:09.364 INFO  [main] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=300 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:09.365 INFO  [main] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection group immediate fanout parent=300 phase=0 group=0 pass=true
+2026-10-06 01:29:13.380 WARN  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket timeout seq=300 group=1 received=3/5 cameras=[5, 6, 7]
+2026-10-06 01:29:13.380 INFO  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection bucket complete seq=300 group=1 pass=false frames=3/5 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:13.381 INFO  [bucket-inspection-timeout] c.e.i.o.i.p.b.OmronTwoBucketPipelineSlaTest - inspection group immediate fanout parent=300 phase=0 group=1 pass=false
+2026-10-06 01:29:14.466 INFO  [pool-5-thread-18] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection bucket complete seq=101 group=3 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:14.466 INFO  [pool-5-thread-18] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection group immediate fanout parent=100 phase=1 group=3 pass=true
+2026-10-06 01:29:14.496 INFO  [pool-5-thread-15] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection bucket complete seq=101 group=2 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:14.497 INFO  [pool-5-thread-15] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection group immediate fanout parent=100 phase=1 group=2 pass=true
+2026-10-06 01:29:14.592 INFO  [pool-5-thread-1] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection bucket complete seq=100 group=0 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:14.592 INFO  [pool-5-thread-1] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection group immediate fanout parent=100 phase=0 group=0 pass=true
+2026-10-06 01:29:14.644 INFO  [pool-5-thread-10] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection bucket complete seq=100 group=1 pass=true frames=5/5 reject_cameras=[] seam_strict=false
+2026-10-06 01:29:14.645 INFO  [pool-5-thread-10] c.e.i.o.i.p.b.TenFramePipelineBenchmarkTest - inspection group immediate fanout parent=100 phase=0 group=1 pass=true
+2026-10-06 01:29:14.650 INFO  [main] c.e.i.o.i.p.d.DefaultInspectionDecisionAggregatorTest - inspection_decision cam=1 frame=42 overall=false action=REJECT py_ok=false py_status=UNKNOWN anomaly=0.0 threshold=null geom_pass=true geom_status=UNKNOWN align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-10-06 01:29:14.650 INFO  [main] c.e.i.o.i.p.d.DefaultInspectionDecisionAggregatorTest - inspection_decision cam=1 frame=42 overall=true action=ACCEPT py_ok=true py_status=PASS anomaly=0.0 threshold=null geom_pass=true geom_status=UNKNOWN align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-10-06 01:29:14.650 INFO  [main] c.e.i.o.i.p.d.DefaultInspectionDecisionAggregatorTest - inspection_decision cam=1 frame=42 overall=false action=REJECT py_ok=false py_status=PASS anomaly=0.0 threshold=null geom_pass=true geom_status=PASS align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-10-06 01:29:14.650 INFO  [main] c.e.i.o.i.p.d.DefaultInspectionDecisionAggregatorTest - inspection_decision cam=1 frame=42 overall=false action=REJECT py_ok=true py_status=PASS anomaly=0.0 threshold=null geom_pass=false geom_status=ERROR align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-10-06 01:29:14.652 INFO  [main] c.e.i.o.i.p.d.DefaultInspectionDecisionAggregatorTest - inspection_decision cam=1 frame=42 overall=true action=ACCEPT py_ok=true py_status=PASS anomaly=0.1 threshold=null geom_pass=true geom_status=PASS align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-10-06 01:29:14.663 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=0 group=0 product_type=product-0#phase=0#cam=0 frame_id=frame-0 shm=/iml_ref_phase0_cam0 source_shm=bucket-a-cam-0 python_servers=[]
+2026-10-06 01:29:14.664 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=1 group=0 product_type=product-0#phase=0#cam=1 frame_id=frame-1 shm=/iml_ref_phase0_cam1 source_shm=bucket-a-cam-1 python_servers=[]
+2026-10-06 01:29:14.664 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=2 group=0 product_type=product-0#phase=0#cam=2 frame_id=frame-2 shm=/iml_ref_phase0_cam2 source_shm=bucket-a-cam-2 python_servers=[]
+2026-10-06 01:29:14.665 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=3 group=0 product_type=product-0#phase=0#cam=3 frame_id=frame-3 shm=/iml_ref_phase0_cam3 source_shm=bucket-a-cam-3 python_servers=[]
+2026-10-06 01:29:14.665 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=4 group=0 product_type=product-0#phase=0#cam=4 frame_id=frame-4 shm=/iml_ref_phase0_cam4 source_shm=bucket-a-cam-4 python_servers=[]
+2026-10-06 01:29:14.669 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=5 group=1 product_type=product-5#phase=0#cam=5 frame_id=frame-5 shm=/iml_ref_phase0_cam5 source_shm=bucket-b-cam-5 python_servers=[]
+2026-10-06 01:29:14.669 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=6 group=1 product_type=product-5#phase=0#cam=6 frame_id=frame-6 shm=/iml_ref_phase0_cam6 source_shm=bucket-b-cam-6 python_servers=[]
+2026-10-06 01:29:14.670 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=7 group=1 product_type=product-5#phase=0#cam=7 frame_id=frame-7 shm=/iml_ref_phase0_cam7 source_shm=bucket-b-cam-7 python_servers=[]
+2026-10-06 01:29:14.671 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=8 group=1 product_type=product-5#phase=0#cam=8 frame_id=frame-8 shm=/iml_ref_phase0_cam8 source_shm=bucket-b-cam-8 python_servers=[]
+2026-10-06 01:29:14.671 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=9 group=1 product_type=product-5#phase=0#cam=9 frame_id=frame-9 shm=/iml_ref_phase0_cam9 source_shm=bucket-b-cam-9 python_servers=[]
+2026-10-06 01:29:14.680 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=0 group=0 product_type=product-0#phase=0#cam=0 frame_id=frame-0 shm=/iml_ref_phase0_cam0 source_shm=phase0-cam-0 python_servers=[]
+2026-10-06 01:29:14.681 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=1 group=0 product_type=product-0#phase=0#cam=1 frame_id=frame-1 shm=/iml_ref_phase0_cam1 source_shm=phase0-cam-1 python_servers=[]
+2026-10-06 01:29:14.681 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=2 group=0 product_type=product-0#phase=0#cam=2 frame_id=frame-2 shm=/iml_ref_phase0_cam2 source_shm=phase0-cam-2 python_servers=[]
+2026-10-06 01:29:14.682 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=3 group=0 product_type=product-0#phase=0#cam=3 frame_id=frame-3 shm=/iml_ref_phase0_cam3 source_shm=phase0-cam-3 python_servers=[]
+2026-10-06 01:29:14.682 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=0 cam=4 group=0 product_type=product-0#phase=0#cam=4 frame_id=frame-4 shm=/iml_ref_phase0_cam4 source_shm=phase0-cam-4 python_servers=[]
+2026-10-06 01:29:14.684 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=0 group=2 product_type=product-0#phase=1#cam=0 frame_id=frame-0 shm=/iml_ref_phase1_cam0 source_shm=phase1-cam-0 python_servers=[]
+2026-10-06 01:29:14.684 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=1 group=2 product_type=product-0#phase=1#cam=1 frame_id=frame-1 shm=/iml_ref_phase1_cam1 source_shm=phase1-cam-1 python_servers=[]
+2026-10-06 01:29:14.685 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=2 group=2 product_type=product-0#phase=1#cam=2 frame_id=frame-2 shm=/iml_ref_phase1_cam2 source_shm=phase1-cam-2 python_servers=[]
+2026-10-06 01:29:14.685 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=3 group=2 product_type=product-0#phase=1#cam=3 frame_id=frame-3 shm=/iml_ref_phase1_cam3 source_shm=phase1-cam-3 python_servers=[]
+2026-10-06 01:29:14.686 INFO  [main] c.e.i.o.i.p.r.PipelineReferenceRegistryTest - pipeline reference from client phase=1 cam=4 group=2 product_type=product-0#phase=1#cam=4 frame_id=frame-4 shm=/iml_ref_phase1_cam4 source_shm=phase1-cam-4 python_servers=[]
+2026-10-06 01:29:14.693 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-10-06 01:29:14.696 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=2: capture-only frame=23 delivered to ui (geometry/python skipped — no reference)
+2026-10-06 01:29:14.699 INFO  [pool-19-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_decision cam=0 frame=7 overall=true action=ACCEPT py_ok=true py_status=PASS anomaly=0.05 threshold=null geom_pass=true geom_status=PASS align_pass=null wrinkles=null joint=null seam_par=0.0 seam_w=0.0 seam_vis=0.0 joint_cam=false
+2026-10-06 01:29:14.700 INFO  [pool-19-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - inspection_timing cam=0 frame=7 positioning_ms=0 capture_to_geometry_done_ms=0 capture_to_python_done_ms=0 capture_frame_to_inspection_end_ms=2
+2026-10-06 01:29:14.700 INFO  [pool-19-thread-1] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - stage_timing cam=0 frame=7 total_ms=2 pipeline_ms=6 reference_ms=0 capture_ms=1 positioning_ms=0 python_ms=3 geometry_ms=2 decision_ms=0 fanout_ms=0 pos_orb_ms=0.0 pos_warp_ms=0.0 pos_ecc_ms=0.0 pos_write_ms=0.0 py_align_ms=0.0 py_diff_ms=0.0 py_anomaly_ms=0.0 py_fp_recheck_ms=0.0 py_encode_ms=0.0 py_total_ms=0.0
+2026-10-06 01:29:14.702 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=0: inspection cycle cancelled before start
+2026-10-06 01:29:14.703 INFO  [main] c.e.i.o.i.p.s.AsyncInspectionCycleRunnerTest - integration cam=1: capture-only frame=11 delivered to ui (geometry/python skipped — no reference)
+2026-10-06 01:29:14.708 INFO  [phase-one-begin] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait cam=0 parent_cycle=55 phase=1 waiting_for_phase=0
+2026-10-06 01:29:14.791 INFO  [phase-one-begin] c.e.i.o.i.p.s.PerCameraInspectionGate - sync_diag channel=inspect event=phase_capture_wait_done cam=0 parent_cycle=55 phase=1
+2026-10-06 01:29:14.798 INFO  [main] c.e.i.o.i.p.s.InspectGeometryExecutorTest - integration cam=0: geometry skipped (client reference without joint ROI)
+2026-10-06 01:29:14.801 INFO  [main] c.e.i.o.i.p.s.InspectGeometryExecutorTest - positioning_timing cam=0 frame=15 wall_ms=0 service_ms=0.0 orb_ms=0.0 warp_ms=0.0 ecc_ms=0.0 write_ms=0.0 status=? shift=(null, null) rot=null aligned=null raw_abs=null coarse_abs=null orb_abs=null final_abs=null final_ncc=null residual=(null, null) coarse_shift=(null, null) orb_good=null orb_inliers=null ecc_ok=null ecc_cc=null
+2026-10-06 01:29:14.802 INFO  [main] c.e.i.o.i.p.s.InspectGeometryExecutorTest - integration cam=0: geometry skipped (client reference without joint ROI)
+2026-10-06 01:29:14.805 INFO  [main] c.e.i.o.i.p.s.InspectGeometryExecutorTest - integration cam=2: geometry skipped (geometry_enabled=false)
+2026-10-06 01:29:17.102 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-unexpected pid=2652 command=[cmd.exe, /c, exit /b 0]
+2026-10-06 01:29:17.119 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - started external service exit-test-close pid=1752 command=[cmd.exe, /c, ping -n 30 127.0.0.1 >nul]
+2026-10-06 01:29:17.120 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - stopping external service exit-test-close pid=1752
+2026-10-06 01:29:17.127 INFO  [main] c.e.i.o.i.s.ExternalServiceProcess - external service exit-test-close stopped
+2026-10-06 01:29:17.555 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-10-06 01:29:17.556 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window DI2? — accept frames until +80 ms, then cancel leftovers
+2026-10-06 01:29:17.557 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-10-06 01:29:17.645 INFO  [pool-61-thread-1] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=di2_low frames=1/2 leftover_cancel=[]
+2026-10-06 01:29:17.709 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-10-06 01:29:17.709 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window skip open — already collecting frames=0/4
+2026-10-06 01:29:17.709 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-10-06 01:29:17.710 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-10-06 01:29:17.710 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-10-06 01:29:17.710 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-10-06 01:29:17.710 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[]
+2026-10-06 01:29:17.711 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=4 timeout_ms=60000
+2026-10-06 01:29:17.711 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/4 cam=0 phase=0 parent_cycle=1
+2026-10-06 01:29:17.712 WARN  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window duplicate frame ignored cam=0 phase=0 parent_cycle=1 frames=1/4
+2026-10-06 01:29:17.712 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/4 cam=0 phase=1 parent_cycle=1
+2026-10-06 01:29:17.712 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=3/4 cam=1 phase=0 parent_cycle=1
+2026-10-06 01:29:17.712 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=4/4 cam=1 phase=1 parent_cycle=1
+2026-10-06 01:29:17.713 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=4/4 leftover_cancel=[]
+2026-10-06 01:29:17.713 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-10-06 01:29:17.714 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=1/2 cam=0 phase=0 parent_cycle=1
+2026-10-06 01:29:17.714 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window frames=2/2 cam=0 phase=1 parent_cycle=1
+2026-10-06 01:29:17.714 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=complete frames=2/2 leftover_cancel=[]
+2026-10-06 01:29:17.714 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window open target_frames=2 timeout_ms=60000
+2026-10-06 01:29:17.714 INFO  [main] c.e.i.o.i.t.Di2CaptureWindowTest - di2_window close reason=test frames=0/2 leftover_cancel=[]
+2026-10-06 01:29:17.718 WARN  [main] c.e.i.o.i.t.DiShutdownControllerTest - DI4=1 — ?????????? ??????????: lights Off, vision_ready=0, vision_fault=1, stop orchestrator (di4_shutdown)
+2026-10-06 01:29:17.769 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-10-06 01:29:17.769 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-10-06 01:29:18.217 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-10-06 01:29:18.217 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-10-06 01:29:18.217 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-10-06 01:29:18.217 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-10-06 01:29:18.218 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-10-06 01:29:18.218 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-10-06 01:29:18.218 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-10-06 01:29:18.237 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit374072706583074437 max_frames_per_camera=2
+2026-10-06 01:29:18.239 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=C:\Users\Administrator\AppData\Local\Temp\junit374072706583074437\settings.json max_frames_per_camera=2
+2026-10-06 01:29:18.239 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 2
+2026-10-06 01:29:18.254 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit9633535398801427236 max_frames_per_camera=20
+2026-10-06 01:29:18.255 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=C:\Users\Administrator\AppData\Local\Temp\junit9633535398801427236\settings.json max_frames_per_camera=37
+2026-10-06 01:29:18.255 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 37
+2026-10-06 01:29:18.256 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings loaded path=C:\Users\Administrator\AppData\Local\Temp\junit9633535398801427236\settings.json max_frames_per_camera=37
+2026-10-06 01:29:18.256 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit9633535398801427236 max_frames_per_camera=37
+2026-10-06 01:29:18.258 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit3129717426824528869 max_frames_per_camera=5
+2026-10-06 01:29:18.263 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit17099752743975340835 max_frames_per_camera=2
+2026-10-06 01:29:18.264 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=C:\Users\Administrator\AppData\Local\Temp\junit17099752743975340835\settings.json max_frames_per_camera=2
+2026-10-06 01:29:18.264 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 2
+2026-10-06 01:29:18.285 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit13025009457325095506 max_frames_per_camera=5
+2026-10-06 01:29:18.289 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit950407093652137841 max_frames_per_camera=5
+2026-10-06 01:29:18.290 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=C:\Users\Administrator\AppData\Local\Temp\junit950407093652137841\settings.json max_frames_per_camera=5
+2026-10-06 01:29:18.290 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 5
+2026-10-06 01:29:18.321 INFO  [main] c.e.i.o.i.u.FrameArchiveSettingsStore - frame archive settings saved path=C:\Users\Administrator\AppData\Local\Temp\junit950407093652137841\settings.json max_frames_per_camera=2
+2026-10-06 01:29:18.323 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive max_frames_per_camera set to 2
+2026-10-06 01:29:18.326 INFO  [main] c.e.i.o.i.u.FrameArchiveService - frame archive enabled directory=C:\Users\Administrator\AppData\Local\Temp\junit894449327062240963 max_frames_per_camera=5

@@ -7,7 +7,7 @@ export type InspectionVisualState = "pass" | "fail" | "capture";
  * либо оба stage-статуса PASS при отсутствии общего вердикта.
  */
 export function resolveInspectionResultState(
-  inspectResult?: InspectResultPayload,
+  inspectResult?: Partial<InspectResultPayload>,
 ): InspectionVisualState | undefined {
   if (isCaptureOnlyInspectResult(inspectResult)) {
     return "capture";
@@ -39,7 +39,7 @@ export function resolveInspectionResultState(
   return undefined;
 }
 
-export function isCaptureOnlyInspectResult(inspectResult?: InspectResultPayload): boolean {
+export function isCaptureOnlyInspectResult(inspectResult?: Partial<InspectResultPayload>): boolean {
   if (!inspectResult) {
     return false;
   }

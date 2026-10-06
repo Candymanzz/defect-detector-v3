@@ -9,7 +9,7 @@ function previewFrame(cameraId: number): PreviewFramePayload {
   return {
     camera_id: cameraId,
     frame_id: `frame-${cameraId}`,
-    session_state: "ready",
+    session_state: "READY",
     current: {
       camera_id: cameraId,
       frame_id: `frame-${cameraId}`,
@@ -70,9 +70,13 @@ describe("createReferenceBundleFromCameraFrames", () => {
       { 0: circle },
       jointRoi,
       [],
+      1,
+      2,
     );
 
     expect(bundle.views[0].interest_polygon_norm).toHaveLength(circle.length);
+    expect(bundle.phase_id).toBe(1);
+    expect(bundle.group_id).toBe(2);
     expect(bundle.views[0].interest_roi.width).toBeGreaterThan(1);
     expect(bundle.views[0].interest_roi.height).toBeGreaterThan(1);
   });

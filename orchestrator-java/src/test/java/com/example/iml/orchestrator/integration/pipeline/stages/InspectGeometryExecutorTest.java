@@ -210,6 +210,50 @@ class InspectGeometryExecutorTest {
     }
 
     @Test
+    void runsPositioningWhenGeometryIsSkippedForMissingJointRoi() {
+        AtomicInteger positioningCalls = new AtomicInteger();
+        AtomicInteger geometryCalls = new AtomicInteger();
+        InspectPositioningExecutor positioning = new InspectPositioningExecutor(
+                LogManager.getLogger(getClass()),
+                List.of(countingSupervisor(positioningCalls)),
+                new Semaphore(1),
+                new AtomicInteger(),
+                Map.of("enabled", true, "fail_on_reject", false)
+        );
+        InspectGeometryExecutor withPositioning = new InspectGeometryExecutor(
+                LogManager.getLogger(getClass()),
+                null,
+                null,
+                positioning,
+                Set.of()
+        );
+        ReferenceSnapshot noJoint = new ReferenceSnapshot("bench", Map.of(
+                "shm_name", "ref_shm",
+                "width", 120,
+                "height", 90,
+                "stride", 360,
+                "client_reference_bundle", true
+        ));
+
+        PipelineState result = withPositioning.apply(
+                stateWithCapture(),
+                0,
+                "bench",
+                noJoint,
+                Map.of(),
+                Map.of(),
+                List.of(countingSupervisor(geometryCalls)),
+                new Semaphore(1),
+                new AtomicInteger(0)
+        );
+
+        assertEquals(1, positioningCalls.get());
+        assertEquals(0, geometryCalls.get());
+        assertEquals("SKIPPED", result.geom().header().get("status"));
+        assertTrue(result.capture().header().containsKey("positioning_ms"));
+    }
+
+    @Test
     void callsGeometryWhenClientReferenceHasJointRoi() {
         AtomicInteger calls = new AtomicInteger();
         ReferenceSnapshot withJoint = new ReferenceSnapshot("bench", Map.of(

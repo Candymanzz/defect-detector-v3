@@ -129,6 +129,10 @@ def _inspect_shm_sync(
         detector_id=payload.detector_id,
         alignment_h_ref_to_cur=payload.alignment_h_ref_to_cur,
         analysis_profile=payload.analysis_profile,
+        camera_id=payload.camera_id,
+        frame_id=payload.frame_id,
+        phase_id=payload.phase_id,
+        shm_name=payload.shm_name,
     )
 
 

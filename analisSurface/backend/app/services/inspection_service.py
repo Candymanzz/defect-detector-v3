@@ -38,6 +38,35 @@ from app.services.learned_normals import (
 logger = logging.getLogger(__name__)
 
 _FP_CROP_MIN = 64
+_verdict_logger_ready = False
+_verdict_logger_lock = threading.Lock()
+
+
+def _inspect_verdict_logger() -> logging.Logger:
+    """Пишет вердикт в logs/python-inspect.log и в stderr процесса uvicorn."""
+    global _verdict_logger_ready
+    verdict_logger = logging.getLogger("inspect_verdict")
+    if _verdict_logger_ready:
+        return verdict_logger
+    with _verdict_logger_lock:
+        if _verdict_logger_ready:
+            return verdict_logger
+        verdict_logger.setLevel(logging.INFO)
+        verdict_logger.propagate = False
+        formatter = logging.Formatter("%(asctime)s %(message)s")
+        stream = logging.StreamHandler()
+        stream.setFormatter(formatter)
+        verdict_logger.addHandler(stream)
+        log_path = Path(__file__).resolve().parents[4] / "logs" / "python-inspect.log"
+        try:
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            file_handler = logging.FileHandler(log_path, encoding="utf-8")
+            file_handler.setFormatter(formatter)
+            verdict_logger.addHandler(file_handler)
+        except OSError:
+            logger.warning("inspect verdict file log unavailable: %s", log_path)
+        _verdict_logger_ready = True
+    return verdict_logger
 
 
 class InspectionService:
@@ -700,6 +729,10 @@ class InspectionService:
         detector_id: Optional[str] = None,
         alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None,
         analysis_profile: Optional[str] = None,
+        camera_id: Optional[int] = None,
+        frame_id: Optional[str | int] = None,
+        phase_id: Optional[int] = None,
+        shm_name: Optional[str] = None,
     ) -> InspectionResult:
         # --- Пайплайн инспекции (см. docs/GUIDE.md) ---
         settings_key = (analysis_profile or "").strip() or product_type
@@ -710,12 +743,13 @@ class InspectionService:
         reference = reference.copy()
 
         # 1. Совместить текущий кадр с эталоном (geometry H или ORB+homography, затем ECC).
-        aligned = self._align_to_reference(
+        aligned, align_mode = self._align_to_reference(
             frame,
             reference,
             product_type,
             alignment_h_ref_to_cur=alignment_h_ref_to_cur,
         )
+        pose_gap = self._measure_pose_gap(aligned, reference)
 
         # 2. Ограничить анализ ROI-полигоном (вне полигона — нули).
         polygon = self.get_roi_polygon(product_type)
@@ -841,6 +875,28 @@ class InspectionService:
         except Exception:
             inspection_id = None
             logger.exception("failed to save inspection history product_type=%s", product_type)
+
+        self._log_inspect_verdict(
+            product_type=product_type,
+            camera_id=camera_id,
+            frame_id=frame_id,
+            phase_id=phase_id,
+            shm_name=shm_name,
+            align_mode=align_mode,
+            pose_gap=pose_gap,
+            status=status,
+            anomaly_score=anomaly_score,
+            raw_score=raw_score,
+            learned_score=learned_score,
+            main_roi_score=main_roi_score,
+            inspection_threshold=inspection_threshold,
+            sub_zone_scores=sub_zone_scores,
+            fp_zone_scores=fp_recheck["fp_zone_scores"],
+            learned_matches=learned_filter.matched_candidates_count,
+            diff_map=diff_map,
+            filtered_diff_map=filtered_diff_map,
+            segmentation_mask=segmentation_mask,
+        )
 
         return InspectionResult(
             product_type=product_type,
@@ -1477,6 +1533,168 @@ class InspectionService:
             cv2.polylines(overlay, [pts], isClosed=True, color=color, thickness=2)
         return cv2.addWeighted(overlay, 0.18, heatmap, 0.82, 0.0)
 
+    def _log_inspect_verdict(
+        self,
+        *,
+        product_type: str,
+        camera_id: Optional[int],
+        frame_id: Optional[str | int],
+        phase_id: Optional[int],
+        shm_name: Optional[str],
+        align_mode: str,
+        pose_gap: dict[str, float],
+        status: str,
+        anomaly_score: float,
+        raw_score: float,
+        learned_score: float,
+        main_roi_score: float,
+        inspection_threshold: float,
+        sub_zone_scores: list[RoiSubZoneScore],
+        fp_zone_scores: list[FPZoneScore],
+        learned_matches: int,
+        diff_map: np.ndarray,
+        filtered_diff_map: np.ndarray,
+        segmentation_mask: np.ndarray,
+    ) -> None:
+        """Одна строка на кадр: почему вердикт такой и насколько кадр ещё смещён относительно эталона."""
+        verdict = "FAIL" if status == "БРАК" else "PASS"
+        reasons: list[str] = []
+        if main_roi_score >= inspection_threshold:
+            reasons.append(f"main_roi {main_roi_score:.3f}>={inspection_threshold:.3f}")
+        for zone in sub_zone_scores:
+            if zone.status == "БРАК":
+                reasons.append(f"sub:{zone.zone_id} {zone.anomaly_score:.3f}>={zone.threshold:.3f}")
+        for zone in fp_zone_scores:
+            if zone.status == "БРАК":
+                reasons.append(f"fp:{zone.zone_id} residual={zone.residual_score:.3f} {zone.note}")
+        pose_px = float(pose_gap.get("residual_px", 0.0))
+        if pose_px >= 2.0:
+            reasons.append(
+                f"pose_gap dx={pose_gap.get('dx', 0.0):.1f} dy={pose_gap.get('dy', 0.0):.1f} px={pose_px:.1f}"
+            )
+        if verdict == "FAIL" and not reasons:
+            reasons.append(f"score {anomaly_score:.3f}>={inspection_threshold:.3f}")
+        reason = "ok" if verdict == "PASS" and pose_px < 2.0 else "; ".join(reasons) or "ok"
+        raw_mean, raw_p95, raw_active = self._diff_stats(diff_map)
+        filt_mean, filt_p95, filt_active = self._diff_stats(filtered_diff_map)
+        mask_gray = segmentation_mask if segmentation_mask.ndim == 2 else cv2.cvtColor(segmentation_mask, cv2.COLOR_BGR2GRAY)
+        mask_active = float(np.count_nonzero(mask_gray) / mask_gray.size) if mask_gray.size else 0.0
+        verdict_logger = _inspect_verdict_logger()
+        verdict_logger.info(
+            "inspect_verdict cam=%s frame=%s phase=%s product=%s shm=%s align=%s verdict=%s "
+            "score=%.3f raw=%.3f learned=%.3f main=%.3f thr=%.3f learned_matches=%s "
+            "residual_dx=%.1f residual_dy=%.1f residual_px=%.1f phase_response=%.3f "
+            "absdiff_mean=%.1f absdiff_p95=%.1f ncc=%.3f "
+            "heat_centroid_dx=%.1f heat_centroid_dy=%.1f "
+            "diff_mean=%.1f diff_p95=%.1f diff_active=%.3f "
+            "filtered_mean=%.1f filtered_p95=%.1f filtered_active=%.3f mask_active=%.3f "
+            "reason=%s",
+            camera_id if camera_id is not None else "-",
+            frame_id if frame_id is not None else "-",
+            phase_id if phase_id is not None else "-",
+            product_type,
+            shm_name or "-",
+            align_mode,
+            verdict,
+            anomaly_score,
+            raw_score,
+            learned_score,
+            main_roi_score,
+            inspection_threshold,
+            learned_matches,
+            pose_gap.get("dx", 0.0),
+            pose_gap.get("dy", 0.0),
+            pose_px,
+            pose_gap.get("response", 0.0),
+            pose_gap.get("absdiff_mean", 0.0),
+            pose_gap.get("absdiff_p95", 0.0),
+            pose_gap.get("ncc", 0.0),
+            pose_gap.get("heat_centroid_dx", 0.0),
+            pose_gap.get("heat_centroid_dy", 0.0),
+            raw_mean,
+            raw_p95,
+            raw_active,
+            filt_mean,
+            filt_p95,
+            filt_active,
+            mask_active,
+            reason,
+        )
+
+    @staticmethod
+    def _diff_stats(image: np.ndarray) -> tuple[float, float, float]:
+        gray = image if image.ndim == 2 else cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        if gray.size == 0:
+            return 0.0, 0.0, 0.0
+        return (
+            float(gray.mean()),
+            float(np.percentile(gray, 95)),
+            float(np.count_nonzero(gray) / gray.size),
+        )
+
+    @staticmethod
+    def _measure_pose_gap(aligned: np.ndarray, reference: np.ndarray) -> dict[str, float]:
+        """Остаточный сдвиг совмещённого кадра относительно эталона. Его и рисует хитмапа."""
+        empty = {
+            "dx": 0.0,
+            "dy": 0.0,
+            "residual_px": 0.0,
+            "response": 0.0,
+            "absdiff_mean": 0.0,
+            "absdiff_p95": 0.0,
+            "ncc": 0.0,
+            "heat_centroid_dx": 0.0,
+            "heat_centroid_dy": 0.0,
+        }
+        if aligned.size == 0 or reference.size == 0:
+            return empty
+        if aligned.shape[:2] != reference.shape[:2]:
+            aligned = cv2.resize(aligned, (reference.shape[1], reference.shape[0]))
+        ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
+        cur_gray = cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY)
+        height, width = ref_gray.shape[:2]
+        longest = max(width, height, 1)
+        scale = 256.0 / longest
+        if scale < 1.0:
+            small_size = (max(8, int(round(width * scale))), max(8, int(round(height * scale))))
+            ref_small = cv2.resize(ref_gray, small_size, interpolation=cv2.INTER_AREA)
+            cur_small = cv2.resize(cur_gray, small_size, interpolation=cv2.INTER_AREA)
+            pixel_scale = 1.0 / scale
+        else:
+            ref_small = ref_gray
+            cur_small = cur_gray
+            pixel_scale = 1.0
+        shift, response = cv2.phaseCorrelate(np.float32(ref_small), np.float32(cur_small))
+        dx = float(shift[0]) * pixel_scale
+        dy = float(shift[1]) * pixel_scale
+        absdiff = cv2.absdiff(ref_small, cur_small)
+        ref_f = ref_small.astype(np.float32)
+        cur_f = cur_small.astype(np.float32)
+        ref_f -= float(ref_f.mean())
+        cur_f -= float(cur_f.mean())
+        denom = float(np.linalg.norm(ref_f) * np.linalg.norm(cur_f))
+        ncc = float(np.sum(ref_f * cur_f) / denom) if denom > 1e-6 else 0.0
+        weight = absdiff.astype(np.float32)
+        total = float(weight.sum())
+        heat_dx = 0.0
+        heat_dy = 0.0
+        if total > 0.0:
+            rows, cols = weight.shape[:2]
+            yy, xx = np.mgrid[0:rows, 0:cols]
+            heat_dx = (float((weight * xx).sum()) / total - cols / 2.0) * pixel_scale
+            heat_dy = (float((weight * yy).sum()) / total - rows / 2.0) * pixel_scale
+        return {
+            "dx": dx,
+            "dy": dy,
+            "residual_px": float(np.hypot(dx, dy)),
+            "response": float(response),
+            "absdiff_mean": float(absdiff.mean()),
+            "absdiff_p95": float(np.percentile(absdiff, 95)),
+            "ncc": ncc,
+            "heat_centroid_dx": heat_dx,
+            "heat_centroid_dy": heat_dy,
+        }
+
     def _decode_image(self, image_bytes: bytes) -> np.ndarray:
         data = np.frombuffer(image_bytes, dtype=np.uint8)
         image = cv2.imdecode(data, cv2.IMREAD_COLOR)
@@ -1512,7 +1730,7 @@ class InspectionService:
         reference: np.ndarray,
         product_type: str,
         alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None,
-    ) -> np.ndarray:
+    ) -> tuple[np.ndarray, str]:
         """Привести current к системе координат reference.
 
         Приоритет: гомография от java-geometry/positioning → ORB-матчи + findHomography → resize.
@@ -1522,8 +1740,8 @@ class InspectionService:
         """
         if self._is_identity_homography(alignment_h_ref_to_cur):
             if current.shape[:2] != reference.shape[:2]:
-                return cv2.resize(current, (reference.shape[1], reference.shape[0]))
-            return current
+                return cv2.resize(current, (reference.shape[1], reference.shape[0])), "identity_resize"
+            return current, "identity"
 
         geometry_aligned = self._align_with_geometry_homography(
             current,
@@ -1531,13 +1749,13 @@ class InspectionService:
             alignment_h_ref_to_cur,
         )
         if geometry_aligned is not None:
-            return self._refine_alignment_ecc(geometry_aligned, reference)
+            return self._refine_alignment_ecc(geometry_aligned, reference), "geometry_ecc"
 
         cur_gray = cv2.cvtColor(current, cv2.COLOR_BGR2GRAY)
         kp_ref, des_ref = self._get_ref_orb(product_type, reference)
         kp_cur, des_cur = self._orb.detectAndCompute(cur_gray, None)
         if des_ref is None or des_cur is None or len(kp_ref) < 8 or len(kp_cur) < 8:
-            return cv2.resize(current, (reference.shape[1], reference.shape[0]))
+            return cv2.resize(current, (reference.shape[1], reference.shape[0])), "resize_no_features"
 
         # Lowe ratio test: оставляем только однозначные дескрипторные соответствия.
         matches = self._matcher.knnMatch(des_cur, des_ref, k=2)
@@ -1550,18 +1768,18 @@ class InspectionService:
                 good_matches.append(m)
 
         if len(good_matches) < 8:
-            return cv2.resize(current, (reference.shape[1], reference.shape[0]))
+            return cv2.resize(current, (reference.shape[1], reference.shape[0])), "resize_few_matches"
 
         src_pts = np.float32([kp_cur[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
         dst_pts = np.float32([kp_ref[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
 
         homography, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 1.0)
         if homography is None or mask is None:
-            return cv2.resize(current, (reference.shape[1], reference.shape[0]))
+            return cv2.resize(current, (reference.shape[1], reference.shape[0])), "resize_no_homography"
 
         height, width = reference.shape[:2]
         aligned = cv2.warpPerspective(current, homography, (width, height))
-        return self._refine_alignment_ecc(aligned, reference)
+        return self._refine_alignment_ecc(aligned, reference), "orb_ecc"
 
     @staticmethod
     def _use_fixed_frame(current: np.ndarray, reference: np.ndarray) -> np.ndarray:

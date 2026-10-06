@@ -129,6 +129,116 @@ class ReferenceBundleParserTest {
     }
 
     @Test
+    void parseBundleRejectsFrameFromAnotherPhase() throws Exception {
+        JsonNode envelope = MAPPER.readTree("""
+                {
+                  "protocol_version": 1,
+                  "payload": {
+                    "product_type": "bench",
+                    "phase_id": 1,
+                    "group_id": 2,
+                    "joint_view_index": 0,
+                    "heatmap_width": 10,
+                    "heatmap_height": 10,
+                    "views": [{
+                      "frame": {
+                        "camera_id": 0,
+                        "frame_id": "52",
+                        "phase_id": 0,
+                        "shm_name": "/cam0",
+                        "width": 10,
+                        "height": 10,
+                        "stride": 30
+                      },
+                      "interest_roi": {"x": 0, "y": 0, "width": 10, "height": 10},
+                      "interest_polygon_norm": [
+                        {"x": 0, "y": 0}, {"x": 1, "y": 0}, {"x": 1, "y": 1}
+                      ],
+                      "joint_roi": {"x": 1, "y": 1, "width": 8, "height": 8}
+                    }],
+                    "fp_zones": []
+                  }
+                }
+                """);
+
+        ReferenceBundleParser.Result result = ReferenceBundleParser.parseBundle(envelope, 1, List.of(0));
+
+        assertInstanceOf(ReferenceBundleParser.Result.Err.class, result);
+        assertEquals("phase_mismatch", ((ReferenceBundleParser.Result.Err) result).code());
+    }
+
+    @Test
+    void parseBundleRejectsMixedCycleWhenPhaseIsDeclared() throws Exception {
+        JsonNode envelope = phaseCycleEnvelope("52", "54");
+        ReferenceBundleParser.Result result = ReferenceBundleParser.parseBundle(envelope, 1, List.of(0, 1));
+
+        assertInstanceOf(ReferenceBundleParser.Result.Err.class, result);
+        assertEquals("reference_cycle_mismatch", ((ReferenceBundleParser.Result.Err) result).code());
+    }
+
+    @Test
+    void parseBundleAcceptsOneCycleForDeclaredPhase() throws Exception {
+        JsonNode envelope = phaseCycleEnvelope("52", "52");
+        ReferenceBundleParser.Result result = ReferenceBundleParser.parseBundle(envelope, 1, List.of(0, 1));
+
+        assertInstanceOf(ReferenceBundleParser.Result.Ok.class, result);
+        ReferenceBundleSnapshot snapshot = ((ReferenceBundleParser.Result.Ok) result).snapshot();
+        assertEquals(1, snapshot.phaseId());
+        assertEquals("52", snapshot.views().get(0).frame().frameId());
+        assertEquals("52", snapshot.views().get(1).frame().frameId());
+    }
+
+    private static JsonNode phaseCycleEnvelope(String firstFrameId, String secondFrameId) throws Exception {
+        return MAPPER.readTree("""
+                {
+                  "protocol_version": 1,
+                  "payload": {
+                    "product_type": "bench",
+                    "phase_id": 1,
+                    "group_id": 2,
+                    "joint_view_index": 0,
+                    "heatmap_width": 10,
+                    "heatmap_height": 10,
+                    "views": [
+                      {
+                        "frame": {
+                          "camera_id": 0,
+                          "frame_id": "%s",
+                          "phase_id": 1,
+                          "shm_name": "/cam0",
+                          "width": 10,
+                          "height": 10,
+                          "stride": 30
+                        },
+                        "interest_roi": {"x": 0, "y": 0, "width": 10, "height": 10},
+                        "interest_polygon_norm": [
+                          {"x": 0, "y": 0}, {"x": 1, "y": 0}, {"x": 1, "y": 1}
+                        ],
+                        "joint_roi": {"x": 1, "y": 1, "width": 8, "height": 8}
+                      },
+                      {
+                        "frame": {
+                          "camera_id": 1,
+                          "frame_id": "%s",
+                          "phase_id": 1,
+                          "shm_name": "/cam1",
+                          "width": 10,
+                          "height": 10,
+                          "stride": 30
+                        },
+                        "interest_roi": {"x": 0, "y": 0, "width": 10, "height": 10},
+                        "interest_polygon_norm": [
+                          {"x": 0, "y": 0}, {"x": 1, "y": 0}, {"x": 1, "y": 1}
+                        ]
+                      }
+                    ],
+                    "fp_zones": []
+                  }
+                }
+                """.formatted(firstFrameId, secondFrameId));
+    }
+
+    @Test
     void parseFpZonesPayloadRejectsTooFewPoints() throws Exception {
         JsonNode zones = MAPPER.readTree("""
                 [{ "points_norm_heatmap": [{ "x": 0.1, "y": 0.2 }] }]

@@ -183,10 +183,10 @@ public final class InspectPositioningExecutor {
             putIfPresent(captureHeader, "positioning_diagnostics", resp.header().get("diagnostics"));
         }
 
-        // Только при overallPass: иначе в SHM может лежать raw/битый кадр, а Python
-        // получит identity H и даст anomaly=1.0. При FAIL идём с исходным capture
-        // (как в комментарии java_positioning: «при неудачном align — исходный кадр»).
-        if (ok && alignedWritten && resp != null) {
+        // Совмещение принадлежит сервису позиционирования. Если он записал кадр,
+        // Python получает его как уже выровненный (identity H) и только считает дефект,
+        // в том числе когда overallPass=false из-за качества на фазе 1.
+        if (alignedWritten && resp != null) {
             String outName = String.valueOf(resp.header().getOrDefault("output_shm_name", "")).trim();
             if (outName.isEmpty()) {
                 outName = String.valueOf(resp.header().getOrDefault("shm_name", "")).trim();
@@ -200,22 +200,20 @@ public final class InspectPositioningExecutor {
                 putIfPresent(captureHeader, "height", resp.header().get("height"));
                 putIfPresent(captureHeader, "stride", resp.header().get("stride"));
                 captureHeader.put(HEADER_ALIGNED, true);
-                // Explicit UI hint: inspection JPEG / cards must use the aligned buffer.
                 captureHeader.put("ui_preview_shm_name", captureHeader.get("shm_name"));
-                // Positioned buffer owns the frame now — drop the per-cycle line pin early.
                 LineFramePinService.releasePinnedCapture(Map.of(
                         "shm_name", previousShm == null ? "" : previousShm,
                         "camera_id", cameraId
                 ));
+                if (!ok && log != null) {
+                    log.info(
+                            "positioning quality FAIL cam={} frame={} absdiff={} — aligned frame still sent to python",
+                            cameraId,
+                            captureHeader.get("frame_id"),
+                            captureHeader.get("positioning_final_absdiff")
+                    );
+                }
             }
-        } else if (alignedWritten && !ok && log != null) {
-            log.info(
-                    "positioning fallback_to_raw cam={} frame={} status={} absdiff={} — not marking aligned for python",
-                    cameraId,
-                    captureHeader.get("frame_id"),
-                    captureHeader.get("positioning_status"),
-                    captureHeader.get("positioning_final_absdiff")
-            );
         }
 
         if (resp != null && resp.header() != null) {

@@ -7,7 +7,7 @@ import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
 import com.example.iml.orchestrator.integration.pipeline.spi.PythonInspectStage;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
-import com.example.iml.orchestrator.integration.clientapi.AnalisSurfaceHttpBinaryRpcSupervisor;
+import com.example.iml.orchestrator.integration.python.AnalisSurfacePoolSupport;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
 
@@ -173,29 +173,20 @@ public final class InspectPythonExecutor implements PythonInspectStage {
             AtomicInteger roundRobin,
             int phaseId
     ) {
-        if (phaseId < 0) {
-            return pythonPool.get(Math.floorMod(roundRobin.getAndIncrement(), pythonPool.size()));
-        }
-        List<String> serverUrls = pythonPool.stream()
-                .filter(AnalisSurfaceHttpBinaryRpcSupervisor.class::isInstance)
-                .map(AnalisSurfaceHttpBinaryRpcSupervisor.class::cast)
-                .map(AnalisSurfaceHttpBinaryRpcSupervisor::baseUrl)
-                .distinct()
-                .toList();
-        if (serverUrls.size() < 2) {
-            return pythonPool.get(Math.floorMod(roundRobin.getAndIncrement(), pythonPool.size()));
-        }
-        String targetUrl = serverUrls.get(Math.floorMod(phaseId, serverUrls.size()));
-        List<? extends BinaryRpcSupervisor> phasePool = pythonPool.stream()
-                .filter(p -> p instanceof AnalisSurfaceHttpBinaryRpcSupervisor http
-                        && targetUrl.equals(http.baseUrl()))
-                .toList();
+        List<BinaryRpcSupervisor> phasePool = phaseId < 0
+                ? List.of()
+                : AnalisSurfacePoolSupport.clientsForPhase(pythonPool, phaseId);
         if (phasePool.isEmpty()) {
+            if (phaseId >= 0) {
+                throw new IllegalStateException(
+                        "no analisSurface server for phase " + phaseId
+                                + " (odd ports keep phase 0 references, even ports keep phase 1)"
+                );
+            }
             return pythonPool.get(Math.floorMod(roundRobin.getAndIncrement(), pythonPool.size()));
         }
         int ticket = roundRobin.getAndIncrement();
-        int clientIndex = Math.floorDiv(Math.floorMod(ticket, Integer.MAX_VALUE), serverUrls.size());
-        return phasePool.get(Math.floorMod(clientIndex, phasePool.size()));
+        return phasePool.get(Math.floorMod(ticket, phasePool.size()));
     }
 
     private static boolean hasValidCaptureFrame(PipelineState state) {

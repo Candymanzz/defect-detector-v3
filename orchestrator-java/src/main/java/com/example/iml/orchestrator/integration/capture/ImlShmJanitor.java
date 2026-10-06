@@ -7,6 +7,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.LinkedHashSet;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -30,13 +33,15 @@ public final class ImlShmJanitor {
     private static final Pattern STABLE_FILE = Pattern.compile(
             "^iml_cam_\\d+_frame$"
                     + "|^iml_ref_cam\\d+$"
+                    + "|^iml_ref_phase\\d+_cam\\d+$"
                     + "|^iml_pos_cam_\\d+$"
                     + "|^iml_ds_[a-z_]+_cam\\d+$"
                     + "|^iml_py_ds_(cur|ref)_cam\\d+$"
                     + "|^iml_ui_(inspect|heatmap)_cam_\\d+$"
     );
 
-    private static final Pattern LINE_PIN_FILE = Pattern.compile("^iml_line_pin_cam\\d+_f\\d+$");
+    private static final Pattern LINE_PIN_FILE = Pattern.compile("^iml_line_pin_cam(\\d+)_f\\d+$");
+    private static final int RETAIN_LATEST_LINE_PINS_PER_CAMERA = 2;
 
     private ImlShmJanitor() {
     }
@@ -67,12 +72,21 @@ public final class ImlShmJanitor {
         long deleted = 0L;
         long freedBytes = 0L;
         try (Stream<Path> entries = Files.list(dir)) {
-            for (Path entry : entries.toList()) {
+            List<Path> allEntries = entries.toList();
+            Set<Path> retainedLatestPins = latestLinePinsByCamera(allEntries);
+            for (Path entry : allEntries) {
                 if (!Files.isRegularFile(entry)) {
                     continue;
                 }
                 String name = entry.getFileName().toString();
                 if (!isEphemeralLinePin(name)) {
+                    continue;
+                }
+                // Reference setup happens after capture and ROI editing. Keep
+                // the latest two captures (phase 0 + phase 1) per camera even
+                // after the normal TTL, otherwise the UI can only save a
+                // reference during a very short race window.
+                if (retainedLatestPins.contains(entry)) {
                     continue;
                 }
                 if (fileTimeMs(entry) >= cutoffMs) {
@@ -99,6 +113,28 @@ public final class ImlShmJanitor {
                     maxAge.toSeconds()
             );
         }
+    }
+
+    private static Set<Path> latestLinePinsByCamera(List<Path> entries) {
+        Map<String, List<Path>> byCamera = new HashMap<>();
+        for (Path entry : entries) {
+            if (!Files.isRegularFile(entry)) {
+                continue;
+            }
+            var matcher = LINE_PIN_FILE.matcher(entry.getFileName().toString());
+            if (!matcher.matches()) {
+                continue;
+            }
+            byCamera.computeIfAbsent(matcher.group(1), ignored -> new java.util.ArrayList<>()).add(entry);
+        }
+        Set<Path> retained = new LinkedHashSet<>();
+        for (List<Path> cameraPins : byCamera.values()) {
+            cameraPins.stream()
+                    .sorted(Comparator.comparingLong(ImlShmJanitor::fileTimeMs).reversed())
+                    .limit(RETAIN_LATEST_LINE_PINS_PER_CAMERA)
+                    .forEach(retained::add);
+        }
+        return retained;
     }
 
     /**
@@ -134,6 +170,10 @@ public final class ImlShmJanitor {
                     header.get("camera_id")
             );
         }
+    }
+
+    public static boolean isRetainedAtStartup(String fileName) {
+        return fileName != null && STABLE_FILE.matcher(fileName).matches();
     }
 
     public static boolean isEphemeralLinePin(String shmNameOrBase) {

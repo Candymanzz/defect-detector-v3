@@ -297,6 +297,7 @@ public final class BinaryInspectHeaders {
         pyHeader.put("op", "inspect_shm");
         pyHeader.put("camera_id", cameraId);
         pyHeader.put("frame_id", capture.header().get("frame_id"));
+        pyHeader.put("phase_id", YamlScalars.toInt(capture.header().get("phase_id"), 0));
         pyHeader.put("product_type", productType);
         pyHeader.put("detector_id", detectorId);
         // Keep the threshold absent so Python can resolve default_threshold from the

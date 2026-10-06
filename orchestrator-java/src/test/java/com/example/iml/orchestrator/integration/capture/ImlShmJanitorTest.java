@@ -27,15 +27,18 @@ class ImlShmJanitorTest {
         assertTrue(ImlShmJanitor.isEphemeralLinePin("iml_line_pin_cam5_f42"));
         assertTrue(ImlShmJanitor.isEphemeralLinePin("/iml_line_pin_cam0_f1"));
         assertFalse(ImlShmJanitor.isEphemeralLinePin("iml_ref_cam5"));
+        assertTrue(ImlShmJanitor.isRetainedAtStartup("iml_ref_phase0_cam0"));
+        assertTrue(ImlShmJanitor.isRetainedAtStartup("iml_ref_phase1_cam9"));
+        assertFalse(ImlShmJanitor.isRetainedAtStartup("iml_line_pin_cam0_f28"));
         assertFalse(ImlShmJanitor.isEphemeralLinePin("iml_pos_cam_5"));
         assertFalse(ImlShmJanitor.isEphemeralLinePin("iml_cam_5_frame"));
     }
 
     @Test
     void releaseEphemeralCaptureBuffersDeletesLinePinsOnly() throws Exception {
-        Path pin = FrameJpegWriter.imlShmFilePath("iml_line_pin_cam9_f7");
-        Path ref = FrameJpegWriter.imlShmFilePath("iml_ref_cam9");
-        Path ring = FrameJpegWriter.imlShmFilePath("iml_cam_9_frame");
+        Path pin = FrameJpegWriter.imlShmFilePath("iml_line_pin_cam90_f7");
+        Path ref = FrameJpegWriter.imlShmFilePath("iml_ref_cam90");
+        Path ring = FrameJpegWriter.imlShmFilePath("iml_cam_90_frame");
         Path parent = pin.getParent();
         if (parent != null) {
             Files.createDirectories(parent);
@@ -46,9 +49,9 @@ class ImlShmJanitorTest {
 
         ImlShmJanitor.releaseEphemeralCaptureBuffers(
                 Map.of(
-                        "shm_name", "/iml_pos_cam_9",
-                        "original_shm_name", "/iml_line_pin_cam9_f7",
-                        "camera_id", 9
+                        "shm_name", "/iml_pos_cam_90",
+                        "original_shm_name", "/iml_line_pin_cam90_f7",
+                        "camera_id", 90
                 ),
                 null
         );
@@ -56,29 +59,43 @@ class ImlShmJanitorTest {
         assertFalse(Files.exists(pin));
         assertTrue(Files.isRegularFile(ref));
         assertTrue(Files.isRegularFile(ring));
+        Files.deleteIfExists(ref);
+        Files.deleteIfExists(ring);
     }
 
     @Test
     void purgeEphemeralOlderThanDeletesStaleLinePinsOnly() throws Exception {
-        Path pin = FrameJpegWriter.imlShmFilePath("iml_line_pin_cam3_f99");
-        Path ref = FrameJpegWriter.imlShmFilePath("iml_ref_cam3");
-        Path parent = pin.getParent();
+        Path oldestPin = FrameJpegWriter.imlShmFilePath("iml_line_pin_cam90_f97");
+        Path phase0Pin = FrameJpegWriter.imlShmFilePath("iml_line_pin_cam90_f98");
+        Path phase1Pin = FrameJpegWriter.imlShmFilePath("iml_line_pin_cam90_f99");
+        Path ref = FrameJpegWriter.imlShmFilePath("iml_ref_cam91");
+        Path parent = oldestPin.getParent();
         if (parent != null) {
             Files.createDirectories(parent);
         }
-        Files.write(pin, new byte[] {1, 2, 3});
+        Files.write(oldestPin, new byte[] {1});
+        Files.write(phase0Pin, new byte[] {2});
+        Files.write(phase1Pin, new byte[] {3});
         Files.write(ref, new byte[] {4, 5, 6});
-        Files.setLastModifiedTime(pin, java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis() - 60_000L));
+        long now = System.currentTimeMillis();
+        Files.setLastModifiedTime(oldestPin, java.nio.file.attribute.FileTime.fromMillis(now - 62_000L));
+        Files.setLastModifiedTime(phase0Pin, java.nio.file.attribute.FileTime.fromMillis(now - 61_000L));
+        Files.setLastModifiedTime(phase1Pin, java.nio.file.attribute.FileTime.fromMillis(now - 60_000L));
 
         ImlShmJanitor.purgeEphemeralOlderThan(java.time.Duration.ofSeconds(30), null);
 
-        assertFalse(Files.exists(pin));
+        assertFalse(Files.exists(oldestPin));
+        assertTrue(Files.isRegularFile(phase0Pin));
+        assertTrue(Files.isRegularFile(phase1Pin));
         assertTrue(Files.isRegularFile(ref));
+        Files.deleteIfExists(phase0Pin);
+        Files.deleteIfExists(phase1Pin);
+        Files.deleteIfExists(ref);
     }
 
     @Test
     void purgeEphemeralOlderThanKeepsFreshLinePins() throws Exception {
-        Path pin = FrameJpegWriter.imlShmFilePath("iml_line_pin_cam4_f100");
+        Path pin = FrameJpegWriter.imlShmFilePath("iml_line_pin_cam90_f100");
         Path parent = pin.getParent();
         if (parent != null) {
             Files.createDirectories(parent);

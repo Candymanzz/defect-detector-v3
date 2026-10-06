@@ -25,6 +25,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     message,
     cameraSlots,
     cameraGroups,
+    activeReferenceGroup,
     activeGroupIndex,
     setActiveGroupIndex,
     jointCameraId,
@@ -55,13 +56,14 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     selectedRoiMode === "joint" ? jointRoiPolygon : (roiPolygonsByCameraId[selectedCameraId] ?? []);
   const archivedReferences = useSyncExternalStore(subscribeReferenceImages, getArchivedReferenceGroups, () => []);
   const activeCameraIds = cameraSlots.map((slot) => slot.cameraId);
-  const activeGroupKey = createCameraGroupKey(activeCameraIds);
   const activeGroupArchivedReferences = archivedReferences.filter(
-    (archive) => createCameraGroupKey(archive.cameraIds) === activeGroupKey,
+    (archive) =>
+      (archive.bundle.phase_id ?? 0) === (activeReferenceGroup?.phaseId ?? 0) &&
+      (archive.bundle.group_id ?? -1) === (activeReferenceGroup?.groupId ?? -1),
   );
   const activeReferenceKey = useSyncExternalStore(
     subscribeReferenceImages,
-    () => createActiveReferenceKey(activeCameraIds),
+    () => createActiveReferenceKey(activeCameraIds, activeReferenceGroup?.phaseId, activeReferenceGroup?.groupId),
     () => "",
   );
   const selectedArchive =
@@ -148,15 +150,15 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
 
           <div className="reference-setup__layout">
             <aside className="reference-setup__sidebar reference-setup__sidebar--cameras">
-              <h3>Группа камер</h3>
+              <h3>Ведро</h3>
               <div
                 className="reference-setup__group-switch"
                 role="tablist"
-                aria-label="Группы камер"
+                aria-label="Вёдра"
               >
-                {cameraGroups.map((groupCameraIds, groupIndex) => (
+                {cameraGroups.map((group, groupIndex) => (
                   <button
-                    key={groupCameraIds.join("-")}
+                    key={group.key}
                     aria-selected={groupIndex === activeGroupIndex}
                     className={
                       groupIndex === activeGroupIndex
@@ -167,13 +169,13 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     type="button"
                     onClick={() => setActiveGroupIndex(groupIndex)}
                   >
-                    Группа {groupIndex + 1}
-                    <span>Камеры {groupCameraIds.join(", ")}</span>
+                    {group.label}
+                    <span>Фаза {group.phaseId + 1} · камеры {group.cameraIds.join(", ")}</span>
                   </button>
                 ))}
               </div>
 
-              <h3>Камеры группы {activeGroupIndex + 1}</h3>
+              <h3>{activeReferenceGroup?.label ?? "Ведро"} · камеры эталона</h3>
               <div className="reference-setup__camera-list">
                 {cameraSlots.map((slot) => {
                   const hasFrame = Boolean(slot.frame);
@@ -609,18 +611,14 @@ function createFpZoneId() {
   return `fp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function createActiveReferenceKey(cameraIds: number[]) {
+function createActiveReferenceKey(cameraIds: number[], phaseId?: number, groupId?: number) {
   return cameraIds
     .map((cameraId) => {
-      const referenceImage = getReferenceImage(cameraId);
+      const referenceImage = getReferenceImage(cameraId, phaseId, groupId);
       return referenceImage ? createReferenceImageKey(cameraId, referenceImage) : "";
     })
     .filter(Boolean)
     .join("|");
-}
-
-function createCameraGroupKey(cameraIds: number[]) {
-  return [...cameraIds].sort((left, right) => left - right).join(",");
 }
 
 function createArchiveReferenceKey(archive: ArchivedReferenceGroup) {

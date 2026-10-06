@@ -122,18 +122,21 @@ public final class PipelineReferenceRegistry {
             String detectorId = detectorIdResolver == null ? "" : detectorIdResolver.apply(frame.cameraId());
             Map<String, Object> refHdr = BinaryInspectHeaders.setReferenceShmHeader(
                     scopedProductType, detectorId, durableHeader);
-            for (BinaryRpcSupervisor python : AnalisSurfacePoolSupport.uniqueServerClients(pythonPool)) {
+            List<BinaryRpcSupervisor> phaseServers =
+                    AnalisSurfacePoolSupport.uniqueServerClientsForPhase(pythonPool, snap.phaseId());
+            for (BinaryRpcSupervisor python : phaseServers) {
                 python.command(refHdr);
             }
             log.info(
-                    "pipeline reference from client phase={} cam={} group={} product_type={} frame_id={} shm={} source_shm={}",
+                    "pipeline reference from client phase={} cam={} group={} product_type={} frame_id={} shm={} source_shm={} python_servers={}",
                     snap.phaseId(),
                     frame.cameraId(),
                     bucketGroupId,
-                    snap.productType(),
+                    scopedProductType,
                     frame.frameId(),
                     durableHeader.get("shm_name"),
-                    frame.shmName()
+                    frame.shmName(),
+                    phaseServers.stream().map(BinaryRpcSupervisor::supervisorLabel).toList()
             );
         }
     }
@@ -168,9 +171,12 @@ public final class PipelineReferenceRegistry {
                 return header;
             }
         }
-        Path sourcePath = FrameJpegWriter.resolveShmPath(shmName, resolvedCameraId);
-        if (sourcePath == null || !Files.isRegularFile(sourcePath)) {
-            throw new IOException("reference shm not found: " + shmName);
+        Path sourcePath = FrameJpegWriter.resolveExactShmPath(shmName);
+        if (sourcePath == null) {
+            throw new IOException(
+                    "reference shm not found: " + shmName
+                            + " (live camera buffer is not used as a phase reference)"
+            );
         }
         long frameBytes = (long) stride * (long) height;
         Path destPath = FrameJpegWriter.imlShmFilePath(durableBase);

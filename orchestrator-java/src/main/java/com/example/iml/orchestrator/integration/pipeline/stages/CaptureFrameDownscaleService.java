@@ -48,7 +48,9 @@ public final class CaptureFrameDownscaleService {
         }
         try {
             int resolvedCameraId = YamlScalars.toInt(src.get("camera_id"), cameraId);
-            Path sourcePath = FrameJpegWriter.resolveShmPath(shmName, resolvedCameraId);
+            Path sourcePath = "client_reference".equals(sourceTag)
+                    ? FrameJpegWriter.resolveExactShmPath(shmName)
+                    : FrameJpegWriter.resolveShmPath(shmName, resolvedCameraId);
             if (sourcePath == null || !Files.isRegularFile(sourcePath)) {
                 throw new IOException("source shm not found: " + shmName);
             }
