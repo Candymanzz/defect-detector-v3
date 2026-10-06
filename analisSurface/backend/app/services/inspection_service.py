@@ -8,6 +8,7 @@ import threading
 import time
 import uuid
 from datetime import datetime, timezone
+from collections import OrderedDict
 from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
@@ -84,6 +85,59 @@ def _cached_vertical_compensation_gain(height: int) -> np.ndarray:
         gain = 1.0 + (_VERTICAL_COMPENSATION_MAX_GAIN - 1.0) * far_from_camera
     gain.setflags(write=False)
     return gain
+
+
+class _ReferenceFeatureCache:
+    """LRU-кэш признаков эталона (всё, что не зависит от текущего кадра).
+
+    Ключ — (товар, хэш эталона, масштаб, ROI, кроп); значение — dict с мемо-признаками.
+    Массивы внутри read-only: случайная мутация упадёт громко, а не испортит соседние кадры.
+    """
+
+    def __init__(self, max_entries: int) -> None:
+        self._max_entries = max(1, int(max_entries))
+        self._entries: "OrderedDict[tuple, dict]" = OrderedDict()
+        self._lock = threading.Lock()
+
+    def entry(self, key: tuple) -> dict:
+        with self._lock:
+            memo = self._entries.get(key)
+            if memo is None:
+                memo = {}
+                self._entries[key] = memo
+                while len(self._entries) > self._max_entries:
+                    self._entries.popitem(last=False)
+            else:
+                self._entries.move_to_end(key)
+            return memo
+
+    def clear(self) -> None:
+        with self._lock:
+            self._entries.clear()
+
+
+def _reference_cache_size() -> int:
+    raw = os.environ.get("ANALIS_REFERENCE_CACHE_ENTRIES", "24").strip()
+    try:
+        return max(1, min(256, int(raw)))
+    except ValueError:
+        return 24
+
+
+def _memo(memo: Optional[dict], key: object, compute):
+    """Вычислить значение один раз на ключ эталона; без memo — просто посчитать."""
+    if memo is None:
+        return compute()
+    value = memo.get(key)
+    if value is None:
+        value = compute()
+        memo[key] = value
+    return value
+
+
+def _freeze(*arrays: np.ndarray) -> None:
+    for array in arrays:
+        array.setflags(write=False)
 
 
 def _gaussian_similarity(values: np.ndarray, scale: float) -> np.ndarray:
@@ -195,6 +249,7 @@ class InspectionService:
         self._last_segmentation_masks: Dict[str, np.ndarray] = {}
         self._last_aligned: Dict[str, np.ndarray] = {}
         self._last_aligned_ref_hash: Dict[str, str] = {}
+        self._reference_features = _ReferenceFeatureCache(_reference_cache_size())
         data_dir = Path(__file__).resolve().parent.parent / "data"
         self._accepted_normals = AcceptedNormalMemory(
             learned_normals_dir if learned_normals_dir is not None else data_dir / "accepted_normals",
@@ -1008,6 +1063,13 @@ class InspectionService:
             diff_bbox,
             diff_source_aligned.shape,
         )
+        reference_memo = self._reference_memo_for(
+            product_type,
+            reference.shape,
+            inspect_scale_after_align,
+            polygon,
+            diff_bbox,
+        )
         diff_crop = self._compute_advanced_difference(
             diff_source_aligned,
             diff_source_reference,
@@ -1019,6 +1081,7 @@ class InspectionService:
             if diff_bbox is not None
             else None,
             roi_vertical_bounds=roi_vertical_bounds,
+            reference_memo=reference_memo,
         )
         if diff_bbox is not None:
             crop_x, crop_y, crop_width, crop_height = diff_bbox
@@ -1199,6 +1262,15 @@ class InspectionService:
                 full_region,
             )
             precomputed_main_score = float(max(raw_score, activity["score"]))
+        # С ROI-полигоном/подзонами score той же diff_map равен raw_score, если нет
+        # learned-нормалей и FP-перепроверки (diff не менялся) — см. _score_inspection_regions.
+        unmasked_main_score: Optional[float] = (
+            float(raw_score)
+            if precomputed_main_score is None
+            and not learned_filter.matched_case_ids
+            and fp_skipped
+            else None
+        )
 
         main_roi_score, sub_zone_scores, anomaly_score, status = self._score_inspection_regions(
             filtered_diff_map=filtered_diff_map,
@@ -1208,6 +1280,7 @@ class InspectionService:
             polygon=polygon,
             sub_zones=sub_zones,
             precomputed_main_score=precomputed_main_score,
+            unmasked_main_score=unmasked_main_score,
         )
         log_analysis_stage(
             "regional_scoring",
@@ -1467,11 +1540,24 @@ class InspectionService:
         polygon: Optional[list[Tuple[float, float]]],
         sub_zones: list[RoiSubZone],
         precomputed_main_score: Optional[float] = None,
+        unmasked_main_score: Optional[float] = None,
     ) -> tuple[float, list[RoiSubZoneScore], float, str]:
         """Единый расчёт вердикта для live-inspect и ознакомительного review."""
         h, w = filtered_diff_map.shape[:2]
         hole_polygons = [zone.points for zone in sub_zones]
         main_region_mask = combine_region_masks(w, h, polygon, hole_polygons)
+        if (
+            precomputed_main_score is None
+            and unmasked_main_score is not None
+            and np.any(main_region_mask)
+            and self._diff_is_zero_outside(filtered_diff_map, main_region_mask)
+        ):
+            # Вне маски ROI diff нулевой -> masked_diff == filtered_diff_map, и повторный
+            # прогон модели вернул бы ровно уже посчитанный score (тот же вход и порог).
+            activity = self._measure_zone_activity_mask(
+                filtered_diff_map, segmentation_mask, main_region_mask
+            )
+            precomputed_main_score = float(max(unmasked_main_score, activity["score"]))
         main_roi_score = (
             float(precomputed_main_score)
             if precomputed_main_score is not None
@@ -1510,6 +1596,14 @@ class InspectionService:
         sub_failed = any(entry.status == "БРАК" for entry in sub_zone_scores)
         status = "БРАК" if main_failed or sub_failed else "ГОДЕН"
         return main_roi_score, sub_zone_scores, anomaly_score, status
+
+    @staticmethod
+    def _diff_is_zero_outside(diff_map: np.ndarray, region_mask: np.ndarray) -> bool:
+        outside = np.logical_not(region_mask).view(np.uint8)
+        if not outside.any():
+            return True
+        outside *= 255
+        return not cv2.bitwise_and(diff_map, diff_map, mask=outside).any()
 
     @staticmethod
     def _migrate_legacy_pro_knobs(raw: dict[str, object]) -> dict[str, object]:
@@ -2502,6 +2596,7 @@ class InspectionService:
         vertical_compensation_frame: Optional[tuple[int, int]] = None,
         roi_vertical_bounds: Optional[tuple[int, int]] = None,
         perspective_weights: Optional[tuple[np.ndarray, np.ndarray]] = None,
+        reference_memo: Optional[dict] = None,
     ) -> np.ndarray:
         """Построить карту отличий (BGR), устойчивую к микросдвигу и тексту эталона."""
         if aligned.shape[:2] != reference.shape[:2]:
@@ -2510,32 +2605,48 @@ class InspectionService:
         # Shift-tolerant difference:
         # allow small local displacement by comparing aligned intensity
         # against local min/max envelope of reference.
-        ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
+        original_ref_gray = _memo(
+            reference_memo,
+            "gray",
+            lambda: cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY),
+        )
+        if reference_memo is not None:
+            _freeze(original_ref_gray)
         cur_gray = cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY)
         # Classify illumination on the original gray signal. CLAHE is useful
         # for defects but can turn a smooth shadow/glare into artificial texture.
-        illumination_ref_gray = ref_gray.copy()
+        illumination_ref_gray = original_ref_gray
         illumination_cur_gray = cur_gray.copy()
 
         # CLAHE can over-amplify texture noise on smooth frames. clipLimit≈1.0 is a
         # near no-op — treat it as off so sensitivity can ramp continuously via
         # clahe_clip_limit without a sudden score cliff when the bool flips.
+        clahe_clip: Optional[float] = None
         if (
             settings.enable_clahe
             and float(settings.clahe_clip_limit) > 1.05
             and float(np.std(cur_gray)) > 5.0
         ):
+            clahe_clip = float(settings.clahe_clip_limit)
             clahe = cv2.createCLAHE(clipLimit=settings.clahe_clip_limit, tileGridSize=(8, 8))
-            ref_gray = clahe.apply(ref_gray)
             cur_gray = clahe.apply(cur_gray)
 
         # Light pre-smoothing suppresses matrix/sensor micro-noise so it does not
         # turn into false positives in robust difference map.
-        ref_gray = cv2.GaussianBlur(ref_gray, (5, 5), 0)
         cur_gray = cv2.GaussianBlur(cur_gray, (5, 5), 0)
 
-        ref_min = cv2.erode(ref_gray, _LOCAL_ENVELOPE_KERNEL, iterations=1)
-        ref_max = cv2.dilate(ref_gray, _LOCAL_ENVELOPE_KERNEL, iterations=1)
+        # Всё, что зависит только от эталона (CLAHE/blur, envelope, градиенты, края,
+        # структура текста), считается один раз на эталон и ROI, а не на каждый кадр.
+        ref_features = _memo(
+            reference_memo,
+            ("diff", clahe_clip),
+            lambda: self._reference_diff_features(
+                original_ref_gray, clahe_clip, freeze=reference_memo is not None
+            ),
+        )
+        ref_min = ref_features["min"]
+        ref_max = ref_features["max"]
+        ref_grad_mag = ref_features["grad_mag"]
 
         over = cv2.subtract(cur_gray, ref_max)
         under = cv2.subtract(ref_min, cur_gray)
@@ -2570,6 +2681,7 @@ class InspectionService:
                 illumination_ref_gray,
                 illumination_cur_gray,
                 diagnostics=illumination_diagnostics,
+                reference_memo=reference_memo,
             )
 
         # The bucket is inverted in the camera view, so the upper part of the
@@ -2615,18 +2727,14 @@ class InspectionService:
 
         # Compute gradients once and reuse them for stable-edge suppression,
         # text handling and missing-structure detection.
-        ref_grad_x = cv2.Sobel(ref_gray, cv2.CV_32F, 1, 0, ksize=3)
-        ref_grad_y = cv2.Sobel(ref_gray, cv2.CV_32F, 0, 1, ksize=3)
         cur_grad_x = cv2.Sobel(cur_gray, cv2.CV_32F, 1, 0, ksize=3)
         cur_grad_y = cv2.Sobel(cur_gray, cv2.CV_32F, 0, 1, ksize=3)
-        ref_grad_mag = cv2.magnitude(ref_grad_x, ref_grad_y)
         cur_grad_mag = cv2.magnitude(cur_grad_x, cur_grad_y)
 
         # Suppress only reference edges that are also present in the current
         # frame. A missing/broken edge is evidence and must keep its response.
-        edges_ref = cv2.Canny(ref_gray, 80, 160)
         edges_cur = cv2.Canny(cur_gray, 80, 160)
-        edges_zone = cv2.dilate(edges_ref, _EDGE_ZONE_KERNEL, iterations=2)
+        edges_zone = ref_features["edges_zone"]
         current_edge_zone = cv2.dilate(edges_cur, _EDGE_ZONE_KERNEL, iterations=2)
         edge_mask = (edges_zone > 0) & (current_edge_zone > 0)
         robust_gray = robust_gray.astype(np.float32)
@@ -2667,7 +2775,7 @@ class InspectionService:
         # Structural masking for text-heavy regions:
         # where reference has dense structure, require stronger local contrast
         # to treat response as anomaly.
-        structure_mask = cv2.Sobel(ref_gray, cv2.CV_8U, 1, 1, ksize=3)
+        structure_mask = ref_features["structure_mask"]
         text_like_zone = structure_mask > settings.text_structure_threshold
         if np.any(text_like_zone):
             text_vals = robust_gray[text_like_zone]
@@ -2679,6 +2787,58 @@ class InspectionService:
             ).astype(np.uint8)
         return cv2.cvtColor(robust_gray, cv2.COLOR_GRAY2BGR)
 
+    def _reference_memo_for(
+        self,
+        product_type: str,
+        reference_shape: tuple[int, ...],
+        inspect_scale: Optional[float],
+        polygon: Optional[list[Tuple[float, float]]],
+        diff_bbox: Optional[tuple[int, int, int, int]],
+    ) -> Optional[dict]:
+        """Мемо признаков эталона; None, если эталон не идентифицирован хэшем."""
+        ref_hash = self._reference_hashes.get(product_type)
+        if not ref_hash:
+            return None
+        polygon_key = (
+            tuple((float(x), float(y)) for x, y in polygon) if polygon is not None else None
+        )
+        return self._reference_features.entry(
+            (
+                product_type,
+                ref_hash,
+                tuple(reference_shape),
+                None if inspect_scale is None else round(float(inspect_scale), 6),
+                polygon_key,
+                diff_bbox,
+            )
+        )
+
+    @staticmethod
+    def _reference_diff_features(
+        ref_gray: np.ndarray,
+        clahe_clip: Optional[float],
+        *,
+        freeze: bool,
+    ) -> dict[str, np.ndarray]:
+        """Признаки эталона для карты отличий — зависят только от эталона и CLAHE."""
+        if clahe_clip is not None:
+            ref_gray = cv2.createCLAHE(clipLimit=clahe_clip, tileGridSize=(8, 8)).apply(ref_gray)
+        ref_gray = cv2.GaussianBlur(ref_gray, (5, 5), 0)
+        ref_grad_x = cv2.Sobel(ref_gray, cv2.CV_32F, 1, 0, ksize=3)
+        ref_grad_y = cv2.Sobel(ref_gray, cv2.CV_32F, 0, 1, ksize=3)
+        features = {
+            "min": cv2.erode(ref_gray, _LOCAL_ENVELOPE_KERNEL, iterations=1),
+            "max": cv2.dilate(ref_gray, _LOCAL_ENVELOPE_KERNEL, iterations=1),
+            "grad_mag": cv2.magnitude(ref_grad_x, ref_grad_y),
+            "edges_zone": cv2.dilate(
+                cv2.Canny(ref_gray, 80, 160), _EDGE_ZONE_KERNEL, iterations=2
+            ),
+            "structure_mask": cv2.Sobel(ref_gray, cv2.CV_8U, 1, 1, ksize=3),
+        }
+        if freeze:
+            _freeze(*features.values())
+        return features
+
     @staticmethod
     def _suppress_smooth_illumination(
         robust_gray: np.ndarray,
@@ -2686,6 +2846,7 @@ class InspectionService:
         current_gray: np.ndarray,
         *,
         diagnostics: Optional[dict[str, object]] = None,
+        reference_memo: Optional[dict] = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Suppress broad shadow/glare while retaining local structural changes."""
         height, width = robust_gray.shape[:2]
@@ -2708,7 +2869,13 @@ class InspectionService:
         kernel_size = min(81, max(7, kernel_size | 1))
         ref_float = reference_gray.astype(np.float32)
         cur_float = current_gray.astype(np.float32)
-        low_ref = cv2.GaussianBlur(ref_float, (kernel_size, kernel_size), 0)
+        low_ref = _memo(
+            reference_memo,
+            ("illumination_low", kernel_size),
+            lambda: cv2.GaussianBlur(ref_float, (kernel_size, kernel_size), 0),
+        )
+        if reference_memo is not None:
+            _freeze(low_ref)
         low_cur = cv2.GaussianBlur(cur_float, (kernel_size, kernel_size), 0)
 
         shift = np.abs(low_cur - low_ref)
