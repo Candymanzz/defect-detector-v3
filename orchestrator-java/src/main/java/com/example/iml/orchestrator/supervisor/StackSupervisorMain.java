@@ -309,6 +309,9 @@ public final class StackSupervisorMain {
     private Process startOrchestrator() throws IOException {
         List<String> command = List.of(
                 resolveJavaBinary(),
+                "-Xms256m",
+                "-Xmx1024m",
+                "-XX:+ExitOnOutOfMemoryError",
                 "-jar",
                 orchestratorJar.toAbsolutePath().toString(),
                 configPath.toAbsolutePath().toString()

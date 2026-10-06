@@ -5,6 +5,9 @@ const path = require("node:path");
 const rendererUrl = process.env.ELECTRON_RENDERER_URL;
 const isDev = Boolean(rendererUrl);
 const runtimeLogPath = path.resolve(__dirname, "..", "..", "logs", "electron-runtime.log");
+const rendererRecoveryWindowMs = 60_000;
+const rendererRecoveryLimit = 3;
+const rendererRecoveryTimes = [];
 
 function writeRuntimeLog(event, details = {}) {
   try {
@@ -47,6 +50,36 @@ function createMainWindow() {
   mainWindow.on("closed", () => writeRuntimeLog("window-closed"));
   mainWindow.webContents.on("render-process-gone", (_event, details) => {
     writeRuntimeLog("render-process-gone", details);
+    if (details?.reason === "clean-exit" || app.isQuitting) {
+      return;
+    }
+
+    const now = Date.now();
+    while (rendererRecoveryTimes.length > 0 && now - rendererRecoveryTimes[0] > rendererRecoveryWindowMs) {
+      rendererRecoveryTimes.shift();
+    }
+    if (rendererRecoveryTimes.length >= rendererRecoveryLimit) {
+      writeRuntimeLog("renderer-recovery-skipped", { reason: "rate-limit", attempts: rendererRecoveryTimes.length });
+      return;
+    }
+    rendererRecoveryTimes.push(now);
+
+    // A renderer OOM leaves an otherwise live BrowserWindow black. Drop Chromium's
+    // decoded-resource cache and reload the UI in the same window.
+    setTimeout(async () => {
+      if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {
+        return;
+      }
+      try {
+        if (details?.reason === "oom") {
+          await mainWindow.webContents.session.clearCache();
+        }
+        writeRuntimeLog("renderer-recovery", { reason: details?.reason ?? "unknown" });
+        mainWindow.webContents.reloadIgnoringCache();
+      } catch (error) {
+        writeRuntimeLog("renderer-recovery-failed", { error: error?.stack ?? String(error) });
+      }
+    }, 500);
   });
 
   if (isDev) {
@@ -121,6 +154,7 @@ app.on("child-process-gone", (_event, details) => {
   }
 });
 app.on("before-quit", (_event, exitCode) => {
+  app.isQuitting = true;
   writeRuntimeLog("before-quit", { exitCode });
 });
 app.on("will-quit", (_event, exitCode) => {

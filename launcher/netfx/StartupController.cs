@@ -156,7 +156,7 @@ namespace ImlLauncher
 
                 ProcessStartInfo psi = new ProcessStartInfo();
                 psi.FileName = javaExe;
-                psi.Arguments = "-jar \"" + orchestratorJar + "\" \"" + configPath + "\"";
+                psi.Arguments = "-Xms256m -Xmx1024m -XX:+ExitOnOutOfMemoryError -jar \"" + orchestratorJar + "\" \"" + configPath + "\"";
                 psi.WorkingDirectory = root;
                 psi.UseShellExecute = false;
                 psi.RedirectStandardOutput = true;

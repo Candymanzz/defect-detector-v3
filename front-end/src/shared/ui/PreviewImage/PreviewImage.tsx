@@ -69,6 +69,8 @@ export function PreviewImage({
       nextImage.fetchPriority = fetchPriority;
 
       const finish = () => {
+        nextImage.onload = null;
+        nextImage.onerror = null;
         if (activeImageRef.current === nextImage) {
           activeImageRef.current = undefined;
         }
@@ -82,6 +84,9 @@ export function PreviewImage({
         displayedSrcRef.current = candidateSrc;
         setFailedSrc(undefined);
         setDisplayedSrc(candidateSrc);
+        // The real <img> now owns the URL. Release the detached preloader so
+        // Chromium can discard its decoded bitmap instead of retaining both.
+        nextImage.removeAttribute("src");
         // src may have advanced while this image was loading. Keep one request in
         // flight and immediately continue with the newest frame instead of
         // cancelling every request and leaving the old image on screen forever.
@@ -97,6 +102,7 @@ export function PreviewImage({
       };
       nextImage.onerror = () => {
         finish();
+        nextImage.removeAttribute("src");
         if (!mountedRef.current || !retainPreviousRef.current) {
           return;
         }
