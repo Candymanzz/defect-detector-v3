@@ -791,3 +791,10 @@
 2026-10-06 01:29:18.218 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
 2026-10-06 01:29:18.218 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
 2026-10-06 01:29:18.218 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped
+2026-10-06 04:12:06.152 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=1 source=io_input
+2026-10-06 04:12:06.155 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=10 stagger_ms=0 mode=simultaneous
+2026-10-06 04:12:06.156 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=2 source=io_input
+2026-10-06 04:12:06.156 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=10 stagger_ms=0 mode=simultaneous
+2026-10-06 04:12:06.156 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_sequence_reserved trigger_sequence=3 source=io_input
+2026-10-06 04:12:06.157 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger discard DI3 raw_sequence=3: already accepted two pulses in current DI2=1 window
+2026-10-06 04:12:06.157 INFO  [main] c.e.i.o.i.t.t.IoInputMonitorTwoPhaseTriggerTest - io_input_trigger stopped

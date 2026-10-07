@@ -9,6 +9,7 @@ import type {
   ClientStreamStopPayload,
   ClientWsEnvelope,
   ClientWsPayloadByType,
+  PreviewFramePayload,
   ServerWsMessage,
   WsConnectionStatus,
   WsMessageHandler,
@@ -24,6 +25,7 @@ export class OrchestratorWebSocketClient {
   private manuallyClosed = false;
   private readonly messageHandlers = new Set<WsMessageHandler>();
   private readonly statusHandlers = new Set<WsStatusHandler>();
+  private readonly latestFramesByScope = new Map<string, PreviewFramePayload>();
   private status: WsConnectionStatus = {
     state: "idle",
     reconnectAttempt: 0,
@@ -37,6 +39,13 @@ export class OrchestratorWebSocketClient {
 
   get isOpen() {
     return this.socket?.readyState === WebSocket.OPEN;
+  }
+
+  getLatestFrame(phaseId: number, groupId: number, cameraId: number) {
+    return (
+      this.latestFramesByScope.get(frameScopeKey(phaseId, groupId, cameraId)) ??
+      this.latestFramesByScope.get(frameScopeKey(phaseId, -1, cameraId))
+    );
   }
 
   connect() {
@@ -214,6 +223,14 @@ export class OrchestratorWebSocketClient {
       if (message.type === "server.reference_bundle_ack") {
         resolveReferenceBundleImages(message.message_id, message.payload.ok);
       }
+      if (message.type === "server.inspect_result" || message.type === "server.preview_frame") {
+        this.rememberFrame(message.payload);
+      }
+      if (message.type === "server.preview_batch") {
+        for (const frame of message.payload.frames) {
+          this.rememberFrame(frame);
+        }
+      }
 
       for (const handler of this.messageHandlers) {
         handler(message);
@@ -224,6 +241,13 @@ export class OrchestratorWebSocketClient {
         lastError: error instanceof Error ? error.message : "invalid websocket json",
       });
     }
+  }
+
+  private rememberFrame(frame: PreviewFramePayload) {
+    this.latestFramesByScope.set(
+      frameScopeKey(frame.phase_id ?? 0, frame.group_id ?? -1, frame.camera_id),
+      frame,
+    );
   }
 
   private scheduleReconnect(event: CloseEvent) {
@@ -258,6 +282,10 @@ export class OrchestratorWebSocketClient {
       handler(status);
     }
   }
+}
+
+function frameScopeKey(phaseId: number, groupId: number, cameraId: number) {
+  return `${phaseId}:${groupId}:${cameraId}`;
 }
 
 export const orchestratorWs = new OrchestratorWebSocketClient(appEnv.wsUrl);

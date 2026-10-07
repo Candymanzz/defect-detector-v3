@@ -1,12 +1,17 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { orchestratorApi } from "../../shared/api/orchestratorApi";
 import type { UiLatestSnapshot } from "../../shared/api/types";
+import type { InspectionBucket } from "../../shared/inspectionBuckets";
 import { getReferenceImage, isReferenceImageUrlInUse } from "../../shared/referenceImages";
 import type { PreviewFramePayload } from "../../shared/ws";
+import { orchestratorWs } from "../../shared/ws";
 
-export function useReferenceFrames(cameraIds: number[]) {
+export function useReferenceFrames(cameraIds: number[], scope?: InspectionBucket) {
   const liveFramesByCameraIdRef = useRef<Record<number, PreviewFramePayload>>({});
+  const scopedFramesRef = useRef<Record<string, PreviewFramePayload>>({});
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
   const liveImageUrlsByCameraIdRef = useRef<Record<number, string>>({});
   const lockedCameraIdsRef = useRef<Record<number, boolean>>({});
   const pendingCameraIdsRef = useRef<Record<number, boolean>>({});
@@ -16,7 +21,7 @@ export function useReferenceFrames(cameraIds: number[]) {
   const cameraSlots = cameraIds.map((cameraId) => ({
     cameraId,
     frame: framesByCameraId[cameraId],
-    imageUrl: imageUrlsByCameraId[cameraId] ?? snapshotImageUrlsByCameraId[cameraId] ?? getReferenceImage(cameraId)?.imageUrl,
+    imageUrl: imageUrlsByCameraId[cameraId] ?? snapshotImageUrlsByCameraId[cameraId] ?? getReferenceImage(cameraId, scope?.phaseId, scope?.groupId)?.imageUrl,
   }));
   const hasRequiredReferenceFrames =
     cameraIds.length > 0 && cameraIds.every((cameraId) => framesByCameraId[cameraId]);
@@ -27,6 +32,8 @@ export function useReferenceFrames(cameraIds: number[]) {
         cameraId,
         setFramesByCameraId,
         setImageUrlsByCameraId,
+        false,
+        scopeRef.current,
       );
 
       if (storedLoaded) {
@@ -84,6 +91,8 @@ export function useReferenceFrames(cameraIds: number[]) {
         cameraId,
         setFramesByCameraId,
         setImageUrlsByCameraId,
+        false,
+        scopeRef.current,
       );
 
       if (storedLoaded) {
@@ -132,24 +141,19 @@ export function useReferenceFrames(cameraIds: number[]) {
     const missingCameraIds: number[] = [];
 
     for (const cameraId of targetCameraIds) {
-      const snapshotLoaded = await loadSnapshotImage(
-        cameraId,
-        setSnapshotImageUrlsByCameraId,
-        setFramesByCameraId,
-        setImageUrlsByCameraId,
-        lockedCameraIdsRef,
-        pendingCameraIdsRef,
-        true,
-      );
-
-      if (snapshotLoaded) {
-        snapshotCameraIds.push(cameraId);
+      const scopedFrame = scopeRef.current
+        ? scopedFramesRef.current[frameScopeKey(scopeRef.current.phaseId, scopeRef.current.groupId, cameraId)] ??
+          orchestratorWs.getLatestFrame(scopeRef.current.phaseId, scopeRef.current.groupId, cameraId)
+        : undefined;
+      const liveFrame = scopedFrame ?? liveFramesByCameraIdRef.current[cameraId];
+      if (scopeRef.current && liveFrame && (liveFrame.phase_id ?? scopeRef.current.phaseId) !== scopeRef.current.phaseId) {
+        missingCameraIds.push(cameraId);
         continue;
       }
 
       const liveLoaded = await captureLiveReferenceFrame(
         cameraId,
-        liveFramesByCameraIdRef.current[cameraId],
+        liveFrame,
         setFramesByCameraId,
         setImageUrlsByCameraId,
         lockedCameraIdsRef,
@@ -158,6 +162,23 @@ export function useReferenceFrames(cameraIds: number[]) {
 
       if (liveLoaded) {
         loadedCameraIds.push(cameraId);
+        continue;
+      }
+
+      const snapshotLoaded = scopeRef.current
+        ? false
+        : await loadSnapshotImage(
+            cameraId,
+            setSnapshotImageUrlsByCameraId,
+            setFramesByCameraId,
+            setImageUrlsByCameraId,
+            lockedCameraIdsRef,
+            pendingCameraIdsRef,
+            true,
+          );
+
+      if (snapshotLoaded) {
+        snapshotCameraIds.push(cameraId);
       } else {
         missingCameraIds.push(cameraId);
       }
@@ -180,6 +201,7 @@ export function useReferenceFrames(cameraIds: number[]) {
         setFramesByCameraId,
         setImageUrlsByCameraId,
         true,
+        scopeRef.current,
       );
 
       if (loaded) {
@@ -196,14 +218,30 @@ export function useReferenceFrames(cameraIds: number[]) {
   }, [cameraIds]);
 
   const handlePreviewFrame = useCallback((previewFrame: PreviewFramePayload) => {
+    const cameraId = previewFrame.camera_id;
+    const phaseId = previewFrame.phase_id ?? scopeRef.current?.phaseId ?? 0;
+    const groupId = previewFrame.group_id ?? -1;
+    scopedFramesRef.current[frameScopeKey(phaseId, groupId, cameraId)] = previewFrame;
+    const activePhaseId = scopeRef.current?.phaseId;
+    if (activePhaseId != null && previewFrame.phase_id != null && previewFrame.phase_id !== activePhaseId) {
+      return;
+    }
+    if (
+      scopeRef.current &&
+      previewFrame.group_id != null &&
+      previewFrame.group_id >= 0 &&
+      previewFrame.group_id !== scopeRef.current.groupId
+    ) {
+      return;
+    }
+
     const imagePath = previewFrame.http_path ?? previewFrame.current.http_path;
     const nextImageUrl = imagePath ? orchestratorApi.imageUrl(imagePath, previewFrame.frame_id) : undefined;
 
     liveFramesByCameraIdRef.current = {
       ...liveFramesByCameraIdRef.current,
-      [previewFrame.camera_id]: previewFrame,
+      [cameraId]: previewFrame,
     };
-    const cameraId = previewFrame.camera_id;
     const isRequiredCamera = cameraIds.includes(cameraId);
 
     if (
@@ -243,6 +281,42 @@ export function useReferenceFrames(cameraIds: number[]) {
     }
   }, [cameraIds]);
 
+  useEffect(() => {
+    if (!scope) {
+      return;
+    }
+    const nextFrames: Record<number, PreviewFramePayload> = {};
+    const nextUrls: Record<number, string> = {};
+    for (const cameraId of scope.cameraIds) {
+      delete lockedCameraIdsRef.current[cameraId];
+      // Once the server accepted a bundle, its durable /iml_ref_* descriptor
+      // must win over the cached capture descriptor. The latter points to a
+      // short-lived /iml_line_pin_* file and cannot be reused on the next edit.
+      const stored = getReferenceImage(cameraId, scope.phaseId, scope.groupId);
+      const cached =
+        scopedFramesRef.current[frameScopeKey(scope.phaseId, scope.groupId, cameraId)] ??
+        orchestratorWs.getLatestFrame(scope.phaseId, scope.groupId, cameraId);
+      const cachedIsNewer = Boolean(
+        cached && cached.server_ts_ms > (stored?.committedAtMs ?? 0),
+      );
+      if (stored && !cachedIsNewer) {
+        nextFrames[cameraId] = referenceImageToPreviewFrame(cameraId, stored);
+        nextUrls[cameraId] = stored.imageUrl;
+        continue;
+      }
+      if (cached) {
+        nextFrames[cameraId] = cached;
+        const imagePath = cached.http_path ?? cached.current.http_path;
+        if (imagePath) {
+          nextUrls[cameraId] = orchestratorApi.imageUrl(imagePath, cached.frame_id);
+        }
+        continue;
+      }
+    }
+    setFramesByCameraId(nextFrames);
+    setImageUrlsByCameraId(nextUrls);
+  }, [scope]);
+
   return {
     imageUrlsByCameraId,
     framesByCameraId,
@@ -255,13 +329,18 @@ export function useReferenceFrames(cameraIds: number[]) {
   };
 }
 
+function frameScopeKey(phaseId: number, groupId: number, cameraId: number) {
+  return `${phaseId}:${groupId}:${cameraId}`;
+}
+
 function commitStoredReferenceFrame(
   cameraId: number,
   setFramesByCameraId: Dispatch<SetStateAction<Record<number, PreviewFramePayload>>>,
   setImageUrlsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
   overwrite = false,
+  scope?: InspectionBucket,
 ) {
-  const referenceImage = getReferenceImage(cameraId);
+  const referenceImage = getReferenceImage(cameraId, scope?.phaseId, scope?.groupId);
   if (!referenceImage) {
     return false;
   }
@@ -292,6 +371,8 @@ function referenceImageToPreviewFrame(
 ): PreviewFramePayload {
   return {
     camera_id: cameraId,
+    phase_id: referenceImage.phaseId,
+    group_id: referenceImage.groupId,
     frame_id: String(referenceImage.frame.frame_id),
     session_state: "READY",
     current: {

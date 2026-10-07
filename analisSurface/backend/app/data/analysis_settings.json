@@ -2,28 +2,28 @@
   {
     "analysis_profile": "bench-lan1",
     "overrides": {
-      "default_threshold": 0.3,
-      "contrast_loss_cur_grad": 16.4,
-      "contrast_loss_boost": 1.888,
-      "diff_percentile": 98.21,
-      "scratch_aspect_floor": 4.71,
-      "text_structure_threshold": 33,
+      "default_threshold": 1.0,
+      "min_scratch_aspect": 5.0,
+      "min_diff_signal": 40.0,
+      "text_structure_threshold": 50,
+      "contrast_loss_boost": 1.2,
+      "diff_percentile": 99.5,
+      "min_defect_area": 50,
       "fp_trigger_diff_q90": 22.0,
-      "min_diff_signal": 15.920000000000002,
-      "contrast_loss_ref_grad": 42.8,
-      "clahe_clip_limit": 1.172,
+      "contrast_loss_ref_grad": 60.0,
+      "edge_suppress_factor": 0.05,
+      "use_patchcore": true,
+      "contrast_loss_cur_grad": 25.0,
+      "text_min_contrast": 90,
+      "scratch_score_floor": 0.2,
+      "scratch_aspect_floor": 6.0,
       "fp_recheck_enabled": true,
-      "text_min_contrast": 60,
-      "edge_suppress_factor": 0.179,
-      "min_defect_area": 12,
-      "enable_clahe": true,
-      "scratch_score_floor": 0.32899999999999996,
-      "min_scratch_aspect": 3.2800000000000002,
-      "use_patchcore": true
+      "clahe_clip_limit": 1.0,
+      "enable_clahe": false
     },
     "simple_knobs": {
-      "threshold": 0.3,
-      "sensitivity": 0.43
+      "threshold": 1.0,
+      "sensitivity": 0.0
     }
   },
   {

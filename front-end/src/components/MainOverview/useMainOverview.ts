@@ -8,6 +8,8 @@ import { compareFrameIds } from "../../shared/lib/frameIds";
 import { getReferenceImagesSnapshot, subscribeReferenceImages } from "../../shared/referenceImages";
 import { orchestratorWs } from "../../shared/ws";
 import type { InspectResultPayload, InspectBucketResultPayload, PreviewFramePayload } from "../../shared/ws";
+import { createInspectionBuckets } from "../../shared/inspectionBuckets";
+import type { InspectionBucket } from "../../shared/inspectionBuckets";
 import {
   compareInspectResults,
   createInspectionControlStates,
@@ -44,6 +46,8 @@ export function useMainOverview(inspectionResetVersion = 0) {
   const [previewImageUrlsByCameraId, setPreviewImageUrlsByCameraId] = useState<CameraImageUrlsById>({});
   const [previewFrameIdsByCameraId, setPreviewFrameIdsByCameraId] = useState<Record<number, string>>({});
   const [inspectResultsByCameraId, setInspectResultsByCameraId] = useState<Record<number, InspectResultPayload>>({});
+  const [framesByBucketKey, setFramesByBucketKey] = useState<Record<string, Record<number, InspectResultPayload>>>({});
+  const [previewPhaseByCameraId, setPreviewPhaseByCameraId] = useState<Record<number, number>>({});
   const [inspectArtifactResultsByCameraId, setInspectArtifactResultsByCameraId] = useState<
     Record<number, InspectResultPayload>
   >({});
@@ -168,6 +172,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
       previewFrameId: string | undefined,
       previewImageUrl: string | undefined,
       inspectionHistory: InspectionHistoryItem[],
+      bucket?: InspectionBucket,
     ) => {
       setModalSnapshot(
         createModalInspectionSnapshot(
@@ -177,6 +182,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
           previewFrameId,
           previewImageUrl,
           inspectionHistory,
+          bucket,
         ),
       );
     },
@@ -370,6 +376,12 @@ export function useMainOverview(inspectionResetVersion = 0) {
       }
 
       if (message.type === "server.preview_frame") {
+        if (message.payload.phase_id != null) {
+          setPreviewPhaseByCameraId((current) => ({
+            ...current,
+            [message.payload.camera_id]: message.payload.phase_id ?? 0,
+          }));
+        }
         applyPreviewFrames(
           [message.payload],
           latestPreviewFrameIdByCameraIdRef,
@@ -402,6 +414,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
           message.payload,
           setInspectionHistoryByCameraId,
           setInspectionStatsByCameraId,
+          setFramesByBucketKey,
           latestInspectResultByCameraIdRef,
           (cameraId, serverTsMs, frameId) =>
             shouldAcceptInspectionResult(
@@ -452,6 +465,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
           inspectResult,
           latestInspectResultByCameraIdRef,
           setInspectResultsByCameraId,
+          setFramesByBucketKey,
           setPreviewFrameIdsByCameraId,
           setPreviewImageUrlsByCameraId,
           setInspectionHistoryByCameraId,
@@ -507,6 +521,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
             ...previousResults,
             [cameraId]: inspectResult,
           }));
+          rememberBucketFrame(setFramesByBucketKey, inspectResult);
         }
       } else {
         const currentResult = latestInspectResultByCameraIdRef.current[cameraId];
@@ -518,6 +533,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
           ...previousResults,
           [cameraId]: inspectResult,
         }));
+        rememberBucketFrame(setFramesByBucketKey, inspectResult);
       }
     });
 
@@ -539,6 +555,8 @@ export function useMainOverview(inspectionResetVersion = 0) {
     previewImageUrlsByCameraId,
     previewFrameIdsByCameraId,
     inspectResultsByCameraId,
+    framesByBucketKey,
+    previewPhaseByCameraId,
     inspectArtifactResultsByCameraId,
     inspectionHistoryByCameraId,
     archivedHistoryByCameraId,
@@ -678,6 +696,7 @@ function applyBucketResult(
   bucket: InspectBucketResultPayload,
   setHistory: Dispatch<SetStateAction<Record<number, InspectionHistoryItem[]>>>,
   setStats: Dispatch<SetStateAction<Record<number, InspectionHistoryItem[]>>>,
+  setFramesByBucketKey: Dispatch<SetStateAction<Record<string, Record<number, InspectResultPayload>>>>,
   latestInspectResultByCameraIdRef: React.MutableRefObject<Record<number, InspectResultPayload>>,
   shouldAccept: (cameraId: number, serverTsMs: number, frameId: string) => boolean,
 ) {
@@ -733,8 +752,14 @@ function applyBucketResult(
             python_status: frame.python_status,
             geometry_status: frame.geometry_status,
             fp_zones: [],
+            phase_id: bucket.phase_id ?? 0,
+            group_id: bucket.group_id,
             server_ts_ms: bucket.server_ts_ms,
           };
+
+    inspectResult.phase_id = bucket.phase_id ?? inspectResult.phase_id ?? 0;
+    inspectResult.group_id = bucket.group_id;
+    rememberBucketFrame(setFramesByBucketKey, inspectResult);
 
     const resultState = resolveInspectionResultState(inspectResult) ?? bucketResult;
     setHistory((current) => {
@@ -751,6 +776,23 @@ function applyBucketResult(
     });
     addInspectionStatsItem(setStats, inspectResult);
   }
+}
+
+function rememberBucketFrame(
+  setFramesByBucketKey: Dispatch<SetStateAction<Record<string, Record<number, InspectResultPayload>>>>,
+  result: InspectResultPayload,
+) {
+  if (result.group_id == null) {
+    return;
+  }
+  const key = `${result.phase_id ?? 0}:${result.group_id}`;
+  setFramesByBucketKey((current) => ({
+    ...current,
+    [key]: {
+      ...current[key],
+      [result.camera_id]: result,
+    },
+  }));
 }
 
 function mergeCaptureOnlyInspectResult(
@@ -775,6 +817,7 @@ function applyCaptureOnlyInspectResult(
   inspectResult: InspectResultPayload,
   latestInspectResultByCameraIdRef: React.MutableRefObject<Record<number, InspectResultPayload>>,
   setInspectResultsByCameraId: Dispatch<SetStateAction<Record<number, InspectResultPayload>>>,
+  setFramesByBucketKey: Dispatch<SetStateAction<Record<string, Record<number, InspectResultPayload>>>>,
   setPreviewFrameIdsByCameraId: Dispatch<SetStateAction<Record<number, string>>>,
   setPreviewImageUrlsByCameraId: Dispatch<SetStateAction<CameraImageUrlsById>>,
   setInspectionHistoryByCameraId: Dispatch<SetStateAction<Record<number, InspectionHistoryItem[]>>>,
@@ -800,6 +843,10 @@ function applyCaptureOnlyInspectResult(
     ...previousResults,
     [cameraId]: merged,
   }));
+  // A camera is reused by both phases. Keeping capture-only frames only in the
+  // per-camera "latest" slot makes phase 1 overwrite phase 0 before the four
+  // bucket panels render. Preserve the frame under its phase/group as well.
+  rememberBucketFrame(setFramesByBucketKey, merged);
 
   setPreviewFrameIdsByCameraId((previousFrameIds) => ({
     ...previousFrameIds,
@@ -1032,20 +1079,25 @@ function createInspectionStats(
 }
 
 function createInspectionStatsGroups(historyByCameraId: Record<number, InspectionHistoryItem[]>, cameraIds: number[]) {
-  return chunkItems(cameraIds, 5)
-    .slice(0, 2)
-    .map((groupCameraIds, index) => {
-      const groupHistory = Object.fromEntries(
-        groupCameraIds.map((cameraId) => [cameraId, historyByCameraId[cameraId] ?? []]),
-      );
-      const counts = createInspectionStatsCounts(groupHistory);
-      return {
-        id: `group-${index + 1}`,
-        label: `Группа ${index + 1}`,
-        cameraIds: groupCameraIds,
-        ...counts,
-      };
-    });
+  return createInspectionBuckets(cameraIds).map((bucket) => {
+    const groupHistory = Object.fromEntries(
+      bucket.cameraIds.map((cameraId) => [
+        cameraId,
+        (historyByCameraId[cameraId] ?? []).filter(
+          (item) =>
+            (item.inspectResult.phase_id ?? 0) === bucket.phaseId &&
+            (item.inspectResult.group_id == null || item.inspectResult.group_id === bucket.groupId),
+        ),
+      ]),
+    );
+    const counts = createInspectionStatsCounts(groupHistory);
+    return {
+      id: bucket.key,
+      label: bucket.label,
+      cameraIds: bucket.cameraIds,
+      ...counts,
+    };
+  });
 }
 
 function mergeInspectionStats(
@@ -1118,11 +1170,4 @@ function createInspectionStatsCounts(historyByCameraId: Record<number, Inspectio
     passed,
     failed,
   };
-}
-
-function chunkItems<T>(items: T[], chunkSize: number) {
-  return Array.from({ length: Math.ceil(items.length / chunkSize) }, (_, groupIndex) => {
-    const startIndex = groupIndex * chunkSize;
-    return items.slice(startIndex, startIndex + chunkSize);
-  });
 }

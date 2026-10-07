@@ -265,6 +265,14 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             );
             return;
         }
+        // Client reference bundles are submitted after the capture round has finished. The
+        // original line-pin is released at that boundary, so publishing its name leaves the UI
+        // holding a descriptor that can no longer be accepted as a reference. Point all UI/WS
+        // metadata at the stable frozen copy created above.
+        final Map<String, Object> uiCaptureHeader = new HashMap<>(cap);
+        uiCaptureHeader.put("shm_name", frozenFrame.shmName());
+        uiCaptureHeader.put("shm_offset", 0L);
+        uiCaptureHeader.put("line_pinned", false);
         // Pin остаётся до TTL: окно эталона шлёт это имя позже. Иначе сохранение
         // не находит файл фазы и подставляет живой кадр другой фазы.
         if (!isLatestPublish(cameraId, publishSequence)) {
@@ -370,7 +378,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 frameId,
                                 productType,
                                 detectorId,
-                                shmName,
+                                artifactShmName,
                                 width,
                                 height,
                                 currentJpeg,
@@ -390,7 +398,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                         detectorId,
                                         inspectionId,
                                         decision,
-                                        cap,
+                                        uiCaptureHeader,
                                         null,
                                         0,
                                         0,
@@ -400,7 +408,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                         bundleId
                                 );
                                 if (activeReference == null || activeReference.header() == null) {
-                                    ws.notifyPreviewFrame(cameraId, productType, detectorId, cap, frameHttpPath);
+                                    ws.notifyPreviewFrame(cameraId, productType, detectorId, uiCaptureHeader, frameHttpPath);
                                 }
                             } catch (Exception e) {
                                 log.debug("client_ws inspect_result frame-ready cam={}: {}", cameraId, e.getMessage());
@@ -418,7 +426,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 cameraId,
                                 frameId,
                                 inspectionId,
-                                cap,
+                                uiCaptureHeader,
                                 productType,
                                 detectorId,
                                 decision,
@@ -437,7 +445,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 detectorId,
                                 inspectionId,
                                 decision,
-                                cap,
+                                uiCaptureHeader,
                                 bundleId
                         );
                         return;
@@ -459,7 +467,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 width,
                                 height,
                                 stride,
-                                YamlScalars.toBool(cap.get("positioning_aligned"), false)
+                                YamlScalars.toBool(uiCaptureHeader.get("positioning_aligned"), false)
                         );
                     }
                     Path heatmapU8 = heatmapSource.path();
@@ -522,7 +530,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 frameId,
                                 productType,
                                 detectorId,
-                                shmName,
+                                artifactShmName,
                                 width,
                                 height,
                                 hasCur ? currentJpeg : null,
@@ -540,7 +548,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             cameraId,
                             frameId,
                             inspectionId,
-                            cap,
+                            uiCaptureHeader,
                             productType,
                             detectorId,
                             decision,
@@ -552,7 +560,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     // The first message points at the live artifact, which the panel must not
                     // show. After the archive JPEG exists, send that path even without a heatmap
                     // so the card can swap to this frame. test-analyze keeps the live URL.
-                    boolean testAnalyze = YamlScalars.toBool(cap.get("test_analyze"), false);
+                    boolean testAnalyze = YamlScalars.toBool(uiCaptureHeader.get("test_analyze"), false);
                     boolean archiveReadyForPanel = archived && !testAnalyze && archive != null;
                     if (ws != null && (archiveReadyForPanel || hasHm)) {
                         try {
@@ -571,7 +579,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                     detectorId,
                                     inspectionId,
                                     decision,
-                                    cap,
+                                    uiCaptureHeader,
                                     hasHm ? heatmapU8 : null,
                                     hasHm ? uw : 0,
                                     hasHm ? uh : 0,
