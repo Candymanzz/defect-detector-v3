@@ -18,9 +18,59 @@ LOG = logging.getLogger("uvicorn.error")
 _HTTP_LOG_MAX_BODY = 8000
 
 
+def _as_bool(value: object, default: bool) -> bool:
+    if value is None:
+        return default
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "on"}:
+        return True
+    if text in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
+def _config_file_logging() -> bool | None:
+    """python_detector.file_logging из config/config.yaml (+ imports: blocks/*.yaml); None — не задано."""
+    try:
+        import yaml
+    except ImportError:
+        return None
+    explicit = os.environ.get("ANALIS_SURFACE_CONFIG", "").strip()
+    candidates = [Path(explicit)] if explicit else []
+    candidates += [Path.cwd() / "config" / "config.yaml"]
+    candidates += [parent / "config" / "config.yaml" for parent in Path(__file__).resolve().parents]
+    config_yaml = next((c for c in candidates if c.is_file()), None)
+    if config_yaml is None:
+        return None
+    try:
+        root = yaml.safe_load(config_yaml.read_text(encoding="utf-8")) or {}
+        sources = [
+            yaml.safe_load((config_yaml.parent / str(rel).strip()).read_text(encoding="utf-8")) or {}
+            for rel in (root.get("imports") or [])
+            if (config_yaml.parent / str(rel).strip()).is_file()
+        ] + [root]
+    except (OSError, yaml.YAMLError, AttributeError):
+        return None
+    value = None
+    for source in sources:  # корневой config.yaml переопределяет blocks, как в оркестраторе
+        section = source.get("python_detector") if isinstance(source, dict) else None
+        if isinstance(section, dict) and "file_logging" in section:
+            value = section["file_logging"]
+    return None if value is None else _as_bool(value, True)
+
+
+def _http_log_enabled() -> bool:
+    """Приоритет: env ANALIS_SURFACE_HTTP_LOG → python_detector.file_logging в config → включено."""
+    env = os.environ.get("ANALIS_SURFACE_HTTP_LOG", "").strip()
+    if env:
+        return _as_bool(env, True)
+    from_config = _config_file_logging()
+    return True if from_config is None else from_config
+
+
 def _build_http_logger() -> logging.Logger | None:
-    """Один файл на запуск процесса: logs/<время>_pid<pid>.log. Отключение: ANALIS_SURFACE_HTTP_LOG=0."""
-    if os.environ.get("ANALIS_SURFACE_HTTP_LOG", "1").strip().lower() in {"0", "false", "no", "off"}:
+    """Один файл на запуск процесса: logs/<время>_pid<pid>.log. Включение/выключение: python_detector.file_logging."""
+    if not _http_log_enabled():
         return None
     configured = os.environ.get("ANALIS_SURFACE_HTTP_LOG_DIR", "").strip()
     log_dir = Path(configured) if configured else Path(__file__).resolve().parents[1] / "logs"

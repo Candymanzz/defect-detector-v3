@@ -39,3 +39,7 @@ camera-worker/build/Release/camera_worker.exe
 /IoInputMonitor/obj
 /LightServer.v3/bin
 /config
+analisSurface/backend/logs
+IoInputMonitor/IoInputMonitor.Tests/obj
+LightServer.v3/LightServer.Tests/bin
+LightServer.v3/LightServer.Tests/obj

@@ -45,6 +45,9 @@ java_positioning:
 python_detector:
   # FastAPI analisSurface — оркестратор поднимает uvicorn сам (integration.analis_surface_*).
   base_url: "http://127.0.0.1:8000"
+  # Лог всех HTTP-запросов/ответов analisSurface в analisSurface/backend/logs (true/false).
+  # Читается при старте Python-сервиса; env ANALIS_SURFACE_HTTP_LOG=0|1 имеет приоритет.
+  file_logging: true
   # Downscale кадров перед inspect_shm (0.5 ≈ в 2.5× меньше пикселей, чем 0.8).
   inspect_scale: 0.5
   rois:
