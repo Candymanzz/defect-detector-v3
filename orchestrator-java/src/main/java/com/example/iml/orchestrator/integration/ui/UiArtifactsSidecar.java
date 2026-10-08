@@ -214,6 +214,11 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         }
         Map<String, Object> cap = new LinkedHashMap<>(capture.header());
         copyDisplayOnlyInspectionMetadata(cap, pyResp);
+        // ui.stable_reference_frame (DECISIONS.md, D-012): line-pin не освобождается сразу, а в UI/WS уходит
+        // имя замороженной копии. Иначе окно эталона присылает имя пина, который уже удалён
+        // ("reference shm not found: /iml_line_pin_cam0_f..."). Станок на 4 изделия: true.
+        final boolean stableReferenceFrame =
+                YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("stable_reference_frame"), false);
         ClientWebSocketServer ws = clientWebSocketServer;
         long frameId = YamlScalars.toLong(cap.get("frame_id"), -1L);
         boolean testAnalyze = testAnalyzeFlag(cap);
@@ -247,7 +252,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     YamlScalars.toInt(cap.get("height"), 1024)
             );
             deleteTemporaryArtifact(unusedHeatmap.path(), "withheld ui frame heatmap");
-            LineFramePinService.releasePinnedCapture(capture.header());
+            releaseLinePin(capture, stableReferenceFrame);
             log.info(
                     "ui frame withheld cam={} frame={} status={} — publish only after positioning_aligned",
                     cameraId,
@@ -281,7 +286,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 }
             }
             deleteTemporaryArtifact(resolvedSourceHeatmap.path(), "unused source heatmap");
-            LineFramePinService.releasePinnedCapture(capture.header());
+            releaseLinePin(capture, stableReferenceFrame);
             return;
         }
         boolean storeCurrent = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("store_current_jpeg"), true);
@@ -295,7 +300,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 }
             }
             deleteTemporaryArtifact(resolvedSourceHeatmap.path(), "disabled source heatmap");
-            LineFramePinService.releasePinnedCapture(capture.header());
+            releaseLinePin(capture, stableReferenceFrame);
             return;
         }
 
@@ -339,7 +344,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             frozenFrame = freezeInspectionFrame(cameraId, frameId, shmName, width, height, stride, cap);
         } catch (IOException e) {
             deleteTemporaryArtifact(sourceHeatmap.path(), "failed source heatmap");
-            LineFramePinService.releasePinnedCapture(capture.header());
+            releaseLinePin(capture, stableReferenceFrame);
             log.warn(
                     "inspection frame freeze failed camera_id={} frame_id={}: {}",
                     cameraId,
@@ -348,8 +353,14 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             );
             return;
         }
+        if (stableReferenceFrame) {
+            // Метаданные UI/WS указывают на стабильную замороженную копию; пин доживёт до TTL janitor (45 с).
+            cap.put("shm_name", frozenFrame.shmName());
+            cap.put("shm_offset", 0L);
+            cap.put("line_pinned", false);
+        }
         // Freeze no longer retains line-pin paths; free per-cycle SHM asap.
-        LineFramePinService.releasePinnedCapture(capture.header());
+        releaseLinePin(capture, stableReferenceFrame);
         if (!isLatestPublish(cameraId, publishSequence)) {
             deleteTemporaryArtifact(sourceHeatmap.path(), "stale source heatmap");
             deleteFrozenFrameIfOwned(frozenFrame, "stale frozen inspection frame");
@@ -742,6 +753,12 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             deleteFrozenFrameIfOwned(frozenFrame, "rejected frozen inspection frame");
             droppedUiPublishTasks.increment();
             log.warn("ui publish rejected camera_id={} frame_id={} dropped_total={}", cameraId, frameId, droppedUiPublishTasks.sum());
+        }
+    }
+
+    private static void releaseLinePin(BinaryProtocol.Message capture, boolean keepUntilTtl) {
+        if (!keepUntilTtl) {
+            LineFramePinService.releasePinnedCapture(capture.header());
         }
     }
 

@@ -8,6 +8,9 @@ ui_http:
   # One hardware cycle delivers 2 phases × 10 cameras almost simultaneously.
   visuals_queue_size: 32
   store_current_jpeg: true
+  # line-pin не освобождается сразу, в UI уходит имя замороженной копии — иначе эталон по кадру из окна
+  # падает: "reference shm not found: /iml_line_pin_cam..." (DECISIONS.md, D-012).
+  stable_reference_frame: true
   store_heatmap_u8: true
   # UI-only gray_u8 heatmap width; 0 keeps the original detector resolution.
   heatmap_preview_max_width: 384
