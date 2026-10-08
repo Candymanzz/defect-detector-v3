@@ -117,6 +117,39 @@ public final class FrameArchiveService implements AutoCloseable {
                 int cameraId,
                 long frameId,
                 long inspectionId,
+                int phaseId,
+                int groupId,
+                String productType,
+                String detectorId,
+                InspectionDecision decision,
+                Path frameJpeg,
+                Path heatmapU8,
+                int heatmapWidth,
+                int heatmapHeight
+        ) {
+            this(
+                    cameraId,
+                    frameId,
+                    inspectionId,
+                    phaseId,
+                    groupId,
+                    productType,
+                    detectorId,
+                    decision,
+                    frameJpeg,
+                    heatmapU8,
+                    heatmapWidth,
+                    heatmapHeight,
+                    null,
+                    0,
+                    0
+            );
+        }
+
+        public SaveRequest(
+                int cameraId,
+                long frameId,
+                long inspectionId,
                 String productType,
                 String detectorId,
                 InspectionDecision decision,
