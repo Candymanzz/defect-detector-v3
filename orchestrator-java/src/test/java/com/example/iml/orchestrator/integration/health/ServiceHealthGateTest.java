@@ -18,23 +18,21 @@ class ServiceHealthGateTest {
         gate.setOnChanged(changes::incrementAndGet);
 
         assertTrue(gate.healthy());
-        gate.markUnhealthy("io_input_monitor");
+        gate.markUnhealthy("geometry_0");
         assertFalse(gate.healthy());
         assertEquals(1, changes.get());
 
-        gate.markUnhealthy("io_input_monitor");
+        gate.markUnhealthy("geometry_0");
         assertEquals(1, changes.get());
 
-        gate.markHealthy("io_input_monitor");
+        gate.markHealthy("geometry_0");
         assertTrue(gate.healthy());
         assertEquals(2, changes.get());
     }
 
     @Test
-    void ioInputMonitorDoesNotBlockVision() {
+    void criticalServicesBlockVision() {
         ServiceHealthGate gate = new ServiceHealthGate();
-        gate.markUnhealthy(ServiceHealthGate.IO_INPUT_MONITOR);
-        assertFalse(gate.healthy());
         assertTrue(gate.healthyForVision());
         assertTrue(gate.visionBlockingReasons().isEmpty());
 
@@ -57,8 +55,8 @@ class ServiceHealthGateTest {
     }
 
     @Test
-    void affectsVisionPlcExcludesIoInputMonitor() {
-        assertFalse(ServiceHealthGate.affectsVisionPlc(ServiceHealthGate.IO_INPUT_MONITOR));
+    void affectsVisionPlcIgnoresEmptyNames() {
+        assertFalse(ServiceHealthGate.affectsVisionPlc(" "));
         assertTrue(ServiceHealthGate.affectsVisionPlc("analis_surface"));
     }
 }

@@ -124,7 +124,7 @@ Write-Host "  Python    : http://127.0.0.1:8000  (PID $($stack.python))"
 if ($stack.frontend) {
     Write-Host "  Front-end : http://localhost:5173  (отдельное окно)"
 }
-Write-Host "  Далее jar поднимет LightServer, camera-worker, geometry, :8099, :8765"
+Write-Host "  Далее jar поднимет native lights, camera-worker, geometry, :8099, :8765"
 Write-Host "`nОстановка: Ctrl+C в этом окне или .\stop-dev.ps1`n"
 
 Write-Step "Запуск оркестратора (логи ниже, Ctrl+C = стоп всего стека)"

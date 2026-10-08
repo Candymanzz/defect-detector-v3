@@ -1,16 +1,36 @@
-# Подсветка → LightServer.v3: три типа URL — вкл, выкл, яркость по камерам.
+# Подсветка внутри Java: вкл, выкл, яркость по камерам.
 # Маршруты вспышек (camera_number ↔ device/channel) — в config/blocks/51-light-hardware.yaml.
 light_servers:
-  # Единый LightServer управляет Ethernet MV-LE и COM-вспышками.
+  # Java управляет Ethernet MV-LE и COM-вспышками.
   enabled: true
-  base_url: "http://127.0.0.1:5080"
-  urls:
-    on: /api/camera-flash/bank
-    off: /api/camera-flash/bank
-    brightness_pair: /api/camera-flash/pair
-    brightness_single: /api/camera-flash/single
-    # Готовность Ethernet-банка (не COM).
-    status: /api/camera-flash/bank
+  backend: native  # MvCameraControl inside orchestrator; no .NET/HTTP service
+  sdk:
+    library_linux: "/opt/MVS/lib/64/libMvCameraControl.so"
+    library_windows: "orchestrator-java/native/mvs/win64/MvCameraControl.dll"
+    command_timeout_ms: 20000
+    reconnect_ms: 1000
+    health_check_ms: 1000
+    worker_poll_ms: 200
+    initial_brightness: 255  # internal/API scale 0..255; initial source remains Off
+    use_broadcast: true
+    refresh_before_on: true  # Off + changed brightness before On
+    open_access_mode: 1  # MVS access mode; 1 = exclusive
+    switchover_key: 0
+    queue_size: 64
+    shutdown_timeout_ms: 5000
+    selector_node: LightControllerSelector
+    source_node: LightControllerSource
+    source_on: "On"
+    source_off: "Off"
+    broadcast_selectors: [All, ChannelAll, LightControllerAll, SelectorAll, LightAll]
+    brightness_nodes: [LightBrightness, LightControllerBrightness, LightIntensity, LightControllerIntensity, LightChannelBrightness, LightControlBrightness]
+  runtime:
+    command_attempts: 10
+    retry_delay_ms: 200
+    startup_poll_ms: 400
+    status_timeout_ms: 3000  # HTTP compatibility backend status request
+  brightness_store_path: "config/data/light_brightness_settings.json"
+  default_camera_mode: pair  # legacy HTTP only; native mode comes from camera_routes
   # hold_mode: capture НЕ трогает вспышки (On/Off только вне пайплайна).
   # При interval_flash яркость задаётся при старте; On/Off — по DI (см. ниже).
   hold_mode: true
@@ -20,13 +40,5 @@ light_servers:
   duration_ms: 90
   flash_lead_ms: 0
   settle_delay_ms: 0
-  # Интервальный режим (отдельный контур от съёмки):
-  # DI2↑ (начало импульса направления) → bank On;
-  # DI2↓ (конец импульса) → bank Off.
-  # On/Off — POST /api/camera-flash/bank (не трогает capture pipeline).
-  interval_flash:
-    enabled: true
-    idle_port: 2
-    start_dark: true
   # cameras опционально; по умолчанию — все enabled cameras из корневого конфига.
-  # mode: pair (Ethernet) | single (COM, camera id 2 и 7) — см. 51-light-hardware.yaml.
+  # mode выводится из channels маршрута в 51-light-hardware.yaml (1 = single, 2 = pair).

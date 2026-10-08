@@ -79,16 +79,16 @@ public final class LightingBootstrapService {
             log.info("light_servers flash_lead_ms={} (пауза после старта POST вспышки, перед capture)", flashLeadMs);
         }
 
-        LightBrightnessStore lightBrightnessStore = openLightBrightnessStore(ctx.projectRoot());
+        LightBrightnessStore lightBrightnessStore = openLightBrightnessStore(ctx.projectRoot(), ctx.root());
         ctx.setLightBrightnessStore(lightBrightnessStore);
         LightTriggerClient lightClient = LightTriggerClient.fromRootYaml(ctx.root());
         ctx.setLightClient(lightClient);
+        LightsShutdown.bind(log, lightClient);
         applyPersistedLightBrightness(lightClient, lightBrightnessStore);
 
         LightServersConfig lightServersCfg = LightServersConfig.fromRootYaml(ctx.root());
-        LightsShutdown.bind(log, lightClient, ctx.lightServerProcess(), lightHttpPort(lightServersCfg));
         if (lightClient.isEnabled()) {
-            log.info("waiting for LightServer COM bank (GET /api/com/light)...");
+            log.info("waiting for native MVS light devices...");
             lightClient.awaitEndpointsReady();
             if (lightBrightnessStore != null && lightBrightnessStore.constantFlashMode()) {
                 lightClient.setConstantFlashMode(true);
@@ -117,8 +117,8 @@ public final class LightingBootstrapService {
         }
     }
 
-    private LightBrightnessStore openLightBrightnessStore(Path projectRoot) {
-        Path storagePath = projectRoot.resolve("config/data/light_brightness_settings.json");
+    private LightBrightnessStore openLightBrightnessStore(Path projectRoot, Map<String, Object> root) {
+        Path storagePath = projectRoot.resolve(com.example.iml.orchestrator.integration.lighting.LightRuntimeConfig.parse(root).brightnessStorePath());
         try {
             return LightBrightnessStore.open(storagePath);
         } catch (IOException e) {
@@ -150,17 +150,4 @@ public final class LightingBootstrapService {
         }
     }
 
-    private static int lightHttpPort(LightServersConfig cfg) {
-        if (cfg == null) {
-            return 5080;
-        }
-        try {
-            String base = cfg.upstreamBaseUrl();
-            URI uri = URI.create(base);
-            int port = uri.getPort();
-            return port > 0 ? port : 5080;
-        } catch (Exception e) {
-            return 5080;
-        }
-    }
 }

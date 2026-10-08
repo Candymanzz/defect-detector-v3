@@ -17,15 +17,15 @@ import java.util.Map;
 import java.util.function.BooleanSupplier;
 
 /**
- * HTTP-триггер вспышек LightServer.v3: три типа URL — вкл, выкл, яркость ({@code /api/camera-flash/pair|single}).
+ * Управление вспышками: native MVS или совместимый HTTP backend; вкл, выкл, яркость ({@code /api/camera-flash/pair|single}).
  */
 public final class LightTriggerClient {
 
     private static final Logger LOG = LogManager.getLogger(LightTriggerClient.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final int MAX_TRIGGER_ATTEMPTS = 10;
-    private static final long RETRY_DELAY_MS = 200L;
+    private final LightRuntimeConfig runtime;
 
+    private final com.example.iml.orchestrator.integration.lighting.nativeio.NativeLightBank nativeBank;
     private final boolean enabled;
     private final boolean failOnError;
     private volatile int defaultBrightnessPercent;
@@ -53,10 +53,27 @@ public final class LightTriggerClient {
     private volatile boolean deferredHardwareBrightness;
 
     public static LightTriggerClient fromRootYaml(Map<String, Object> root) {
-        return new LightTriggerClient(LightServersConfig.fromRootYaml(root));
+        LightRuntimeConfig runtime = LightRuntimeConfig.parse(root);
+        LightServersConfig cfg = LightServersConfig.fromRootYaml(root);
+        com.example.iml.orchestrator.integration.lighting.nativeio.NativeLightBank bank = null;
+        if (cfg.enabled() && com.example.iml.orchestrator.integration.lighting.nativeio.NativeLightConfig.nativeBackend(root)) {
+            var nativeConfig = com.example.iml.orchestrator.integration.lighting.nativeio.NativeLightConfig.parse(root);
+            for (var camera : cfg.cameras()) if (!nativeConfig.routes().containsKey(camera.cameraNumber()))
+                throw new IllegalArgumentException("Missing light_hardware.camera_routes for cameraNumber " + camera.cameraNumber());
+            bank = new com.example.iml.orchestrator.integration.lighting.nativeio.NativeLightBank(nativeConfig);
+        }
+        return new LightTriggerClient(cfg, bank, runtime);
     }
 
-    public LightTriggerClient(LightServersConfig cfg) {
+    public LightTriggerClient(LightServersConfig cfg) { this(cfg, null); }
+
+    public LightTriggerClient(LightServersConfig cfg, com.example.iml.orchestrator.integration.lighting.nativeio.NativeLightBank nativeBank) {
+        this(cfg, nativeBank, LightRuntimeConfig.defaults());
+    }
+
+    public LightTriggerClient(LightServersConfig cfg, com.example.iml.orchestrator.integration.lighting.nativeio.NativeLightBank nativeBank, LightRuntimeConfig runtime) {
+        this.runtime = runtime;
+        this.nativeBank = nativeBank;
         this.enabled = cfg.enabled();
         this.failOnError = cfg.failOnError();
         this.defaultBrightnessPercent = cfg.brightnessPercent();
@@ -71,7 +88,7 @@ public final class LightTriggerClient {
                 + LightServerV3Http.PATH_CAMERA_FLASH_BANK;
         this.statusUrl = cfg.statusUrl();
         this.timeout = Duration.ofMillis(this.timeoutMs);
-        this.statusPollTimeout = Duration.ofMillis(Math.min(3000, Math.max(500, this.timeoutMs / 5)));
+        this.statusPollTimeout = Duration.ofMillis(runtime.statusTimeoutMs());
         this.httpClient = HttpClient.newBuilder().connectTimeout(this.timeout).build();
         this.cameras = new ArrayList<>(cfg.cameras());
         this.cameraById = indexCameras(this.cameras);
@@ -79,7 +96,8 @@ public final class LightTriggerClient {
         this.constantFlashMode = false;
         this.lightCommandLock = new Object();
         if (enabled) {
-            LOG.info(
+            if (nativeBank != null) LOG.info("light_servers backend=native cameras={} default_brightness_percent={} hold_mode={}", cameras.size(), defaultBrightnessPercent, holdMode);
+            else LOG.info(
                     "light_servers: on={} off={} brightness_pair={} brightness_single={} bank={} cameras={} default_brightness_percent={} hold_mode={}",
                     onUrl, offUrl, brightnessPairUrl, brightnessSingleUrl, flashBankUrl,
                     cameras.size(), defaultBrightnessPercent, holdMode
@@ -217,7 +235,7 @@ public final class LightTriggerClient {
         startupEngage();
     }
 
-    /** Дождаться готовности LightServer ({@code GET status_url}, ethernet bank или COM). */
+    /** Дождаться готовности встроенного SDK или HTTP backend. */
     public void awaitEndpointsReady() {
         if (!enabled) {
             return;
@@ -232,13 +250,13 @@ public final class LightTriggerClient {
                 LOG.debug("light bank status poll: {}", e.getMessage());
             }
             try {
-                Thread.sleep(400L);
+                Thread.sleep(runtime.startupPollMs());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return;
             }
         }
-        LOG.warn("light bank not ready within {} ms — первый POST on может занять 8–12 s", timeout.toMillis());
+        LOG.warn("light bank not ready within {} ms", timeout.toMillis());
     }
 
     public void setBrightnessPercent(int percent) {
@@ -523,7 +541,14 @@ public final class LightTriggerClient {
     }
 
     public void shutdown() {
-        forceAllOff();
+        try { forceAllOff(); } finally { if (nativeBank != null) nativeBank.close(); }
+    }
+
+    public boolean isNativeLighting() { return nativeBank != null; }
+    public boolean isLightingHealthy() { return !enabled || (nativeBank != null ? nativeBank.ready() : true); }
+    public Object nativeLightRequest(String method, String path, Map<String, Object> body) {
+        if (nativeBank == null) throw new IllegalStateException("Native lights unavailable");
+        return nativeBank.request(method, path, body);
     }
 
     /**
@@ -542,6 +567,7 @@ public final class LightTriggerClient {
         if (spec != null) {
             try {
                 pushCameraBrightness(spec);
+                if (nativeBank != null) nativeBank.cameraOn(spec.cameraNumber());
                 sleepSettle();
                 return true;
             } catch (Exception e) {
@@ -640,7 +666,7 @@ public final class LightTriggerClient {
 
     private boolean postOnWithRetriesLocked(int brightnessPercent) {
         RuntimeException lastError = null;
-        for (int attempt = 1; attempt <= MAX_TRIGGER_ATTEMPTS; attempt++) {
+        for (int attempt = 1; attempt <= runtime.commandAttempts(); attempt++) {
             try {
                 postOn(brightnessPercent);
                 sleepSettle();
@@ -648,7 +674,7 @@ public final class LightTriggerClient {
             } catch (RuntimeException e) {
                 lastError = e;
             }
-            if (attempt < MAX_TRIGGER_ATTEMPTS) {
+            if (attempt < runtime.commandAttempts()) {
                 sleepRetryDelay();
             }
         }
@@ -664,14 +690,14 @@ public final class LightTriggerClient {
 
     private void postOffWithRetriesLocked() {
         RuntimeException lastError = null;
-        for (int attempt = 1; attempt <= MAX_TRIGGER_ATTEMPTS; attempt++) {
+        for (int attempt = 1; attempt <= runtime.commandAttempts(); attempt++) {
             try {
                 postOff();
                 return;
             } catch (RuntimeException e) {
                 lastError = e;
             }
-            if (attempt < MAX_TRIGGER_ATTEMPTS) {
+            if (attempt < runtime.commandAttempts()) {
                 sleepRetryDelay();
             }
         }
@@ -709,6 +735,11 @@ public final class LightTriggerClient {
     }
 
     private void postJson(String url, Map<String, Object> body, String label) {
+        if (nativeBank != null) {
+            nativeBank.request("POST", URI.create(url).getPath(), body);
+            LOG.info("light {} -> native SDK", label);
+            return;
+        }
         try {
             byte[] json = MAPPER.writeValueAsBytes(body);
             HttpRequest request = HttpRequest.newBuilder()
@@ -736,6 +767,7 @@ public final class LightTriggerClient {
     }
 
     private boolean pollBankInitialized() throws Exception {
+        if (nativeBank != null) return nativeBank.ready();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(statusUrl))
                 .timeout(statusPollTimeout)
@@ -794,7 +826,7 @@ public final class LightTriggerClient {
 
     private void sleepRetryDelay() {
         try {
-            Thread.sleep(RETRY_DELAY_MS);
+            Thread.sleep(runtime.retryDelayMs());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

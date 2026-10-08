@@ -23,7 +23,7 @@ echo "==> Cleanup stale processes and ports"
 if [[ -x "$REPO_ROOT/stop-dev.sh" ]]; then
   "$REPO_ROOT/stop-dev.sh" || true
 else
-  for port in $(seq 8000 8009) 8099 8765 5173 5079 5080 8088; do
+  for port in $(seq 8000 8009) 8099 8765 5173 8088; do
     fuser -k "${port}/tcp" 2>/dev/null || true
   done
 fi

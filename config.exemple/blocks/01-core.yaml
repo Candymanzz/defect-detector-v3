@@ -11,10 +11,6 @@ frame:
   binning_mode: "Sum"
 
 capture_source: "hik"
-# DI3 UDP → wait_frame; экспозиция по DO5→Line0.
-capture_trigger_mode: "line0"
-line0_trigger_activation: "RisingEdge"
-line0_line_inverter: false
 frame_timeout_ms: 15000
 # GigE-топология: 5 коммутаторов, на каждом 2 камеры (пары id: 0+1, 2+3, … 8+9).
 # gige_switch_buffer_kb — физический egress коммутатора (448 КБ). Должен совпадать с железом.
@@ -38,7 +34,7 @@ integration:
   reference_source: client
   # false: DI3/триггер не стартует цикл, пока нет client.reference_bundle.
   capture_without_reference: true
-  # Автосъёмка для UI отключена — кадры только по внешнему триггеру (IoInputMonitor → inspection_trigger).
+  # Автосъёмка для UI отключена — кадры только по внешнему триггеру (встроенный MVS IO → inspection_trigger).
   live_preview:
     enabled: false
     flash_on_tick: false
@@ -56,10 +52,6 @@ integration:
     transfer_wait_waves: 1
     # Пауза между волнами wait_frame (только если transfer_wait_waves > 1). При 448 КБ достаточно ~15 мс.
     transfer_wave_gap_ms: 15
-    # true: экспозиция по DI3→DO5→Line0; Java только wait_frame.
-    hardware_line_trigger: true
-    # false: не слать trigger_only — кадр только от DO5/Line0.
-    immediate_prefire: false
   geometry_pool_size: 10
   positioning_pool_size: 10
   python_parallelism: 10
@@ -76,7 +68,7 @@ integration:
   worker_named_pipe_template: "\\\\.\\pipe\\iml-camera-%d-binary"
   worker_named_pipe_template_linux: "/tmp/iml-camera-%d.pipe"
   worker_named_pipe_connect_timeout_ms: 3000
-  # Готовность LightServer ждём через awaitEndpointsReady — искусственная пауза не нужна.
+  # Готовность встроенных вспышек ждём через awaitEndpointsReady — искусственная пауза не нужна.
   light_server_startup_delay_ms: 0
   # Целевой SLA: 10 кадров параллельно ≤ 3.5 с (GigE stagger + downscale 0.5 + параллельный python).
   inspection_cycle_timeout_ms: 3500
@@ -90,37 +82,6 @@ integration:
   dev_auto_trigger_stub:
     enabled: false
     interval_ms: 5000
-  # Внешний триггер инспекции (когда dev_auto_trigger_stub и continuous_inspection выключены).
-  inspection_trigger:
-    udp:
-      enabled: true
-      bind_host: "0.0.0.0"
-      bind_port: 9100
-      # io_input: UDP от IoInputMonitor {"di":N,"value":0|1}; DI1=работа, DI2=направление, DI3=триггер, DI4=shutdown
-      format: io_input
-      debounce_ms: 0
-      # allowed_remote_hosts: ["127.0.0.1"]
-    io_input:
-      work_port: 1
-      direction_port: 2
-      trigger_port: 3
-      # DI4=1 → LightsShutdown + остановка оркестратора и всех сервисов. 0 = выкл.
-      shutdown_port: 4
-      direction_latch_on_work: false
-      di3_only: true
-      # Съёмка только при DI2=1: DI3↑ → wait_frame; без DI2 — skip.
-      repeat_di3_capture: true
-      direction_latch: false
-      capture_delay_ms: 0
-      trigger_edge: rising
-      payload_format: json
-      debounce_ms: 0
-      require_direction: true
-      require_work: false
-      external_hardware_capture: true
-      direction_poll_ms: 1
-  # UI «Прямой/Обратный» не фильтрует; гейт съёмки — уровень DI2.
-  io_input_monitor_direction_url: "http://127.0.0.1:9101"
   # Видеопоток: WS client.stream_start/stop; кадры — GET /api/camera/{id}/stream.mjpeg (MJPEG).
   client_stream:
     default_max_fps: 20
@@ -144,7 +105,7 @@ integration:
     enabled: false
     directory: "testimage"
     jpeg_quality: 0.92
-  # Автозапуск uvicorn (как LightServer). Один раз: pip install в analisSurface/backend/.venv
+  # Автозапуск uvicorn. Один раз: pip install в analisSurface/backend/.venv
   analis_surface_autostart:
     enabled: true
     # Потоков inspect в одном uvicorn (10 кадров с 10 камер параллельно).
@@ -186,32 +147,6 @@ integration:
     - "java"
     - "-jar"
     - "java-positioning-service/target/java-positioning-service-0.1.0-SNAPSHOT.jar"
-  # LightServer.v3 — Ethernet MV-LE. Не использовать `dotnet run` (часто зависает до Kestrel).
-  light_server_command_windows:
-    - "dotnet"
-    - "exec"
-    - "LightServer.v3/bin/Release/net10.0/LightServer.dll"
-    - "--urls"
-    - "http://127.0.0.1:5080"
-  light_server_command_linux:
-    - "dotnet"
-    - "exec"
-    - "LightServer.v3/bin/Release/net10.0/LightServer.dll"
-    - "--urls"
-    - "http://127.0.0.1:5080"
-  # IoInputMonitor — DI1/DI2/DI3 → UDP :9100 (см. blocks/52-io-input.yaml).
-  io_input_monitor_autostart:
-    enabled: true
-    startup_delay_ms: 0
-    working_dir: "."
-  io_input_monitor_command_windows:
-    - "dotnet"
-    - "exec"
-    - "IoInputMonitor/bin/Release/net10.0/IoInputMonitor.dll"
-  io_input_monitor_command_linux:
-    - "dotnet"
-    - "exec"
-    - "IoInputMonitor/bin/Release/net10.0/IoInputMonitor.dll"
   # Front-end (Vite + Electron) — npm run dev в front-end/.
   frontend_autostart:
     enabled: true

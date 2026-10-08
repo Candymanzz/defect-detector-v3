@@ -38,17 +38,6 @@ run_step "front-end (Vitest)" "$ROOT/front-end" bash -lc "
   npm test
 "
 
-if command -v dotnet >/dev/null 2>&1; then
-  if [[ -d "$ROOT/IoInputMonitor/IoInputMonitor.Tests" ]]; then
-    run_step "IoInputMonitor (xUnit)" "$ROOT/IoInputMonitor/IoInputMonitor.Tests" dotnet test -c Release
-  fi
-  if [[ -d "$ROOT/LightServer.v3/LightServer.Tests" ]]; then
-    run_step "LightServer.v3 (xUnit)" "$ROOT/LightServer.v3/LightServer.Tests" dotnet test -c Release
-  fi
-else
-  echo "dotnet not found — skipping C# tests"
-fi
-
 if command -v cmake >/dev/null 2>&1; then
   run_step "camera-worker (CTest)" "$ROOT/camera-worker" bash -lc "
     cmake -S . -B build-test

@@ -3,13 +3,10 @@
 #   .\rebuild-and-run.ps1
 #   .\rebuild-and-run.ps1 -NoFrontend
 #   .\rebuild-and-run.ps1 -SkipCameraWorker
-#   .\rebuild-and-run.ps1 -SkipLightServer
 
 param(
     [switch]$NoFrontend,
     [switch]$SkipCameraWorker,
-    [switch]$SkipLightServer,
-    [switch]$SkipIoInputMonitor,
     [string]$Config = "config\config.yaml"
 )
 
@@ -23,10 +20,6 @@ $PositioningJar = Join-Path $RepoRoot "java-positioning-service\target\java-posi
 $PythonBackend = Join-Path $RepoRoot "analisSurface\backend"
 $PythonVenv = Join-Path $PythonBackend ".venv"
 $PythonExe = Join-Path $PythonVenv "Scripts\python.exe"
-$LightServerProj = Join-Path $RepoRoot "LightServer.v3\LightServer.csproj"
-$LightServerDll = Join-Path $RepoRoot "LightServer.v3\bin\Release\net10.0\LightServer.dll"
-$IoInputMonitorProj = Join-Path $RepoRoot "IoInputMonitor\IoInputMonitor.csproj"
-$IoInputMonitorDll = Join-Path $RepoRoot "IoInputMonitor\bin\Release\net10.0\IoInputMonitor.dll"
 $CameraWorkerDir = Join-Path $RepoRoot "camera-worker"
 $FrontEndDir = Join-Path $RepoRoot "front-end"
 $NpmCmd = "C:\Program Files\nodejs\npm.cmd"
@@ -119,34 +112,6 @@ Invoke-BuildStep "Python venv + pip" {
     & $PythonExe -m pip install -q -r (Join-Path $PythonBackend "requirements.txt")
 }
 
-if (-not $SkipLightServer) {
-    Write-Step "Build LightServer.v3 (Release)"
-    dotnet build $LightServerProj -c Release
-    if ($LASTEXITCODE -ne 0) {
-        if (Test-Path $LightServerDll) {
-            Write-Host "WARN: LightServer build failed, using existing DLL." -ForegroundColor Yellow
-        } else {
-            throw "LightServer build failed and no Release DLL found. Install Hik MVS SDK or use -SkipLightServer"
-        }
-    }
-} elseif (-not (Test-Path $LightServerDll)) {
-    throw "LightServer.dll missing and -SkipLightServer was set"
-}
-
-if (-not $SkipIoInputMonitor) {
-    Write-Step "Build IoInputMonitor (Release)"
-    dotnet build $IoInputMonitorProj -c Release
-    if ($LASTEXITCODE -ne 0) {
-        if (Test-Path $IoInputMonitorDll) {
-            Write-Host "WARN: IoInputMonitor build failed, using existing DLL." -ForegroundColor Yellow
-        } else {
-            throw "IoInputMonitor build failed and no Release DLL found. Use -SkipIoInputMonitor if IO box unavailable"
-        }
-    }
-} elseif (-not (Test-Path $IoInputMonitorDll)) {
-    throw "IoInputMonitor.dll missing and -SkipIoInputMonitor was set"
-}
-
 if (-not $SkipCameraWorker) {
   if (Get-Command cmake -ErrorAction SilentlyContinue) {
     Invoke-BuildStep "Build camera-worker" {
@@ -175,7 +140,7 @@ if (-not $SkipCameraWorker) {
         Pop-Location
     }
     # Ensure MVS runtime DLLs sit next to camera_worker.exe (also done by CMake POST_BUILD).
-    $mvsRuntime = Join-Path $RepoRoot "LightServer.v3\ThirdParty\MVS\Runtime\win64"
+    $mvsRuntime = Join-Path $RepoRoot "orchestrator-java\native\mvs\win64"
     $workerOutDirs = @(
         (Join-Path $CameraWorkerDir "build\Release"),
         (Join-Path $CameraWorkerDir "build\Debug")
@@ -191,7 +156,7 @@ if (-not $SkipCameraWorker) {
               -or (Test-Path (Join-Path $CameraWorkerDir "build\Debug\camera_worker.exe"))
     if ($hasWorker) {
         Write-Host "WARN: cmake not in PATH, using existing camera_worker.exe" -ForegroundColor Yellow
-        $mvsRuntime = Join-Path $RepoRoot "LightServer.v3\ThirdParty\MVS\Runtime\win64"
+        $mvsRuntime = Join-Path $RepoRoot "orchestrator-java\native\mvs\win64"
         $workerOutDirs = @(
             (Join-Path $CameraWorkerDir "build\Release"),
             (Join-Path $CameraWorkerDir "build\Debug")

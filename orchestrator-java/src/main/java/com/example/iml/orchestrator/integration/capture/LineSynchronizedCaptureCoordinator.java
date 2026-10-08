@@ -378,7 +378,9 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         if (!isEnabled() || triggerSequence <= 0L) {
             Map<Integer, BinaryProtocol.Message> solo = new LinkedHashMap<>();
             for (Map.Entry<Integer, WorkerProcessSupervisor> entry : workersByCamera.entrySet()) {
-                solo.put(entry.getKey(), entry.getValue().command(Map.of("op", "capture", "sync", true)));
+                solo.put(entry.getKey(), entry.getValue().command(hardwareLineTrigger
+                        ? Map.of("op", "capture", "wait_frame", true)
+                        : Map.of("op", "capture", "sync", true)));
             }
             return solo;
         }
@@ -423,7 +425,9 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             WorkerProcessSupervisor worker
     ) throws Exception {
         if (!isEnabled() || triggerSequence <= 0L) {
-            return worker.command(Map.of("op", "capture", "sync", true));
+            return worker.command(hardwareLineTrigger
+                    ? Map.of("op", "capture", "wait_frame", true)
+                    : Map.of("op", "capture", "sync", true));
         }
         Round round = rounds.get(triggerSequence);
         if (round == null) {
@@ -457,24 +461,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         round.arrive(cameraId, worker);
 
         if (hardwareLineTrigger) {
-            if (consumeLateJoin(triggerSequence, cameraId)) {
-                BinaryProtocol.Message capture = worker.command(Map.of("op", "capture", "sync", true));
-                round.releaseParticipant();
-                if (!isUsableCapture(capture)) {
-                    throw new IllegalStateException(
-                            "line late-join sync unusable cam=" + cameraId + " seq=" + triggerSequence + ": "
-                                    + describeCapture(capture)
-                    );
-                }
-                long frameId = YamlScalars.toLong(capture.header().get("frame_id"), -1L);
-                LOG.info(
-                        "sync_diag channel=inspect event=line_frame_from_rejoin cam={} seq={} frame_id={}",
-                        cameraId,
-                        triggerSequence,
-                        frameId
-                );
-                return capture;
-            }
+            consumeLateJoin(triggerSequence, cameraId);
             BinaryProtocol.Message capture = waitFrameForCamera(round, cameraId, worker);
             round.releaseParticipant();
             if (!isUsableCapture(capture)) {

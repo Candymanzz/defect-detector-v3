@@ -26,7 +26,7 @@ public final class StackSupervisorMain {
 
     static final int[] DEV_STACK_PORTS = {
             8000, 8001, 8002, 8003, 8004, 8005, 8006, 8007, 8008, 8009,
-            8099, 8765, 5173, 5079, 5080, 8088, 9101
+            8099, 8765, 5173, 8088
     };
 
     private final Path orchestratorJar;
@@ -470,9 +470,6 @@ public final class StackSupervisorMain {
         uris.add(orchestratorHealth);
         if (envBoolean("IML_SUPERVISOR_PROBE_PYTHON", true)) {
             uris.add(URI.create(env("IML_PYTHON_HEALTH_URL", "http://127.0.0.1:8000/detector/health")));
-        }
-        if (envBoolean("IML_SUPERVISOR_PROBE_LIGHT", false)) {
-            uris.add(URI.create(env("IML_LIGHT_HEALTH_URL", "http://127.0.0.1:5080/")));
         }
         return uris;
     }

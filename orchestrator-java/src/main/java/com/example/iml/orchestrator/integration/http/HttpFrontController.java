@@ -178,6 +178,15 @@ public final class HttpFrontController {
                     ctx.lightBrightnessStore()
             );
 
+            router.register(HttpRoute.exact("*", "/api/orchestrator/light/bank", light::handleBank));
+            router.register(HttpRoute.exact("GET", "/api/orchestrator/light/devices", light::handleNetworkDevices));
+            router.register(HttpRoute.exact("GET", "/api/orchestrator/light/com/devices", light::handleComDevices));
+            router.register(HttpRoute.exact("POST", "/api/orchestrator/light/network", light::handleNetworkLight));
+            router.register(HttpRoute.exact("POST", "/api/orchestrator/light/com", light::handleComLight));
+            router.register(HttpRoute.exact("*", "/api/camera-flash/bank", light::handleBank));
+            router.register(HttpRoute.exact("*", "/api/camera-flash/pair", light::handleCameraFlash));
+            router.register(HttpRoute.exact("*", "/api/camera-flash/single", light::handleCameraFlash));
+            router.register(HttpRoute.exact("GET", "/api/camera-flash/routes", light::handleCameraFlash));
             router.register(HttpRoute.exact("GET", "/api/orchestrator/light/brightness", light::handleBrightness));
 
             router.register(HttpRoute.exact("PUT", "/api/orchestrator/light/brightness", light::handleBrightness));

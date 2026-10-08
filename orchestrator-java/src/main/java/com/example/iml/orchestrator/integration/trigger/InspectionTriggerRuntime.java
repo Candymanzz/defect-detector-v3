@@ -6,7 +6,7 @@ import com.example.iml.orchestrator.integration.trigger.config.InspectionTrigger
 import com.example.iml.orchestrator.integration.trigger.config.UdpTriggerConfig;
 import com.example.iml.orchestrator.integration.trigger.ManualLineDirectionService;
 import com.example.iml.orchestrator.integration.trigger.parse.IoInputDiChange;
-import com.example.iml.orchestrator.integration.trigger.transport.IoInputMonitorUdpTriggerTransport;
+import com.example.iml.orchestrator.integration.trigger.transport.IoInputTriggerTransport;
 import com.example.iml.orchestrator.integration.trigger.transport.TriggerTransport;
 import com.example.iml.orchestrator.integration.trigger.transport.UdpTriggerTransport;
 import org.apache.logging.log4j.Logger;
@@ -18,18 +18,19 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 /**
- * Жизненный цикл шины триггеров: IoInputMonitor (UDP) и/или прочие UDP-транспорты.
+ * Жизненный цикл шины триггеров: IO source (UDP) и/или прочие UDP-транспорты.
  */
 public final class InspectionTriggerRuntime implements AutoCloseable {
 
+    private com.example.iml.orchestrator.integration.io.mvs.MvsIoTransport nativeIo;
     private final InspectionTriggerBus bus;
     private final List<TriggerTransport> transports;
-    private final IoInputMonitorUdpTriggerTransport ioInputTransport;
+    private final IoInputTriggerTransport ioInputTransport;
 
     private InspectionTriggerRuntime(
             InspectionTriggerBus bus,
             List<TriggerTransport> transports,
-            IoInputMonitorUdpTriggerTransport ioInputTransport
+            IoInputTriggerTransport ioInputTransport
     ) {
         this.bus = bus;
         this.transports = transports;
@@ -40,7 +41,7 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
         return bus;
     }
 
-    /** Конвейер в «Работа» (DI work=1). Если IoInputMonitor выключен — {@code true}. */
+    /** Конвейер в «Работа» (DI work=1). Если IO source выключен — {@code true}. */
     public boolean isLineWorkActive() {
         return ioInputTransport == null || ioInputTransport.isLineWorkActive();
     }
@@ -54,7 +55,7 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
     }
 
     /**
-     * Подписка на DI от IoInputMonitor (для interval_flash и т.п.).
+     * Подписка на DI от IO source (для interval_flash и т.п.).
      * Не меняет логику съёмки; no-op если io_input транспорт не запущен.
      */
     public void addDiChangeListener(Consumer<IoInputDiChange> listener) {
@@ -124,13 +125,14 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
             log.info("inspection trigger stagger enabled delay_ms={} cameras={}", captureTriggerStaggerMs, cameraIds.size());
         }
         List<TriggerTransport> transports = new ArrayList<>();
-        IoInputMonitorUdpTriggerTransport ioInputTransport = null;
-        if (mode == IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL) {
+        IoInputTriggerTransport ioInputTransport = null;
+        if (mode == IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL
+                || com.example.iml.orchestrator.integration.io.mvs.MvsIoConfig.parse(integration).enabled()) {
             InspectionTriggerConfig cfg = InspectionTriggerConfig.parse(integration);
             UdpTriggerConfig udp = cfg.udp();
-            if (cfg.usesIoInputMonitor()) {
-                ioInputTransport = new IoInputMonitorUdpTriggerTransport(
-                        log,
+            if (cfg.mvsIo().enabled() || cfg.usesIoInputUdp()) {
+                ioInputTransport = new IoInputTriggerTransport(
+                        org.apache.logging.log4j.LogManager.getLogger(IoInputTriggerTransport.class),
                         udp,
                         cfg.ioInput(),
                         bus,
@@ -138,7 +140,7 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
                         bucketGroups,
                         manualLineDirection
                 );
-                transports.add(ioInputTransport);
+                if (!cfg.mvsIo().enabled()) transports.add(ioInputTransport);
             } else if (udp.enabled()) {
                 transports.add(new UdpTriggerTransport(log, udp, bus));
             } else {
@@ -146,13 +148,42 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
             }
         }
         InspectionTriggerRuntime runtime = new InspectionTriggerRuntime(bus, transports, ioInputTransport);
+        com.example.iml.orchestrator.integration.io.mvs.MvsIoConfig nativeCfg =
+                com.example.iml.orchestrator.integration.io.mvs.MvsIoConfig.parse(integration);
+        if (nativeCfg.enabled() && ioInputTransport != null) {
+            runtime.nativeIo = new com.example.iml.orchestrator.integration.io.mvs.MvsIoTransport(
+                    nativeCfg, InspectionTriggerConfig.parse(integration).ioInput().triggerPort(),
+                    org.apache.logging.log4j.LogManager.getLogger(com.example.iml.orchestrator.integration.io.mvs.MvsIoTransport.class),
+                    () -> com.example.iml.orchestrator.integration.io.mvs.MvsIoDevices.create(nativeCfg, log),
+                    ioInputTransport::applyDiChange);
+            ioInputTransport.setHardwareObservationSource();
+            transports.add(runtime.nativeIo);
+        }
         if (holder != null && holder.length > 0) {
             holder[0] = runtime;
         }
         for (TriggerTransport transport : transports) {
-            transport.start();
+            if (transport != runtime.nativeIo) transport.start();
         }
         return runtime;
+    }
+
+    /** Start monitoring after DI listeners and health gates have been wired. */
+    public void activateNativeIo() {
+        if (nativeIo != null) nativeIo.start();
+    }
+
+    public void triggerNativeTimer(String timer, String line) {
+        if (nativeIo == null) throw new IllegalStateException("Native IO is not configured");
+        nativeIo.triggerTimer(timer, line);
+    }
+    public void setNativeOutput(int port, boolean high) {
+        if (nativeIo == null) throw new IllegalStateException("Native IO is not configured");
+        nativeIo.setOutput(port, high);
+    }
+
+    public java.util.Map<Integer, Boolean> nativeOutputStates() {
+        return nativeIo == null ? java.util.Map.of() : nativeIo.outputStates();
     }
 
     @Override
@@ -163,6 +194,7 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
             } catch (Exception ignored) {
             }
         }
+        if (nativeIo != null && ioInputTransport != null) ioInputTransport.close();
         try {
             bus.close();
         } catch (Exception ignored) {

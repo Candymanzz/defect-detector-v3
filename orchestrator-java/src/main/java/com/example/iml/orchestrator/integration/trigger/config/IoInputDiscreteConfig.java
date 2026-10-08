@@ -6,7 +6,7 @@ import com.example.iml.orchestrator.integration.trigger.gpio.TriggerEdgeMode;
 import java.util.Map;
 
 /**
- * Маппинг DI из {@code IoInputMonitor} (UDP): DI1=работа, DI2=направление, DI3=триггер,
+ * Маппинг DI из {@code IO source} (UDP): DI1=работа, DI2=направление, DI3=триггер,
  * DI4=безопасное выключение ({@code shutdown_port}, 0 = выкл).
  */
 public record IoInputDiscreteConfig(

@@ -24,6 +24,12 @@ class LightServersConfigTest {
                 "brightness_single", "/api/camera-flash/single"
         ));
         root.put("light_servers", ls);
+        root.put("light_hardware", Map.of("camera_routes", List.of(
+                Map.of("camera_number", 1, "channels", List.of(1, 2)),
+                Map.of("camera_number", 3, "channels", List.of(1)),
+                Map.of("camera_number", 4, "channels", List.of(1, 2)),
+                Map.of("camera_number", 8, "channels", List.of(2)),
+                Map.of("camera_number", 9, "channels", List.of(1, 2)))));
         root.put("cameras", List.of(
                 Map.of("id", 0, "enabled", true),
                 Map.of("id", 2, "enabled", true),
@@ -48,12 +54,14 @@ class LightServersConfigTest {
     }
 
     @Test
-    void camerasWithoutFlashHardwareAreSkipped() {
-        assertTrue(LightServersConfig.hasFlashHardware(0));
-        assertTrue(LightServersConfig.hasFlashHardware(7));
-        assertTrue(LightServersConfig.hasFlashHardware(8));
-        assertTrue(LightServersConfig.hasFlashHardware(9));
-        assertTrue(!LightServersConfig.hasFlashHardware(10));
+    void camerasWithoutConfiguredRouteAreSkipped() {
+        var root = Map.<String, Object>of("light_servers", Map.of("enabled", true),
+                "cameras", List.of(Map.of("id", 42, "enabled", true), Map.of("id", 7, "enabled", true)),
+                "light_hardware", Map.of("camera_routes", List.of(Map.of("camera_number", 43, "channels", List.of(1)))));
+        var cfg = LightServersConfig.fromRootYaml(root);
+        assertEquals(1, cfg.cameras().size());
+        assertEquals(42, cfg.cameras().get(0).cameraId());
+        assertEquals(LightServersConfig.FlashMode.SINGLE, cfg.cameras().get(0).mode());
     }
 
     @Test
@@ -65,6 +73,7 @@ class LightServersConfigTest {
         ls.put("endpoints", List.of(
                 Map.of(
                         "id", "light-com3-lan4",
+                        "mode", "single",
                         "enabled", true,
                         "brightness_percent", 80,
                         "camera_ids", List.of(2)

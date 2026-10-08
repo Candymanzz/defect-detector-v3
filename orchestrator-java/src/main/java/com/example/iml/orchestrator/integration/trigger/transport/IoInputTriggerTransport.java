@@ -28,7 +28,7 @@ import java.util.function.Consumer;
 /**
  * UDP-слушатель DI: DI2 — направление, DI3 — триггер съёмки, DI4 — безопасное выключение (listener).
  */
-public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport {
+public final class IoInputTriggerTransport implements TriggerTransport {
 
     private final Logger log;
     private final UdpTriggerConfig udpConfig;
@@ -61,11 +61,11 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     private volatile ScheduledFuture<?> delayedCaptureTask;
     private volatile long di3RiseEpochMs;
     private final ScheduledExecutorService captureDelayExecutor;
-    private long lastFireMs;
+    private boolean hardwareObservationSource;
     private Thread listenerThread;
     private DatagramSocket socket;
 
-    public IoInputMonitorUdpTriggerTransport(
+    public IoInputTriggerTransport(
             Logger log,
             UdpTriggerConfig udpConfig,
             IoInputDiscreteConfig ioInputConfig,
@@ -75,7 +75,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         this(log, udpConfig, ioInputConfig, bus, onLineWorkChanged, List.of());
     }
 
-    public IoInputMonitorUdpTriggerTransport(
+    public IoInputTriggerTransport(
             Logger log,
             UdpTriggerConfig udpConfig,
             IoInputDiscreteConfig ioInputConfig,
@@ -86,7 +86,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         this(log, udpConfig, ioInputConfig, bus, onLineWorkChanged, bucketGroups, null);
     }
 
-    public IoInputMonitorUdpTriggerTransport(
+    public IoInputTriggerTransport(
             Logger log,
             UdpTriggerConfig udpConfig,
             IoInputDiscreteConfig ioInputConfig,
@@ -249,7 +249,31 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         }
     }
 
-    private void applyDiChange(IoInputDiChange change) {
+    public synchronized void applyDiChange(IoInputDiChange change) {
+        try {
+            handleDiChange(change);
+        } finally {
+            log.info("io_input_trigger event=di_applied change={} work={} direction_raw={} direction={} direction_latched={} trigger={} capture_fired={} last_sequence={}",
+                    change, workActive, directionRawActive, directionActive, directionLatched,
+                    triggerActive, captureFiredThisPulse, bus.lastDispatchedSequence());
+        }
+    }
+
+    private void handleDiChange(IoInputDiChange change) {
+        if (change == null) {
+            log.info("io_input_trigger event=session_reset work={} direction={} trigger={}", workActive, directionActive, triggerActive);
+            cancelDelayedCapture();
+            directionWaiter.cancel("MVS reconnected");
+            directionLatch.onTriggerRelease();
+            workSessionDirection.onWorkStopped(log);
+            workActive = false;
+            directionRawActive = directionActive = directionLatched = directionInitialized = false;
+            triggerActive = captureFiredThisPulse = captureFiredThisDi2Window = false;
+            updateLineWork(ioInputConfig.stubWorkActive());
+            return;
+        }
+        log.info("io_input_trigger event=di_received di={} value={} work={} direction={} trigger={} listeners={}",
+                change.diPort(), change.active() ? 1 : 0, workActive, directionActive, triggerActive, diChangeListeners.size());
         notifyDiChangeListeners(change);
         int port = change.diPort();
         boolean active = change.active();
@@ -257,7 +281,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             boolean previousWork = workActive;
             workActive = active;
             updateLineWork(active);
-            // Как IoInputMonitor disarm_on_work_low: DI1↓ снимает direction latch.
+            // Как IO source disarm_on_work_low: DI1↓ снимает direction latch.
             // Иначе Java ждёт wait_frame без DO5 → timeout / чужие кадры с Line0-шума.
             if (!active && previousWork && ioInputConfig.directionLatch() && directionLatched) {
                 directionLatched = false;
@@ -397,7 +421,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                 log.info("io_input_trigger phase1: DI3 ignored until DI2=1 arms direction");
                 return;
             }
-            // Rising-only photoeye: IoInputMonitor шлёт только UDP DI3=1, без DI3=0.
+            // Rising-only photoeye: IO source шлёт только UDP DI3=1, без DI3=0.
             // Повторный 3:1 при triggerActive=true — новый импульс, не «залипший HIGH».
             boolean risingEdge = active && !triggerActive;
             boolean risingOnlyRetrigger = active
@@ -428,7 +452,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                                 "io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source={}",
                                 directionSourceLabel()
                         );
-                    } else if (directionMatchesSelected() && captureFiredThisDi2Window) {
+                    } else if (!hardwareObservationSource && directionMatchesSelected() && captureFiredThisDi2Window) {
                         log.info(
                                 "io_input_trigger skip DI3↑: холостой (уже сняли при DI2=1), source={}",
                                 directionSourceLabel()
@@ -632,14 +656,6 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             }
             return;
         }
-        if (ioInputConfig.debounceMs() > 0) {
-            long now = System.currentTimeMillis();
-            if (now - lastFireMs < ioInputConfig.debounceMs()) {
-                log.debug("io_input_trigger debounced");
-                return;
-            }
-            lastFireMs = now;
-        }
         long triggerReceivedMs = System.currentTimeMillis();
         List<Integer> targetCameras = resolveTargetCameras(true);
         int published = publishLineCapture(targetCameras);
@@ -691,7 +707,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         if (captureFiredThisPulse) {
             return;
         }
-        if (directionMatchesSelected() && captureFiredThisDi2Window) {
+        if (!hardwareObservationSource && directionMatchesSelected() && captureFiredThisDi2Window) {
             log.info("io_input_trigger skip: холостой DI3 (уже сняли в выбранном направлении)");
             return;
         }
@@ -705,14 +721,6 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         }
         if (!allowsCaptureForSelectedDirection()) {
             return;
-        }
-        if (ioInputConfig.debounceMs() > 0) {
-            long now = System.currentTimeMillis();
-            if (now - lastFireMs < ioInputConfig.debounceMs()) {
-                log.debug("io_input_trigger debounced");
-                return;
-            }
-            lastFireMs = now;
         }
         long triggerReceivedMs = System.currentTimeMillis();
         List<Integer> targetCameras = resolveTargetCameras(false);
@@ -735,9 +743,21 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         }
     }
 
+    /** Direct native source uses the same direction/work rules without opening UDP. */
+    public void setHardwareObservationSource() {
+        this.hardwareObservationSource = true;
+    }
+
     private int publishLineCapture(List<Integer> targetCameras) {
-        if (ioInputConfig.externalHardwareCapture()) {
-            return bus.dispatchLineBroadcastWithoutPrefire("io_input", targetCameras);
+        if (hardwareObservationSource && !directionActive) {
+            log.info("io_input_trigger skip: hardware frame reception requires DI{}=1", ioInputConfig.directionPort());
+            return 0;
+        }
+        if (hardwareObservationSource || ioInputConfig.externalHardwareCapture()) {
+            int published = bus.dispatchLineBroadcastWithoutPrefire("io_input", targetCameras);
+            log.info("io_input_trigger event=hardware_frame_request direction_di={} direction={} work={} cameras={} published={} sequence={}",
+                    ioInputConfig.directionPort(), directionActive, workActive, targetCameras, published, bus.lastDispatchedSequence());
+            return published;
         }
         long seq = bus.prefireLineBroadcast("io_input", targetCameras);
         return bus.dispatchLineBroadcast("io_input", seq, targetCameras);
@@ -808,16 +828,8 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         if (!ignoreDirectionCheck && !allowsCaptureForSelectedDirection()) {
             return;
         }
-        if (ioInputConfig.debounceMs() > 0) {
-            long now = System.currentTimeMillis();
-            if (now - lastFireMs < ioInputConfig.debounceMs()) {
-                log.debug("io_input_trigger debounced");
-                return;
-            }
-            lastFireMs = now;
-        }
         long triggerReceivedMs = System.currentTimeMillis();
-        int published = bus.publishBroadcast(InspectionTriggerEvent.lineBroadcast("io_input"));
+        int published = publishLineCapture(null);
         if (published > 0) {
             captureFiredThisPulse = true;
             long dispatchMs = System.currentTimeMillis() - triggerReceivedMs;
@@ -861,15 +873,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
 
     private void publishDebounced() {
         long triggerReceivedMs = System.currentTimeMillis();
-        if (ioInputConfig.debounceMs() > 0) {
-            long now = System.currentTimeMillis();
-            if (now - lastFireMs < ioInputConfig.debounceMs()) {
-                log.debug("io_input_trigger debounced");
-                return;
-            }
-            lastFireMs = now;
-        }
-        int published = bus.publishBroadcast(InspectionTriggerEvent.lineBroadcast("io_input"));
+        int published = publishLineCapture(null);
         if (published > 0) {
             long dispatchMs = System.currentTimeMillis() - triggerReceivedMs;
             log.info("io_input_trigger line broadcast cameras={} dispatch_ms={}", published, dispatchMs);

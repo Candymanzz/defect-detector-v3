@@ -60,7 +60,6 @@ namespace ImlLauncher
         public const string Orchestrator = "orchestrator";
         public const string AnalisSurface = "analis";
         public const string LightServer = "light";
-        public const string IoInput = "io";
         public const string Frontend = "frontend";
         public const string ClientWs = "ws";
         public const string Workers = "workers";
@@ -85,8 +84,7 @@ namespace ImlLauncher
             Add(ServiceIds.Environment, "Проверка окружения", true, false);
             Add(ServiceIds.Orchestrator, "Оркестратор", true, false);
             Add(ServiceIds.AnalisSurface, "analisSurface", true, false);
-            Add(ServiceIds.LightServer, "LightServer", false, true);
-            Add(ServiceIds.IoInput, "IoInputMonitor", false, true);
+            Add(ServiceIds.LightServer, "Lights (Java)", false, true);
             if (includeFrontend)
             {
                 Add(ServiceIds.Frontend, "Frontend (UI)", true, false);

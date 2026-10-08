@@ -61,7 +61,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
 
     /**
      * Гейт line-dispatch: при {@code false} новые триггеры не попадают в очереди камер
-     * (например, пока analis_surface или geometry нездоровы; io_input_monitor не блокирует).
+     * (например, пока analis_surface или geometry нездоровы).
      */
     public void setDispatchAllowed(BooleanSupplier dispatchAllowed) {
         this.dispatchAllowed = dispatchAllowed == null ? () -> true : dispatchAllowed;
@@ -124,7 +124,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
         return dispatchLineBroadcast(source, seq, receivedAt, cameraIds);
     }
 
-    /** Рассылка триггера инспекции без prefire (экспозиция уже на Line0 через IoInputMonitor→DO0). */
+    /** Рассылка триггера инспекции без prefire (экспозиция уже на Line0 через Timer5→DO5). */
     public int dispatchLineBroadcastWithoutPrefire(String source, List<Integer> cameraIds) {
         long seq = sequence.incrementAndGet();
         Instant receivedAt = Instant.now();

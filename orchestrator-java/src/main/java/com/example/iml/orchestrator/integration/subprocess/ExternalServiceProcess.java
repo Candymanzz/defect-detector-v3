@@ -163,7 +163,7 @@ public final class ExternalServiceProcess implements AutoCloseable {
 
     /**
      * Убивает сиротские процессы, в чьей командной строке есть {@code commandSubstring}
-     * (напр. {@code IoInputMonitor} после Ctrl+C / crash — COM и HTTP иначе остаются заняты).
+     * (напр. {@code IO source} после Ctrl+C / crash — COM и HTTP иначе остаются заняты).
      * Не трогает текущий JVM-процесс оркестратора.
      */
     public static void killOrphansMatchingCommand(String commandSubstring, org.apache.logging.log4j.Logger logger) {

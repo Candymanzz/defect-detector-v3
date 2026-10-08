@@ -1,0 +1,91 @@
+# DI/DO контроллера: SDK, подписки на входы, правила получения кадров и DI-подсветка.
+# Аппаратный маршрут In3 → Timer5 → DO5 → Line0 настраивается в MVS.
+# Java слушает DI и выдаёт брак через настроенные DO; таймер камер не трогает.
+
+# In3 → Timer5 → DO5 → Line0 настроено в MVS; Java только читает DI/DO и получает кадры.
+capture_trigger_mode: "line0"
+line0_trigger_activation: "RisingEdge"
+line0_line_inverter: false
+
+integration:
+  simultaneous_line_capture:
+    # true: экспозиция по DI3→DO5→Line0; Java только wait_frame.
+    hardware_line_trigger: true
+    # false: не слать trigger_only — кадр только от DO5/Line0.
+    immediate_prefire: false
+  io_reject:
+    enabled: true
+    mode: timer           # TriggerSoftware → Timer6/7 → DO6/7
+    pulse_ms: 80           # only for optional mode: level; timer duration is set in MVS
+    ack_timeout_ms: 3000
+    queue_size: 64
+    shutdown_timeout_ms: 5000
+    protected_outputs: [5]  # DO5 остаётся аппаратным триггером камер
+    groups:
+      0: {port: 6, timer: Timer6, line: Out6}
+      1: {port: 7, timer: Timer7, line: Out7}
+    # В MVS: Timer6/7 TriggerSource=Software, режим с доступным TriggerSoftware;
+    # Out6 LineSource=Timer6, Out7 LineSource=Timer7; длительность/задержка задаются в MVS.
+    # Ранний брак пластика тоже запускает один импульс, без удержания до PASS.
+  # Внешний триггер инспекции (когда dev_auto_trigger_stub и continuous_inspection выключены).
+  inspection_trigger:
+    # Direct DI/DO monitoring inside Java.
+    mvs_io:
+      enabled: true
+      backend: mv_camera    # one SDK connection for DI and software timers
+      input_mode: poll      # supplied MV_IO event DLL exposes no timer command
+      library_windows: "orchestrator-java/native/mvs/win64/MvCameraControl.dll"
+      port_windows: ""      # exact SDK port from MvsIoDiagnosticMain --list
+      library_linux: "/opt/MVS/lib/64/libMvCameraControl.so"
+      port_linux: ""        # exact SDK name, e.g. COM_Port#ttyS4; empty requires one controller
+      serial: ""            # optional controller serial filter
+      dependencies: []      # optional full library paths to preload
+      configure_inputs: true # configures/rearms DI edges only; restores original DI settings on close
+      health_check_ms: 1000
+      reconnect_ms: 1000
+      shutdown_timeout_ms: 5000
+      output_poll_ms: 1000   # used by mv_camera backend when DO monitoring is configured
+      poll_ms: 1             # only for explicitly selected mv_camera/poll backend
+      scan_log_every: 1000
+      outputs: {}            # no extra serial reads of DO levels
+      inputs:
+        2: {line: In2, port: 2, edge: both, invert: false}
+        3: {line: In3, port: 3, edge: rising, invert: false}
+    udp:
+      enabled: false
+      bind_host: "0.0.0.0"
+      bind_port: 9100
+      # io_input: generic UDP DI notifications {"di":N,"value":0|1}; DI1=работа, DI2=направление, DI3=триггер, DI4=shutdown
+      format: io_input
+      debounce_ms: 0
+      # allowed_remote_hosts: ["127.0.0.1"]
+    io_input:
+      work_port: 1
+      direction_port: 2
+      trigger_port: 3
+      # DI4=1 → LightsShutdown + остановка оркестратора и всех сервисов. 0 = выкл.
+      shutdown_port: 0  # DI4 is not subscribed; add it to inputs before enabling shutdown
+      direction_latch_on_work: false
+      di3_only: true
+      # Съёмка только при DI2=1: DI3↑ → wait_frame; без DI2 — skip.
+      repeat_di3_capture: true
+      direction_latch: false
+      capture_delay_ms: 0
+      trigger_edge: rising
+      payload_format: json
+      debounce_ms: 0
+      require_direction: true
+      require_work: false
+      external_hardware_capture: true
+      direction_poll_ms: 1
+  # UI «Прямой/Обратный» не фильтрует; гейт съёмки — уровень DI2.
+
+light_servers:
+  # Интервальный режим (отдельный контур от съёмки):
+  # DI2↑ (начало импульса направления) → bank On;
+  # DI2↓ (конец импульса) → bank Off.
+  # On/Off — POST /api/camera-flash/bank (не трогает capture pipeline).
+  interval_flash:
+    enabled: true
+    idle_port: 2
+    start_dark: true

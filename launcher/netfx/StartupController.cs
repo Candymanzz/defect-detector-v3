@@ -124,8 +124,6 @@ namespace ImlLauncher
                 string orchestratorJar = Path.Combine(root, "orchestrator-java", "target", "orchestrator-0.1.0-SNAPSHOT.jar");
                 string geometryJar = Path.Combine(root, "java-geometry-service", "target", "java-geometry-service-0.1.0-SNAPSHOT.jar");
                 string pythonExe = Path.Combine(root, "analisSurface", "backend", ".venv", "Scripts", "python.exe");
-                string lightDll = Path.Combine(root, "LightServer.v3", "bin", "Release", "net10.0", "LightServer.dll");
-                string ioDll = Path.Combine(root, "IoInputMonitor", "bin", "Release", "net10.0", "IoInputMonitor.dll");
                 string workerDebug = Path.Combine(root, "camera-worker", "build", "Debug", "camera_worker.exe");
                 string workerRelease = Path.Combine(root, "camera-worker", "build", "Release", "camera_worker.exe");
                 string frontModules = Path.Combine(root, "front-end", "node_modules");
@@ -133,8 +131,6 @@ namespace ImlLauncher
                 RequireFile(orchestratorJar, "Orchestrator JAR (запустите rebuild-and-run.ps1)");
                 RequireFile(geometryJar, "Geometry JAR");
                 RequireFile(pythonExe, "Python venv");
-                RequireFile(lightDll, "LightServer.dll");
-                RequireFile(ioDll, "IoInputMonitor.dll");
                 if (!File.Exists(workerDebug) && !File.Exists(workerRelease))
                 {
                     throw new FileNotFoundException("camera_worker.exe отсутствует (build/Debug или build/Release)");
@@ -227,8 +223,7 @@ namespace ImlLauncher
         {
             _model.Set(ServiceIds.Orchestrator, ServiceState.Starting, "");
             _model.Set(ServiceIds.AnalisSurface, ServiceState.Starting, ":8000");
-            _model.Set(ServiceIds.LightServer, ServiceState.Starting, ":5080");
-            _model.Set(ServiceIds.IoInput, ServiceState.Starting, ":9101");
+            _model.Set(ServiceIds.LightServer, ServiceState.Starting, "native Java");
             if (!_options.NoFrontend)
             {
                 _model.Set(ServiceIds.Frontend, ServiceState.Starting, ":5173");
@@ -277,16 +272,9 @@ namespace ImlLauncher
                 changed |= Promote(ServiceIds.AnalisSurface, ServiceState.Ready, detail);
             }
 
-            if (HealthProbe.HttpOk("http://127.0.0.1:5080/", 800, out detail)
-                || HealthProbe.TcpOpen("127.0.0.1", 5080, 600, out detail))
+            if (HealthProbe.HttpBodyContains("http://127.0.0.1:8099/api/orchestrator/light/bank", 800, "\"initialized\":true", out detail))
             {
                 changed |= Promote(ServiceIds.LightServer, ServiceState.Ready, detail);
-            }
-
-            if (HealthProbe.HttpOk("http://127.0.0.1:9101/line-direction", 800, out detail)
-                || HealthProbe.TcpOpen("127.0.0.1", 9101, 600, out detail))
-            {
-                changed |= Promote(ServiceIds.IoInput, ServiceState.Ready, detail);
             }
 
             if (!_options.NoFrontend)
@@ -447,7 +435,7 @@ namespace ImlLauncher
                 _model.Set(ServiceIds.Workers, ServiceState.Ready, "boot parallel done");
                 Notify();
             }
-            if (lower.IndexOf("lightserver") >= 0 || lower.IndexOf("light_server") >= 0)
+            if (lower.IndexOf("light event=") >= 0)
             {
                 if (lower.IndexOf("error") < 0 && lower.IndexOf("fail") < 0)
                 {
@@ -492,11 +480,6 @@ namespace ImlLauncher
                     Notify();
                 }
             }
-            if (lower.IndexOf("io-input-monitor") >= 0 || lower.IndexOf("io_input_monitor") >= 0)
-            {
-                _model.Set(ServiceIds.IoInput, ServiceState.Starting, Truncate(line, 70));
-            }
-
             // Fatal-looking lines for orchestrator itself
             if ((lower.IndexOf(" integration bootstrap failed") >= 0
                  || lower.IndexOf("fatal") >= 0)

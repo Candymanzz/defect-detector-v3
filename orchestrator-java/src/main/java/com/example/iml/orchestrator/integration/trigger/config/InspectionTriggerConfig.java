@@ -6,25 +6,30 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public record InspectionTriggerConfig(UdpTriggerConfig udp, IoInputDiscreteConfig ioInput) {
+public record InspectionTriggerConfig(UdpTriggerConfig udp, IoInputDiscreteConfig ioInput,
+        com.example.iml.orchestrator.integration.io.mvs.MvsIoConfig mvsIo) {
+
+    public InspectionTriggerConfig(UdpTriggerConfig udp, IoInputDiscreteConfig ioInput) {
+        this(udp, ioInput, com.example.iml.orchestrator.integration.io.mvs.MvsIoConfig.parse(null));
+    }
 
     public static InspectionTriggerConfig parse(Map<String, Object> integration) {
         UdpTriggerConfig udpDefaults = UdpTriggerConfig.defaults();
         if (integration == null) {
             IoInputDiscreteConfig ioInput = IoInputDiscreteConfig.parse(null, udpDefaults.debounceMs());
-            return new InspectionTriggerConfig(udpDefaults, ioInput);
+            return new InspectionTriggerConfig(udpDefaults, ioInput, com.example.iml.orchestrator.integration.io.mvs.MvsIoConfig.parse(integration));
         }
         Object raw = integration.get("inspection_trigger");
         if (!(raw instanceof Map<?, ?> root)) {
             IoInputDiscreteConfig ioInput = IoInputDiscreteConfig.parse(null, udpDefaults.debounceMs());
-            return new InspectionTriggerConfig(udpDefaults, ioInput);
+            return new InspectionTriggerConfig(udpDefaults, ioInput, com.example.iml.orchestrator.integration.io.mvs.MvsIoConfig.parse(integration));
         }
         @SuppressWarnings("unchecked")
         Map<String, Object> m = (Map<String, Object>) root;
         IoInputDiscreteConfig ioInput = IoInputDiscreteConfig.parse(integration, udpDefaults.debounceMs());
         Object udpRaw = m.get("udp");
         if (!(udpRaw instanceof Map<?, ?> udpMap)) {
-            return new InspectionTriggerConfig(udpDefaults, ioInput);
+            return new InspectionTriggerConfig(udpDefaults, ioInput, com.example.iml.orchestrator.integration.io.mvs.MvsIoConfig.parse(integration));
         }
         @SuppressWarnings("unchecked")
         Map<String, Object> udp = (Map<String, Object>) udpMap;
@@ -38,12 +43,13 @@ public record InspectionTriggerConfig(UdpTriggerConfig udp, IoInputDiscreteConfi
         ioInput = IoInputDiscreteConfig.parse(integration, debounceMs);
         return new InspectionTriggerConfig(
                 new UdpTriggerConfig(enabled, bindHost, bindPort, format, defaultCameraId, debounceMs, allowed),
-                ioInput
+                ioInput,
+                com.example.iml.orchestrator.integration.io.mvs.MvsIoConfig.parse(integration)
         );
     }
 
-    public boolean usesIoInputMonitor() {
-        return udp.enabled() && "io_input".equalsIgnoreCase(udp.format());
+    public boolean usesIoInputUdp() {
+        return !mvsIo.enabled() && udp.enabled() && "io_input".equalsIgnoreCase(udp.format());
     }
 
     private static List<String> parseAllowedHosts(Object raw) {

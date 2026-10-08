@@ -5,6 +5,24 @@
         <Property name="logPattern">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] %c{1.} - %msg%n</Property>
     </Properties>
     <Appenders>
+        <RollingFile name="IoModuleFile"
+                     fileName="${logDir}/io-module.log"
+                     filePattern="${logDir}/io-module-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${logPattern}"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+        <RollingFile name="LightModuleFile"
+                     fileName="${logDir}/light-module.log"
+                     filePattern="${logDir}/light-module-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${logPattern}"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
         <Console name="Console" target="SYSTEM_OUT">
             <PatternLayout pattern="${logPattern}"/>
         </Console>
@@ -64,6 +82,15 @@
         </RollingFile>
     </Appenders>
     <Loggers>
+        <Logger name="com.example.iml.orchestrator.integration.lighting.nativeio" level="debug" additivity="true">
+            <AppenderRef ref="LightModuleFile"/>
+        </Logger>
+        <Logger name="com.example.iml.orchestrator.integration.io.mvs" level="debug" additivity="true">
+            <AppenderRef ref="IoModuleFile"/>
+        </Logger>
+        <Logger name="com.example.iml.orchestrator.integration.trigger.transport.IoInputTriggerTransport" level="info" additivity="true">
+            <AppenderRef ref="IoModuleFile"/>
+        </Logger>
         <Logger name="com.example.iml.orchestrator.integration.plc" level="info" additivity="true">
             <AppenderRef ref="PlcFile"/>
         </Logger>
@@ -95,8 +122,8 @@
             <AppenderRef ref="SubprocessFile"/>
         </Logger>
         <Logger name="com.example.iml" level="info" additivity="false">
-            <AppenderRef ref="Console"/>
-            <AppenderRef ref="OrchestratorFile"/>
+            <AppenderRef ref="Console" level="info"/>
+            <AppenderRef ref="OrchestratorFile" level="info"/>
         </Logger>
         <Root level="warn">
             <AppenderRef ref="Console"/>

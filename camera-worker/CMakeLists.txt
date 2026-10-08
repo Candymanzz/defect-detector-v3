@@ -42,7 +42,7 @@ if (WIN32)
     endif ()
 
     # Runtime DLLs must sit next to camera_worker.exe (PATH/VPN-independent load).
-    set(_MVS_RUNTIME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../LightServer.v3/ThirdParty/MVS/Runtime/win64")
+    set(_MVS_RUNTIME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../orchestrator-java/native/mvs/win64")
     if (EXISTS "${_MVS_RUNTIME_DIR}/MvCameraControl.dll")
         add_custom_command(TARGET camera_worker POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -52,6 +52,21 @@ if (WIN32)
         )
     else ()
         message(WARNING "camera-worker: MVS runtime DLLs not found at ${_MVS_RUNTIME_DIR}")
+    endif ()
+endif ()
+
+if (UNIX)
+    find_package(Threads REQUIRED)
+    target_link_libraries(camera_worker PRIVATE Threads::Threads)
+    if (NOT MVS_ROOT)
+        set(MVS_ROOT "/opt/MVS")
+    endif ()
+    if (EXISTS "${MVS_ROOT}/include/MvCameraControl.h" AND EXISTS "${MVS_ROOT}/lib/64/libMvCameraControl.so")
+        message(STATUS "camera-worker: HAVE_HIK_MVS (Linux MVS_ROOT=${MVS_ROOT})")
+        target_compile_definitions(camera_worker PRIVATE HAVE_HIK_MVS=1)
+        target_include_directories(camera_worker PRIVATE "${MVS_ROOT}/include")
+        target_link_libraries(camera_worker PRIVATE "${MVS_ROOT}/lib/64/libMvCameraControl.so")
+        set_target_properties(camera_worker PROPERTIES BUILD_RPATH "${MVS_ROOT}/lib/64")
     endif ()
 endif ()
 

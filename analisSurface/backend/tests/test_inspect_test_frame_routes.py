@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import cv2
 import numpy as np
@@ -26,6 +27,8 @@ def _write_jpeg(path: Path, value: int) -> None:
 
 
 def test_primary_shm_request_can_export_only_heatmap(tmp_path: Path, monkeypatch) -> None:
+    # This test exercises the Windows file-backed SHM contract, on any test host.
+    monkeypatch.setattr("app.services.shm_io.sys", SimpleNamespace(platform="win32"))
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
     output_path = tmp_path / "iml_shm" / "iml_ui_heatmap_cam_2_frame_41"
     payload = ShmFrameRequest(

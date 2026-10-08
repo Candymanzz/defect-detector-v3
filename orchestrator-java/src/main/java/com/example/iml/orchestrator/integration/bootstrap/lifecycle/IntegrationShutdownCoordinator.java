@@ -37,8 +37,6 @@ public final class IntegrationShutdownCoordinator {
             List<? extends BinaryRpcSupervisor> pythonPool,
             List<? extends BinaryRpcSupervisor> geometryPool,
             List<? extends BinaryRpcSupervisor> positioningPool,
-            ExternalServiceProcess lightServerProcess,
-            ExternalServiceProcess ioInputMonitorProcess,
             ExternalServiceProcess frontendProcess,
             List<ExternalServiceProcess> analisSurfaceProcesses,
             LightTriggerClient lightTriggerClient,
@@ -100,18 +98,9 @@ public final class IntegrationShutdownCoordinator {
                 }
             }
         }
-        // Вспышки Off + kill LightServer (идемпотентно с JVM shutdown hook).
+        // Вспышки Off + закрытие native-сессий (идемпотентно с JVM shutdown hook).
         com.example.iml.orchestrator.integration.lighting.LightsShutdown.run("shutdown-coordinator");
-        // Если hook уже отработал — процесса в refs нет; на всякий случай ещё раз close по полю.
-        if (r.lightServerProcess != null) {
-            try {
-                r.lightServerProcess.close();
-            } catch (Exception ignored) {
-            }
-        }
-        if (r.ioInputMonitorProcess != null) {
-            r.ioInputMonitorProcess.close();
-        }
+
         if (r.frontendProcess != null) {
             r.frontendProcess.close();
         }

@@ -220,7 +220,7 @@
   },
   "light_servers": {
     "enabled": true,
-    "base_url": "http://127.0.0.1:5080",
+    "backend": "native",
     "urls": {
       "on": "/api/camera-flash/bank",
       "off": "/api/camera-flash/bank",
@@ -294,20 +294,6 @@
       "java",
       "-jar",
       "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
-    ],
-    "light_server_command_windows": [
-      "dotnet",
-      "exec",
-      "LightServer.v3/bin/Release/net10.0/LightServer.dll",
-      "--urls",
-      "http://127.0.0.1:5080"
-    ],
-    "light_server_command_linux": [
-      "dotnet",
-      "exec",
-      "LightServer.v3/bin/Release/net10.0/LightServer.dll",
-      "--urls",
-      "http://127.0.0.1:5080"
     ]
   }
 }

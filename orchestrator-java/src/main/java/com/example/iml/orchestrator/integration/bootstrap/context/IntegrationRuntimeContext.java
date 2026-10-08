@@ -72,8 +72,6 @@ public final class IntegrationRuntimeContext {
     private List<ServiceProcessSupervisor> geometryPool = List.of();
     private List<ServiceProcessSupervisor> positioningPool = List.of();
     private List<ExternalServiceProcess> analisSurfaceProcesses = List.of();
-    private ExternalServiceProcess lightServerProcess;
-    private ExternalServiceProcess ioInputMonitorProcess;
     private ExternalServiceProcess frontendProcess;
     private ServiceHealthGate serviceHealthGate;
     private OrchestratorStopSignal stopSignal;
@@ -238,22 +236,6 @@ public final class IntegrationRuntimeContext {
 
     public void setAnalisSurfaceProcesses(List<ExternalServiceProcess> analisSurfaceProcesses) {
         this.analisSurfaceProcesses = analisSurfaceProcesses == null ? List.of() : analisSurfaceProcesses;
-    }
-
-    public ExternalServiceProcess lightServerProcess() {
-        return lightServerProcess;
-    }
-
-    public void setLightServerProcess(ExternalServiceProcess lightServerProcess) {
-        this.lightServerProcess = lightServerProcess;
-    }
-
-    public ExternalServiceProcess ioInputMonitorProcess() {
-        return ioInputMonitorProcess;
-    }
-
-    public void setIoInputMonitorProcess(ExternalServiceProcess ioInputMonitorProcess) {
-        this.ioInputMonitorProcess = ioInputMonitorProcess;
     }
 
     public ExternalServiceProcess frontendProcess() {
@@ -640,6 +622,7 @@ public final class IntegrationRuntimeContext {
         components.add(CloseableIntegrationComponent.ofNullable(livePreview));
         components.add(CloseableIntegrationComponent.ofNullable(cameraStreamService));
         components.add(CloseableIntegrationComponent.ofNullable(triggerRuntime));
+        if (fanOut != null) components.add(CloseableIntegrationComponent.ofNullable((AutoCloseable) fanOut::closeIoRejectOutputs));
         components.add(CloseableIntegrationComponent.ofNullable(criticalServiceWatchdog));
         return components.stream().filter(c -> c != null).toList();
     }
@@ -657,8 +640,6 @@ public final class IntegrationRuntimeContext {
                 pythonPool,
                 geometryPool,
                 positioningPool,
-                lightServerProcess,
-                ioInputMonitorProcess,
                 frontendProcess,
                 analisSurfaceProcesses,
                 lightClient,

@@ -84,4 +84,25 @@ class LightTriggerClientTest {
         assertTrue(flushed.hasHardwareErrors());
         assertEquals(0, latchCount.get());
     }
+    @Test
+    void configuredRetryCountControlsFailedHardwareRequests() throws Exception {
+        AtomicInteger requests = new AtomicInteger();
+        var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/api/com/light", exchange -> {
+            requests.incrementAndGet(); exchange.getRequestBody().readAllBytes();
+            byte[] error = "{\"success\":false}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(503, error.length);
+            try (var output = exchange.getResponseBody()) { output.write(error); }
+        });
+        server.start();
+        try {
+            var root = Map.<String, Object>of("light_servers", Map.of("enabled", true,
+                    "base_url", "http://127.0.0.1:" + server.getAddress().getPort(),
+                    "runtime", Map.of("command_attempts", 3, "retry_delay_ms", 0)));
+            var client = new LightTriggerClient(LightServersConfig.fromRootYaml(root), null, LightRuntimeConfig.parse(root));
+            assertFalse(client.lightOn(42, 1, "test"));
+            assertEquals(3, requests.get());
+        } finally { server.stop(0); }
+    }
+
 }

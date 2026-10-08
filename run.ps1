@@ -1,4 +1,4 @@
-# Simple launch: cleanup stale processes, then orchestrator (autostarts IoInputMonitor + front-end).
+# Simple launch: cleanup stale processes, then orchestrator (autostarts analisSurface + front-end; lights are embedded).
 # Usage:
 #   .\run.ps1
 #   .\run.ps1 -NoFrontend
@@ -16,8 +16,6 @@ Set-Location $RepoRoot
 $OrchestratorJar = Join-Path $RepoRoot "orchestrator-java\target\orchestrator-0.1.0-SNAPSHOT.jar"
 $GeometryJar = Join-Path $RepoRoot "java-geometry-service\target\java-geometry-service-0.1.0-SNAPSHOT.jar"
 $PythonExe = Join-Path $RepoRoot "analisSurface\backend\.venv\Scripts\python.exe"
-$LightServerDll = Join-Path $RepoRoot "LightServer.v3\bin\Release\net10.0\LightServer.dll"
-$IoInputMonitorDll = Join-Path $RepoRoot "IoInputMonitor\bin\Release\net10.0\IoInputMonitor.dll"
 $CameraWorker = Join-Path $RepoRoot "camera-worker\build\Debug\camera_worker.exe"
 $CameraWorkerAlt = Join-Path $RepoRoot "camera-worker\build\Release\camera_worker.exe"
 $FrontEndDir = Join-Path $RepoRoot "front-end"
@@ -79,12 +77,6 @@ if (-not (Test-Path $GeometryJar)) {
 if (-not (Test-Path $PythonExe)) {
     throw "Python venv missing. Run: .\rebuild-and-run.ps1"
 }
-if (-not (Test-Path $LightServerDll)) {
-    throw "LightServer.dll missing. Run: .\rebuild-and-run.ps1"
-}
-if (-not (Test-Path $IoInputMonitorDll)) {
-    throw "IoInputMonitor.dll missing. Run: .\rebuild-and-run.ps1"
-}
 if (-not ((Test-Path $CameraWorker) -or (Test-Path $CameraWorkerAlt))) {
     throw "camera_worker.exe missing. Run: .\rebuild-and-run.ps1"
 }
@@ -107,7 +99,7 @@ Write-Host "  WS  : ws://127.0.0.1:8765" -ForegroundColor Gray
 if (-not $NoFrontend) {
     Write-Host "  UI  : http://localhost:5173 (autostart by orchestrator)" -ForegroundColor Gray
 }
-Write-Host "  IoInputMonitor + LightServer + analisSurface - autostart by orchestrator" -ForegroundColor Gray
+Write-Host "  Native lights + analisSurface - managed by orchestrator" -ForegroundColor Gray
 Write-Host ""
 
 try {

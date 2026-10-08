@@ -131,6 +131,9 @@ public final class PipelineCameraRuntimeService {
             livePreview.setLineCaptureCoordinator(ctx.lineCaptureCoordinator());
         }
         wireDiShutdown(ctx, stopSignal);
+        fanOut.bindIoRejectOutputs(ctx.triggerRuntime()::setNativeOutput);
+        fanOut.bindIoRejectTimers(ctx.triggerRuntime()::triggerNativeTimer);
+        ctx.triggerRuntime().activateNativeIo();
 
         lifecycle.registerAll(ctx.managedRuntimeComponents());
         // Components already started by owning services; close-only composite.
