@@ -135,27 +135,6 @@ public final class PerCameraInspectionGate {
         }
     }
 
-    /** Снимок флагов Start/Stop до vision_fault — для автоматического re-arm после recovery. */
-    public Map<Integer, Boolean> snapshotInspectionEnabled() {
-        Map<Integer, Boolean> out = new LinkedHashMap<>();
-        for (Map.Entry<Integer, AtomicBoolean> entry : inspectionEnabled.entrySet()) {
-            AtomicBoolean flag = entry.getValue();
-            out.put(entry.getKey(), flag != null && flag.get());
-        }
-        return Map.copyOf(out);
-    }
-
-    public void restoreInspectionEnabled(Map<Integer, Boolean> snapshot) {
-        if (snapshot == null || snapshot.isEmpty()) {
-            return;
-        }
-        for (Map.Entry<Integer, Boolean> entry : snapshot.entrySet()) {
-            if (entry.getKey() != null && entry.getValue() != null) {
-                setInspectionEnabled(entry.getKey(), entry.getValue());
-            }
-        }
-    }
-
     public boolean isInspectionEnabled(int cameraId) {
         AtomicBoolean flag = inspectionEnabled.get(cameraId);
         return flag != null && flag.get();
