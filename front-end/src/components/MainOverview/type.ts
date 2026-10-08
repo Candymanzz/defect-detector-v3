@@ -52,6 +52,13 @@ export type ModalInspectionSnapshot = SelectedCamera & {
   initialFrameId?: string;
   inspectResult?: InspectResultPayload;
   cameraImageUrl?: string;
+  /** Locked for the whole TEST settings session — never swap for artifact/current. */
+  pinnedTestImageUrl?: string;
+  pinnedTestHttpPath?: string;
+  pinnedTestFrameId?: string;
+  pinnedTestPinId?: string;
+  pinnedTestJpegSha256?: string;
+  pendingTestJobId?: string;
   heatmapUrl?: string;
   referenceImageUrl?: string;
   referenceRoiPoints?: InterestPointNorm[];

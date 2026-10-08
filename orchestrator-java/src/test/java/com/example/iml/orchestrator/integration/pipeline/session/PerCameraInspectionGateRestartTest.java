@@ -118,6 +118,16 @@ final class PerCameraInspectionGateRestartTest {
         assertFalse(gate.isInspectionInFlight(0));
     }
 
+    @Test
+    void suppressSoftStopPreviewIsOffByDefaultAndToggleable() {
+        PerCameraInspectionGate gate = gate(false);
+        assertFalse(gate.suppressSoftStopPreview());
+        gate.setSuppressSoftStopPreview(true);
+        assertTrue(gate.suppressSoftStopPreview());
+        gate.setSuppressSoftStopPreview(false);
+        assertFalse(gate.suppressSoftStopPreview());
+    }
+
     private static PerCameraInspectionGate gate(boolean enabled) {
         return PerCameraInspectionGate.fromCameras(List.of(Map.of(
                 "id", 0,

@@ -187,6 +187,8 @@ analisSurface/
 #### `POST /roi-polygon`
 Задать главный полигон ROI (нормализованные точки `[0,1]`). Нужен загруженный эталон.
 
+Необязательное поле `perspective_line` — ровно две точки `[{x,y},{x,y}]`: от **ближнего** края изделия к **дальнему**. Чувствительность плавно растёт вдоль линии к дальнему концу (до ×1.20 по изделию и до ×1.35 на последних 35% линии). Без поля действует прежнее допущение «верх кадра дальше». Повторный `POST` без поля сбрасывает линию. Некорректная линия (не 2 точки, вне `[0,1]`, короче 0.05) → **400**.
+
 #### `GET /roi-polygon/{product_type}`
 Получить ROI. **404**, если не задан.
 
@@ -238,7 +240,8 @@ analisSurface/
 | `PUT` | `/analysis-settings/{product_type}` | Частичное обновление |
 | `DELETE` | `/analysis-settings/{product_type}` | Сброс к defaults |
 | `GET/PUT` | `/analysis-settings/{product_type}/simple` | 2 ручки: threshold + sensitivity |
-| `GET/PUT` | `/analysis-settings/{product_type}/pro` | 6 ручек: threshold + 5 групп |
+| `GET/PUT` | `/analysis-settings/{product_type}/strengths` | 5 сил групп (0–100) |
+| `GET/PUT` | `/analysis-settings/{product_type}/detailed` | alias strengths + полный settings в ответе |
 
 Ключевые параметры (кратко):
 
@@ -329,6 +332,7 @@ POST /upload-ref  →  POST /inspect
 ## Связанные документы
 
 - [ANALYSIS_SETTINGS.md](./ANALYSIS_SETTINGS.md) — все параметры алгоритма
-- [ANALYSIS_SETTINGS_SIMPLE_PRO.md](./ANALYSIS_SETTINGS_SIMPLE_PRO.md) — упрощённые эндпоинты simple/pro
-- [ANALYSIS_SETTINGS_UI.md](./ANALYSIS_SETTINGS_UI.md) — названия и подсказки для фронта
+- [ANALYSIS_SETTINGS_SIMPLE_PRO.md](./ANALYSIS_SETTINGS_SIMPLE_PRO.md) — упрощённые эндпоинты simple/strengths
+- [ANALYSIS_SETTINGS_INTEGRATION.md](./ANALYSIS_SETTINGS_INTEGRATION.md) — стыковка оркестратора и Python
+- [ANALYSIS_SETTINGS_FRONTEND.md](./ANALYSIS_SETTINGS_FRONTEND.md) — гайд для React
 - [README.md](../README.md) — запуск, камера, оркестратор

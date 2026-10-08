@@ -6,6 +6,7 @@
 
 import asyncio
 import logging
+import threading
 from functools import partial
 from pathlib import Path
 
@@ -21,21 +22,84 @@ from app.api.schemas import (
     ShmFrameRequest,
     ShmVisualsRequest,
     ShmVisualsResponse,
+    TestFrameInspectRequest,
 )
 from app.runtime import get_application_id
+from app.services.analysis_settings import AnalysisSettings
+from app.services.analysis_settings_presets import expand_merged, normalize_strengths
+from app.services.inspection_geometry import polygon_mask_from_norm_points
 from app.services.shm_io import ShmImageOutputInfo, open_bgr_shm_frame, write_u8_image_to_shm
 
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+_test_frame_bgr_lock = threading.Lock()
+_test_frame_bgr_cache: dict[tuple[str, str, str], np.ndarray] = {}
+_TEST_FRAME_BGR_CACHE_LIMIT = 4
+
+
+def reset_test_frame_bgr_cache() -> None:
+    with _test_frame_bgr_lock:
+        _test_frame_bgr_cache.clear()
+
+
+def _test_frame_cache_identity(payload: TestFrameInspectRequest) -> tuple[str, str, str]:
+    file_path = str(Path(payload.file_path).expanduser().resolve())
+    return (payload.cache_key.strip(), file_path, (payload.image_url or "").strip())
+
+
+def load_test_frame_bgr(payload: TestFrameInspectRequest) -> np.ndarray:
+    identity = _test_frame_cache_identity(payload)
+    with _test_frame_bgr_lock:
+        cached = _test_frame_bgr_cache.get(identity)
+        if cached is not None:
+            return cached
+    path = Path(identity[1])
+    if not path.is_file():
+        raise ValueError(f"test frame file not found: {path}")
+    image = cv2.imread(str(path), cv2.IMREAD_COLOR)
+    if image is None:
+        raise ValueError(f"cannot decode test frame: {path}")
+    with _test_frame_bgr_lock:
+        if identity not in _test_frame_bgr_cache and len(_test_frame_bgr_cache) >= _TEST_FRAME_BGR_CACHE_LIMIT:
+            _test_frame_bgr_cache.clear()
+        _test_frame_bgr_cache[identity] = image
+    return image
+
+
+def _settings_from_test_knobs(payload: TestFrameInspectRequest) -> AnalysisSettings:
+    profile = payload.analysis_profile or payload.product_type
+    if payload.simple is not None:
+        strengths = normalize_strengths(
+            payload.detailed.model_dump() if payload.detailed is not None else None
+        )
+        overrides = expand_merged(
+            payload.simple.threshold,
+            payload.simple.sensitivity,
+            **strengths,
+        )
+    elif payload.pro is not None:
+        current_simple = inspection_service.get_simple_knobs(profile) or {}
+        sensitivity = float(current_simple.get("sensitivity", 0.5))
+        pro = payload.pro.model_dump()
+        threshold = float(pro.pop("threshold"))
+        overrides = expand_merged(
+            threshold,
+            sensitivity,
+            **normalize_strengths(pro),
+        )
+    else:
+        raise ValueError("simple or pro knobs required")
+    return AnalysisSettings.from_overrides(overrides)
+
 
 def cleanup_requested_visual_outputs(payload: ShmVisualsRequest) -> None:
     for raw_path in (
-        payload.aligned_image_u8_output_path,
-        payload.diff_map_u8_output_path,
-        payload.heatmap_u8_output_path,
-        payload.segmentation_mask_u8_output_path,
+        getattr(payload, "aligned_image_u8_output_path", None),
+        getattr(payload, "diff_map_u8_output_path", None),
+        getattr(payload, "heatmap_u8_output_path", None),
+        getattr(payload, "segmentation_mask_u8_output_path", None),
     ):
         if not raw_path:
             continue
@@ -48,15 +112,22 @@ def cleanup_requested_visual_outputs(payload: ShmVisualsRequest) -> None:
 def write_requested_visual_outputs(payload: ShmVisualsRequest, result) -> dict[str, ShmImageOutputInfo]:
     """Записать запрошенные визуалы в SHM; heatmap — gray_u8 (1 канал) для UI."""
     heatmap_u8 = result.heatmap_u8
-    max_width = payload.heatmap_max_width or 0
+    max_width = getattr(payload, "heatmap_max_width", None) or 0
     if heatmap_u8 is not None and max_width > 0 and heatmap_u8.shape[1] > max_width:
         target_height = max(1, round(heatmap_u8.shape[0] * max_width / heatmap_u8.shape[1]))
         heatmap_u8 = cv2.resize(heatmap_u8, (max_width, target_height), interpolation=cv2.INTER_AREA)
+    # Re-apply the ROI after optional downscaling. INTER_AREA can otherwise
+    # blend a few non-zero boundary pixels into the area outside the ROI.
+    if heatmap_u8 is not None:
+        roi_polygon = inspection_service.get_roi_polygon(payload.product_type)
+        if roi_polygon is not None:
+            roi_mask = polygon_mask_from_norm_points(heatmap_u8.shape[1], heatmap_u8.shape[0], roi_polygon) > 0
+            heatmap_u8 = np.where(roi_mask, heatmap_u8, 0).astype(np.uint8)
     requested = {
-        "aligned_image": (payload.aligned_image_u8_output_path, result.aligned_image),
-        "diff_map": (payload.diff_map_u8_output_path, result.diff_map),
-        "heatmap": (payload.heatmap_u8_output_path, heatmap_u8),
-        "segmentation_mask": (payload.segmentation_mask_u8_output_path, result.segmentation_mask),
+        "aligned_image": (getattr(payload, "aligned_image_u8_output_path", None), result.aligned_image),
+        "diff_map": (getattr(payload, "diff_map_u8_output_path", None), result.diff_map),
+        "heatmap": (getattr(payload, "heatmap_u8_output_path", None), heatmap_u8),
+        "segmentation_mask": (getattr(payload, "segmentation_mask_u8_output_path", None), result.segmentation_mask),
     }
     outputs: dict[str, ShmImageOutputInfo] = {}
     for name, (output_path, image) in requested.items():
@@ -113,13 +184,89 @@ def _copy_shm_bgr_frame(payload: ShmFrameRequest) -> np.ndarray:
         return np.copy(bgr_frame)
 
 
+def _sync_request_roi(
+    product_type: str,
+    raw_polygon: list[dict[str, float]] | None,
+    raw_perspective_line: list[dict[str, float]] | None = None,
+) -> None:
+    """Install the camera ROI carried by this request before inspecting it.
+
+    ROI is otherwise kept only in the Python process memory. Reapplying the
+    polygon per request makes the inspection self-contained and prevents a
+    stale orchestrator cache or a Python restart from silently enabling
+    full-frame analysis for one camera.
+    """
+    if raw_polygon is None:
+        return
+    points: list[tuple[float, float]] = []
+    for point in raw_polygon:
+        try:
+            points.append((float(point["x"]), float(point["y"])))
+        except (KeyError, TypeError, ValueError):
+            raise ValueError("roi_polygon_norm points must contain numeric x and y")
+    if len(points) < 3:
+        raise ValueError("roi_polygon_norm must contain at least 3 points")
+    inspection_service.set_roi_polygon(product_type=product_type, points=points)
+    if raw_perspective_line:
+        line: list[tuple[float, float]] = []
+        for point in raw_perspective_line:
+            try:
+                line.append((float(point["x"]), float(point["y"])))
+            except (KeyError, TypeError, ValueError):
+                raise ValueError("perspective_line_norm points must contain numeric x and y")
+        inspection_service.set_perspective_line(product_type, line)
+
+
 def _inspect_shm_sync(
     payload: ShmFrameRequest,
     *,
     include_visuals: bool,
     include_heatmap_u8: bool,
+    force_skip_learning_review: bool = False,
 ):
+    _sync_request_roi(
+        payload.product_type,
+        payload.roi_polygon_norm,
+        payload.perspective_line_norm,
+    )
+    inspect_scale = payload.inspect_scale
+    if inspect_scale is not None and (not 0.0 < inspect_scale <= 1.0):
+        raise ValueError("inspect_scale must be in (0, 1]")
     frame = _copy_shm_bgr_frame(payload)
+    temporary_overrides = None
+    if payload.analysis_test_settings:
+        test_settings = payload.analysis_test_settings
+        mode = str(test_settings.get("mode", "")).strip().lower()
+        raw_knobs = test_settings.get("knobs")
+        knobs = raw_knobs if isinstance(raw_knobs, dict) else {}
+        if mode == "simple":
+            simple = test_settings.get("simple")
+            simple = simple if isinstance(simple, dict) else knobs
+            strengths = normalize_strengths(simple.get("strengths"))
+            temporary_overrides = expand_merged(simple["threshold"], simple["sensitivity"], **strengths)
+        elif mode in {"pro", "detailed"}:
+            # `pro` is the UI compatibility name; `detailed` is accepted for
+            # callers using the new endpoint terminology. Both use the saved
+            # simple sensitivity as the global anchor when it is omitted.
+            profile = payload.analysis_profile or payload.product_type
+            direct_pro = test_settings.get("pro")
+            pro = (
+                direct_pro
+                if isinstance(direct_pro, dict)
+                else knobs.get("pro")
+                if isinstance(knobs.get("pro"), dict)
+                else knobs
+            )
+            current_simple = inspection_service.get_simple_knobs(profile) or {}
+            sensitivity = float(current_simple.get("sensitivity", 0.5))
+            threshold = float(pro.get("threshold", current_simple.get("threshold", 0.25)))
+            strengths = dict(pro)
+            strengths.pop("threshold", None)
+            temporary_overrides = expand_merged(
+                threshold,
+                sensitivity,
+                **normalize_strengths(strengths),
+            )
     return inspection_service.inspect_frame(
         product_type=payload.product_type,
         frame=frame,
@@ -133,6 +280,12 @@ def _inspect_shm_sync(
         frame_id=payload.frame_id,
         phase_id=payload.phase_id,
         shm_name=payload.shm_name,
+        temporary_analysis_overrides=temporary_overrides,
+        inspect_scale_after_align=inspect_scale,
+        store_learning_review=not (
+            force_skip_learning_review or payload.skip_learning_review or payload.test_analyze
+        ),
+        defer_learning_review=payload.defer_learning_review,
     )
 
 
@@ -141,6 +294,7 @@ async def _inspect_shm_parallel(
     *,
     include_visuals: bool,
     include_heatmap_u8: bool,
+    force_skip_learning_review: bool = False,
 ):
     loop = asyncio.get_running_loop()
     job = partial(
@@ -148,6 +302,7 @@ async def _inspect_shm_parallel(
         payload,
         include_visuals=include_visuals,
         include_heatmap_u8=include_heatmap_u8,
+        force_skip_learning_review=force_skip_learning_review,
     )
     return await loop.run_in_executor(inspect_executor, job)
 
@@ -159,10 +314,24 @@ async def inspect_shm(payload: ShmFrameRequest) -> InspectResponse:
     Выход: InspectResponse — status, anomaly_score, threshold, sub_zone_scores, ...
     """
     try:
-        result = await _inspect_shm_parallel(payload, include_visuals=False, include_heatmap_u8=False)
+        result = await _inspect_shm_parallel(
+            payload,
+            include_visuals=False,
+            include_heatmap_u8=payload.heatmap_u8_output_path is not None,
+        )
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    if payload.heatmap_u8_output_path is not None:
+        try:
+            outputs = write_requested_visual_outputs(payload, result)
+        except Exception as exc:
+            logger.exception("primary inspection heatmap export failed")
+            cleanup_requested_visual_outputs(payload)
+            # The image is auxiliary. Never turn a completed inspection into a
+            # transport error/REJECT merely because its heatmap could not be written.
+            return to_inspect_response(result)
+        return to_visuals_response(result, outputs)
     return to_inspect_response(result)
 
 
@@ -185,6 +354,9 @@ async def inspect_shm_visuals(payload: ShmVisualsRequest) -> ShmVisualsResponse:
                 )
             ),
             include_heatmap_u8=payload.heatmap_u8_output_path is not None,
+            # This endpoint repeats the production analysis only to build UI
+            # artifacts. The primary /inspect-shm call owns the review record.
+            force_skip_learning_review=True,
         )
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -192,8 +364,85 @@ async def inspect_shm_visuals(payload: ShmVisualsRequest) -> ShmVisualsResponse:
     try:
         visual_outputs = write_requested_visual_outputs(payload, result)
     except Exception as exc:
-        # UI artifacts are best-effort and must not invalidate a completed inspection.
-        logger.warning("inspection visual output export failed: %s", exc)
+        # This endpoint exists specifically to produce artifacts.  Returning 200
+        # with a null heatmap makes the orchestrator treat a failed export as a
+        # successful one and silently lose the visualization.
+        logger.exception("inspection visual output export failed")
+        cleanup_requested_visual_outputs(payload)
+        raise HTTPException(status_code=500, detail=f"visual output export failed: {exc}") from exc
+
+    return to_visuals_response(result, visual_outputs)
+
+
+def _inspect_test_frame_sync(payload: TestFrameInspectRequest):
+    _sync_request_roi(
+        payload.product_type,
+        payload.roi_polygon_norm,
+        payload.perspective_line_norm,
+    )
+    frame = load_test_frame_bgr(payload)
+    reference = inspection_service.get_reference(payload.product_type)
+    if reference is not None and frame.shape[:2] != reference.shape[:2]:
+        # Test path must match эталон resolution (archive/preview JPEG can differ).
+        logger.warning(
+            "test-frame resize to reference %sx%s (was %sx%s) product_type=%s cache_key=%s",
+            reference.shape[1],
+            reference.shape[0],
+            frame.shape[1],
+            frame.shape[0],
+            payload.product_type,
+            payload.cache_key,
+        )
+        frame = cv2.resize(
+            frame,
+            (reference.shape[1], reference.shape[0]),
+            interpolation=cv2.INTER_LINEAR,
+        )
+    settings = _settings_from_test_knobs(payload)
+    include_visuals = any(
+        (
+            payload.aligned_image_u8_output_path,
+            payload.diff_map_u8_output_path,
+            payload.segmentation_mask_u8_output_path,
+        )
+    )
+    inspect_scale = payload.inspect_scale
+    if inspect_scale is not None and (not 0.0 < inspect_scale <= 1.0):
+        raise ValueError("inspect_scale must be in (0, 1]")
+    return inspection_service.inspect_frame(
+        product_type=payload.product_type,
+        frame=frame,
+        include_visuals=include_visuals,
+        include_heatmap_u8=payload.heatmap_u8_output_path is not None,
+        detector_id=payload.detector_id,
+        alignment_h_ref_to_cur=payload.alignment_h_ref_to_cur,
+        analysis_profile=payload.analysis_profile,
+        settings=settings,
+        inspect_scale_after_align=inspect_scale,
+        store_learning_review=False,
+    )
+
+
+@router.post("/inspect-test-frame", response_model=ShmVisualsResponse)
+async def inspect_test_frame(payload: TestFrameInspectRequest) -> ShmVisualsResponse:
+    """POST /inspect-test-frame — инспекция выбранного JPEG с ephemeral knobs.
+
+    Кэш BGR по cache_key + file_path + image_url; analysis_settings на диск не пишутся.
+    """
+    if payload.simple is None and payload.pro is None:
+        raise HTTPException(status_code=400, detail="simple or pro knobs required")
+    if payload.simple is not None and payload.pro is not None:
+        raise HTTPException(status_code=400, detail="provide either simple or pro knobs, not both")
+    try:
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(inspect_executor, partial(_inspect_test_frame_sync, payload))
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        visual_outputs = write_requested_visual_outputs(payload, result)
+    except Exception as exc:
+        logger.warning("test-frame visual output export failed: %s", exc)
         cleanup_requested_visual_outputs(payload)
         visual_outputs = {}
 

@@ -130,7 +130,12 @@ public final class StdioBinaryGeometryLoop {
             boolean poseLocked = InspectionHeaderMapper.bool(h.get("pose_locked"), false)
                     || InspectionHeaderMapper.bool(h.get("poseLocked"), false)
                     || InspectionHeaderMapper.bool(h.get("already_aligned"), false);
-            var response = inspection.inspectMats(reference, current, request, includeDebug, referenceKey, poseLocked);
+            Map<String, Object> logContext = Map.of(
+                    "camera_id", h.getOrDefault("camera_id", ""),
+                    "frame_id", h.getOrDefault("frame_id", "")
+            );
+            var response = inspection.inspectMats(
+                    reference, current, request, includeDebug, referenceKey, poseLocked, logContext);
             BinaryProtocol.write(
                     out,
                     BinaryProtocol.MSG_RESPONSE,

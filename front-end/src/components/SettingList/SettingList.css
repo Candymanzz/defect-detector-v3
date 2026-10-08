@@ -587,6 +587,86 @@
   text-align: center;
 }
 
+.analysis-presets__percent-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 2px 2px 3px;
+  border: 1px solid rgba(114, 242, 168, 0.32);
+  border-radius: 6px;
+  color: #72f2a8;
+  background: rgba(51, 209, 122, 0.08);
+  font-variant-numeric: tabular-nums;
+}
+
+.analysis-presets__percent-input:focus-within {
+  border-color: #72f2a8;
+  box-shadow: 0 0 0 2px rgba(114, 242, 168, 0.14);
+}
+
+.analysis-presets__percent-input input {
+  width: 64px;
+  padding: 2px 4px;
+  border: 0;
+  outline: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  text-align: right;
+  appearance: textfield;
+}
+
+.analysis-presets__percent-input input::-webkit-inner-spin-button,
+.analysis-presets__percent-input input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.analysis-presets__percent-steppers {
+  display: grid;
+  align-self: stretch;
+  margin-left: 2px;
+  overflow: hidden;
+  border-left: 1px solid rgba(114, 242, 168, 0.2);
+  border-radius: 0 4px 4px 0;
+}
+
+.analysis-presets__percent-steppers button {
+  width: 20px;
+  min-height: 13px;
+  padding: 0;
+  border: 0;
+  color: #8ff5b8;
+  background: rgba(114, 242, 168, 0.08);
+  font-size: 7px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.analysis-presets__percent-steppers button + button {
+  border-top: 1px solid rgba(114, 242, 168, 0.16);
+}
+
+.analysis-presets__percent-steppers button:hover:not(:disabled) {
+  color: #eafff1;
+  background: rgba(114, 242, 168, 0.22);
+}
+
+.analysis-presets__percent-steppers button:active:not(:disabled) {
+  background: rgba(114, 242, 168, 0.32);
+}
+
+.analysis-presets__percent-steppers button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.analysis-presets__percent-input input:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .analysis-presets__field input[type="range"] {
   width: 100%;
   accent-color: #33d17a;

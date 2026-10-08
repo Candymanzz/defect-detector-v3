@@ -1,5 +1,7 @@
 package com.example.iml.geometry.dto;
 
+import java.util.Map;
+
 public record InspectionResponse(
         double shiftXmm,
         double shiftYmm,
@@ -16,12 +18,22 @@ public record InspectionResponse(
         double jointTaperMm,
         double jointVisibility,
         double wrinklesScore,
+        /** Label↔rim skew (deg); 0 when inactive. */
+        double jointRimSkewDeg,
+        double jointGapLeftMm,
+        double jointGapRightMm,
+        double jointGapAsymmetryMm,
         boolean alignmentPass,
         boolean concentricityPass,
         boolean jointPass,
         boolean wrinklesPass,
+        boolean rimSkewPass,
         boolean overallPass,
         String debugImageBase64,
-        String status
+        String status,
+        Map<String, Object> diagnostics
 ) {
+    public InspectionResponse {
+        diagnostics = diagnostics == null ? Map.of() : Map.copyOf(diagnostics);
+    }
 }

@@ -25,6 +25,8 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -33,6 +35,8 @@ import java.util.concurrent.TimeoutException;
  */
 public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink, PlcFinsApi {
     private static final Logger log = LogManager.getLogger(FanOutCoordinator.class);
+    /** DM D4405 / register-map {@code handle_material_mode}: 0=сталь, 1=пластик. */
+    private static final String HANDLE_MATERIAL_MODE_KEY = "handle_material_mode";
 
     private final PlcFinsPublisher plcPublisher;
     private final ClientWebSocketServer clientWsServer;
@@ -40,6 +44,9 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     private final PlcRegisterMap registerMap;
     private volatile ServiceHealthGate healthGate;
     private volatile ClientWsSessionState lastSessionState = ClientWsSessionState.NO_REFERENCE;
+    /** Кэш D4405: удержание reject до PASS только при пластиковой ручке. */
+    private volatile boolean plasticHandleMode;
+    private final Set<Long> earlyPlasticRejectSequences = ConcurrentHashMap.newKeySet();
 
     private FanOutCoordinator(
             PlcFinsPublisher plcPublisher,
@@ -101,16 +108,39 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         if (clientWsServer == null) {
             log.warn("inspection result client_ws unavailable — bucket verdict will not be sent to UI");
         }
-        return new FanOutCoordinator(plcPublisher, clientWsServer, inspectionGate, registerMap);
+        FanOutCoordinator coordinator =
+                new FanOutCoordinator(plcPublisher, clientWsServer, inspectionGate, registerMap);
+        if (plcPublisher != null) {
+            coordinator.syncHandleMaterialModeFromPlc();
+        }
+        return coordinator;
     }
 
     @Override
     public void publishBucket(BucketFanOutResult result) {
+        ServiceHealthGate gate = healthGate;
+        if (gate != null && !gate.healthyForVision()) {
+            log.warn(
+                    "inspect bucket publish skipped seq={} group={} — services unhealthy {}",
+                    result.triggerSequence(),
+                    result.groupId(),
+                    gate.visionBlockingReasons()
+            );
+            return;
+        }
+        // Приоритет ПЛК: сначала FINS (ждём фронт бита), потом UI bucket.
         // Эталон задан → FINS reject по линии ведра (group 0 → line1, group 1 → line2).
         // Агрегатор шлёт оба ведра одного seq пакетом — здесь просто запись в очередь FINS.
+        BucketFanOutResult effectiveResult = result;
+        if (plasticHandleMode && earlyPlasticRejectSequences.contains(result.triggerSequence()) && result.overallPass()) {
+            effectiveResult = new BucketFanOutResult(
+                    result.groupId(), result.triggerSequence(), false,
+                    result.bucketCameraIds(), result.frameDecisions()
+            );
+        }
         if (inspectionEnabled()) {
             if (plcPublisher != null) {
-                plcPublisher.publishBucket(result);
+                plcPublisher.publishBucket(effectiveResult, true, plasticHandleMode);
             }
         } else {
             log.debug(
@@ -120,8 +150,34 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
             );
         }
         if (clientWsServer != null) {
-            clientWsServer.notifyInspectBucketResult(result);
+            clientWsServer.notifyInspectBucketResult(effectiveResult);
         }
+    }
+
+    @Override
+    public boolean publishEarlyPlasticHandleReject(long triggerSequence, int cameraId) {
+        if (!plasticHandleMode || !inspectionEnabled() || plcPublisher == null) {
+            return false;
+        }
+        if (!earlyPlasticRejectSequences.add(triggerSequence)) {
+            return true;
+        }
+        ServiceHealthGate gate = healthGate;
+        if (gate != null && !gate.healthyForVision()) {
+            earlyPlasticRejectSequences.remove(triggerSequence);
+            return false;
+        }
+        log.info(
+                "plastic handle early reject seq={} first_reject_camera={} - reject all bucket lines immediately",
+                triggerSequence, cameraId
+        );
+        plcPublisher.publishRejectAllGroupsAndAwait(triggerSequence);
+        return true;
+    }
+
+    @Override
+    public void finishSequence(long triggerSequence) {
+        earlyPlasticRejectSequences.remove(triggerSequence);
     }
 
     /**
@@ -136,7 +192,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     public void setHealthGate(ServiceHealthGate healthGate) {
         this.healthGate = healthGate;
         if (healthGate != null) {
-            healthGate.setOnChanged(this::refreshPlcLevels);
+            healthGate.addOnChanged(this::refreshPlcLevels);
         }
         refreshPlcLevels();
     }
@@ -149,19 +205,20 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
                 && lastSessionState != ClientWsSessionState.NO_REFERENCE
                 && lastSessionState != ClientWsSessionState.TEST;
         ServiceHealthGate gate = healthGate;
-        boolean healthy = gate == null || gate.healthy();
+        boolean healthy = gate == null || gate.healthyForVision();
         boolean ready = referenceActive && healthy;
         boolean fault = !healthy;
         signalVisionReady(ready);
         signalVisionFault(fault);
         log.info(
-                "plc fins session_state={} vision_ready={} vision_fault={} (reference_active={} healthy={} unhealthy={})",
+                "plc fins session_state={} vision_ready={} vision_fault={} (reference_active={} healthy={} vision_blocking={} io_input_only={})",
                 lastSessionState == null ? "null" : lastSessionState.name(),
                 ready,
                 fault,
                 referenceActive,
                 healthy,
-                gate == null ? "[]" : gate.unhealthyReasons()
+                gate == null ? "[]" : gate.visionBlockingReasons(),
+                gate != null && !gate.healthy() && gate.healthyForVision()
         );
     }
 
@@ -296,6 +353,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
             int rawWord = raw[def.wordAddress() - start] & 0xFFFF;
             states.add(toState(def, rawWord));
         }
+        updatePlasticHandleModeFromStates(states);
         return states;
     }
 
@@ -342,7 +400,29 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         for (PlcTimeoutDefinition def : defs) {
             states.add(toState(def, next[def.wordAddress() - start] & 0xFFFF));
         }
+        updatePlasticHandleModeFromStates(states);
         return states;
+    }
+
+    private void syncHandleMaterialModeFromPlc() {
+        try {
+            readTimeouts();
+        } catch (Exception e) {
+            log.debug("plc handle_material_mode initial read failed: {}", e.getMessage());
+        }
+    }
+
+    private void updatePlasticHandleModeFromStates(List<PlcTimeoutState> states) {
+        if (states == null || states.isEmpty()) {
+            return;
+        }
+        for (PlcTimeoutState state : states) {
+            if (HANDLE_MATERIAL_MODE_KEY.equals(state.name())
+                    || "D4405".equalsIgnoreCase(state.address())) {
+                plasticHandleMode = state.valueUnits() != 0;
+                return;
+            }
+        }
     }
 
     public String metricsSummary() {

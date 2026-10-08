@@ -31,6 +31,10 @@ internal sealed class IoCaptureGate
     private readonly bool _directionInvert;
     private readonly bool _requireDirection;
     private readonly bool _directionLatch;
+    /// <summary>true: физическое DI2 должно совпадать с выбранным в UI направлением (core-dev); false: считается только DI2 (станок на 4 изделия).</summary>
+    private readonly bool _directionMustMatchSelected;
+    /// <summary>true: один DI3 на окно DI2 (core-dev); false: повторные DI3 при том же DI2=1 снимаются (станок на 4 изделия).</summary>
+    private readonly bool _oneCapturePerDi2Window;
     private readonly object _lock = new();
 
     private IoLineDirection _selectedDirection = IoLineDirection.Forward;
@@ -40,6 +44,8 @@ internal sealed class IoCaptureGate
     private bool _directionLatched;
     private bool _triggerActive;
     private bool _captureFiredThisPulse;
+    /// <summary>Один кадр на окно DI2=1: повторный DI3↑ при том же DI2=1 — холостой.</summary>
+    private bool _captureFiredThisDi2Window;
 
     public IoCaptureGate(IoCaptureOptions options)
     {
@@ -50,6 +56,8 @@ internal sealed class IoCaptureGate
         _directionInvert = options.DirectionInvert;
         _requireDirection = options.RequireDirection;
         _directionLatch = options.DirectionLatch;
+        _directionMustMatchSelected = options.DirectionMustMatchSelected;
+        _oneCapturePerDi2Window = options.OneCapturePerDi2Window;
         _selectedDirection = ParseDirection(options.InitialDirection) ?? IoLineDirection.Forward;
     }
 
@@ -80,7 +88,7 @@ internal sealed class IoCaptureGate
 
     public bool IsSelectedForward => SelectedDirection == IoLineDirection.Forward;
 
-    /// <summary>UI / HTTP: forward|reverse (отображение). На DO5 не влияет — фильтр только DI2.</summary>
+    /// <summary>UI / HTTP: forward|reverse. DO5 fires only when the physical DI2 direction matches.</summary>
     public IoCaptureDecision SetSelectedDirection(string? wireValue)
     {
         IoLineDirection? parsed = ParseDirection(wireValue);
@@ -93,6 +101,18 @@ internal sealed class IoCaptureGate
                 return IoCaptureDecision.None;
 
             _selectedDirection = parsed.Value;
+            if (_directionMustMatchSelected)
+            {
+                // A direction change starts a new capture window. Re-evaluate the
+                // current DI2 level immediately so reverse (DI2=0) can arm without
+                // waiting for another DI2 edge.
+                _directionArmed = false;
+                _directionLatched = false;
+                _captureFiredThisPulse = false;
+                _captureFiredThisDi2Window = false;
+                TryArmFromCurrentDirection();
+            }
+
             return IoCaptureDecision.DirectionModeChanged;
         }
     }
@@ -127,9 +147,14 @@ internal sealed class IoCaptureGate
 
             if (port == _directionPort)
             {
+                bool prevHigh = _directionKnown && MatchesSelectedDirection(_directionRawActive);
                 _directionRawActive = active;
                 _directionKnown = true;
-                bool nowHigh = MapDirection(active);
+                bool nowHigh = MatchesSelectedDirection(active);
+
+                // Новое окно DI2=1 / конец окна — снова разрешаем один DI3.
+                if (prevHigh != nowHigh)
+                    _captureFiredThisDi2Window = false;
 
                 // После latch все смены DI2 — холостые (направление уже зафиксировано).
                 if (_directionLatch && _directionLatched)
@@ -146,7 +171,7 @@ internal sealed class IoCaptureGate
                 return IoCaptureDecision.None;
 
             IoCaptureDecision decision = IoCaptureDecision.None;
-            bool di2High = _directionKnown && MapDirection(_directionRawActive);
+            bool di2High = _directionKnown && MatchesSelectedDirection(_directionRawActive);
             if (risingEdge && active && !_triggerActive)
             {
                 if (_requireDirection && !_directionArmed)
@@ -157,9 +182,16 @@ internal sealed class IoCaptureGate
                 {
                     decision = IoCaptureDecision.SkipAlreadyFired;
                 }
+                else if (_oneCapturePerDi2Window && di2High && _captureFiredThisDi2Window)
+                {
+                    // DI2 ещё 1, а DI3 пришёл повторно — холостой проход.
+                    decision = IoCaptureDecision.SkipAlreadyFired;
+                }
                 else
                 {
                     _captureFiredThisPulse = true;
+                    if (_oneCapturePerDi2Window && di2High)
+                        _captureFiredThisDi2Window = true;
                     decision = IoCaptureDecision.FireDo;
                 }
             }
@@ -171,6 +203,7 @@ internal sealed class IoCaptureGate
 
             // DI3 Rising-only (короткий photoeye): Falling в Evaluate не приходит —
             // без сброса _triggerActive залипает HIGH и следующие DI3↑ = None (нет DO5).
+            // Окно DI2 (_captureFiredThisDi2Window) НЕ сбрасываем — иначе повторный DI3 при DI2=1 снова стреляет.
             if (risingEdge && active)
             {
                 _triggerActive = false;
@@ -189,6 +222,7 @@ internal sealed class IoCaptureGate
         _directionArmed = false;
         _directionLatched = false;
         _captureFiredThisPulse = false;
+        _captureFiredThisDi2Window = false;
         return IoCaptureDecision.DirectionDisarmed;
     }
 
@@ -204,6 +238,7 @@ internal sealed class IoCaptureGate
         lock (_lock)
         {
             _captureFiredThisPulse = false;
+            _captureFiredThisDi2Window = false;
         }
     }
 
@@ -223,7 +258,8 @@ internal sealed class IoCaptureGate
                     : $"один раз DI{_directionPort}=1, далее DI{_triggerPort}↑{disarmHint}";
             }
 
-            return $"DI{_directionPort}=1 затем DI{_triggerPort}↑";
+            int expectedLevel = _selectedDirection == IoLineDirection.Forward ? 1 : 0;
+            return $"DI{_directionPort}={expectedLevel} затем DI{_triggerPort}↑";
         }
     }
 
@@ -244,8 +280,8 @@ internal sealed class IoCaptureGate
             return;
         }
 
-        bool forward = MapDirection(_directionRawActive);
-        if (forward)
+        bool matches = MatchesSelectedDirection(_directionRawActive);
+        if (matches)
         {
             _directionArmed = true;
             if (_directionLatch)
@@ -260,6 +296,17 @@ internal sealed class IoCaptureGate
 
     private bool MapDirection(bool raw) =>
         _directionInvert ? !raw : raw;
+
+    private bool MatchesSelectedDirection(bool raw)
+    {
+        bool physicalForward = MapDirection(raw);
+        if (!_directionMustMatchSelected)
+            return physicalForward;
+
+        return _selectedDirection == IoLineDirection.Forward
+            ? physicalForward
+            : !physicalForward;
+    }
 
     internal static IoLineDirection? ParseDirection(string? raw)
     {
@@ -351,6 +398,18 @@ public sealed class IoCaptureOptions
     /// Без снятия каждый последующий DI3↑ продолжает FireDo — «сигналы не прекращаются».
     /// </summary>
     public bool DirectionLatch { get; set; } = true;
+
+    /// <summary>
+    /// true — DO5 только если физическое DI2 совпадает с выбранным в UI «Прямой/Обратный» (core-dev);
+    /// false — UI не фильтрует, считается только DI2 (станок на 4 изделия). DECISIONS.md, D-009.
+    /// </summary>
+    public bool DirectionMustMatchSelected { get; set; } = true;
+
+    /// <summary>
+    /// true — один DI3 на окно DI2=1, повторные холостые (core-dev);
+    /// false — каждый DI3↑ при DI2=1 снимается (станок на 4 изделия: две фазы за окно).
+    /// </summary>
+    public bool OneCapturePerDi2Window { get; set; } = true;
 
     /// <summary>DI «работа/конвейер» (обычно 1). При disarm_on_work_low: DI↓ снимает latch.</summary>
     public int WorkPort { get; set; } = 1;

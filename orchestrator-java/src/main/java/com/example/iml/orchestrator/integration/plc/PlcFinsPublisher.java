@@ -44,10 +44,11 @@ public final class PlcFinsPublisher implements AutoCloseable {
   private record PulseBitJob(
       PlcSignalDefinition signal,
       boolean activeValue,
+      long pulseMs,
       CompletableFuture<Void> future
   ) implements PlcJob {
-    PulseBitJob(PlcSignalDefinition signal, boolean activeValue) {
-      this(signal, activeValue, null);
+    PulseBitJob(PlcSignalDefinition signal, boolean activeValue, long pulseMs) {
+      this(signal, activeValue, pulseMs, null);
     }
   }
 
@@ -75,6 +76,7 @@ public final class PlcFinsPublisher implements AutoCloseable {
   private final OmronFinsClient client;
   private final BlockingQueue<PlcJob> queue;
   private final Thread worker;
+  /** {@code null} при pulse_threads=1: импульсы идут последовательно в потоке публикатора (core-dev). */
   private final ExecutorService pulseExecutor;
   private final ConcurrentHashMap<String, Object> signalLocks = new ConcurrentHashMap<>();
   private final AtomicBoolean running = new AtomicBoolean(true);
@@ -96,14 +98,16 @@ public final class PlcFinsPublisher implements AutoCloseable {
     this.worker = new Thread(this::runLoop, "plc-fins-publisher");
     this.worker.setDaemon(true);
     int pulseThreads = Math.max(1, config.pulseThreads());
-    this.pulseExecutor = Executors.newFixedThreadPool(
-        pulseThreads,
-        runnable -> {
-          Thread thread = new Thread(runnable, "plc-fins-pulse");
-          thread.setDaemon(true);
-          return thread;
-        }
-    );
+    this.pulseExecutor = pulseThreads > 1
+        ? Executors.newFixedThreadPool(
+            pulseThreads,
+            runnable -> {
+              Thread thread = new Thread(runnable, "plc-fins-pulse");
+              thread.setDaemon(true);
+              return thread;
+            }
+        )
+        : null;
     this.worker.start();
   }
 
@@ -135,20 +139,94 @@ public final class PlcFinsPublisher implements AutoCloseable {
   }
 
   public void publishBucket(BucketFanOutResult result) {
+    publishBucket(result, false, false);
+  }
+
+  /**
+   * Вердикт ведра в ПЛК. При {@code awaitEdge=true} ждёт подтверждения записи фронта
+   * (PASS→false или REJECT→true).
+   *
+   * @param holdRejectUntilPass режим пластиковой ручки (D4405=1): reject держится HIGH до PASS;
+   *                            иначе импульс {@code pulse_ms} как раньше
+   */
+  public void publishBucket(BucketFanOutResult result, boolean awaitEdge, boolean holdRejectUntilPass) {
     // ready держится отдельно (sticky HIGH); здесь только вердикт reject.
     Optional<PlcSignalDefinition> signalOpt = registerMap.rejectSignalForGroup(result.groupId());
     if (signalOpt.isEmpty()) {
       log.warn("plc fins: no reject signal for bucket group={}", result.groupId());
       return;
     }
+    PlcSignalDefinition signal = signalOpt.get();
+    CompletableFuture<Void> edge = awaitEdge ? new CompletableFuture<>() : null;
     if (result.overallPass()) {
-      enqueue(new WriteBitJob(signalOpt.get(), false));
-      return;
-    }
-    if (config.pulseMs() > 0) {
-      enqueue(new PulseBitJob(signalOpt.get(), true));
+      Boolean last = lastSignalValues.get(signal.name());
+      // Plastic-handle mode is a state level, not a per-cycle pulse:
+      // PASS->PASS and FAIL->FAIL must not create any PLC activity.
+      if (holdRejectUntilPass && Boolean.FALSE.equals(last)) {
+        if (edge != null) {
+          edge.complete(null);
+        }
+      } else if (!enqueue(new WriteBitJob(signal, false, edge)) && edge != null) {
+        edge.completeExceptionally(new IOException("plc fins queue full"));
+      }
+    } else if (holdRejectUntilPass && config.pulseMs() > 0) {
+      Boolean last = lastSignalValues.get(signal.name());
+      if (Boolean.TRUE.equals(last)) {
+        if (edge != null) {
+          edge.complete(null);
+        }
+      } else if (!enqueue(new WriteBitJob(signal, true, edge)) && edge != null) {
+        edge.completeExceptionally(new IOException("plc fins queue full"));
+      }
+    } else if (config.pulseMs() > 0) {
+      if (!enqueue(new PulseBitJob(signal, true, config.pulseMs(), edge)) && edge != null) {
+        edge.completeExceptionally(new IOException("plc fins queue full"));
+      }
     } else {
-      enqueue(new WriteBitJob(signalOpt.get(), true));
+      if (!enqueue(new WriteBitJob(signal, true, edge)) && edge != null) {
+        edge.completeExceptionally(new IOException("plc fins queue full"));
+      }
+    }
+    if (edge != null) {
+      try {
+        await(edge);
+      } catch (IOException | InterruptedException | TimeoutException e) {
+        log.warn(
+                "plc fins await edge failed seq={} group={}: {}",
+                result.triggerSequence(),
+                result.groupId(),
+                e.getMessage()
+        );
+        if (e instanceof InterruptedException) {
+          Thread.currentThread().interrupt();
+        }
+      }
+    }
+  }
+
+  /** Raises every configured bucket reject line and waits for the PLC acknowledgements. */
+  public void publishRejectAllGroupsAndAwait(long triggerSequence) {
+    List<PlcSignalDefinition> signals = registerMap.signals().stream()
+        .filter(signal -> signal.bucketGroupId() != null)
+        .sorted(java.util.Comparator.comparingInt(PlcSignalDefinition::bucketGroupId))
+        .toList();
+    for (PlcSignalDefinition signal : signals) {
+      if (Boolean.TRUE.equals(lastSignalValues.get(signal.name()))) {
+        continue;
+      }
+      CompletableFuture<Void> edge = new CompletableFuture<>();
+      if (!enqueue(new WriteBitJob(signal, true, edge))) {
+        edge.completeExceptionally(new IOException("plc fins queue full"));
+      }
+      try {
+        await(edge);
+      } catch (IOException | InterruptedException | TimeoutException e) {
+        log.warn("plc fins early reject await failed seq={} signal={}: {}",
+            triggerSequence, signal.name(), e.getMessage());
+        if (e instanceof InterruptedException) {
+          Thread.currentThread().interrupt();
+        }
+      }
     }
   }
 
@@ -207,7 +285,7 @@ public final class PlcFinsPublisher implements AutoCloseable {
     CompletableFuture<Void> future = new CompletableFuture<>();
     boolean enqueued;
     if (pulse && value && config.pulseMs() > 0) {
-      enqueued = enqueue(new PulseBitJob(signal, true, future));
+      enqueued = enqueue(new PulseBitJob(signal, true, config.pulseMs(), future));
     } else {
       enqueued = enqueue(new WriteBitJob(signal, value, future));
     }
@@ -340,7 +418,38 @@ public final class PlcFinsPublisher implements AutoCloseable {
       return;
     }
     if (job instanceof PulseBitJob pulse) {
-      pulseExecutor.submit(() -> runPulse(pulse));
+      if (pulseExecutor != null) {
+        // pulse_threads > 1: параллельные импульсы разных линий (станок на 4 изделия).
+        pulseExecutor.submit(() -> runPulse(pulse));
+        return;
+      }
+      try {
+        // Длительность всегда от момента записи true — не от enqueue.
+        // Иначе второй pulse в очереди (reject_line_2 после reject_line_1) сжимается до ~0 ms.
+        writeBit(pulse.signal(), pulse.activeValue());
+        // Фронт уже на ПЛК — отпускаем awaitEdge до sleep/сброса.
+        if (pulse.future() != null) {
+          pulse.future().complete(null);
+        }
+        long waitMs = Math.max(0L, pulse.pulseMs());
+        if (waitMs > 0) {
+          try {
+            Thread.sleep(waitMs);
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return;
+          }
+        }
+        writeBit(pulse.signal(), false);
+      } catch (Exception e) {
+        if (pulse.future() != null && !pulse.future().isDone()) {
+          pulse.future().completeExceptionally(e);
+        } else if (e instanceof IOException io) {
+          throw io;
+        } else {
+          throw new IOException(e);
+        }
+      }
       return;
     }
     if (job instanceof ReadWordsJob read) {
@@ -375,22 +484,24 @@ public final class PlcFinsPublisher implements AutoCloseable {
     PlcSignalDefinition signal = pulse.signal();
     synchronized (lockForSignal(signal.name())) {
       try {
+        // Длительность — от момента записи true, не от enqueue (см. core-dev).
         writeBit(signal, pulse.activeValue());
-        int pulseMs = config.pulseMs();
+        // Фронт уже на ПЛК — отпускаем awaitEdge до sleep/сброса.
+        if (pulse.future() != null) {
+          pulse.future().complete(null);
+        }
+        long pulseMs = Math.max(0L, pulse.pulseMs());
         if (pulseMs > 0) {
           Thread.sleep(pulseMs);
         }
         writeBit(signal, false);
-        if (pulse.future() != null) {
-          pulse.future().complete(null);
-        }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
-        if (pulse.future() != null) {
+        if (pulse.future() != null && !pulse.future().isDone()) {
           pulse.future().completeExceptionally(e);
         }
       } catch (Exception e) {
-        if (pulse.future() != null) {
+        if (pulse.future() != null && !pulse.future().isDone()) {
           pulse.future().completeExceptionally(e);
         } else {
           log.warn("plc fins pulse failed signal={}: {}", signal.name(), e.getMessage());
@@ -416,18 +527,22 @@ public final class PlcFinsPublisher implements AutoCloseable {
   public void close() {
     running.set(false);
     worker.interrupt();
-    pulseExecutor.shutdownNow();
+    if (pulseExecutor != null) {
+      pulseExecutor.shutdownNow();
+    }
     try {
       worker.join(1000L);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
     }
-    try {
-      if (!pulseExecutor.awaitTermination(1500L, TimeUnit.MILLISECONDS)) {
-        log.debug("plc fins pulse executor still running at close");
+    if (pulseExecutor != null) {
+      try {
+        if (!pulseExecutor.awaitTermination(1500L, TimeUnit.MILLISECONDS)) {
+          log.debug("plc fins pulse executor still running at close");
+        }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
       }
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
     }
     try {
       forceVisionReadyOff();

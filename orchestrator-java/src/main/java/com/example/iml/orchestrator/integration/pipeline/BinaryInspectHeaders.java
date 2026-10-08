@@ -1,12 +1,15 @@
 package com.example.iml.orchestrator.integration.pipeline;
 
+import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.roi.InterestPolygonNormCodec;
 import com.example.iml.orchestrator.integration.pipeline.stages.InspectPositioningExecutor;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -46,13 +49,18 @@ public final class BinaryInspectHeaders {
             gHeader.put("client_reference_bundle", true);
         }
         gHeader.put("jointRoi", resolveJointRoi(cameraId, activeReference, geometryCfg));
+        Object jointPolygon = resolveJointRoiPolygonNorm(activeReference);
+        if (jointPolygon instanceof List<?> poly && poly.size() >= 3) {
+            gHeader.put("jointRoiPolygonNorm", poly);
+        }
+        boolean hasJoint = gHeader.get("jointRoi") != null || gHeader.containsKey("jointRoiPolygonNorm");
         gHeader.put("jointMode", resolveJointMode(cameraId, activeReference, gHeader.get("jointRoi")));
         gHeader.put("pixelsToMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("pixels_to_mm"), 0.02));
         gHeader.put("maxShiftMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_shift_mm"), 0.5));
         gHeader.put("maxRotationDeg", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_rotation_deg"), 1.0));
         gHeader.put("maxJointDefectMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_defect_mm"), 0.5));
         gHeader.put("jointMinWidthMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("joint_min_width_mm"), 0.25));
-        gHeader.put("jointMaxWidthMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("joint_max_width_mm"), 3.0));
+        gHeader.put("jointMaxWidthMm", YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("joint_max_width_mm"), 1.6));
         gHeader.put(
                 "maxJointParallelismDeg",
                 YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_parallelism_deg"), 5.0)
@@ -61,7 +69,16 @@ public final class BinaryInspectHeaders {
                 "maxJointTaperMm",
                 YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_taper_mm"), 0.8)
         );
-        gHeader.put("jointSeamSegmentationEnabled", true);
+        gHeader.put(
+                "maxJointRimSkewDeg",
+                YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_rim_skew_deg"), 2.5)
+        );
+        gHeader.put(
+                "maxJointGapAsymmetryMm",
+                YamlScalars.toDouble(geometryCfg == null ? null : geometryCfg.get("max_joint_gap_asymmetry_mm"), 0.8)
+        );
+        // Без ROI стыка сегментацию не включаем — иначе test-analyze/настройки ломаются «пустым» стыком.
+        gHeader.put("jointSeamSegmentationEnabled", hasJoint);
         gHeader.put(
                 "jointSeamSegmentationSensitivity",
                 Math.max(
@@ -77,10 +94,6 @@ public final class BinaryInspectHeaders {
                         )
                 )
         );
-        Object jointPolygon = resolveJointRoiPolygonNorm(activeReference);
-        if (jointPolygon instanceof List<?> poly && poly.size() >= 3) {
-            gHeader.put("jointRoiPolygonNorm", poly);
-        }
         double defaultThreshold = YamlScalars.toDouble(pythonCfg == null ? null : pythonCfg.get("fallback_threshold"), 0.25);
         double maxWrinkles = YamlScalars.toDouble(
                 geometryCfg == null ? null : geometryCfg.get("max_wrinkles_score"),
@@ -121,7 +134,11 @@ public final class BinaryInspectHeaders {
                 mainRoi = bbox;
             }
         }
-        if (positioningCfg != null && positioningCfg.get("main_roi") != null) {
+        // The regular ROI selected on the reference is the positioning anchor.
+        // A static rectangle is only a fallback when no interest polygon exists.
+        if (!(mainRoiPolygon instanceof List<?> poly && poly.size() >= 3)
+                && positioningCfg != null
+                && positioningCfg.get("main_roi") != null) {
             mainRoi = positioningCfg.get("main_roi");
         }
         pHeader.put("mainRoi", mainRoi);
@@ -144,6 +161,96 @@ public final class BinaryInspectHeaders {
         pHeader.put("write_aligned", YamlScalars.toBool(positioningCfg == null ? null : positioningCfg.get("write_aligned"), true));
         pHeader.put("output_shm_name", "iml_pos_cam_" + cameraId);
         return pHeader;
+    }
+
+    /** Profile overrides from {@code java_geometry.profiles.<analysis_profile>}. */
+    public static void applyGeometryProfileOverrides(Map<String, Object> header, Map<String, Object> overrides) {
+        if (header == null || overrides == null || overrides.isEmpty()) {
+            return;
+        }
+        putGeometryTuning(header, overrides, "max_shift_mm", "maxShiftMm");
+        putGeometryTuning(header, overrides, "max_rotation_deg", "maxRotationDeg");
+        putGeometryTuning(header, overrides, "max_joint_defect_mm", "maxJointDefectMm");
+        putGeometryTuning(header, overrides, "joint_min_width_mm", "jointMinWidthMm");
+        putGeometryTuning(header, overrides, "joint_max_width_mm", "jointMaxWidthMm");
+        putGeometryTuning(header, overrides, "max_joint_parallelism_deg", "maxJointParallelismDeg");
+        putGeometryTuning(header, overrides, "max_joint_taper_mm", "maxJointTaperMm");
+        putGeometryTuning(header, overrides, "max_joint_rim_skew_deg", "maxJointRimSkewDeg");
+        putGeometryTuning(header, overrides, "max_joint_gap_asymmetry_mm", "maxJointGapAsymmetryMm");
+        putGeometryTuning(header, overrides, "joint_seam_segmentation_sensitivity", "jointSeamSegmentationSensitivity");
+        putGeometryTuning(header, overrides, "max_wrinkles_score", "maxWrinklesScore");
+        putGeometryTuning(header, overrides, "pixels_to_mm", "pixelsToMm");
+    }
+
+    @SuppressWarnings("unchecked")
+    public static Map<String, Object> resolveGeometryProfileOverrides(
+            Map<String, Object> geometryCfg,
+            String analysisProfile
+    ) {
+        if (geometryCfg == null || analysisProfile == null || analysisProfile.isBlank()) {
+            return Map.of();
+        }
+        Object rawProfiles = geometryCfg.get("profiles");
+        if (!(rawProfiles instanceof Map<?, ?> profiles) || profiles.isEmpty()) {
+            return Map.of();
+        }
+        Object profile = profiles.get(analysisProfile.trim());
+        if (!(profile instanceof Map<?, ?> overrides) || overrides.isEmpty()) {
+            return Map.of();
+        }
+        return Map.copyOf((Map<String, Object>) overrides);
+    }
+
+    private static void putGeometryTuning(
+            Map<String, Object> header,
+            Map<String, Object> overrides,
+            String snakeKey,
+            String camelKey
+    ) {
+        Object value = overrides.get(snakeKey);
+        if (value == null) {
+            value = overrides.get(camelKey);
+        }
+        if (value != null) {
+            header.put(camelKey, value);
+        }
+    }
+
+    /** Profile overrides from {@code java_positioning.profiles.<analysis_profile>} (snake_case or camelCase). */
+    public static void applyPositioningProfileOverrides(Map<String, Object> header, Map<String, Object> overrides) {
+        if (header == null || overrides == null || overrides.isEmpty()) {
+            return;
+        }
+        putPositioningTuning(header, overrides, "align_fail_absdiff", "alignFailAbsdiff");
+        putPositioningTuning(header, overrides, "align_fail_absdiff_hard", "alignFailAbsdiffHard");
+        putPositioningTuning(header, overrides, "align_fail_residual_px", "alignFailResidualPx");
+        putPositioningTuning(header, overrides, "ecc_skip_ncc", "eccSkipNcc");
+        putPositioningTuning(header, overrides, "ecc_skip_absdiff", "eccSkipAbsdiff");
+        putPositioningTuning(header, overrides, "ecc_skip_residual_px", "eccSkipResidualPx");
+        putPositioningTuning(header, overrides, "max_shift_mm", "maxShiftMm");
+        putPositioningTuning(header, overrides, "max_rotation_deg", "maxRotationDeg");
+        Object mainRoi = overrides.get("main_roi");
+        if (mainRoi == null) {
+            mainRoi = overrides.get("mainRoi");
+        }
+        if (mainRoi != null) {
+            header.put("mainRoi", mainRoi);
+        }
+    }
+
+    private static void putPositioningTuning(
+            Map<String, Object> header,
+            Map<String, Object> overrides,
+            String snakeKey,
+            String camelKey
+    ) {
+        Object value = overrides.get(snakeKey);
+        if (value == null) {
+            value = overrides.get(camelKey);
+        }
+        if (value != null) {
+            header.put(camelKey, value);
+        }
     }
 
     private static void putCaptureAndReferenceShm(
@@ -245,7 +352,7 @@ public final class BinaryInspectHeaders {
 
     private static String resolveJointMode(int cameraId, ReferenceSnapshot activeReference, Object jointRoi) {
         if (jointRoi == null) {
-            return "full";
+            return "off";
         }
         if (activeReference != null && activeReference.header() != null) {
             int jointCameraId = YamlScalars.toInt(activeReference.header().get("joint_camera_id"), -1);
@@ -301,10 +408,14 @@ public final class BinaryInspectHeaders {
         pyHeader.put("product_type", productType);
         pyHeader.put("detector_id", detectorId);
         // Keep the threshold absent so Python can resolve default_threshold from the
-        // selected analysis profile. GeometryRuntimeConfig may still add an explicit
-        // per-frame override after this header is built.
+        // selected analysis profile (analysis_settings). GeometryRuntimeConfig must not
+        // inject anomaly threshold into this header.
         // Горячий путь: false; превью — {@link com.example.iml.orchestrator.integration.ui.UiArtifactsSidecar}.
         pyHeader.put("include_visuals", includeVisuals);
+        pyHeader.put(
+                "defer_learning_review",
+                YamlScalars.toBool(pythonCfg == null ? null : pythonCfg.get("defer_learning_review"), false)
+        );
         if (pythonCfg != null && pythonCfg.get("rois") != null) {
             pyHeader.put("rois", pythonCfg.get("rois"));
         }
@@ -313,17 +424,8 @@ public final class BinaryInspectHeaders {
         pyHeader.put("width", capture.header().get("width"));
         pyHeader.put("height", capture.header().get("height"));
         pyHeader.put("stride", capture.header().get("stride"));
-        if (YamlScalars.toBool(capture.header().get(InspectPositioningExecutor.HEADER_ALIGNED), false)) {
-            pyHeader.put(
-                    "alignment_h_ref_to_cur",
-                    List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
-            );
-        } else if (geomResp != null) {
-            Object h = geomResp.header().get("homographyRefToCurrent");
-            if (h != null) {
-                pyHeader.put("alignment_h_ref_to_cur", h);
-            }
-        }
+        // Positioning belongs to java-positioning. Python receives its aligned
+        // SHM and must not apply geometry H or perform another warp.
         return pyHeader;
     }
 
@@ -339,6 +441,68 @@ public final class BinaryInspectHeaders {
     ) {
         Map<String, Object> pyHeader = pythonInspectHeader(
                 cameraId, productType, detectorId, capture, geomResp, pythonCfg, includeVisuals);
+        attachReferenceAndRoi(pyHeader, activeReference);
+        return pyHeader;
+    }
+
+    /**
+     * UI «Проверить»: {@code POST /inspect-test-frame} — JPEG с диска + ephemeral simple/pro.
+     * Не использует SHM-кадр и не пишет analysis_settings.
+     */
+    public static Map<String, Object> pythonTestFrameInspectHeader(
+            int cameraId,
+            String productType,
+            String detectorId,
+            BinaryProtocol.Message capture,
+            BinaryProtocol.Message geomResp,
+            ReferenceSnapshot activeReference,
+            int heatmapMaxWidth
+    ) {
+        Map<String, Object> cap = capture == null || capture.header() == null ? Map.of() : capture.header();
+        Map<String, Object> pyHeader = new HashMap<>();
+        pyHeader.put("op", "inspect_test_frame");
+        pyHeader.put("camera_id", cameraId);
+        pyHeader.put("frame_id", cap.get("frame_id"));
+        pyHeader.put("product_type", productType);
+        pyHeader.put("detector_id", detectorId);
+        pyHeader.put("test_analyze", true);
+        pyHeader.put("skip_learning_review", true);
+
+        String filePath = String.valueOf(cap.getOrDefault("test_frame_file_path", "")).trim();
+        pyHeader.put("file_path", filePath);
+        String cacheKey = String.valueOf(cap.getOrDefault("test_frame_cache_key", "")).trim();
+        if (cacheKey.isEmpty()) {
+            cacheKey = cameraId + ":" + String.valueOf(cap.getOrDefault("frame_id", ""));
+        }
+        pyHeader.put("cache_key", cacheKey);
+        Object imageUrl = cap.get("test_frame_image_url");
+        if (imageUrl == null || String.valueOf(imageUrl).isBlank()) {
+            imageUrl = cap.get("http_path");
+        }
+        if (imageUrl != null && !String.valueOf(imageUrl).isBlank()) {
+            pyHeader.put("image_url", String.valueOf(imageUrl).trim());
+        }
+
+        putEphemeralTestKnobs(pyHeader, cap);
+
+        String job = String.valueOf(cap.getOrDefault("test_analyze_job_id", String.valueOf(cap.get("frame_id"))));
+        String suffix = job.replace("-", "");
+        if (suffix.length() > 12) {
+            suffix = suffix.substring(0, 12);
+        }
+        pyHeader.put(
+                "heatmap_u8_output_path",
+                FrameJpegWriter.imlShmFilePath("iml_ui_heatmap_test_cam_" + cameraId + "_" + suffix).toString()
+        );
+        if (heatmapMaxWidth > 0) {
+            pyHeader.put("heatmap_max_width", heatmapMaxWidth);
+        }
+
+        attachReferenceAndRoi(pyHeader, activeReference);
+        return pyHeader;
+    }
+
+    private static void attachReferenceAndRoi(Map<String, Object> pyHeader, ReferenceSnapshot activeReference) {
         if (activeReference != null && activeReference.header() != null) {
             pyHeader.put("reference_shm_name", activeReference.header().get("shm_name"));
             pyHeader.put("reference_shm_offset", activeReference.header().get("shm_offset"));
@@ -351,7 +515,70 @@ public final class BinaryInspectHeaders {
         if (poly != null) {
             pyHeader.put("roi_polygon_norm", poly);
         }
-        return pyHeader;
+        if (activeReference != null
+                && activeReference.header() != null
+                && activeReference.header().get("perspective_line_norm") instanceof List<?> line
+                && line.size() == 2) {
+            pyHeader.put("perspective_line_norm", line);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    static void putEphemeralTestKnobs(Map<String, Object> pyHeader, Map<String, Object> captureHeader) {
+        Object temporary = captureHeader.get("analysis_test_settings");
+        if (!(temporary instanceof Map<?, ?> settings) || settings.isEmpty()) {
+            pyHeader.put("simple", Map.of("threshold", 0.25, "sensitivity", 0.5));
+            return;
+        }
+        Object simpleDirect = settings.get("simple");
+        Object detailedDirect = settings.get("detailed");
+        if (simpleDirect instanceof Map<?, ?> simpleMap) {
+            pyHeader.put("simple", copyStringObjectMap(simpleMap));
+        }
+        if (detailedDirect instanceof Map<?, ?> detailedMap) {
+            pyHeader.put("detailed", copyStringObjectMap(detailedMap));
+        }
+        if (pyHeader.containsKey("simple") || pyHeader.containsKey("detailed")) {
+            return;
+        }
+        Object proDirect = settings.get("pro");
+        if (proDirect instanceof Map<?, ?> proMap && !(settings.get("simple") instanceof Map<?, ?>)) {
+            pyHeader.put("pro", copyStringObjectMap(proMap));
+            return;
+        }
+        Object modeObj = settings.get("mode");
+        String mode = String.valueOf(modeObj == null ? "simple" : modeObj).trim().toLowerCase(Locale.ROOT);
+        Object knobsObj = settings.get("knobs");
+        Map<String, Object> knobs = knobsObj instanceof Map<?, ?> raw
+                ? copyStringObjectMap(raw)
+                : Map.of();
+        if ("pro".equals(mode)) {
+            pyHeader.put("pro", knobs.isEmpty()
+                    ? Map.of(
+                    "threshold", 0.25,
+                    "noise_tolerance", 0.5,
+                    "scratch_sensitivity", 0.5,
+                    "edge_suppression", 0.5,
+                    "text_handling", 0.5,
+                    "preprocess_strength", 0.5,
+                    "far_edge_boost", 0.5
+            )
+                    : knobs);
+        } else {
+            pyHeader.put("simple", knobs.isEmpty()
+                    ? Map.of("threshold", 0.25, "sensitivity", 0.5)
+                    : knobs);
+        }
+    }
+
+    private static Map<String, Object> copyStringObjectMap(Map<?, ?> raw) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        raw.forEach((key, value) -> {
+            if (key != null && value != null) {
+                out.put(String.valueOf(key), value);
+            }
+        });
+        return out;
     }
 
     @SuppressWarnings("unchecked")

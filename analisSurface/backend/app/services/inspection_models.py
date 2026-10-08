@@ -39,6 +39,14 @@ class InspectionResult:
     heatmap: Optional[np.ndarray] = None
     heatmap_u8: Optional[np.ndarray] = None
     segmentation_mask: Optional[np.ndarray] = None
+    # Диагностика только для локального стенда. Production-ответы её не сериализуют.
+    excluded_normal_zones: list[dict] = field(default_factory=list)
+    py_align_ms: float = 0.0
+    py_diff_ms: float = 0.0
+    py_anomaly_ms: float = 0.0
+    py_fp_recheck_ms: float = 0.0
+    py_heatmap_ms: float = 0.0
+    py_total_ms: float = 0.0
 
 
 @dataclass

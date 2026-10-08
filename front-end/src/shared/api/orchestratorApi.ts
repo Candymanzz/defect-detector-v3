@@ -6,6 +6,15 @@ import type {
   AnalysisPresetResponse,
   SimpleAnalysisKnobs,
   ProAnalysisKnobs,
+  StrengthKnobs,
+  StrengthKnobsResponse,
+  ClientModeResponse,
+  TestAnalyzeResponse,
+  PinTestFrameRequest,
+  PinTestFrameResponse,
+  AcceptLearnedNormalsRequest,
+  AcceptLearnedNormalsResponse,
+  LearnedNormalCase,
   CameraRuntimeSettings,
   CameraRuntimeSettingsUpdate,
   FpZonesResponse,
@@ -325,6 +334,31 @@ export const orchestratorApi = {
     );
   },
 
+  async getStrengthAnalysisSettings(productType: string) {
+    return http.json<StrengthKnobsResponse>(
+      `${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}/strengths`,
+    );
+  },
+
+  async setStrengthAnalysisSettings(productType: string, knobs: StrengthKnobs) {
+    return http.json<StrengthKnobsResponse>(
+      `${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}/strengths`,
+      { method: "PUT", body: knobs },
+    );
+  },
+
+  async getCameraStrengthAnalysisSettings(cameraId: number) {
+    return http.json<StrengthKnobsResponse>(`${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}/strengths`);
+  },
+
+  async setCameraStrengthAnalysisSettings(cameraId: number, knobs: StrengthKnobs) {
+    return http.json<StrengthKnobsResponse>(`${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}/strengths`, {
+      method: "PUT",
+      body: knobs,
+    });
+  },
+
+  /** @deprecated используйте getStrengthAnalysisSettings — /pro на Python не поддерживается */
   async getProAnalysisSettings(productType: string) {
     return http.json<AnalysisPresetResponse<ProAnalysisKnobs>>(
       `${ANALYSIS_SETTINGS_PATH}/${encodeURIComponent(productType)}/pro`,
@@ -349,6 +383,131 @@ export const orchestratorApi = {
       `${ANALYSIS_SETTINGS_PATH}/camera/${cameraId}/pro`,
       { method: "PUT", body: knobs },
     );
+  },
+
+  async getClientMode() {
+    return http.json<ClientModeResponse>("/api/client/mode");
+  },
+
+  async setTestMode(enabled: boolean) {
+    return http.json<ClientModeResponse>("/api/client/mode/test", {
+      method: "POST",
+      body: { enabled },
+    });
+  },
+
+  async testAnalyzeArchiveFrame(cameraId: number, frameId: string) {
+    return http.json<TestAnalyzeResponse>("/api/client/inspection/test-analyze", {
+      method: "POST",
+      body: { cameraId, frameId, source: "archive" },
+    });
+  },
+
+  async pinTestFrame(request: PinTestFrameRequest) {
+    return http.json<PinTestFrameResponse>("/api/client/inspection/test-pin", {
+      method: "POST",
+      body: {
+        cameraId: request.cameraId,
+        frameId: request.frameId,
+        source: request.source ?? "archive",
+        httpPath: request.httpPath,
+      },
+    });
+  },
+
+  async testAnalyzePinnedFrame(
+    cameraId: number,
+    pinId: string,
+    frameId?: string,
+    temporarySettings?: {
+      geometry?: Record<string, number>;
+      analysis?: {
+        mode?: "simple" | "detailed" | "pro";
+        knobs?: Record<string, number>;
+        simple?: Record<string, number>;
+        detailed?: Record<string, number>;
+        pro?: Record<string, number>;
+      };
+    },
+  ) {
+    const analysis = temporarySettings?.analysis;
+    const body: Record<string, unknown> = {
+      cameraId,
+      frameId,
+      pinId,
+      source: "pin",
+      temporarySettings: {
+        geometry: temporarySettings?.geometry,
+        analysis: analysis
+          ? {
+              mode: analysis.mode,
+              knobs: analysis.knobs,
+              ...(analysis.simple ? { simple: analysis.simple } : {}),
+              ...(analysis.detailed ? { detailed: analysis.detailed } : {}),
+              ...(analysis.pro ? { pro: analysis.pro } : {}),
+            }
+          : undefined,
+      },
+    };
+    if (analysis?.simple) {
+      body.simple = analysis.simple;
+    }
+    if (analysis?.detailed) {
+      body.detailed = analysis.detailed;
+    } else if (analysis?.pro && !analysis.detailed) {
+      body.pro = analysis.pro;
+    } else if (analysis?.mode === "pro" && analysis.knobs) {
+      body.pro = analysis.knobs;
+    } else if (!analysis?.simple && analysis?.knobs && analysis.mode !== "detailed") {
+      body.simple = analysis.knobs;
+    }
+    return http.json<TestAnalyzeResponse>("/api/client/inspection/test-analyze", {
+      method: "POST",
+      body,
+    });
+  },
+
+  async acceptLearnedNormals(request: AcceptLearnedNormalsRequest) {
+    return http.json<AcceptLearnedNormalsResponse>("/api/client/learning/accept-all-as-normal", {
+      method: "POST",
+      body: {
+        frameId: request.frameId,
+        productType: request.productType,
+        cameraId: request.cameraId,
+        learnedReviewId: request.learnedReviewId,
+        note: request.note ?? "",
+      },
+    });
+  },
+
+  async getLearningReviews(productType: string, cameraId?: number) {
+    const query = new URLSearchParams({ product_type: productType });
+    if (cameraId !== undefined) {
+      query.set("cameraId", String(cameraId));
+    }
+    return http.json<{ reviews: unknown[] }>(`/api/client/learning/reviews?${query}`);
+  },
+
+  async getLearnedNormals(productType: string, cameraId: number) {
+    const query = new URLSearchParams({ productType, cameraId: String(cameraId) });
+    return http.json<{ cases: LearnedNormalCase[] }>(`/api/client/learning/accepted-cases?${query}`);
+  },
+
+  learnedNormalImageUrl(caseId: string) {
+    return http.url(`/api/client/learning/accepted-cases/${encodeURIComponent(caseId)}/image`);
+  },
+
+  async deleteLearnedNormal(caseId: string) {
+    return http.json<{ deleted: boolean; case_id?: string }>(
+      `/api/client/learning/accepted-cases/${encodeURIComponent(caseId)}`,
+      { method: "DELETE" },
+    );
+  },
+
+  async clearLearnedNormals() {
+    return http.json<{ deleted: boolean; cases_count?: number }>("/api/client/learning/accepted-cases", {
+      method: "DELETE",
+    });
   },
 
   async resetAnalysisSettings(productType: string) {

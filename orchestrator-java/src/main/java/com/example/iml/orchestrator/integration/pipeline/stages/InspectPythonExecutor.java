@@ -1,6 +1,8 @@
 package com.example.iml.orchestrator.integration.pipeline.stages;
 
+import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
@@ -11,8 +13,10 @@ import com.example.iml.orchestrator.integration.python.AnalisSurfacePoolSupport;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -23,6 +27,12 @@ public final class InspectPythonExecutor implements PythonInspectStage {
 
     private final Logger log;
     private final GeometryRuntimeConfig inspectionRuntimeConfig;
+    /**
+     * One fair FIFO lane per Python process/client.  Letting two inspections enter the
+     * same FastAPI process at once makes both CPU-bound OpenCV pipelines slower and
+     * produces large tail-latency spikes.  Different pool members still run in parallel.
+     */
+    private final Map<BinaryRpcSupervisor, Semaphore> pythonFifoLanes = new ConcurrentHashMap<>();
 
     public InspectPythonExecutor(Logger log) {
         this(log, null);
@@ -131,37 +141,119 @@ public final class InspectPythonExecutor implements PythonInspectStage {
         BinaryRpcSupervisor python = selectPython(pythonPool, pythonRoundRobin, phaseId);
         try {
             long t0 = System.nanoTime();
-            Map<String, Object> pyHeader = BinaryInspectHeaders.pythonInspectHeader(
-                    cameraId, productType, detectorId, state.capture(), state.geom(), pythonCfg, false, activeReference);
-            double inspectScale = YamlScalars.toDouble(
-                    pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
-                    1.0
-            );
-            boolean captureAlreadyDownscaled = state.capture() != null
-                    && state.capture().header() != null
-                    && YamlScalars.toDouble(state.capture().header().get("downscale_scale"), 1.0d) < 0.999d;
-            if (inspectScale < 0.999d && !captureAlreadyDownscaled) {
-                PythonInspectDownscaleSupport.applyDownscaleToPythonHeader(pyHeader, cameraId, inspectScale);
-            }
-            if (inspectionRuntimeConfig != null) {
-                inspectionRuntimeConfig.applyToPythonHeader(pyHeader, pythonCfg, productType);
-            }
-            pythonSlots.acquire();
-            try {
-                BinaryProtocol.Message pyResp = python.command(pyHeader);
-                if (log.isDebugEnabled()) {
-                    log.debug("{} cam={} frame={} => {}", python.supervisorLabel(), cameraId, state.capture().header().get("frame_id"), pyResp.header());
+            Map<String, Object> pyHeader;
+            boolean testAnalyze = YamlScalars.toBool(state.capture().header().get("test_analyze"), false);
+            String testFramePath = String.valueOf(state.capture().header().getOrDefault("test_frame_file_path", "")).trim();
+            if (testAnalyze) {
+                if (testFramePath.isEmpty()) {
+                    throw new IllegalStateException(
+                            "test_analyze requires test_frame_file_path (selected JPEG); refusing inspect-shm fallback"
+                    );
                 }
-                return new PipelineState(
-                        state.capture(),
-                        pyResp,
-                        state.geom(),
-                        state.captureMs(),
-                        YamlScalars.nanosToMs(System.nanoTime() - t0),
-                        state.geometryMs()
+                int heatmapMaxWidth = Math.max(
+                        0,
+                        YamlScalars.toInt(pythonCfg == null ? null : pythonCfg.get("heatmap_preview_max_width"), 512)
                 );
+                if (heatmapMaxWidth <= 0) {
+                    heatmapMaxWidth = 512;
+                }
+                pyHeader = BinaryInspectHeaders.pythonTestFrameInspectHeader(
+                        cameraId,
+                        productType,
+                        detectorId,
+                        state.capture(),
+                        state.geom(),
+                        activeReference,
+                        heatmapMaxWidth
+                );
+                applyAnalysisProfileAndRuntimeOverrides(pyHeader, cameraId, productType, pythonCfg);
+                double testInspectScale = YamlScalars.toDouble(
+                        pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
+                        1.0
+                );
+                if (testInspectScale < 0.999d) {
+                    pyHeader.put("inspect_scale", testInspectScale);
+                }
+                log.info(
+                        "python test-frame inspect cam={} frame={} file_path={} cache_key={} pin_sha={}",
+                        cameraId,
+                        state.capture().header().get("frame_id"),
+                        pyHeader.get("file_path"),
+                        pyHeader.get("cache_key"),
+                        state.capture().header().get("pin_jpeg_sha256")
+                );
+            } else {
+                pyHeader = BinaryInspectHeaders.pythonInspectHeader(
+                        cameraId, productType, detectorId, state.capture(), state.geom(), pythonCfg, false, activeReference);
+                long frameId = YamlScalars.toLong(state.capture().header().get("frame_id"), -1L);
+                boolean deferHeatmap = YamlScalars.toBool(
+                        pythonCfg == null ? null : pythonCfg.get("defer_heatmap"),
+                        false
+                );
+                if (!deferHeatmap) {
+                    pyHeader.put(
+                            "heatmap_u8_output_path",
+                            FrameJpegWriter.imlShmFilePath(
+                                    "iml_ui_heatmap_cam_" + cameraId + "_frame_" + frameId
+                            ).toString()
+                    );
+                    pyHeader.put(
+                            "heatmap_max_width",
+                            Math.max(1, YamlScalars.toInt(
+                                    pythonCfg == null ? null : pythonCfg.get("heatmap_preview_max_width"), 512
+                            ))
+                    );
+                }
+                applyAnalysisProfileAndRuntimeOverrides(pyHeader, cameraId, productType, pythonCfg);
+                Object temporaryAnalysis = state.capture().header().get("analysis_test_settings");
+                if (temporaryAnalysis instanceof Map<?, ?> temporary && !temporary.isEmpty()) {
+                    pyHeader.put("analysis_test_settings", temporaryAnalysis);
+                }
+                double inspectScale = YamlScalars.toDouble(
+                        pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
+                        1.0
+                );
+                if (inspectScale < 0.999d) {
+                    // Keep current/reference SHM descriptors at the same full resolution.
+                    // Python aligns first and then resizes the pair atomically, avoiding
+                    // the historic full-reference/downscaled-frame mismatch.
+                    pyHeader.put("inspect_scale", inspectScale);
+                }
+            }
+            Semaphore fifoLane = pythonFifoLanes.computeIfAbsent(python, ignored -> new Semaphore(1, true));
+            long tQueue0 = System.nanoTime();
+            fifoLane.acquire();
+            try {
+                pythonSlots.acquire();
+                try {
+                    long tCommand0 = System.nanoTime();
+                    BinaryProtocol.Message rawResp = python.command(pyHeader);
+                    long commandMs = YamlScalars.nanosToMs(System.nanoTime() - tCommand0);
+                    long queueMs = YamlScalars.nanosToMs(tCommand0 - tQueue0);
+                    Map<String, Object> responseHeader = new LinkedHashMap<>(
+                            rawResp == null || rawResp.header() == null ? Map.of() : rawResp.header()
+                    );
+                    responseHeader.put("python_queue_ms", queueMs);
+                    responseHeader.put("python_rpc_ms", commandMs);
+                    BinaryProtocol.Message pyResp = rawResp == null
+                            ? new BinaryProtocol.Message(BinaryProtocol.MSG_ERROR, responseHeader, new byte[0])
+                            : new BinaryProtocol.Message(rawResp.type(), Map.copyOf(responseHeader), rawResp.payload());
+                    if (log.isDebugEnabled()) {
+                        log.debug("{} cam={} frame={} => {}", python.supervisorLabel(), cameraId, state.capture().header().get("frame_id"), pyResp.header());
+                    }
+                    return new PipelineState(
+                            state.capture(),
+                            pyResp,
+                            state.geom(),
+                            state.captureMs(),
+                            YamlScalars.nanosToMs(System.nanoTime() - t0),
+                            state.geometryMs()
+                    );
+                } finally {
+                    pythonSlots.release();
+                }
             } finally {
-                pythonSlots.release();
+                fifoLane.release();
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -187,6 +279,25 @@ public final class InspectPythonExecutor implements PythonInspectStage {
         }
         int ticket = roundRobin.getAndIncrement();
         return phasePool.get(Math.floorMod(ticket, phasePool.size()));
+    }
+
+    /**
+     * Knobs UI и geometry-runtime живут под YAML {@code analysis_profile} камеры,
+     * а {@code product_type} может быть типом эталона — не подменять одно другим.
+     */
+    void applyAnalysisProfileAndRuntimeOverrides(
+            Map<String, Object> pyHeader,
+            int cameraId,
+            String productType,
+            Map<String, Object> pythonCfg
+    ) {
+        String analysisProfile = CameraAnalysisProfiles.resolve(cameraId, productType);
+        if (analysisProfile != null && !analysisProfile.isBlank()) {
+            pyHeader.put("analysis_profile", analysisProfile);
+        }
+        if (inspectionRuntimeConfig != null) {
+            inspectionRuntimeConfig.applyToPythonHeader(pyHeader, pythonCfg, analysisProfile);
+        }
     }
 
     private static boolean hasValidCaptureFrame(PipelineState state) {

@@ -357,6 +357,14 @@ def main() -> int:
         reviews_dir=runtime_dir / "reviews",
         review_limit=100,
     )
+    # Keep validation isolated from production FP/ROI state. Accepting a test
+    # defect as normal may create automatic FP zones; those must live only in
+    # this run's disposable directory and must not affect the next run.
+    service._fp_zones_file = runtime_dir / "fp_zones.json"
+    service._fp_crops_dir = runtime_dir / "fp_zone_crops"
+    service.fp_zones = {}
+    service.roi_polygons = {}
+    service.roi_sub_zones = {}
     service._anomaly_engine = None
     rows: list[dict] = []
     learning_rows: list[dict] = []

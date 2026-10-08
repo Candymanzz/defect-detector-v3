@@ -112,6 +112,10 @@ public final class ChildProcessStartupService {
                 if (!inspectionTriggerConfig.usesIoInputMonitor()) {
                     return null;
                 }
+                // Снять сирот после прошлого Ctrl+C / crash до bind COM + HTTP 9101.
+                ExternalServiceProcess.killOrphansMatchingCommand("IoInputMonitor", log);
+                ExternalServiceProcess.killOrphansMatchingCommand("io-input-monitor", log);
+                ExternalServiceProcess.killListenersOnPort(9101, log);
                 return externalProcessLauncher.startIfConfigured(
                         ctx.integration(),
                         ctx.projectRoot(),
@@ -125,9 +129,10 @@ public final class ChildProcessStartupService {
             }, boot);
             CompletableFuture<ExternalServiceProcess> frontendFuture = CompletableFuture.supplyAsync(() -> {
                 if (!startFrontend) {
+                    log.info("frontend autostart disabled (IML_FRONTEND_AUTOSTART=false)");
                     return null;
                 }
-                return externalProcessLauncher.startIfConfigured(
+                ExternalServiceProcess process = externalProcessLauncher.startIfConfigured(
                         ctx.integration(),
                         ctx.projectRoot(),
                         ctx.windows(),
@@ -137,6 +142,15 @@ public final class ChildProcessStartupService {
                         "frontend",
                         "front-end"
                 );
+                if (process == null) {
+                    log.warn(
+                            "frontend was not started — check integration.frontend_autostart.enabled, "
+                                    + "npm in PATH, front-end/node_modules (see warnings above)"
+                    );
+                } else if (!process.isAlive()) {
+                    log.warn("frontend process exited immediately after start");
+                }
+                return process;
             }, boot);
 
             CompletableFuture.allOf(
@@ -203,7 +217,11 @@ public final class ChildProcessStartupService {
         ctx.setGeometrySnapshotCache(new GeometrySnapshotCache());
         ctx.setGeometryRuntimeConfig(new GeometryRuntimeConfig(openGeometryRuntimeStore(ctx.projectRoot())));
         ctx.setInspectionGate(PerCameraInspectionGate.fromCameras(ctx.cameras()));
-        ctx.setManualLineDirection(new ManualLineDirectionService());
+        ManualLineDirectionService manualLineDirection = new ManualLineDirectionService();
+        var ioDirectionClient = com.example.iml.orchestrator.integration.trigger.IoInputMonitorDirectionClient
+                .fromIntegration(log, ctx.integration());
+        manualLineDirection.setOnChanged(ioDirectionClient::publishDirection);
+        ctx.setManualLineDirection(manualLineDirection);
         ctx.setPlcFinsHolder(new PlcFinsServiceHolder());
         var clientWsHolder = new com.example.iml.orchestrator.integration.clientws.ClientWsServiceHolder();
         ctx.setClientWsHolder(clientWsHolder);

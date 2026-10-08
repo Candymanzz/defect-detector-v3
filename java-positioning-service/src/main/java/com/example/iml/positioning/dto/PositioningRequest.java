@@ -9,6 +9,18 @@ public record PositioningRequest(
         double maxShiftMm,
         double maxRotationDeg,
         String outputShmName,
-        boolean writeAligned
+        boolean writeAligned,
+        PositioningTuning tuning
 ) {
+    public PositioningRequest(
+            RoiRect mainRoi,
+            List<NormPoint> mainRoiPolygonNorm,
+            double pixelsToMm,
+            double maxShiftMm,
+            double maxRotationDeg,
+            String outputShmName,
+            boolean writeAligned
+    ) {
+        this(mainRoi, mainRoiPolygonNorm, pixelsToMm, maxShiftMm, maxRotationDeg, outputShmName, writeAligned, PositioningTuning.defaults());
+    }
 }

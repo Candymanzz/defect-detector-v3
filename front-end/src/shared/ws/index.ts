@@ -7,6 +7,7 @@ export type {
   ClientWsMessage,
   ClientWsMessageType,
   ClientSetActiveReferenceViewPayload,
+  ExcludedNormalZone,
   FpZoneNorm,
   FpPointNorm,
   HeatmapDescriptor,

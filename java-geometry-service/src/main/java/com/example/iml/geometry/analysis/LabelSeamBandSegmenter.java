@@ -145,7 +145,12 @@ public final class LabelSeamBandSegmenter {
 
             double parallelismDeg = LabelSeamAnalyzer.smallestAngleDiffDeg(lineA.angleDeg(), lineB.angleDeg());
             WidthStats width = measureWidthAlongAxis(lineA, lineB, edges.axisSamples());
-            double widthMm = width.meanPx() * safePixelsToMm;
+            // fitLine intentionally smooths noisy edges, but that also hides a short local
+            // opening in an otherwise straight seam. Keep the stable fitted mean for normal
+            // seams and promote a sustained upper-tail width from the sampled component
+            // edges. A single noisy sample cannot dominate because we use P90, not max.
+            double localP90Px = pairedWidthPercentile(edges, 0.90);
+            double widthMm = Math.max(width.meanPx(), localP90Px) * safePixelsToMm;
             double widthStartMm = width.startPx() * safePixelsToMm;
             double widthEndMm = width.endPx() * safePixelsToMm;
             double taperMm = Math.abs(widthStartMm - widthEndMm);
@@ -289,6 +294,23 @@ public final class LabelSeamBandSegmenter {
             widths.add(pointToLineDistance(qx, qy, b));
         }
         return new WidthStats(widths);
+    }
+
+    private static double pairedWidthPercentile(EdgePair edges, double percentile) {
+        int count = Math.min(edges.sideA().size(), edges.sideB().size());
+        if (count == 0) {
+            return 0.0;
+        }
+        List<Double> widths = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            Point a = edges.sideA().get(i);
+            Point b = edges.sideB().get(i);
+            widths.add(Math.hypot(a.x - b.x, a.y - b.y));
+        }
+        widths.sort(Double::compareTo);
+        double p = Math.max(0.0, Math.min(1.0, percentile));
+        int index = (int) Math.ceil(p * widths.size()) - 1;
+        return widths.get(Math.max(0, Math.min(widths.size() - 1, index)));
     }
 
     private static double pointToLineDistance(double px, double py, FittedLine line) {

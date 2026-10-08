@@ -70,6 +70,7 @@ export function StatusCard({
           decoding="async"
           fetchPriority={isSelected ? "high" : "low"}
           placeholderClassName="camera-card__image-placeholder"
+          retainPreviousWhileLoading
           src={imageUrl}
         />
       </div>

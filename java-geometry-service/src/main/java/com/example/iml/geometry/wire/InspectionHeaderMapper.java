@@ -30,11 +30,13 @@ public final class InspectionHeaderMapper {
                 wrinklesThreshold(h),
                 jointMode(h),
                 num(h.get("jointMinWidthMm"), 0.5),
-                num(h.get("jointMaxWidthMm"), 3.0),
+                num(h.get("jointMaxWidthMm"), 1.6),
                 num(h.get("maxJointParallelismDeg"), 5.0),
                 num(h.get("maxJointTaperMm"), 0.8),
                 true,
-                segmentationSensitivity(h)
+                segmentationSensitivity(h),
+                num(h.get("maxJointRimSkewDeg"), 2.5),
+                num(h.get("maxJointGapAsymmetryMm"), 0.8)
         );
     }
 
@@ -55,11 +57,13 @@ public final class InspectionHeaderMapper {
                 wrinklesThreshold(h),
                 jointMode(h),
                 num(h.get("jointMinWidthMm"), 0.5),
-                num(h.get("jointMaxWidthMm"), 3.0),
+                num(h.get("jointMaxWidthMm"), 1.6),
                 num(h.get("maxJointParallelismDeg"), 5.0),
                 num(h.get("maxJointTaperMm"), 0.8),
                 true,
-                segmentationSensitivity(h)
+                segmentationSensitivity(h),
+                num(h.get("maxJointRimSkewDeg"), 2.5),
+                num(h.get("maxJointGapAsymmetryMm"), 0.8)
         );
     }
 

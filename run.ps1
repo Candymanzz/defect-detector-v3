@@ -112,7 +112,7 @@ Write-Host ""
 
 try {
     Write-Step "Start orchestrator"
-    & java -jar $OrchestratorJar $ConfigPath
+    & java -Xms256m -Xmx1024m -XX:+ExitOnOutOfMemoryError -jar $OrchestratorJar $ConfigPath
 } finally {
     Write-Step "Cleanup"
     & (Join-Path $RepoRoot "stop-dev.ps1") -Quiet

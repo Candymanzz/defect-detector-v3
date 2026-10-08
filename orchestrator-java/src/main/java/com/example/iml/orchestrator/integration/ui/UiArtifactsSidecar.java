@@ -1,6 +1,8 @@
 package com.example.iml.orchestrator.integration.ui;
 
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
+import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
+import com.example.iml.orchestrator.integration.clientapi.LearnedReviewIndex;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.camera.CameraSettingsStore;
@@ -8,10 +10,13 @@ import com.example.iml.orchestrator.integration.lighting.LightBrightnessStore;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.capture.ImlShmJanitor;
 import com.example.iml.orchestrator.integration.capture.LineFramePinService;
+import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.pipeline.spi.AfterInspectionSidecar;
+import com.example.iml.orchestrator.integration.pipeline.stages.InspectPositioningExecutor;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
@@ -21,7 +26,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +66,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
     private final Logger log;
     private volatile ClientWebSocketServer clientWebSocketServer;
     private volatile FrameArchiveService frameArchiveService;
+    private volatile GeometryRuntimeConfig geometryRuntimeConfig;
+    private volatile Map<String, Object> pythonCfg;
     private final java.util.concurrent.atomic.LongAdder droppedUiPublishTasks = new java.util.concurrent.atomic.LongAdder();
     private final AtomicLong uiPublishSequence = new AtomicLong();
     private final ConcurrentHashMap<Integer, Long> latestUiPublishByCamera = new ConcurrentHashMap<>();
@@ -80,6 +86,15 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
 
     public void setFrameArchiveService(FrameArchiveService frameArchiveService) {
         this.frameArchiveService = frameArchiveService;
+    }
+
+    /**
+     * Тот же geometry-runtime / python YAML, что у вердиктного inspect — иначе heatmap пересчитывается
+     * без threshold/ROI overrides и «скачет» относительно решения.
+     */
+    public void setPythonHeatmapContext(GeometryRuntimeConfig geometryRuntimeConfig, Map<String, Object> pythonCfg) {
+        this.geometryRuntimeConfig = geometryRuntimeConfig;
+        this.pythonCfg = pythonCfg;
     }
 
     public UiHttpServer startHttpServerIfEnabled(
@@ -150,15 +165,15 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (!enabled) {
             return null;
         }
-        boolean storeCurrent = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("store_current_jpeg"), true);
-        boolean storeHeatmapU8 = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("store_heatmap_u8"), true);
+        boolean storeCurrent = YamlScalars.toBool(uiCfg.get("store_current_jpeg"), true);
+        boolean storeHeatmapU8 = YamlScalars.toBool(uiCfg.get("store_heatmap_u8"), true);
         if (!storeCurrent && !storeHeatmapU8) {
             return null;
         }
-        int q = Math.max(1, YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("visuals_queue_size"), 8));
+        int q = Math.max(1, YamlScalars.toInt(uiCfg.get("visuals_queue_size"), 8));
         int parallelism = Math.max(
                 1,
-                YamlScalars.toInt(uiCfg == null ? null : uiCfg.get("visuals_parallelism"), 2)
+                YamlScalars.toInt(uiCfg.get("visuals_parallelism"), 2)
         );
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
                 parallelism,
@@ -198,15 +213,56 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             return;
         }
         Map<String, Object> cap = new LinkedHashMap<>(capture.header());
+        copyDisplayOnlyInspectionMetadata(cap, pyResp);
+        ClientWebSocketServer ws = clientWebSocketServer;
+        long frameId = YamlScalars.toLong(cap.get("frame_id"), -1L);
+        boolean testAnalyze = testAnalyzeFlag(cap);
+        // Frontend must only pull frames after java-positioning writes the aligned buffer.
+        if (!testAnalyze && !shouldPublishUiFrameJpeg(activeReference, cap)) {
+            if (ws != null) {
+                try {
+                    ws.notifyInspectResult(
+                            cameraId,
+                            productType,
+                            detectorId,
+                            inspectionId,
+                            decision,
+                            cap,
+                            null,
+                            0,
+                            0,
+                            null,
+                            null,
+                            false,
+                            null
+                    );
+                } catch (Exception e) {
+                    log.debug("client_ws inspect_result (withheld frame) cam={}: {}", cameraId, e.getMessage());
+                }
+            }
+            HeatmapArtifact unusedHeatmap = resolveHeatmapArtifact(
+                    pyResp == null ? null : pyResp.header(),
+                    null,
+                    YamlScalars.toInt(cap.get("width"), 1224),
+                    YamlScalars.toInt(cap.get("height"), 1024)
+            );
+            deleteTemporaryArtifact(unusedHeatmap.path(), "withheld ui frame heatmap");
+            LineFramePinService.releasePinnedCapture(capture.header());
+            log.info(
+                    "ui frame withheld cam={} frame={} status={} — publish only after positioning_aligned",
+                    cameraId,
+                    frameId,
+                    cap.get("positioning_status")
+            );
+            return;
+        }
         // Prefer positioned buffer for UI JPEG / cards (analysis already remapped shm_name).
         String previewShm = resolveUiPreviewShmName(cap, cameraId);
         if (previewShm != null) {
             cap.put("shm_name", previewShm);
             cap.put("shm_offset", 0L);
         }
-        ClientWebSocketServer ws = clientWebSocketServer;
         String shmName = String.valueOf(cap.get("shm_name"));
-        long frameId = YamlScalars.toLong(cap.get("frame_id"), -1L);
         int width = YamlScalars.toInt(cap.get("width"), 1224);
         int height = YamlScalars.toInt(cap.get("height"), 1024);
         int stride = YamlScalars.toInt(cap.get("stride"), width * 3);
@@ -225,6 +281,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 }
             }
             deleteTemporaryArtifact(resolvedSourceHeatmap.path(), "unused source heatmap");
+            LineFramePinService.releasePinnedCapture(capture.header());
             return;
         }
         boolean storeCurrent = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("store_current_jpeg"), true);
@@ -238,6 +295,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 }
             }
             deleteTemporaryArtifact(resolvedSourceHeatmap.path(), "disabled source heatmap");
+            LineFramePinService.releasePinnedCapture(capture.header());
             return;
         }
 
@@ -247,6 +305,31 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             sourceHeatmap = HeatmapArtifact.empty();
         } else {
             sourceHeatmap = resolvedSourceHeatmap;
+        }
+
+        if (ws != null) {
+            try {
+                // Deliver decision immediately; heavy UI artifacts are published in a later update.
+                // For test-analyze keep the pinned frame URL — never fall back to live current.jpg.
+                String immediateFramePath = resolveTestAwareFrameHttpPath(cameraId, null, false, testAnalyzeFlag(cap), cap);
+                ws.notifyInspectResult(
+                        cameraId,
+                        productType,
+                        detectorId,
+                        inspectionId,
+                        decision,
+                        cap,
+                        null,
+                        0,
+                        0,
+                        immediateFramePath,
+                        null,
+                        false,
+                        null
+                );
+            } catch (Exception e) {
+                log.debug("client_ws inspect_result immediate cam={}: {}", cameraId, e.getMessage());
+            }
         }
 
         long publishSequence = uiPublishSequence.incrementAndGet();
@@ -265,16 +348,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             );
             return;
         }
-        // Client reference bundles are submitted after the capture round has finished. The
-        // original line-pin is released at that boundary, so publishing its name leaves the UI
-        // holding a descriptor that can no longer be accepted as a reference. Point all UI/WS
-        // metadata at the stable frozen copy created above.
-        final Map<String, Object> uiCaptureHeader = new HashMap<>(cap);
-        uiCaptureHeader.put("shm_name", frozenFrame.shmName());
-        uiCaptureHeader.put("shm_offset", 0L);
-        uiCaptureHeader.put("line_pinned", false);
-        // Pin остаётся до TTL: окно эталона шлёт это имя позже. Иначе сохранение
-        // не находит файл фазы и подставляет живой кадр другой фазы.
+        // Freeze no longer retains line-pin paths; free per-cycle SHM asap.
+        LineFramePinService.releasePinnedCapture(capture.header());
         if (!isLatestPublish(cameraId, publishSequence)) {
             deleteTemporaryArtifact(sourceHeatmap.path(), "stale source heatmap");
             deleteFrozenFrameIfOwned(frozenFrame, "stale frozen inspection frame");
@@ -289,6 +364,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 Path temporaryCurrentJpeg = null;
                 Path cardJpeg = null;
                 Path temporaryCardJpeg = null;
+                Path archiveJpeg = null;
+                Path temporaryArchiveJpeg = null;
                 try {
                     String artifactShmName = frozenFrame.shmName();
                     int currentJpegW = 0;
@@ -312,6 +389,11 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 30
                         );
                         cardQualPct = Math.min(100, Math.max(5, cardQualPct));
+                        int archiveQualPct = YamlScalars.toInt(
+                                uiCfg == null ? null : uiCfg.get("inspection_archive_jpeg_quality"),
+                                90
+                        );
+                        archiveQualPct = Math.min(100, Math.max(5, archiveQualPct));
 
                         UiHttpServer.InspectionPreviewArtifacts previews =
                                 UiHttpServer.writeInspectionJpegsFromBgrShm(
@@ -323,7 +405,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                         previewMaxW,
                                         qualPct / 100f,
                                         cardPreviewMaxW,
-                                        cardQualPct / 100f
+                                        cardQualPct / 100f,
+                                        archiveQualPct / 100f
                                 );
                         UiHttpServer.ClientPreviewArtifact frameArtifact = previews.frame();
                         if (frameArtifact.path() == null && frameArtifact.error() != null) {
@@ -340,6 +423,28 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                         }
                         cardJpeg = cardArtifact.path();
                         temporaryCardJpeg = cardJpeg;
+
+                        // Full-res JPEG for frame-archive (test-analyze pin must match reference size).
+                        UiHttpServer.ClientPreviewArtifact archiveArtifact = previews.archive();
+                        if (archiveArtifact.path() == null && archiveArtifact.error() != null) {
+                            log.warn("ui sidecar cam={} archive jpeg: {}", cameraId, archiveArtifact.error());
+                        } else if (archiveArtifact.path() != null
+                                && archiveArtifact.width() > 0
+                                && archiveArtifact.height() > 0
+                                && Files.isRegularFile(archiveArtifact.path())) {
+                            archiveJpeg = archiveArtifact.path();
+                            temporaryArchiveJpeg = archiveJpeg;
+                            if (archiveArtifact.width() != width || archiveArtifact.height() != height) {
+                                log.warn(
+                                        "ui sidecar cam={} archive jpeg size {}x{} != shm {}x{}",
+                                        cameraId,
+                                        archiveArtifact.width(),
+                                        archiveArtifact.height(),
+                                        width,
+                                        height
+                                );
+                            }
+                        }
                     }
 
                     CameraPreviewStore.RegisteredInspectionArtifacts registeredArtifacts = null;
@@ -372,13 +477,15 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                         }
                     }
 
-                    if (hasCur) {
+                    // test-analyze: never rewrite live current.jpg / card preview — that swaps the
+                    // operator's pinned archive frame for a re-encoded SHM JPEG under /api/camera/.../current.jpg.
+                    if (hasCur && !testAnalyze) {
                         uiServer.update(
                                 cameraId,
                                 frameId,
                                 productType,
                                 detectorId,
-                                artifactShmName,
+                                shmName,
                                 width,
                                 height,
                                 currentJpeg,
@@ -391,14 +498,15 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                         );
                         if (ws != null) {
                             try {
-                                String frameHttpPath = resolveInspectionFrameHttpPath(cameraId, bundleId, hasCur);
+                                String frameHttpPath = resolveTestAwareFrameHttpPath(
+                                        cameraId, bundleId, hasCur, false, cap);
                                 ws.notifyInspectResult(
                                         cameraId,
                                         productType,
                                         detectorId,
                                         inspectionId,
                                         decision,
-                                        uiCaptureHeader,
+                                        cap,
                                         null,
                                         0,
                                         0,
@@ -408,11 +516,33 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                         bundleId
                                 );
                                 if (activeReference == null || activeReference.header() == null) {
-                                    ws.notifyPreviewFrame(cameraId, productType, detectorId, uiCaptureHeader, frameHttpPath);
+                                    ws.notifyPreviewFrame(cameraId, productType, detectorId, cap, frameHttpPath);
                                 }
                             } catch (Exception e) {
                                 log.debug("client_ws inspect_result frame-ready cam={}: {}", cameraId, e.getMessage());
                             }
+                        }
+                    } else if (hasCur && testAnalyze && ws != null) {
+                        try {
+                            String frameHttpPath = resolveTestAwareFrameHttpPath(
+                                    cameraId, bundleId, hasCur, true, cap);
+                            ws.notifyInspectResult(
+                                    cameraId,
+                                    productType,
+                                    detectorId,
+                                    inspectionId,
+                                    decision,
+                                    cap,
+                                    null,
+                                    0,
+                                    0,
+                                    frameHttpPath,
+                                    null,
+                                    false,
+                                    bundleId
+                            );
+                        } catch (Exception e) {
+                            log.debug("client_ws inspect_result frame-ready (test) cam={}: {}", cameraId, e.getMessage());
                         }
                     }
 
@@ -420,34 +550,25 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     // Keep the frame-ready publication above, but avoid spending detector/CPU
                     // capacity on a heatmap that the UI will immediately replace.
                     // Archive the frame JPEG immediately so a superseded publish still persists history.
+                    // test-analyze must never rewrite the rolling archive slot used to pin the source frame.
                     if (!isLatestPublish(cameraId, publishSequence)) {
-                        FrameArchiveService archive = frameArchiveService;
-                        boolean archived = saveFrameArchiveImmediately(
-                                cameraId,
-                                frameId,
-                                inspectionId,
-                                uiCaptureHeader,
-                                productType,
-                                detectorId,
-                                decision,
-                                hasCur ? currentJpeg : null,
-                                null,
-                                0,
-                                0
-                        );
-                        notifyArchivedFrame(
-                                ws,
-                                archive,
-                                archived,
-                                cameraId,
-                                frameId,
-                                productType,
-                                detectorId,
-                                inspectionId,
-                                decision,
-                                uiCaptureHeader,
-                                bundleId
-                        );
+                        if (!testAnalyze) {
+                            Path toArchive = archiveJpeg != null ? archiveJpeg : (hasCur ? currentJpeg : null);
+                            saveFrameArchiveImmediately(
+                                    cameraId,
+                                    frameId,
+                                    inspectionId,
+                                    productType,
+                                    detectorId,
+                                    decision,
+                                    toArchive,
+                                    null,
+                                    0,
+                                    0,
+                                    cap,
+                                    activeReference
+                            );
+                        }
                         return;
                     }
 
@@ -466,8 +587,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 frozenFrame,
                                 width,
                                 height,
-                                stride,
-                                YamlScalars.toBool(uiCaptureHeader.get("positioning_aligned"), false)
+                                stride
                         );
                     }
                     Path heatmapU8 = heatmapSource.path();
@@ -524,13 +644,13 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                         }
                     }
 
-                    if (hasCur || hasHm) {
+                    if ((hasCur || hasHm) && !testAnalyze) {
                         uiServer.update(
                                 cameraId,
                                 frameId,
                                 productType,
                                 detectorId,
-                                artifactShmName,
+                                shmName,
                                 width,
                                 height,
                                 hasCur ? currentJpeg : null,
@@ -542,33 +662,29 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                 decision
                         );
                     }
-                    // Snapshot/copy while JPEG and heatmap files are still on disk (before finally).
+                    // Archive stores reference-resolution JPEG — same bytes test-analyze pin reads from disk.
                     FrameArchiveService archive = frameArchiveService;
-                    boolean archived = saveFrameArchiveImmediately(
+                    Path toArchive = archiveJpeg != null ? archiveJpeg : (hasCur ? currentJpeg : null);
+                    boolean archived = !testAnalyze && saveFrameArchiveImmediately(
                             cameraId,
                             frameId,
                             inspectionId,
-                            uiCaptureHeader,
                             productType,
                             detectorId,
                             decision,
-                            hasCur ? currentJpeg : null,
+                            toArchive,
                             hasHm ? heatmapU8 : null,
                             hasHm ? uw : 0,
-                            hasHm ? uh : 0
+                            hasHm ? uh : 0,
+                            cap,
+                            activeReference
                     );
-                    // The first message points at the live artifact, which the panel must not
-                    // show. After the archive JPEG exists, send that path even without a heatmap
-                    // so the card can swap to this frame. test-analyze keeps the live URL.
-                    boolean testAnalyze = YamlScalars.toBool(uiCaptureHeader.get("test_analyze"), false);
-                    boolean archiveReadyForPanel = archived && !testAnalyze && archive != null;
-                    if (ws != null && (archiveReadyForPanel || hasHm)) {
+                    if (ws != null && (hasCur || hasHm)) {
                         try {
-                            // test-analyze must keep live artifact URLs so the UI can show the freshly
-                            // generated heatmap instead of the immutable archive copy for this frame.
+                            // test-analyze: show pinned frame URL; heatmap still comes from fresh artifact/bundle.
                             String frameHttpPath = !testAnalyze && archived && archive != null
                                     ? archive.frameArtifactHttpPath(cameraId, frameId, "frame.jpg")
-                                    : resolveInspectionFrameHttpPath(cameraId, bundleId, hasCur);
+                                    : resolveTestAwareFrameHttpPath(cameraId, bundleId, hasCur, testAnalyze, cap);
                             String heatmapArtifactToken = bundleId == null && hasHm
                                     ? uiServer.registerHeatmapArtifact(cameraId, heatmapU8)
                                     : null;
@@ -579,7 +695,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                                     detectorId,
                                     inspectionId,
                                     decision,
-                                    uiCaptureHeader,
+                                    cap,
                                     hasHm ? heatmapU8 : null,
                                     hasHm ? uw : 0,
                                     hasHm ? uh : 0,
@@ -606,6 +722,9 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     if (temporaryCardJpeg != null) {
                         deleteTemporaryArtifact(temporaryCardJpeg, "temporary inspection card jpeg");
                     }
+                    if (temporaryArchiveJpeg != null) {
+                        deleteTemporaryArtifact(temporaryArchiveJpeg, "temporary archive jpeg");
+                    }
                     deleteTemporaryArtifact(sourceHeatmap.path(), "source heatmap");
                     deleteTemporaryArtifact(generatedHeatmapPreview, "scaled heatmap");
                     deleteFrozenFrameIfOwned(frozenFrame, "frozen inspection frame");
@@ -626,41 +745,35 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         }
     }
 
-    private void notifyArchivedFrame(
-            ClientWebSocketServer ws,
-            FrameArchiveService archive,
-            boolean archived,
+    private static boolean testAnalyzeFlag(Map<String, Object> captureHeader) {
+        return YamlScalars.toBool(captureHeader == null ? null : captureHeader.get("test_analyze"), false);
+    }
+
+    /**
+     * Production may fall back to {@code /api/camera/{id}/current.jpg}.
+     * Test-analyze must never do that — it would show live frames while score is from the pin.
+     */
+    private static String resolveTestAwareFrameHttpPath(
             int cameraId,
-            long frameId,
-            String productType,
-            String detectorId,
-            long inspectionId,
-            InspectionDecision decision,
-            Map<String, Object> captureHeader,
-            String bundleId
+            String bundleId,
+            boolean hasCurrentJpeg,
+            boolean testAnalyze,
+            Map<String, Object> captureHeader
     ) {
-        if (ws == null || !archived || archive == null || YamlScalars.toBool(captureHeader.get("test_analyze"), false)) {
-            return;
+        if (testAnalyze) {
+            Object pinned = captureHeader == null ? null : captureHeader.get("http_path");
+            if (pinned != null) {
+                String path = String.valueOf(pinned).trim();
+                if (!path.isEmpty()) {
+                    return path;
+                }
+            }
+            if (bundleId != null && !bundleId.isBlank()) {
+                return "/api/inspection-artifacts/" + bundleId + "/frame.jpg";
+            }
+            return null;
         }
-        try {
-            ws.notifyInspectResult(
-                    cameraId,
-                    productType,
-                    detectorId,
-                    inspectionId,
-                    decision,
-                    captureHeader,
-                    null,
-                    0,
-                    0,
-                    archive.frameArtifactHttpPath(cameraId, frameId, "frame.jpg"),
-                    null,
-                    false,
-                    bundleId
-            );
-        } catch (Exception e) {
-            log.debug("client_ws inspect_result archive cam={}: {}", cameraId, e.getMessage());
-        }
+        return resolveInspectionFrameHttpPath(cameraId, bundleId, hasCurrentJpeg);
     }
 
     private static String resolveInspectionFrameHttpPath(int cameraId, String bundleId, boolean hasCurrentJpeg) {
@@ -674,33 +787,58 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             int cameraId,
             long frameId,
             long inspectionId,
-            Map<String, Object> captureHeader,
             String productType,
             String detectorId,
             InspectionDecision decision,
             Path frameJpeg,
             Path heatmapU8,
             int heatmapWidth,
-            int heatmapHeight
+            int heatmapHeight,
+            Map<String, Object> cap,
+            ReferenceSnapshot activeReference
     ) {
         FrameArchiveService archive = frameArchiveService;
         if (archive == null || !archive.enabled() || frameJpeg == null) {
             return false;
         }
+        int frameWidth = 0;
+        int frameHeight = 0;
+        if (activeReference != null && activeReference.header() != null) {
+            frameWidth = YamlScalars.toInt(activeReference.header().get("width"), 0);
+            frameHeight = YamlScalars.toInt(activeReference.header().get("height"), 0);
+        }
         return archive.saveImmediately(new FrameArchiveService.SaveRequest(
                 cameraId,
                 frameId,
                 inspectionId,
-                YamlScalars.toInt(captureHeader == null ? null : captureHeader.get("phase_id"), 0),
-                YamlScalars.toInt(captureHeader == null ? null : captureHeader.get("group_id"), -1),
+                // Фаза/группа изделия для архива станка на 4 изделия; без них 0 / -1 (как раньше).
+                YamlScalars.toInt(cap == null ? null : cap.get("phase_id"), 0),
+                YamlScalars.toInt(cap == null ? null : cap.get("group_id"), -1),
                 productType,
                 detectorId,
                 decision,
                 frameJpeg,
                 heatmapU8,
                 heatmapWidth,
-                heatmapHeight
+                heatmapHeight,
+                resolveLearnedReviewIdForArchive(cameraId, frameId, cap),
+                frameWidth,
+                frameHeight
         ));
+    }
+
+    private static String resolveLearnedReviewIdForArchive(int cameraId, long frameId, Map<String, Object> cap) {
+        if (YamlScalars.toBool(cap == null ? null : cap.get("test_analyze"), false)) {
+            return null;
+        }
+        Object fromHeader = cap == null ? null : cap.get("learned_review_id");
+        if (fromHeader != null) {
+            String id = String.valueOf(fromHeader).trim();
+            if (!id.isEmpty() && !"null".equalsIgnoreCase(id)) {
+                return id;
+            }
+        }
+        return LearnedReviewIndex.lookup(cameraId, frameId, null);
     }
 
     private void removeQueuedPublishForCamera(ExecutorService executor, int cameraId) {
@@ -731,6 +869,19 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         }
     }
 
+    private static void copyDisplayOnlyInspectionMetadata(
+            Map<String, Object> captureHeader,
+            BinaryProtocol.Message pyResp
+    ) {
+        if (captureHeader == null || pyResp == null || pyResp.header() == null) {
+            return;
+        }
+        Object excludedZones = pyResp.header().get("excluded_normal_zones");
+        if (excludedZones instanceof List<?>) {
+            captureHeader.put("excluded_normal_zones", excludedZones);
+        }
+    }
+
     private boolean isLatestPublish(int cameraId, long publishSequence) {
         return Long.valueOf(publishSequence).equals(latestUiPublishByCamera.get(cameraId));
     }
@@ -751,6 +902,36 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             return;
         }
         deleteTemporaryArtifact(frozenFrame.path(), label);
+    }
+
+    /**
+     * When positioning ran for this cycle, the UI may publish a JPEG only after
+     * {@link InspectPositioningExecutor#HEADER_ALIGNED} — i.e. after java-positioning
+     * wrote {@code iml_pos_cam_*}. Without a reference (or with positioning disabled)
+     * raw capture preview remains allowed for setup / capture-only modes.
+     */
+    static boolean shouldPublishUiFrameJpeg(ReferenceSnapshot activeReference, Map<String, Object> cap) {
+        if (activeReference == null || activeReference.header() == null) {
+            return true;
+        }
+        if (cap == null || cap.isEmpty()) {
+            return true;
+        }
+        boolean positioningAttempted = cap.containsKey("positioning_ms")
+                || cap.containsKey("positioning_status")
+                || cap.containsKey(InspectPositioningExecutor.HEADER_ALIGNED);
+        if (!positioningAttempted) {
+            return true;
+        }
+        if (YamlScalars.toBool(cap.get(InspectPositioningExecutor.HEADER_ALIGNED), false)) {
+            return true;
+        }
+        // A completed reject still has a valid pinned raw capture. Publish it for
+        // diagnostics so the UI does not appear frozen; it remains unaligned and
+        // the inspection pipeline reports the positioning reject.
+        String positioningStatus = String.valueOf(cap.getOrDefault("positioning_status", "")).trim();
+        return "FAIL".equalsIgnoreCase(positioningStatus)
+                || "ERROR".equalsIgnoreCase(positioningStatus);
     }
 
     /**
@@ -818,11 +999,24 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         // immediately after freeze without racing the async JPEG publisher.
         boolean ephemeralPin = YamlScalars.toBool(captureHeader.get("line_pinned"), false)
                 || ImlShmJanitor.isEphemeralLinePin(base);
-        if (sourceOffset == 0L && !ephemeralPin && ImlShmJanitor.isDedicatedOrchestratorBuffer(base)) {
+        boolean testAnalyze = YamlScalars.toBool(captureHeader.get("test_analyze"), false);
+        if (!testAnalyze && sourceOffset == 0L && !ephemeralPin && ImlShmJanitor.isDedicatedOrchestratorBuffer(base)) {
             return new FrozenFrame(source, "/" + base, false);
         }
 
-        String frozenName = "iml_ui_inspect_cam_" + cameraId;
+        // Production reuses one slot per camera. TEST must use a unique owned buffer so a
+        // still-finishing production publish cannot overwrite the pinned JPEG mid-encode.
+        String frozenName;
+        if (testAnalyze) {
+            String job = String.valueOf(captureHeader.getOrDefault("test_analyze_job_id", Long.toString(frameId)));
+            String suffix = job.replace("-", "");
+            if (suffix.length() > 12) {
+                suffix = suffix.substring(0, 12);
+            }
+            frozenName = "iml_ui_test_cam_" + cameraId + "_" + suffix;
+        } else {
+            frozenName = "iml_ui_inspect_cam_" + cameraId;
+        }
         Path target = FrameJpegWriter.imlShmFilePath(frozenName);
         Files.createDirectories(target.getParent());
         try (FileChannel input = FileChannel.open(source, StandardOpenOption.READ);
@@ -847,8 +1041,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             Files.deleteIfExists(target);
             throw e;
         }
-        // Stable overwrite name — keep for next frame; pin cleanup happens via ImlShmJanitor.
-        return new FrozenFrame(target, "/" + frozenName, false);
+        return new FrozenFrame(target, "/" + frozenName, testAnalyze);
     }
 
     private HeatmapArtifact generateHeatmapArtifact(
@@ -863,8 +1056,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             FrozenFrame frozenFrame,
             int width,
             int height,
-            int stride,
-            boolean positioningAligned
+            int stride
     ) {
         if (uiVisualsPython == null) {
             return HeatmapArtifact.empty();
@@ -875,41 +1067,51 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             return HeatmapArtifact.empty();
         }
         try {
-            Map<String, Object> pyHeader = new HashMap<>();
-            pyHeader.put("op", "inspect_shm");
-            pyHeader.put("camera_id", cameraId);
-            pyHeader.put("frame_id", frameId);
-            pyHeader.put("phase_id", YamlScalars.toInt(activeReference.header().get("phase_id"), 0));
-            pyHeader.put("product_type", productType);
-            pyHeader.put("detector_id", detectorId);
-            pyHeader.put("include_visuals", false);
-            pyHeader.put("shm_name", frozenFrame.shmName());
-            pyHeader.put("shm_offset", 0L);
-            pyHeader.put("width", width);
-            pyHeader.put("height", height);
-            pyHeader.put("stride", stride);
-            pyHeader.put("reference_shm_name", activeReference.header().get("shm_name"));
-            pyHeader.put("reference_shm_offset", activeReference.header().get("shm_offset"));
-            pyHeader.put("reference_width", activeReference.header().get("width"));
-            pyHeader.put("reference_height", activeReference.header().get("height"));
-            pyHeader.put("reference_stride", activeReference.header().get("stride"));
-            Object homography = geometry == null || geometry.header() == null
-                    ? null
-                    : geometry.header().get("homographyRefToCurrent");
+            Map<String, Object> captureHeader = new LinkedHashMap<>();
+            captureHeader.put("frame_id", frameId);
+            // Фаза нужна для маршрутизации на python-сервер своей фазы (станок на 4 изделия).
+            captureHeader.put("phase_id", YamlScalars.toInt(activeReference.header().get("phase_id"), 0));
+            captureHeader.put("shm_name", frozenFrame.shmName());
+            captureHeader.put("shm_offset", 0L);
+            captureHeader.put("width", width);
+            captureHeader.put("height", height);
+            captureHeader.put("stride", stride);
             String frozenName = frozenFrame.shmName() == null ? "" : frozenFrame.shmName();
-            if (positioningAligned || frozenName.contains("iml_pos")) {
-                pyHeader.put(
-                        "alignment_h_ref_to_cur",
-                        java.util.List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
-                );
-            } else if (homography != null) {
-                pyHeader.put("alignment_h_ref_to_cur", homography);
+            if (frozenName.contains("iml_pos")) {
+                captureHeader.put(InspectPositioningExecutor.HEADER_ALIGNED, true);
             }
-            Object roiPolygon = activeReference.header().get("interest_polygon_norm");
-            if (roiPolygon instanceof List<?> points && points.size() >= 3) {
-                pyHeader.put("roi_polygon_norm", points);
+            BinaryProtocol.Message captureMsg = new BinaryProtocol.Message(
+                    BinaryProtocol.MSG_RESPONSE,
+                    Map.copyOf(captureHeader),
+                    new byte[0]
+            );
+            Map<String, Object> pyHeader = BinaryInspectHeaders.pythonInspectHeader(
+                    cameraId,
+                    productType,
+                    detectorId,
+                    captureMsg,
+                    geometry,
+                    pythonCfg,
+                    false,
+                    activeReference
+            );
+            String analysisProfile = CameraAnalysisProfiles.resolve(cameraId, productType);
+            if (analysisProfile != null && !analysisProfile.isBlank()) {
+                pyHeader.put("analysis_profile", analysisProfile);
             }
-            Path heatmapOutRequested = FrameJpegWriter.imlShmFilePath("iml_ui_heatmap_cam_" + cameraId);
+            if (geometryRuntimeConfig != null) {
+                geometryRuntimeConfig.applyToPythonHeader(pyHeader, pythonCfg, analysisProfile);
+            }
+            double inspectScale = YamlScalars.toDouble(
+                    pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
+                    1.0d
+            );
+            if (inspectScale < 0.999d) {
+                pyHeader.put("inspect_scale", inspectScale);
+            }
+            Path heatmapOutRequested = FrameJpegWriter.imlShmFilePath(
+                    "iml_ui_heatmap_cam_" + cameraId + "_frame_" + frameId
+            );
             pyHeader.put("heatmap_u8_output_path", heatmapOutRequested.toString());
             pyHeader.put(
                     "heatmap_max_width",

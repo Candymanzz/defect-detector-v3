@@ -57,6 +57,8 @@ public final class LivePreviewPublisher implements AutoCloseable {
     private final ConcurrentHashMap<Integer, PreviewMetrics> metricsByCamera = new ConcurrentHashMap<>();
     private final List<CameraPreviewTarget> previewTargets;
     private final CaptureSyncDiagnostics syncDiag;
+    /** When java_positioning is on and a reference exists, never push raw live JPEGs. */
+    private final boolean positioningEnabledForUiGate;
     private volatile LineSynchronizedCaptureCoordinator lineCaptureCoordinator;
     private final AtomicLong previewLineSequence = new AtomicLong(0L);
 
@@ -76,7 +78,8 @@ public final class LivePreviewPublisher implements AutoCloseable {
             LivePreviewGate previewGate,
             PerCameraInspectionGate inspectionGate,
             List<CameraPreviewTarget> previewTargets,
-            CaptureSyncDiagnostics syncDiag
+            CaptureSyncDiagnostics syncDiag,
+            boolean positioningEnabledForUiGate
     ) {
         this.log = log;
         this.cfg = cfg;
@@ -96,6 +99,7 @@ public final class LivePreviewPublisher implements AutoCloseable {
         this.inspectionGate = inspectionGate;
         this.previewTargets = previewTargets == null ? List.of() : List.copyOf(previewTargets);
         this.syncDiag = syncDiag;
+        this.positioningEnabledForUiGate = positioningEnabledForUiGate;
     }
 
     public static LivePreviewPublisher start(
@@ -150,6 +154,7 @@ public final class LivePreviewPublisher implements AutoCloseable {
             scheduler.shutdownNow();
             return null;
         }
+        boolean positioningEnabledForUiGate = isJavaPositioningEnabled(rootYaml);
         LivePreviewPublisher publisher = new LivePreviewPublisher(
                 log,
                 cfg,
@@ -166,8 +171,14 @@ public final class LivePreviewPublisher implements AutoCloseable {
                 previewGate,
                 inspectionGate,
                 targets,
-                new CaptureSyncDiagnostics(log, "preview", Math.max(2000L, intervalMs))
+                new CaptureSyncDiagnostics(log, "preview", Math.max(2000L, intervalMs)),
+                positioningEnabledForUiGate
         );
+        if (positioningEnabledForUiGate) {
+            log.info(
+                    "live_preview: raw JPEG only while reference unset; after reference — UI frames post-align only"
+            );
+        }
         for (CameraPreviewTarget target : targets) {
             int cameraId = target.cameraId();
             publisher.tickInProgressByCamera.putIfAbsent(cameraId, new AtomicBoolean(false));
@@ -357,6 +368,10 @@ public final class LivePreviewPublisher implements AutoCloseable {
             int cameraId = target.cameraId();
             BinaryProtocol.Message capture = captured.get(cameraId);
             if (!hasUsableCaptureHeader(capture)) {
+                continue;
+            }
+            if (shouldSuppressRawPreviewImages(cameraId)) {
+                syncDiag.recordCaptureSkipped(round, cameraId, "await_positioning_align");
                 continue;
             }
             PreviewMetrics metrics = metricsByCamera(cameraId);
@@ -554,6 +569,10 @@ public final class LivePreviewPublisher implements AutoCloseable {
             );
 
             long shmOffset = YamlScalars.toLong(header.get("shm_offset"), 0L);
+            if (shouldSuppressRawPreviewImages(cameraId)) {
+                syncDiag.recordCaptureSkipped(round, cameraId, "await_positioning_align");
+                return;
+            }
             if (previewGate != null && !previewGate.areImagesEnabled()) {
                 notifyPreviewFrame(round, cameraId, productType, detectorId, header, null, metrics, frameId);
                 return;
@@ -696,6 +715,30 @@ public final class LivePreviewPublisher implements AutoCloseable {
                     String.format("%.2f", avgWsMs)
             );
         }
+    }
+
+    private boolean shouldSuppressRawPreviewImages(int cameraId) {
+        if (!positioningEnabledForUiGate) {
+            return false;
+        }
+        if (referenceRegistry == null) {
+            return false;
+        }
+        var reference = referenceRegistry.get(cameraId);
+        return reference != null && reference.header() != null;
+    }
+
+    private static boolean isJavaPositioningEnabled(Map<String, Object> rootYaml) {
+        if (rootYaml == null) {
+            return false;
+        }
+        Object raw = rootYaml.get("java_positioning");
+        if (!(raw instanceof Map<?, ?> positioning)) {
+            return false;
+        }
+        @SuppressWarnings("unchecked")
+        Map<String, Object> map = (Map<String, Object>) positioning;
+        return YamlScalars.toBool(map.get("enabled"), false);
     }
 
     @Override

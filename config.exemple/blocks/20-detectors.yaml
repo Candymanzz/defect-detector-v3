@@ -2,7 +2,7 @@ java_geometry:
   # При binning 2×2 мм/пиксель ≈ ×2 (перекалибровать по эталону при необходимости).
   pixels_to_mm: 0.02
   # Fallback ROI, если эталон не задан с клиента; морщины используют тот же ROI, что interest с эталона.
-  main_roi: { x: 0, y: 0, width: 800, height: 672 }
+  main_roi: { x: 0, y: 0, width: 1224, height: 1024 }
   max_shift_mm: 0.5
   max_rotation_deg: 1.0
   # Шов этикетки (joint ROI): сегментация полосы, средняя ширина + клин сверху/снизу.
@@ -11,28 +11,48 @@ java_geometry:
   # Min width применяется только если параллельность кромок НЕ ок;
   # при хорошей параллельности min-порог не валит шов (остаётся только max).
   joint_min_width_mm: 0.25
-  joint_max_width_mm: 3.0
+  # Для пластиковой ручки ровный зазор около 2 мм — брак.
+  joint_max_width_mm: 1.6
   # Ракурс снизу даёт сходимость кромок в кадре — допуск шире, чем для фронтального вида.
   # Параллельность двух кромок шва (горизонтальный/наклонный — ось из joint ROI).
-  max_joint_parallelism_deg: 5.0
+  # База для верхней линии; низ (ракурс/сходимость) — шире в profiles bench-lan6..10.
+  max_joint_parallelism_deg: 2.5
   # |widthStart − widthEnd| вдоль оси шва; перспектива даёт клин, реальный брак — больше порога.
   max_joint_taper_mm: 0.8
+  # Перекос этикетки к жёлтому ободу (main ROI): угол клина зазора и |gapL−gapR|.
+  # Гейт только на joint-камере (где жёлтая полоса/стык); sibling visibility — не валит
+  # (косой ракурс = оптический клин, жёлтые полосы на всех вёдрах не нужны).
+  max_joint_rim_skew_deg: 2.5
+  max_joint_gap_asymmetry_mm: 0.8
   # Если на соседних камерах шов почти не виден — ужесточённые пороги на уровне ведра
   # (только как доп. проверка, когда jointPass=false; при jointPass=true игнорируются).
   joint_sibling_min_visibility: 0.25
   max_joint_parallelism_deg_strict: 2.5
   joint_min_width_mm_strict: 0.4
-  joint_max_width_mm_strict: 2.5
+  joint_max_width_mm_strict: 1.5
   # Сегментация полосы стыка + fitLine кромок (параллельность). Всегда включена.
   joint_seam_segmentation_enabled: true
   # 0..1: выше — легче захватить слабую полосу и жёстче допуск параллельности (вердикт).
   joint_seam_segmentation_sensitivity: 0.5
   # Порог морщин (геометрия: смещение + стык + морщины в переданном ROI).
   max_wrinkles_score: 0.45
+  # Нижняя группа: ракурс даёт ~2.5–3.2° «параллельности» на годном шве — не брак смещения.
+  profiles:
+    bench-lan6:
+      max_joint_parallelism_deg: 5.0
+    bench-lan7:
+      max_joint_parallelism_deg: 5.0
+    bench-lan8:
+      max_joint_parallelism_deg: 5.0
+    bench-lan9:
+      max_joint_parallelism_deg: 5.0
+    bench-lan10:
+      max_joint_parallelism_deg: 5.0
 
 # Нормализация позы изделия к эталону перед geometry / analisSurface.
 # Позиционирование только выравнивает кадр — брак не ставит (fail_on_reject=false).
 # Вердикт — у geometry / python. При неудачном align идём дальше с исходным кадром.
+# UI JPEG / current.jpg: без эталона — сырой кадр; с эталоном — только после positioning_aligned.
 java_positioning:
   enabled: true
   fail_on_reject: false
@@ -45,19 +65,62 @@ java_positioning:
 python_detector:
   # FastAPI analisSurface — оркестратор поднимает uvicorn сам (integration.analis_surface_*).
   base_url: "http://127.0.0.1:8000"
-  # Лог всех HTTP-запросов/ответов analisSurface в analisSurface/backend/logs (true/false).
-  # Читается при старте Python-сервиса; env ANALIS_SURFACE_HTTP_LOG=0|1 имеет приоритет.
-  file_logging: true
   # Downscale кадров перед inspect_shm (0.5 ≈ в 2.5× меньше пикселей, чем 0.8).
-  inspect_scale: 0.5
+  inspect_scale: 0.75
   rois:
     - name: main
       x: 0
       y: 0
-      width: 800
-      height: 672
+      width: 1224
+      height: 1024
   # Более безопасный рабочий порог: меньше ложных REJECT при микро-шуме/свете.
   fallback_threshold: 0.45
   # UI heatmap is written at this width after the full-resolution inspection decision is calculated.
   ui_heatmap_max_width: 512
   include_visuals: false
+  # Файловые логи analisSurface (backend/logs/...): requests, responses, analysis, errors, slow.
+  # Читает Python при старте из config/config.yaml (без изменений Java). false — отключить на длительных прогонах.
+  file_logging: false
+  # Диапазоны ручек анализа. Фронт шлёт 0..100 %, здесь задаётся, какое значение поля
+  # соответствует 0 %, 50 % ("стандарт") и 100 %. Всё между (например 37.3 %) считается
+  # линейной интерполяцией. at_50 можно не указывать — тогда берётся текущий дефолт.
+  # Любое поле можно опустить — останутся встроенные значения. Нужен перезапуск analisSurface.
+  # Группы: noise_tolerance, scratch_sensitivity, edge_suppression, text_handling,
+  #         preprocess_strength, far_edge_boost; sensitivity двигает все группы, кроме far_edge.
+  setting_ranges:
+    # noise_tolerance
+    min_diff_signal:             { at_0: 40.0, at_50: 12.0, at_100: 4.0 }
+    min_defect_area:             { at_0: 50,   at_50: 6,    at_100: 3 }
+    diff_percentile:             { at_0: 99.5, at_50: 98.0, at_100: 95.0 }
+    # scratch_sensitivity
+    min_scratch_aspect:          { at_0: 5.0,  at_50: 3.0,  at_100: 2.0 }
+    scratch_score_floor:         { at_0: 0.2,  at_50: 0.35, at_100: 0.5 }
+    scratch_aspect_floor:        { at_0: 6.0,  at_50: 4.5,  at_100: 3.0 }
+    # edge_suppression
+    edge_suppress_factor:        { at_0: 0.05, at_50: 0.2,  at_100: 0.5 }
+    # text_handling
+    text_min_contrast:           { at_0: 90,   at_50: 55,   at_100: 30 }
+    text_structure_threshold:    { at_0: 50,   at_50: 30,   at_100: 15 }
+    contrast_loss_boost:         { at_0: 1.2,  at_50: 2.0,  at_100: 3.0 }
+    contrast_loss_ref_grad:      { at_0: 60.0, at_50: 40.0, at_100: 25.0 }
+    contrast_loss_cur_grad:      { at_0: 25.0, at_50: 15.0, at_100: 8.0 }
+    # preprocess_strength
+    clahe_clip_limit:            { at_0: 1.0,  at_50: 1.2,  at_100: 2.0 }
+    # far_edge_boost (отдельная ручка 0..100 %)
+    far_edge_max_gain:           { at_0: 1.2,  at_50: 1.35, at_100: 2.2 }
+    far_edge_edge_suppress_factor: { at_0: 0.2, at_50: 0.35, at_100: 0.8 }
+  # Пределы абстрактных ручек. Фронт всегда шлёт 0..100 %; здесь задаётся, какому внутреннему
+  # значению (шкала 0..100, 50 = стандарт) соответствуют 0 % и 100 % на фронте. Между — линейно,
+  # любой шаг (0.1 %) считается сам. По умолчанию at_0: 0, at_100: 100 (без ограничений).
+  # Пример: sensitivity { at_0: 20, at_100: 80 } — ползунок не уходит в крайние режимы.
+  # Значения могут выходить за 0..100 (например -20 или 150): поля экстраполируются за свои
+  # крайние значения, но не выходят за допустимые границы (min_defect_area >= 1 и т.п.).
+  # Нужен перезапуск analisSurface.
+  knob_ranges:
+    sensitivity:         { at_0: 0, at_100: 100 }  # общая чувствительность
+    noise_tolerance:     { at_0: 0, at_100: 100 }  # отклик на шум
+    scratch_sensitivity: { at_0: 0, at_100: 100 }  # чувствительность к царапинам
+    edge_suppression:    { at_0: 0, at_100: 100 }  # подавление краёв
+    text_handling:       { at_0: 0, at_100: 100 }  # обработка текста
+    preprocess_strength: { at_0: 0, at_100: 100 }  # предобработка
+    far_edge_boost:      { at_0: 0, at_100: 150 }  # дальний край

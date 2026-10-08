@@ -8,6 +8,7 @@ import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.capture.ImlShmJanitor;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
+import com.example.iml.orchestrator.integration.health.CriticalServiceInspectionPause;
 import com.example.iml.orchestrator.integration.health.CriticalServiceWatchdog;
 import com.example.iml.orchestrator.integration.health.ServiceHealthGate;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
@@ -125,6 +126,7 @@ public final class PipelineCameraRuntimeService {
         createStageExecutors(ctx, poolFactory);
 
         TriggerRuntimeBootstrapService.TriggerWireResult triggerWire = triggers.wire(ctx);
+        CriticalServiceInspectionPause.wire(log, ctx, healthGate, fanOut);
         if (livePreview != null && ctx.lineCaptureCoordinator() != null) {
             livePreview.setLineCaptureCoordinator(ctx.lineCaptureCoordinator());
         }
@@ -219,9 +221,10 @@ public final class PipelineCameraRuntimeService {
                 "stage-geometry", Math.max(1, ctx.geometryPool().size()), cfg.stageQueueSize()));
         ctx.setDecisionStageExecutor(poolFactory.createStageExecutor("stage-decision", cfg.cameraParallelism(), cfg.stageQueueSize()));
         log.info(
-                "pipeline settings: queue_size={} python_parallelism={} inspection_cycle_parallelism={}",
+                "pipeline settings: queue_size={} python_parallelism={} python_request_parallelism={} inspection_cycle_parallelism={}",
                 cfg.stageQueueSize(),
                 cfg.pythonParallelism(),
+                cfg.pythonRequestParallelism(),
                 cfg.inspectionCycleParallelism()
         );
     }
@@ -232,7 +235,9 @@ public final class PipelineCameraRuntimeService {
             OrchestratorStopSignal stopSignal
     ) throws Exception {
         Semaphore geometrySlots = new Semaphore(Math.max(1, ctx.geometryPool().size()));
-        Semaphore pythonSlots = new Semaphore(Math.max(1, ctx.bootConfig().pythonParallelism()));
+        // HTTP supervisors and uvicorn's inspect executor support concurrent requests.
+        // Limiting this to the number of server URLs serialized ten cameras in batches of two.
+        Semaphore pythonSlots = new Semaphore(ctx.bootConfig().pythonRequestParallelism());
         AtomicInteger geometryRoundRobin = new AtomicInteger(0);
         AtomicInteger pythonRoundRobin = new AtomicInteger(0);
 

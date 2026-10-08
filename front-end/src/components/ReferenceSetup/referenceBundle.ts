@@ -6,7 +6,12 @@ import type {
   PreviewFramePayload,
   ReferenceViewSlot,
 } from "../../shared/ws";
-import { createRoiFromPolygon, isValidJointRoiPolygon, isValidRoiPolygon } from "./referenceRoi";
+import {
+  createRoiFromPolygon,
+  isValidJointRoiPolygon,
+  isValidPerspectiveLine,
+  isValidRoiPolygon,
+} from "./referenceRoi";
 
 export function createReferenceBundleFromCameraFrames(
   cameraIds: number[],
@@ -15,6 +20,7 @@ export function createReferenceBundleFromCameraFrames(
   roiPolygonsByCameraId: Record<number, InterestPointNorm[]>,
   jointRoiPolygon: InterestPointNorm[],
   fpZones: FpZoneNorm[],
+  perspectiveLinesByCameraId: Record<number, InterestPointNorm[]> = {},
   phaseId = 0,
   groupId?: number,
 ): ClientReferenceBundlePayload {
@@ -77,6 +83,7 @@ export function createReferenceBundleFromCameraFrames(
       jointViewIndex,
       roiPolygonsByCameraId,
       jointRoiPolygon,
+      perspectiveLinesByCameraId[cameraIds[viewIndex]],
     ),
   );
 
@@ -105,6 +112,7 @@ function createReferenceViewForFrame(
   jointViewIndex: number,
   roiPolygonsByCameraId: Record<number, InterestPointNorm[]>,
   jointRoiPolygon: InterestPointNorm[],
+  perspectiveLine?: InterestPointNorm[],
 ) {
   if (previewFrame.camera_id !== cameraId || previewFrame.current.camera_id !== cameraId) {
     throw new Error(
@@ -127,7 +135,14 @@ function createReferenceViewForFrame(
   const jointRoiPolygonNorm =
     viewIndex === jointViewIndex && isValidJointRoiPolygon(jointRoiPolygon) ? jointRoiPolygon : null;
 
-  return createReferenceView(previewFrame, roi, interestPolygonNorm, jointRoi, jointRoiPolygonNorm);
+  return createReferenceView(
+    previewFrame,
+    roi,
+    interestPolygonNorm,
+    jointRoi,
+    jointRoiPolygonNorm,
+    isValidPerspectiveLine(perspectiveLine) ? (perspectiveLine ?? null) : null,
+  );
 }
 
 function createReferenceView(
@@ -136,6 +151,7 @@ function createReferenceView(
   interestPolygonNorm: InterestPointNorm[],
   jointRoi: PixelRoi | null,
   jointRoiPolygonNorm: InterestPointNorm[] | null,
+  perspectiveLineNorm: InterestPointNorm[] | null,
 ): ReferenceViewSlot {
   return {
     frame: previewFrame.current,
@@ -144,6 +160,9 @@ function createReferenceView(
     joint_roi: jointRoi,
     ...(jointRoiPolygonNorm && isValidJointRoiPolygon(jointRoiPolygonNorm)
       ? { joint_roi_polygon_norm: jointRoiPolygonNorm }
+      : {}),
+    ...(perspectiveLineNorm
+      ? { perspective_line_norm: perspectiveLineNorm.map((point) => ({ x: point.x, y: point.y })) }
       : {}),
   };
 }

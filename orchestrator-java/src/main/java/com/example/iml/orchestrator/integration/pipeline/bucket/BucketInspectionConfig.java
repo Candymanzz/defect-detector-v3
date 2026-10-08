@@ -18,12 +18,46 @@ public record BucketInspectionConfig(
         boolean enabled,
         List<BucketGroup> groups,
         long timeoutMs,
-        long lineBroadcastIntervalMs
+        long lineBroadcastIntervalMs,
+        BucketFanOutMode fanOutMode,
+        boolean earlyReject,
+        boolean suppressCaptureOnly
 ) {
     public static final int DEFAULT_CAMERAS_PER_PRESET_GROUP = 5;
 
+    /** Режим по умолчанию — поведение станков на 2 изделия. */
+    public static final BucketFanOutMode DEFAULT_FAN_OUT_MODE = BucketFanOutMode.SEQUENCE_BARRIER;
+
+    public BucketInspectionConfig {
+        fanOutMode = fanOutMode == null ? DEFAULT_FAN_OUT_MODE : fanOutMode;
+    }
+
+    /** Переключатели {@code early_reject} / {@code suppress_capture_only} берут значения по умолчанию из режима. */
+    public BucketInspectionConfig(
+            boolean enabled,
+            List<BucketGroup> groups,
+            long timeoutMs,
+            long lineBroadcastIntervalMs,
+            BucketFanOutMode fanOutMode
+    ) {
+        this(
+                enabled, groups, timeoutMs, lineBroadcastIntervalMs, fanOutMode,
+                (fanOutMode == null ? DEFAULT_FAN_OUT_MODE : fanOutMode).defaultEarlyReject(),
+                (fanOutMode == null ? DEFAULT_FAN_OUT_MODE : fanOutMode).defaultSuppressCaptureOnly()
+        );
+    }
+
+    public BucketInspectionConfig(
+            boolean enabled,
+            List<BucketGroup> groups,
+            long timeoutMs,
+            long lineBroadcastIntervalMs
+    ) {
+        this(enabled, groups, timeoutMs, lineBroadcastIntervalMs, DEFAULT_FAN_OUT_MODE, DEFAULT_FAN_OUT_MODE.defaultEarlyReject(), DEFAULT_FAN_OUT_MODE.defaultSuppressCaptureOnly());
+    }
+
     public static BucketInspectionConfig disabled() {
-        return new BucketInspectionConfig(false, List.of(), 4000L, 5000L);
+        return new BucketInspectionConfig(false, List.of(), 4000L, 5000L, DEFAULT_FAN_OUT_MODE);
     }
 
     public List<Integer> allCameraIds() {
@@ -53,7 +87,15 @@ public record BucketInspectionConfig(
                 500L,
                 YamlScalars.toLong(m.get("line_broadcast_interval_ms"), 5000L)
         );
-        return new BucketInspectionConfig(enabled, groups, timeoutMs, lineBroadcastIntervalMs);
+        BucketFanOutMode fanOutMode = BucketFanOutMode.parse(m.get("fanout_mode"), DEFAULT_FAN_OUT_MODE);
+        boolean earlyReject = YamlScalars.toBool(m.get("early_reject"), fanOutMode.defaultEarlyReject());
+        boolean suppressCaptureOnly = YamlScalars.toBool(
+                m.get("suppress_capture_only"),
+                fanOutMode.defaultSuppressCaptureOnly()
+        );
+        return new BucketInspectionConfig(
+                enabled, groups, timeoutMs, lineBroadcastIntervalMs, fanOutMode, earlyReject, suppressCaptureOnly
+        );
     }
 
     private static long resolveTimeoutMs(Map<?, ?> m, List<BucketGroup> groups) {

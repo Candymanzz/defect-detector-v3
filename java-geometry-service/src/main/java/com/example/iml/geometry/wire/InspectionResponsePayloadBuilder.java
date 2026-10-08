@@ -35,17 +35,47 @@ public final class InspectionResponsePayloadBuilder {
         payload.put("jointTaperMm", response.jointTaperMm());
         payload.put("jointVisibility", response.jointVisibility());
         payload.put("wrinklesScore", response.wrinklesScore());
+        payload.put("jointRimSkewDeg", response.jointRimSkewDeg());
+        payload.put("jointGapLeftMm", response.jointGapLeftMm());
+        payload.put("jointGapRightMm", response.jointGapRightMm());
+        payload.put("jointGapAsymmetryMm", response.jointGapAsymmetryMm());
         payload.put("alignmentPass", response.alignmentPass());
         payload.put("concentricityPass", response.concentricityPass());
         payload.put("jointPass", response.jointPass());
         payload.put("wrinklesPass", response.wrinklesPass());
+        payload.put("rimSkewPass", response.rimSkewPass());
         payload.put("overallPass", response.overallPass());
         payload.put("status", response.status());
+        Map<String, Object> diagnostics = response.diagnostics();
+        if (diagnostics != null && !diagnostics.isEmpty()) {
+            payload.put("diagnostics", diagnostics);
+            for (Map.Entry<String, Object> e : diagnostics.entrySet()) {
+                String key = e.getKey();
+                if ("status".equals(key)) {
+                    continue;
+                }
+                // Promote stage timings / flags to top-level for orchestrator grep.
+                if (key.startsWith("stage_ms_")
+                        || key.startsWith("pass_")
+                        || key.startsWith("joint_")
+                        || key.startsWith("align_")
+                        || key.equals("pose_locked")
+                        || key.equals("polygon_mask")
+                        || key.equals("debug_written")
+                        || key.equals("has_joint_roi")
+                        || key.equals("joint_visibility_only")) {
+                    payload.put(key, e.getValue());
+                }
+                payload.put("diag_" + key, e.getValue());
+            }
+        }
         if (request != null) {
             payload.put("maxShiftMm", request.maxShiftMm());
             payload.put("maxRotationDeg", request.maxRotationDeg());
             payload.put("maxConcentricityMm", request.maxConcentricityMm());
             payload.put("pixelsToMm", request.pixelsToMm());
+            payload.put("maxJointRimSkewDeg", request.maxJointRimSkewDeg());
+            payload.put("maxJointGapAsymmetryMm", request.maxJointGapAsymmetryMm());
         }
         if (request != null && request.jointRoi() != null) {
             boolean visibilityOnly = request.jointVisibilityOnly();

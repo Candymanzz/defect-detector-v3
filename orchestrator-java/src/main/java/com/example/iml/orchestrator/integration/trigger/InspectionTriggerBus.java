@@ -17,6 +17,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BooleanSupplier;
 
 /**
  * Шина внешних триггеров: UDP и другие транспорты публикуют сюда, пайплайн камеры — читает.
@@ -32,6 +33,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
     private final ScheduledExecutorService staggerScheduler;
     private volatile LineTriggerListener lineTriggerListener;
     private volatile TwoPhaseCaptureDiagnostics twoPhaseCaptureDiagnostics;
+    private volatile BooleanSupplier dispatchAllowed = () -> true;
 
     public InspectionTriggerBus(Collection<Integer> cameraIds) {
         this(cameraIds, 0);
@@ -61,6 +63,27 @@ public final class InspectionTriggerBus implements AutoCloseable {
 
     public void setTwoPhaseCaptureDiagnostics(TwoPhaseCaptureDiagnostics twoPhaseCaptureDiagnostics) {
         this.twoPhaseCaptureDiagnostics = twoPhaseCaptureDiagnostics;
+    }
+
+    /**
+     * Гейт line-dispatch: при {@code false} новые триггеры не попадают в очереди камер
+     * (например, пока analis_surface или geometry нездоровы; io_input_monitor не блокирует).
+     */
+    public void setDispatchAllowed(BooleanSupplier dispatchAllowed) {
+        this.dispatchAllowed = dispatchAllowed == null ? () -> true : dispatchAllowed;
+    }
+
+    /** Сбрасывает накопленные, но ещё не обработанные триггеры. */
+    public int clearAllPending() {
+        int cleared = 0;
+        for (BlockingQueue<InspectionTriggerEvent> queue : perCamera.values()) {
+            if (queue == null) {
+                continue;
+            }
+            cleared += queue.size();
+            queue.clear();
+        }
+        return cleared;
     }
 
     /** Публикует событие; broadcast — во все очереди; неизвестная камера — false. */
@@ -208,6 +231,14 @@ public final class InspectionTriggerBus implements AutoCloseable {
             long parentCycleId,
             long rawTriggerSequence
     ) {
+        if (!dispatchAllowed.getAsBoolean()) {
+            LOG.warn(
+                    "sync_diag channel=inspect event=line_dispatch_skipped trigger_sequence={} source={} reason=services_unhealthy",
+                    seq,
+                    source
+            );
+            return 0;
+        }
         List<Integer> targets = resolveTargetCameras(cameraIds);
         lastDispatchedSequence.set(seq);
         TwoPhaseCaptureDiagnostics phaseCaptureDiagnostics = twoPhaseCaptureDiagnostics;

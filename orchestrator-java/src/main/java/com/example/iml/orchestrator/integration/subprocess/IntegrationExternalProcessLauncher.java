@@ -86,7 +86,18 @@ public final class IntegrationExternalProcessLauncher {
             return null;
         }
         try {
-            List<String> launchCommand = prepareCommand(command, isWindows);
+            List<String> launchCommand = prepareCommand(resolveCommandPaths(command, projectRoot), isWindows);
+            if ("frontend".equals(serviceName) && !Files.isDirectory(workingDir.resolve("node_modules"))) {
+                log.warn(
+                        "{} autostart skipped — node_modules missing in {} (run: npm install in front-end/)",
+                        serviceName,
+                        workingDir.toAbsolutePath()
+                );
+                return null;
+            }
+            if (!verifyLaunchCommand(serviceName, launchCommand, isWindows)) {
+                return null;
+            }
             Map<String, String> extraEnv = prepareChildEnv(launchCommand, isWindows);
             ExternalServiceProcess process = ExternalServiceProcess.start(
                     serviceName, launchCommand, workingDir, extraEnv);
@@ -138,6 +149,102 @@ public final class IntegrationExternalProcessLauncher {
         Map<String, String> env = new LinkedHashMap<>();
         env.put("PATH", nodeDir + ";" + (path != null ? path : ""));
         return env;
+    }
+
+    static List<String> resolveCommandPaths(List<String> command, Path projectRoot) {
+        if (command == null || command.isEmpty()) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>(command.size());
+        String first = command.get(0);
+        Path p = Path.of(first);
+        if (!p.isAbsolute() && (first.contains("/") || first.contains("\\"))) {
+            out.add(projectRoot.resolve(first).normalize().toString());
+        } else {
+            out.add(first);
+        }
+        for (int i = 1; i < command.size(); i++) {
+            String arg = command.get(i);
+            if (arg != null && (arg.contains("/") || arg.contains("\\")) && !Path.of(arg).isAbsolute()) {
+                out.add(projectRoot.resolve(arg).normalize().toString());
+            } else {
+                out.add(arg);
+            }
+        }
+        return out;
+    }
+
+    private boolean verifyLaunchCommand(String serviceName, List<String> command, boolean isWindows) {
+        if (command == null || command.isEmpty()) {
+            return false;
+        }
+        String first = command.get(0);
+        Path exe = Path.of(first);
+        if (Files.isRegularFile(exe)) {
+            return true;
+        }
+        if ("dotnet".equalsIgnoreCase(first)) {
+            if (command.size() < 3) {
+                log.warn("{} autostart skipped — dotnet command too short: {}", serviceName, command);
+                return false;
+            }
+            Path target = Path.of(command.get(2));
+            if (!Files.isRegularFile(target)) {
+                log.warn(
+                        "{} autostart skipped — build artifact missing: {} (run rebuild-and-run.ps1 or dotnet build)",
+                        serviceName,
+                        target.toAbsolutePath()
+                );
+                return false;
+            }
+            return true;
+        }
+        if (isPathCommand(first, isWindows)) {
+            if (isWindows) {
+                String resolved = resolvePathCommand(first);
+                if (resolved != null) {
+                    return true;
+                }
+                log.warn(
+                        "{} autostart skipped — {} not found in PATH (install Node.js or add to PATH)",
+                        serviceName,
+                        first
+                );
+                return false;
+            }
+            // Linux/macOS: npm/node are resolved via PATH at spawn time.
+            return true;
+        }
+        log.warn("{} autostart skipped — executable not found: {}", serviceName, first);
+        return false;
+    }
+
+    private static boolean isPathCommand(String first, boolean isWindows) {
+        if (first == null || first.isBlank()) {
+            return false;
+        }
+        String lower = first.toLowerCase();
+        if ("npm".equals(lower) || "npx".equals(lower) || "node".equals(lower)) {
+            return true;
+        }
+        if (!isWindows) {
+            return false;
+        }
+        return lower.endsWith("npm.cmd") || lower.endsWith("npx.cmd") || lower.endsWith("node.exe");
+    }
+
+    private static String resolvePathCommand(String first) {
+        String lower = first.toLowerCase();
+        if ("node".equals(lower) || lower.endsWith("node.exe")) {
+            return resolveWindowsExecutable("node.exe");
+        }
+        if ("npm".equals(lower) || lower.endsWith("npm.cmd")) {
+            return resolveWindowsExecutable("npm.cmd");
+        }
+        if ("npx".equals(lower) || lower.endsWith("npx.cmd")) {
+            return resolveWindowsExecutable("npx.cmd");
+        }
+        return null;
     }
 
     private static String resolveWindowsExecutable(String fileName) {

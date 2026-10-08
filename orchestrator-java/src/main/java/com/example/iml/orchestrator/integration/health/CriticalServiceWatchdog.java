@@ -2,32 +2,45 @@ package com.example.iml.orchestrator.integration.health;
 
 import com.example.iml.orchestrator.integration.bootstrap.context.IntegrationRuntimeContext;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationComponent;
+import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
+import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
+import com.example.iml.orchestrator.integration.python.AnalisSurfaceLauncher;
 import com.example.iml.orchestrator.integration.lighting.LightServerLauncher;
 import com.example.iml.orchestrator.integration.lighting.LightsShutdown;
-import com.example.iml.orchestrator.integration.python.AnalisSurfaceLauncher;
 import com.example.iml.orchestrator.integration.subprocess.ExternalServiceProcess;
 import com.example.iml.orchestrator.integration.subprocess.IntegrationExternalProcessLauncher;
+import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
 import org.apache.logging.log4j.Logger;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 /**
- * Следит за критичными внешними процессами: death → ServiceHealthGate + одна попытка рестарта.
+ * Демон-поток recovery: death vision-blocking сервиса → vision_fault + пауза пайплайна;
+ * io_input_monitor перезапускается без vision_fault. Также analis_surface, geometry/positioning.
  */
 public final class CriticalServiceWatchdog implements IntegrationComponent {
 
     private static final long POLL_MS = 2000L;
-    private static final long RESTART_BACKOFF_MS = 2000L;
+    /** Повторный restart упавших сервисов, если первая попытка не удалась. */
+    private static final long RECOVERY_RETRY_MS = 10_000L;
+    /** HTTP direction latch IoInputMonitor (config direction_http.port, default 9101). */
+    private static final int IO_INPUT_HTTP_PORT = 9101;
+    /** Пауза после close/kill — Windows часто ещё держит COM/handle. */
+    private static final long IO_COM_RELEASE_MS = 1200L;
+    /** Процесс должен прожить grace, иначе рестарт считается неудачным (анти-storm). */
+    private static final long IO_ALIVE_GRACE_MS = 1500L;
 
     private final Logger log;
     private final ServiceHealthGate healthGate;
@@ -39,7 +52,9 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final AtomicBoolean restarting = new AtomicBoolean(false);
     private final List<WatchedExternal> watched = new ArrayList<>();
-    private final ConcurrentHashMap<String, AtomicLong> nextRestartAtMs = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Long> restartNotBeforeMs = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Integer> consecutiveRestartFailures = new ConcurrentHashMap<>();
+    private volatile long lastRecoveryAttemptMs = 0L;
 
     private CriticalServiceWatchdog(
             Logger log,
@@ -78,26 +93,26 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
         watchdog.bindExternals();
         watchdog.bindSupervisors();
         watchdog.scheduler.scheduleAtFixedRate(watchdog::poll, POLL_MS, POLL_MS, TimeUnit.MILLISECONDS);
-        log.info("critical service watchdog started poll_ms={}", POLL_MS);
+        log.info("critical service watchdog started poll_ms={} recovery_retry_ms={}", POLL_MS, RECOVERY_RETRY_MS);
         return watchdog;
     }
 
     private void bindExternals() {
-        if (ctx.ioInputMonitorProcess() != null) {
+        if (ioInputMonitorAutostartEnabled()) {
             watchExternal(
                     "io_input_monitor",
                     ctx::ioInputMonitorProcess,
                     this::restartIoInputMonitor
             );
         }
-        if (ctx.lightServerProcess() != null) {
+        if (lightServerAutostartEnabled()) {
             watchExternal(
                     "light_server",
                     ctx::lightServerProcess,
                     this::restartLightServer
             );
         }
-        if (ctx.analisSurfaceProcesses() != null && !ctx.analisSurfaceProcesses().isEmpty()) {
+        if (analisSurfaceAutostartEnabled()) {
             watchExternal(
                     "analis_surface",
                     () -> {
@@ -114,12 +129,37 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
                     },
                     this::restartAnalisSurfacePool
             );
-            for (ExternalServiceProcess process : ctx.analisSurfaceProcesses()) {
-                if (process != null) {
-                    attachExit(process, "analis_surface", this::restartAnalisSurfacePool);
-                }
+            attachAnalisSurfaceExitHandlers();
+        }
+    }
+
+    private void attachAnalisSurfaceExitHandlers() {
+        List<ExternalServiceProcess> processes = ctx.analisSurfaceProcesses();
+        if (processes == null) {
+            return;
+        }
+        for (ExternalServiceProcess process : processes) {
+            if (process != null) {
+                attachExit(process, "analis_surface", this::restartAnalisSurfacePool);
             }
         }
+    }
+
+    private boolean ioInputMonitorAutostartEnabled() {
+        return externalLauncher.parseAutostart(
+                ctx.integration(),
+                "io_input_monitor_autostart",
+                ctx.projectRoot(),
+                "."
+        ).enabled();
+    }
+
+    private boolean lightServerAutostartEnabled() {
+        return LightServersConfig.fromRootYaml(ctx.root()).enabled();
+    }
+
+    private boolean analisSurfaceAutostartEnabled() {
+        return AnalisSurfaceLauncher.parseSettings(ctx.integration(), ctx.projectRoot()).enabled();
     }
 
     private void watchExternal(String name, Supplier<ExternalServiceProcess> current, BooleanSupplier restart) {
@@ -144,9 +184,26 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
                 worker.setHealthListener(ok -> applySupervisorHealth(key, ok));
             });
         }
+        bindPythonPool(ctx.pythonPool());
         bindPool(ctx.geometryPool(), "geometry");
         bindPool(ctx.positioningPool(), "positioning");
-        // python HTTP pool is client-side; analis_surface OS process is watched separately
+    }
+
+    private void bindPythonPool(List<?> pool) {
+        if (pool == null) {
+            return;
+        }
+        for (int i = 0; i < pool.size(); i++) {
+            Object item = pool.get(i);
+            if (item instanceof BinaryRpcSupervisor supervisor) {
+                String key = "analis_surface_" + i;
+                if (supervisor instanceof com.example.iml.orchestrator.integration.binaryrpc.AbstractBinaryRpcSupervisor rpc) {
+                    rpc.setHealthListener(ok -> applySupervisorHealth(key, ok));
+                } else if (supervisor instanceof com.example.iml.orchestrator.integration.clientapi.AnalisSurfaceHttpBinaryRpcSupervisor http) {
+                    http.setHealthListener(ok -> applySupervisorHealth(key, ok));
+                }
+            }
+        }
     }
 
     private void bindPool(List<?> pool, String prefix) {
@@ -177,25 +234,331 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
         if (closed.get() || restarting.get()) {
             return;
         }
+        probeAllServicesHealth();
+        detectDeadExternals();
+        detectDeadWorkers();
+        healSupervisorPools();
+        attemptPeriodicRecovery();
+    }
+
+    /** Проактивный health-check всех критичных сервисов в daemon-потоке. */
+    private void probeAllServicesHealth() {
+        probeExternalHealth();
+        probePythonHttpPool();
+        probeSupervisorPoolHealth(ctx.geometryPool(), "geometry");
+        probeSupervisorPoolHealth(ctx.positioningPool(), "positioning");
+        probeWorkersHealth();
+    }
+
+    private void probeExternalHealth() {
+        for (WatchedExternal item : watched) {
+            ExternalServiceProcess process = item.current.get();
+            if (process == null || !process.isAlive() || process.isClosing()) {
+                healthGate.markUnhealthy(item.name);
+            } else {
+                healthGate.markHealthy(item.name);
+            }
+        }
+    }
+
+    private void probeSupervisorPoolHealth(List<ServiceProcessSupervisor> pool, String prefix) {
+        if (pool == null) {
+            return;
+        }
+        for (int i = 0; i < pool.size(); i++) {
+            ServiceProcessSupervisor supervisor = pool.get(i);
+            String key = prefix + "_" + i;
+            if (supervisor == null) {
+                healthGate.markUnhealthy(key);
+                continue;
+            }
+            if (!supervisor.processAlive()) {
+                healthGate.markUnhealthy(key);
+                continue;
+            }
+            try {
+                supervisor.health();
+                healthGate.markHealthy(key);
+            } catch (IOException e) {
+                healthGate.markUnhealthy(key);
+            }
+        }
+    }
+
+    private void probeWorkersHealth() {
+        if (ctx.workersByCamera() == null) {
+            return;
+        }
+        ctx.workersByCamera().forEach((cameraId, worker) -> {
+            if (worker == null || closed.get()) {
+                return;
+            }
+            String key = "camera_worker_" + cameraId;
+            if (!worker.processAlive()) {
+                healthGate.markUnhealthy(key);
+                return;
+            }
+            try {
+                worker.health();
+                healthGate.markHealthy(key);
+            } catch (IOException e) {
+                healthGate.markUnhealthy(key);
+            }
+        });
+    }
+
+    private void detectDeadExternals() {
         for (WatchedExternal item : watched) {
             ExternalServiceProcess process = item.current.get();
             if (process == null) {
+                healthGate.markUnhealthy(item.name);
                 continue;
             }
             if (!process.isAlive() && !process.isClosing()) {
                 handleDeath(item.name, item.restart);
             }
         }
-        if (ctx.workersByCamera() != null) {
-            ctx.workersByCamera().forEach((cameraId, worker) -> {
-                if (worker == null || closed.get()) {
-                    return;
+    }
+
+    private void detectDeadWorkers() {
+        if (ctx.workersByCamera() == null) {
+            return;
+        }
+        ctx.workersByCamera().forEach((cameraId, worker) -> {
+            if (worker == null || closed.get()) {
+                return;
+            }
+            String key = "camera_worker_" + cameraId;
+            if (!worker.processAlive()) {
+                healthGate.markUnhealthy(key);
+            }
+        });
+    }
+
+    private void attemptPeriodicRecovery() {
+        if (healthGate.healthy()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastRecoveryAttemptMs < RECOVERY_RETRY_MS) {
+            return;
+        }
+        lastRecoveryAttemptMs = now;
+        Set<String> reasons = new HashSet<>(healthGate.unhealthyReasons());
+        if (reasons.isEmpty()) {
+            return;
+        }
+        log.warn("pipeline recovery daemon tick unhealthy={}", reasons);
+        for (String reason : reasons) {
+            if (closed.get() || restarting.get()) {
+                return;
+            }
+            tryRecover(reason);
+        }
+        if (healthGate.healthy()) {
+            log.info("pipeline recovery daemon — all critical services healthy");
+        }
+    }
+
+    private void tryRecover(String reason) {
+        if ("io_input_monitor".equals(reason)) {
+            attemptServiceRestart("io_input_monitor", this::restartIoInputMonitor);
+            return;
+        }
+        if ("analis_surface".equals(reason)) {
+            attemptServiceRestart("analis_surface", this::restartAnalisSurfacePool);
+            return;
+        }
+        if ("light_server".equals(reason)) {
+            attemptServiceRestart("light_server", this::restartLightServer);
+            return;
+        }
+        if (reason.startsWith("geometry_")) {
+            recoverGeometrySupervisor(reason);
+            return;
+        }
+        if (reason.startsWith("positioning_")) {
+            recoverPositioningSupervisor(reason);
+            return;
+        }
+        if (reason.startsWith("analis_surface_")) {
+            recoverPythonHttpSupervisor(reason);
+            return;
+        }
+        if (reason.startsWith("camera_worker_")) {
+            recoverCameraWorker(reason);
+        }
+    }
+
+    private void attemptServiceRestart(String name, BooleanSupplier restart) {
+        if (!mayAttemptRestart(name)) {
+            return;
+        }
+        if (!restarting.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            boolean ok = false;
+            try {
+                ok = restart.getAsBoolean();
+            } catch (Exception e) {
+                log.warn("pipeline recovery restart error name={}: {}", name, e.getMessage());
+            }
+            onRestartOutcome(name, ok);
+            if (ok) {
+                healthGate.markHealthy(name);
+                reattachAfterRestart(name);
+                if ("analis_surface".equals(name)) {
+                    probePythonHttpPool();
+                    attachAnalisSurfaceExitHandlers();
                 }
-                String key = "camera_worker_" + cameraId;
-                if (!worker.processAlive()) {
-                    healthGate.markUnhealthy(key);
-                }
-            });
+                log.info("pipeline recovery restarted name={}", name);
+            } else {
+                log.warn("pipeline recovery restart failed name={}", name);
+            }
+        } finally {
+            restarting.set(false);
+        }
+    }
+
+    private void healSupervisorPools() {
+        recoverSupervisorPool(ctx.geometryPool(), "geometry");
+        recoverSupervisorPool(ctx.positioningPool(), "positioning");
+        if (healthGate.unhealthyReasons().stream().noneMatch(k -> k.startsWith("analis_surface"))) {
+            probePythonHttpPool();
+        }
+    }
+
+    private void recoverSupervisorPool(List<ServiceProcessSupervisor> pool, String prefix) {
+        if (pool == null) {
+            return;
+        }
+        for (int i = 0; i < pool.size(); i++) {
+            ServiceProcessSupervisor supervisor = pool.get(i);
+            if (supervisor == null) {
+                continue;
+            }
+            String key = prefix + "_" + i;
+            if (supervisor.processAlive()) {
+                healthGate.markHealthy(key);
+                continue;
+            }
+            if (!healthGate.unhealthyReasons().contains(key)) {
+                continue;
+            }
+            try {
+                supervisor.restart();
+                healthGate.markHealthy(key);
+                log.info("pipeline recovery supervisor restarted key={}", key);
+            } catch (IOException e) {
+                healthGate.markUnhealthy(key);
+                log.warn("pipeline recovery supervisor restart failed key={}: {}", key, e.getMessage());
+            }
+        }
+    }
+
+    private void recoverGeometrySupervisor(String key) {
+        recoverIndexedSupervisor(ctx.geometryPool(), key, "geometry_");
+    }
+
+    private void recoverPositioningSupervisor(String key) {
+        recoverIndexedSupervisor(ctx.positioningPool(), key, "positioning_");
+    }
+
+    private void recoverIndexedSupervisor(List<ServiceProcessSupervisor> pool, String key, String prefix) {
+        int index = parseSupervisorIndex(key, prefix);
+        if (pool == null || index < 0 || index >= pool.size()) {
+            return;
+        }
+        ServiceProcessSupervisor supervisor = pool.get(index);
+        if (supervisor == null) {
+            return;
+        }
+        try {
+            supervisor.restart();
+            healthGate.markHealthy(key);
+            log.info("pipeline recovery supervisor restarted key={}", key);
+        } catch (IOException e) {
+            healthGate.markUnhealthy(key);
+            log.warn("pipeline recovery supervisor restart failed key={}: {}", key, e.getMessage());
+        }
+    }
+
+    private void recoverPythonHttpSupervisor(String key) {
+        int index = parseSupervisorIndex(key, "analis_surface_");
+        List<BinaryRpcSupervisor> pool = ctx.pythonPool();
+        if (pool == null || index < 0 || index >= pool.size()) {
+            probePythonHttpPool();
+            return;
+        }
+        BinaryRpcSupervisor supervisor = pool.get(index);
+        if (supervisor == null) {
+            return;
+        }
+        try {
+            supervisor.restart();
+            healthGate.markHealthy(key);
+            log.info("pipeline recovery python http restarted key={}", key);
+        } catch (IOException e) {
+            healthGate.markUnhealthy(key);
+            log.warn("pipeline recovery python http restart failed key={}: {}", key, e.getMessage());
+        }
+    }
+
+    private void recoverCameraWorker(String key) {
+        int cameraId = parseSupervisorIndex(key, "camera_worker_");
+        if (cameraId < 0 || ctx.workersByCamera() == null) {
+            return;
+        }
+        var worker = ctx.workersByCamera().get(cameraId);
+        if (worker == null) {
+            return;
+        }
+        try {
+            worker.restart();
+            healthGate.markHealthy(key);
+            log.info("pipeline recovery camera_worker restarted camera={}", cameraId);
+        } catch (IOException e) {
+            healthGate.markUnhealthy(key);
+            log.warn("pipeline recovery camera_worker restart failed camera={}: {}", cameraId, e.getMessage());
+        }
+    }
+
+    private void probePythonHttpPool() {
+        List<BinaryRpcSupervisor> pool = ctx.pythonPool();
+        if (pool == null || pool.isEmpty()) {
+            return;
+        }
+        boolean allOk = true;
+        for (int i = 0; i < pool.size(); i++) {
+            BinaryRpcSupervisor supervisor = pool.get(i);
+            String key = "analis_surface_" + i;
+            if (supervisor == null) {
+                healthGate.markUnhealthy(key);
+                allOk = false;
+                continue;
+            }
+            try {
+                supervisor.health();
+                healthGate.markHealthy(key);
+            } catch (IOException e) {
+                healthGate.markUnhealthy(key);
+                allOk = false;
+            }
+        }
+        if (allOk) {
+            healthGate.markHealthy("analis_surface");
+        }
+    }
+
+    private static int parseSupervisorIndex(String key, String prefix) {
+        if (key == null || !key.startsWith(prefix)) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(key.substring(prefix.length()));
+        } catch (NumberFormatException e) {
+            return -1;
         }
     }
 
@@ -203,14 +566,15 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
         if (closed.get()) {
             return;
         }
-        long now = System.currentTimeMillis();
-        AtomicLong retryAt = nextRestartAtMs.computeIfAbsent(name, ignored -> new AtomicLong(0L));
-        long allowedAt = retryAt.get();
-        if (now < allowedAt || !retryAt.compareAndSet(allowedAt, now + RESTART_BACKOFF_MS)) {
+        healthGate.markUnhealthy(name);
+        if (!mayAttemptRestart(name)) {
             return;
         }
-        healthGate.markUnhealthy(name);
-        log.warn("critical service dead name={} — vision_fault; attempting restart", name);
+        if (ServiceHealthGate.affectsVisionPlc(name)) {
+            log.warn("critical service dead name={} — vision_fault; attempting restart", name);
+        } else {
+            log.warn("critical service dead name={} — no vision_fault (io_input); attempting restart", name);
+        }
         if (!restarting.compareAndSet(false, true)) {
             return;
         }
@@ -221,16 +585,56 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
             } catch (Exception e) {
                 log.warn("critical service restart failed name={}: {}", name, e.getMessage());
             }
+            onRestartOutcome(name, ok);
             if (ok) {
                 healthGate.markHealthy(name);
                 log.info("critical service restarted name={} — clearing fault if all healthy", name);
                 reattachAfterRestart(name);
+                if ("analis_surface".equals(name)) {
+                    probePythonHttpPool();
+                    attachAnalisSurfaceExitHandlers();
+                }
             } else {
-                log.error("critical service restart unsuccessful name={} — vision_fault stays", name);
+                if (ServiceHealthGate.affectsVisionPlc(name)) {
+                    log.error("critical service restart unsuccessful name={} — vision_fault stays", name);
+                } else {
+                    log.error("critical service restart unsuccessful name={} — io_input stays down", name);
+                }
             }
         } finally {
             restarting.set(false);
         }
+    }
+
+    private boolean mayAttemptRestart(String name) {
+        long notBefore = restartNotBeforeMs.getOrDefault(name, 0L);
+        long now = System.currentTimeMillis();
+        if (now < notBefore) {
+            log.debug(
+                    "critical service restart deferred name={} wait_ms={}",
+                    name,
+                    notBefore - now
+            );
+            return false;
+        }
+        return true;
+    }
+
+    private void onRestartOutcome(String name, boolean ok) {
+        if (ok) {
+            consecutiveRestartFailures.remove(name);
+            restartNotBeforeMs.remove(name);
+            return;
+        }
+        int failures = consecutiveRestartFailures.merge(name, 1, Integer::sum);
+        long delayMs = Math.min(30_000L, 2_000L * (1L << Math.min(failures - 1, 4)));
+        restartNotBeforeMs.put(name, System.currentTimeMillis() + delayMs);
+        log.warn(
+                "critical service backoff name={} failures={} next_retry_ms={}",
+                name,
+                failures,
+                delayMs
+        );
     }
 
     private void reattachAfterRestart(String name) {
@@ -257,6 +661,11 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
         if (old != null) {
             old.close();
         }
+        // Сироты после crash/Ctrl+C держат COM и HTTP 9101 → мгновенный рестарт падает в loop.
+        ExternalServiceProcess.killOrphansMatchingCommand("IoInputMonitor", log);
+        ExternalServiceProcess.killOrphansMatchingCommand("io-input-monitor", log);
+        ExternalServiceProcess.killListenersOnPort(IO_INPUT_HTTP_PORT, log);
+        sleepQuiet(IO_COM_RELEASE_MS);
         ExternalServiceProcess next = externalLauncher.startIfConfigured(
                 ctx.integration(),
                 ctx.projectRoot(),
@@ -268,7 +677,36 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
                 "."
         );
         ctx.setIoInputMonitorProcess(next);
-        return next != null && next.isAlive();
+        if (next == null || !next.isAlive()) {
+            return false;
+        }
+        if (!waitProcessAlive(next, IO_ALIVE_GRACE_MS)) {
+            log.warn("io_input_monitor exited during grace_ms={} — treating restart as failed", IO_ALIVE_GRACE_MS);
+            return false;
+        }
+        return true;
+    }
+
+    private static void sleepQuiet(long ms) {
+        if (ms <= 0) {
+            return;
+        }
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static boolean waitProcessAlive(ExternalServiceProcess process, long graceMs) {
+        long deadline = System.currentTimeMillis() + Math.max(0L, graceMs);
+        while (System.currentTimeMillis() < deadline) {
+            if (!process.isAlive()) {
+                return false;
+            }
+            sleepQuiet(100L);
+        }
+        return process.isAlive();
     }
 
     private boolean restartLightServer() {

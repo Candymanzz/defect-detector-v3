@@ -42,16 +42,26 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     button.primary { border-color:#2f6f4a; background:#1f5136; font-weight:700; }
     button.primary:hover { background:#276544; }
     .previews,.visuals { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:14px; }
-    .visuals { grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .visuals { grid-template-columns:repeat(2,minmax(0,1fr)); }
     figure { margin:0; background:#0a0e14; border:1px solid #29384b; border-radius:10px; overflow:hidden; }
     figcaption { padding:8px 10px; color:#b8c4d2; border-bottom:1px solid #29384b; }
     figure img { display:block; width:100%; min-height:120px; max-height:360px; object-fit:contain; background:#070a0e; }
+    .heatmap-stack { display:grid; width:100%; background:#070a0e; }
+    .heatmap-stack img { grid-area:1 / 1; display:block; width:100%; height:auto; min-height:120px; max-height:360px; object-fit:contain; background:transparent; }
+    .heatmap-stack .heatmap-layer { opacity:.9; }
+    .heatmap-opacity { display:flex; flex-direction:row; align-items:center; gap:8px; padding:8px 10px; border-top:1px solid #29384b; }
+    .heatmap-opacity input { flex:1; min-width:100px; padding:0; }
+    .heatmap-opacity output { min-width:42px; color:#edf2f8; text-align:right; }
     .roi-editor { position:relative; width:100%; background:#070a0e; }
     .roi-editor img { width:100%; height:auto; min-height:0; max-height:none; object-fit:initial; user-select:none; }
     .roi-overlay { position:absolute; inset:0; width:100%; height:100%; cursor:crosshair; }
     .roi-overlay polygon { fill:rgba(65,148,255,.20); stroke:#55a4ff; stroke-width:.005; vector-effect:non-scaling-stroke; pointer-events:none; }
     .roi-overlay polyline { fill:none; stroke:#76b6ff; stroke-width:.004; vector-effect:non-scaling-stroke; pointer-events:none; }
     .roi-overlay circle { fill:#ffe073; stroke:#152131; stroke-width:.003; vector-effect:non-scaling-stroke; pointer-events:none; }
+    .roi-overlay line.perspective { stroke:#ff9f43; stroke-width:.004; vector-effect:non-scaling-stroke; stroke-dasharray:6 4; pointer-events:none; }
+    .roi-overlay circle.persp-near { fill:#4cd98a; }
+    .roi-overlay circle.persp-far { fill:#ff6b6b; }
+    button.active-mode { border-color:#ff9f43; background:#6a4515; }
     .roi-controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:9px 10px; border-top:1px solid #29384b; }
     .roi-controls button { padding:7px 10px; }
     .roi-help { padding:0 10px 10px; color:#9eabbc; font-size:12px; }
@@ -112,15 +122,19 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
             <polygon id="roiPolygon"></polygon>
             <polyline id="roiPolyline"></polyline>
             <g id="roiVertices"></g>
+            <g id="perspectiveLayer"></g>
           </svg>
         </div>
         <div class="roi-controls">
           <button onclick="undoRoiPoint()">Удалить точку</button>
           <button onclick="clearRoi()">Очистить</button>
           <button onclick="useFullFrameRoi()">Весь кадр</button>
+          <button id="perspectiveButton" onclick="togglePerspectiveMode()" title="Два клика: сначала ближний край изделия, затем дальний">Линия перспективы</button>
+          <button onclick="clearPerspectiveLine()">Убрать линию</button>
           <span id="roiStatus" class="muted">Весь кадр</span>
+          <span id="perspectiveStatus" class="muted">Линия не задана</span>
         </div>
-        <div class="roi-help">Кликайте по эталону, чтобы поставить минимум 3 вершины. При проверке область замыкается автоматически.</div>
+        <div class="roi-help">Кликайте по эталону, чтобы поставить минимум 3 вершины. При проверке область замыкается автоматически. «Линия перспективы»: кликните сначала по ближнему краю изделия, затем по дальнему — на дальнем краю чувствительность усиливается.</div>
       </figure>
       <figure><figcaption>Выбранный текущий кадр</figcaption><img id="currentPreview" alt="Текущий кадр"></figure>
     </div>
@@ -143,7 +157,18 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     <div id="resultMetrics" class="result"></div>
     <div class="visuals">
       <figure><figcaption>Текущий кадр без выравнивания</figcaption><img id="alignedImage"></figure>
-      <figure><figcaption>Heatmap</figcaption><img id="heatmapImage"></figure>
+      <figure>
+        <figcaption>Heatmap основной инспекции (до дообучения) поверх выровненного кадра</figcaption>
+        <div class="heatmap-stack">
+          <img id="heatmapBackground" alt="Выровненный кадр под heatmap">
+          <img id="heatmapImage" class="heatmap-layer" alt="Heatmap">
+        </div>
+        <label class="heatmap-opacity">
+          Непрозрачность heatmap
+          <input id="heatmapOpacity" type="range" min="0" max="100" step="5" value="90" oninput="setHeatmapOpacity(this.value)">
+          <output id="heatmapOpacityValue">90%</output>
+        </label>
+      </figure>
       <figure><figcaption>Diff</figcaption><img id="diffImage"></figure>
       <figure><figcaption>Итоговая маска</figcaption><img id="maskImage"></figure>
     </div>
@@ -173,6 +198,8 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
   let currentReview = null;
   let historyItems = [];
   let roiPoints = [];
+  let perspectivePoints = [];
+  let perspectiveMode = false;
   const fullFrameRoi = [{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:0,y:1}];
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const productType = () => document.getElementById('productType').value.trim() || 'local-test';
@@ -186,7 +213,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
   }
   bindPreview('referenceFile','referencePreview');
   bindPreview('currentFile','currentPreview');
-  document.getElementById('referenceFile').addEventListener('change', clearRoi);
+  document.getElementById('referenceFile').addEventListener('change', () => { clearRoi(); clearPerspectiveLine(); });
   document.getElementById('productType').addEventListener('change', () => { clearRoi(); loadAcceptedCases(); loadHistory(); });
 
   const roiSvgPoints = points => points.map(point => `${point.x},${point.y}`).join(' ');
@@ -211,11 +238,38 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     if(!image.src) { setMessage('Сначала выберите эталон.', true); return; }
     const rect = event.currentTarget.getBoundingClientRect();
     if(rect.width <= 0 || rect.height <= 0) return;
-    roiPoints.push({
+    const point = {
       x:Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
       y:Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
-    });
+    };
+    if(perspectiveMode) {
+      perspectivePoints = perspectivePoints.length >= 2 ? [point] : [...perspectivePoints, point];
+      if(perspectivePoints.length === 2) setPerspectiveMode(false);
+      renderPerspective();
+      return;
+    }
+    roiPoints.push(point);
     renderRoi();
+  }
+  function setPerspectiveMode(enabled) {
+    perspectiveMode = enabled;
+    document.getElementById('perspectiveButton').classList.toggle('active-mode', enabled);
+  }
+  function togglePerspectiveMode() { setPerspectiveMode(!perspectiveMode); if(perspectiveMode) perspectivePoints = []; renderPerspective(); }
+  function clearPerspectiveLine() { perspectivePoints = []; setPerspectiveMode(false); renderPerspective(); }
+  function renderPerspective() {
+    const [near, far] = perspectivePoints;
+    document.getElementById('perspectiveLayer').innerHTML =
+      (near && far ? `<line class="perspective" x1="${near.x}" y1="${near.y}" x2="${far.x}" y2="${far.y}"></line>` : '') +
+      (near ? `<circle class="persp-near" cx="${near.x}" cy="${near.y}" r="0.011"></circle>` : '') +
+      (far ? `<circle class="persp-far" cx="${far.x}" cy="${far.y}" r="0.011"></circle>` : '');
+    const status = document.getElementById('perspectiveStatus');
+    status.textContent = perspectivePoints.length === 2
+      ? 'Линия: ближний (зелёный) → дальний (красный)'
+      : perspectiveMode
+        ? (perspectivePoints.length === 0 ? 'Кликните по ближнему краю' : 'Кликните по дальнему краю')
+        : 'Линия не задана';
+    status.className = 'muted';
   }
   function undoRoiPoint() { roiPoints = roiPoints.slice(0, -1); renderRoi(); }
   function clearRoi() { roiPoints = []; renderRoi(); }
@@ -231,6 +285,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
     const reference = document.getElementById('referenceFile').files[0];
     const current = document.getElementById('currentFile').files[0];
     if(!reference || !current) { setMessage('Выберите оба изображения: эталон и текущий кадр.', true); return; }
+    if(perspectiveMode && perspectivePoints.length < 2) { setMessage('Достройте линию перспективы (ближний и дальний край) или нажмите «Убрать линию».', true); return; }
     if(roiPoints.length > 0 && roiPoints.length < 3) { setMessage('Для области инспекции нужно минимум 3 точки либо нажмите «Очистить» для проверки всего кадра.', true); return; }
     const button = document.getElementById('runButton');
     button.disabled = true;
@@ -249,7 +304,11 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
       await jsonResponse(await fetch('/roi-polygon', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({product_type:productType(), points:effectiveRoi}),
+        body:JSON.stringify({
+          product_type:productType(),
+          points:effectiveRoi,
+          perspective_line:perspectivePoints.length === 2 ? perspectivePoints : null,
+        }),
       }));
 
       setMessage('Выполняется инспекция...');
@@ -261,7 +320,10 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
       const result = await jsonResponse(await fetch('/inspect', {method:'POST', body:inspectForm}));
       renderResult(result, performance.now() - started);
       await loadHistory();
-      if(result.inspection_id) await openHistoryFrame(result.inspection_id);
+      if(result.inspection_id) {
+        await loadReview(result.inspection_id);
+        highlightHistory();
+      }
       else {
         currentReview = null;
         highlightHistory();
@@ -276,6 +338,11 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
   }
 
   function imageData(value) { return value ? `data:image/png;base64,${value}` : ''; }
+  function setHeatmapOpacity(value) {
+    const percent = Math.max(0, Math.min(100, Number(value) || 0));
+    document.getElementById('heatmapImage').style.opacity = String(percent / 100);
+    document.getElementById('heatmapOpacityValue').textContent = `${percent}%`;
+  }
   function renderResult(result, elapsedMs) {
     const statusClass = result.status === 'ГОДЕН' ? 'good' : 'bad';
     document.getElementById('resultMetrics').innerHTML = `
@@ -287,7 +354,9 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
       <div class="metric">Исключено областей<b>${Number(result.learned_normal_matches_count || 0)}</b></div>
       <div class="metric">Вычтено из score<b>${Number(result.learned_normal_adjustment || 0).toFixed(4)}</b></div>
       <div class="metric">Время HTTP-проверки<b>${elapsedMs.toFixed(1)} мс</b></div>`;
-    document.getElementById('alignedImage').src = imageData(result.aligned_image_b64);
+    const alignedImage = imageData(result.aligned_image_b64);
+    document.getElementById('alignedImage').src = alignedImage;
+    document.getElementById('heatmapBackground').src = alignedImage;
     document.getElementById('heatmapImage').src = imageData(result.heatmap_b64);
     document.getElementById('diffImage').src = imageData(result.diff_map_b64);
     document.getElementById('maskImage').src = imageData(result.segmentation_mask_b64);
@@ -315,7 +384,9 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
       <div class="metric">Областей<b>${Number(review.defects.length)}</b></div>
       <div class="metric">Уже сохранено<b>${Number(review.accepted_defects_count || 0)}</b></div>
       <div class="metric">Кадр из истории<b>${esc(String(review.inspection_id).slice(0, 8))}</b></div>`;
-    document.getElementById('alignedImage').src = imageUrl('aligned');
+    const alignedImageUrl = imageUrl('aligned');
+    document.getElementById('alignedImage').src = alignedImageUrl;
+    document.getElementById('heatmapBackground').src = alignedImageUrl;
     document.getElementById('heatmapImage').src = imageUrl('heatmap');
     document.getElementById('diffImage').src = imageUrl('diff');
     document.getElementById('maskImage').src = imageUrl('mask');
@@ -466,6 +537,7 @@ LOCAL_INSPECTION_TEST_HTML = r"""<!doctype html>
   loadAcceptedCases();
   loadHistory();
   renderRoi();
+  renderPerspective();
 </script>
 </body>
 </html>"""

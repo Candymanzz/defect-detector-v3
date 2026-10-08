@@ -231,12 +231,22 @@ public final class FrameArchiveHttpController implements HttpController {
             item.put("saved_at_ms", frame.savedAtEpochMs());
             item.put("has_heatmap", frame.hasHeatmap());
             item.put("frame_url", frameArchive.frameArtifactHttpPath(cameraId, frame.frameId(), "frame.jpg"));
+            if (frame.frameWidth() > 0 && frame.frameHeight() > 0) {
+                item.put("frame_width", frame.frameWidth());
+                item.put("frame_height", frame.frameHeight());
+            }
             if (frame.hasHeatmap()) {
                 item.put("heatmap_url", frameArchive.frameArtifactHttpPath(cameraId, frame.frameId(), "heatmap.u8"));
                 item.put("heatmap_width", frame.heatmapWidth());
                 item.put("heatmap_height", frame.heatmapHeight());
             }
             item.put("result_url", frameArchive.frameArtifactHttpPath(cameraId, frame.frameId(), "result.json"));
+            if (frame.learnedReviewId() != null && !frame.learnedReviewId().isBlank()) {
+                item.put("learned_review_id", frame.learnedReviewId());
+            }
+            if (frame.geometry() != null && !frame.geometry().isEmpty()) {
+                item.set("geometry", JSON.valueToTree(frame.geometry()));
+            }
         }
         HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
     }

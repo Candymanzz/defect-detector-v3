@@ -1,125 +1,65 @@
 # IoInputMonitor — мониторинг Digital Input с MV IO Box.
 
-
-
 # Авто-поиск: config/blocks/52-io-input.yaml (или IO_INPUT_CONFIG / --io-config=).
 
 
-
-
-
 io_input:
-
   com_port: COM3
-
-  edge: both            # DI1/DI2: both. DI3 — телеметрия; импульс DO5 задаёт MVS, не программа.
-
-  # DI3 ~10 мс: SDK Glitch=0; оба физических триггера заведены на этот вход.
-
+  edge: both            # DI1/DI2: both; DI3 в коде всегда Rising (импульс <10 мс)
+  # DI3 ~10 мс: SDK Glitch=0. Soft refractory ≥80 мс режет bounce Rising.
   debounce_ms: 0
-
-  # IoInputMonitor сам перевооружает DI2: Rising -> Falling -> Rising.
-  # Без этого плата сообщает только первый DI2=1, gate не видит DI2=0
-  # и ошибочно продолжает разрешать DI3. Программа DO5 не формирует.
   configure_sdk: true
-
+  # При COM busy (сирота после crash) — убить чужой IoInputMonitor.dll и retry Open.
+  steal_com_on_busy: true
   inputs:
-
     - 1                 # DI1 = работа (конвейер); ↓ снимает direction latch
-
     - 2                 # DI2 = направление
-
-    - 3                 # DI3 = триггер; импульс на камеры задан в MVS (DO5→Line0)
-
+    - 3                 # DI3 = триггер съёмки
     - 4                 # DI4 = безопасное выключение (оркестратор: shutdown_port)
 
-  # Оба физических датчика подключены к DI3. Импульс Line0 настраивается в MVS, не здесь.
-
+  # Единственный DO: capture DO5 → Line0 камер. Брак/ready/fault — только FINS.
+  # DI3↑ → UDP (arm wait_frame) → delay → DO5↑ на каждый импульс (очередь, без SkipBusy).
+  # DI4 публикуется в UDP; реакцию (гашение вспышек + stop) делает оркестратор.
   capture:
-
-    # Программный импульс выключен: DO5 формирует MVS. Иначе будет второй фронт поверх аппаратного.
-    enabled: false
-
-    any_edge: false
-
-    capture_strategy: hardware
-
+    enabled: true
     direction_port: 2
-
+    trigger_port: 3
     work_port: 1
-
-    # DI1 публикуется как состояние линии, но не разоружает DI3.
-
-    # DI1 не блокирует DI3; используется только как телеметрия состояния линии.
-    disarm_on_work_low: false
-
-    channels:
-
-      - trigger_port: 3
-
-        output_port: 5
-
-        timer_index: 5
-
-    # Документация разводки. При enabled=false DO не вызывается.
-    output_mode: auto
-
+    # DI1↓ снимает latch — иначе после первого DI2=1 каждый DI3↑ шлёт DO/UDP forever.
+    disarm_on_work_low: true
+    output_port: 5
+    output_ports: [5]   # только DO5 → Line0
+    output_mode: direct
+    # Согласовано с line0_trigger_activation в 01-core / config.json.
     line0_edge: rising
-
     active_high: true
-
-    pulse_delay_ms: 0
-
-    # Два DI3 могут быть только ~60-80 мс друг от друга. Держим Line0 коротким, чтобы камеры
-    # enough LOW time to re-arm before the second rising edge.
-    pulse_duration_ms: 1
-
+    pulse_delay_ms: 250
+    # RisingEdge: короткий HIGH; камеры уже в wait_frame (ClearImageBuffer, без drain).
+    pulse_duration_ms: 50
     pulse_repeat: 1
-
-    pulse_repeat_gap_ms: 80
-
-    # Пока DI2=1, каждый отдельный DI3↑ формирует DO5. Это пропускает обе фазы
-    # каждого изделия, даже если DI2 остаётся высоким несколько циклов подряд.
-
+    pulse_repeat_gap_ms: 100
+    # Съёмка только при DI2=1: DI3↑ → DO5; без DI2 — skip.
     repeat_di3_capture: true
-
-    max_di3_captures_per_di2_window: -1   # без лимита до DI2↓
-
-    # DI2=1 — обязательное разрешение съёмки для DI3.
     require_direction: true
-
+    # DO5 только если физическое DI2 совпадает с выбранным в UI «Прямой/Обратный» (DECISIONS.md, D-009).
+    direction_must_match_selected: true
+    # Один DI3 на окно DI2; повторные DI3 при том же DI2 — холостые.
+    one_capture_per_di2_window: true
     direction_latch: false
-
     initial_direction: forward
-
     direction_http:
-
       enabled: true
-
       host: 127.0.0.1
-
       port: 9101
 
-
-
   publish:
-
     udp:
-
       enabled: true
-
       host: 127.0.0.1
-
       port: 9100          # куда слушает оркестратор (inspection_trigger.udp.bind_port)
-
       format: json        # json {"di":3,"value":1,"ts_ms":...} | text_di "3:1" | byte_di | byte/text (legacy 0/1)
-
-      inputs: [1, 2, 3, 4]
-
-      trigger_port: 3     # primary — не слать начальное состояние trigger DI
-
-      low_latency_trigger: true
-
+      inputs: [1, 2, 3, 4]   # какие DI публиковать; по умолчанию = inputs
+      trigger_port: 3     # DI3 — не слать начальное состояние при старте (см. send_initial_trigger_state)
+      low_latency_trigger: true   # DI1/DI2/DI3 — синхронный UDP из SDK callback, без очереди
       send_initial_state: true
-
       send_initial_trigger_state: false   # не слать DI3 при старте (ложный FIRE)

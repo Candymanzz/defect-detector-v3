@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import type { HeatmapDescriptor } from "../../shared/ws";
+import type { ExcludedNormalZone, HeatmapDescriptor } from "../../shared/ws";
 import {
   clearHeatmapCanvas,
+  drawExcludedNormalZones,
   drawGrayU8Heatmap,
   drawHeatmapBitmap,
   loadHeatmapForCamera,
@@ -13,6 +14,7 @@ type HeatmapViewerProps = {
   cameraId: number;
   heatmap: HeatmapDescriptor | null;
   backgroundImageUrl?: string;
+  excludedNormalZones?: readonly ExcludedNormalZone[];
 };
 type HeatmapStatus = "idle" | "loading" | "ready" | "error";
 type HeatmapWorkerResponse = {
@@ -20,12 +22,19 @@ type HeatmapWorkerResponse = {
   bitmap?: ImageBitmap;
   error?: string;
 };
+const EMPTY_EXCLUDED_NORMAL_ZONES: readonly ExcludedNormalZone[] = [];
 
-export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl }: HeatmapViewerProps) {
+export function HeatmapViewer({
+  cameraId,
+  heatmap,
+  backgroundImageUrl,
+  excludedNormalZones,
+}: HeatmapViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestIdRef = useRef(0);
   const [status, setStatus] = useState<HeatmapStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const displayZones = excludedNormalZones ?? EMPTY_EXCLUDED_NORMAL_ZONES;
 
   useEffect(() => {
     if (!heatmap) {
@@ -77,6 +86,7 @@ export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl }: Heatmap
               currentHeatmap.width,
               currentHeatmap.height,
             );
+            drawExcludedNormalZones(canvasRef.current, currentHeatmap, displayZones);
           } catch (workerError) {
             worker?.terminate();
             worker = null;
@@ -88,9 +98,11 @@ export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl }: Heatmap
               throw workerError;
             }
             drawGrayU8Heatmap(canvasRef.current, currentHeatmap, bytes);
+            drawExcludedNormalZones(canvasRef.current, currentHeatmap, displayZones);
           }
         } else {
           drawGrayU8Heatmap(canvasRef.current, currentHeatmap, bytes);
+          drawExcludedNormalZones(canvasRef.current, currentHeatmap, displayZones);
         }
         setStatus("ready");
       } catch (nextError) {
@@ -112,7 +124,7 @@ export function HeatmapViewer({ cameraId, heatmap, backgroundImageUrl }: Heatmap
       worker?.terminate();
       worker = null;
     };
-  }, [cameraId, heatmap]);
+  }, [cameraId, heatmap, displayZones]);
 
   if (!heatmap) {
     return <div className="heatmap-viewer__empty">Нет тепловой карты</div>;

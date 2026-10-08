@@ -1,3 +1,5 @@
+import type { GeometryInspectResponse } from "../api/types";
+
 export type WsConnectionState = "idle" | "connecting" | "open" | "reconnecting" | "error" | "closed";
 export type WsProtocolVersion = 1;
 export type WsMessageId = string;
@@ -275,6 +277,13 @@ export type InspectResultPayload = {
   group_id?: number;
   frame_id: string;
   inspection_id?: string;
+  learned_review_id?: string;
+  /** UI test-analyze result (geometry+python on archive/artifact frame). */
+  test_analyze?: boolean;
+  /** SHA-256 of pinned JPEG bytes used for this test-analyze run. */
+  pin_jpeg_sha256?: string;
+  test_analyze_job_id?: string;
+  test_pin_id?: string;
   session_state: WsSessionState;
   current: ShmFrameRefData;
   http_path?: string;
@@ -290,12 +299,28 @@ export type InspectResultPayload = {
   anomaly_score?: number;
   python_status?: InspectionStageStatus | string;
   geometry_status?: InspectionStageStatus | string;
+  /** Compact geometry metrics for this frame (WS/archive); preferred over /api/geometry/.../latest. */
+  geometry?: GeometryInspectResponse;
   fp_zones: FpZoneNorm[];
+  excluded_normal_zones?: ExcludedNormalZone[];
   fp_coordinate_space?: {
     heatmap_width: number;
     heatmap_height: number;
   };
   server_ts_ms: number;
+};
+
+export type ExcludedNormalZone = {
+  kind: string;
+  /** True only when backend confirmed that this region cannot affect final score. */
+  excluded_from_score?: boolean;
+  case_id?: string | null;
+  similarity?: number | null;
+  polygon: Array<{ x: number; y: number } | [number, number]>;
+  /** Saved pixel geometry in the source camera coordinate space. */
+  polygon_px?: Array<{ x: number; y: number } | [number, number]>;
+  coordinate_width?: number;
+  coordinate_height?: number;
 };
 
 export type InspectionAction = "ACCEPT" | "REJECT" | "CAPTURE";
@@ -377,6 +402,8 @@ export type ReferenceViewSlot = {
   joint_roi?: PixelRoi | null;
   /** Полигон шва [0,1]; только на joint_view_index. */
   joint_roi_polygon_norm?: InterestPointNorm[];
+  /** Линия перспективы [ближний край, дальний край], две точки [0,1]. */
+  perspective_line_norm?: InterestPointNorm[];
 };
 
 export type ClientReferenceBundlePayload = {

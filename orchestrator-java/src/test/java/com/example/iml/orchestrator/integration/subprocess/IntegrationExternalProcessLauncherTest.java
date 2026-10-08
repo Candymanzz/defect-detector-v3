@@ -56,4 +56,49 @@ class IntegrationExternalProcessLauncherTest {
             List.of("npm", "run", "dev"), false);
     assertEquals("npm", command.get(0));
   }
+
+  @Test
+  void resolveCommandPathsMakesPythonAbsolute() {
+    List<String> resolved = IntegrationExternalProcessLauncher.resolveCommandPaths(
+            List.of("analisSurface/backend/.venv/bin/python", "-m", "uvicorn"),
+            projectRoot
+    );
+    assertEquals(
+            projectRoot.resolve("analisSurface/backend/.venv/bin/python").normalize().toString(),
+            resolved.get(0)
+    );
+  }
+
+  @Test
+  void verifyLaunchCommandAllowsNpmOnLinux() throws Exception {
+    var launcher = new IntegrationExternalProcessLauncher(LogManager.getLogger("test"));
+    var method = IntegrationExternalProcessLauncher.class.getDeclaredMethod(
+            "verifyLaunchCommand", String.class, List.class, boolean.class);
+    method.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    boolean ok = (boolean) method.invoke(
+            launcher,
+            "frontend",
+            List.of("npm", "run", "dev"),
+            false
+    );
+    assertTrue(ok);
+  }
+
+  @Test
+  void verifyLaunchCommandFailsWhenDotnetDllMissing(@TempDir Path root) throws Exception {
+    var launcher = new IntegrationExternalProcessLauncher(LogManager.getLogger("test"));
+    var method = IntegrationExternalProcessLauncher.class.getDeclaredMethod(
+            "verifyLaunchCommand", String.class, List.class, boolean.class);
+    method.setAccessible(true);
+    Path missingDll = root.resolve("IoInputMonitor/bin/Release/net10.0/IoInputMonitor.dll");
+    @SuppressWarnings("unchecked")
+    boolean ok = (boolean) method.invoke(
+            launcher,
+            "io-input-monitor",
+            List.of("dotnet", "exec", missingDll.toString()),
+            true
+    );
+    assertFalse(ok);
+  }
 }

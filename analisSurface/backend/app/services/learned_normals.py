@@ -30,15 +30,20 @@ TEMPLATE_SIZE = 64
 TEMPLATE_INNER_SIZE = 56
 TEMPLATE_VERSION = 3
 # Максимальное расстояние между центрами текущего и сохранённого дефекта в
-# нормированных координатах кадра. 0.15 означает локальный сдвиг
-# (например, около 184 px по горизонтали на рабочем кадре шириной 1224 px),
+# нормированных координатах кадра. 0.085 означает только локальный джиттер
+# (например, около 104 px по горизонтали на рабочем кадре шириной 1224 px),
 # но не перенос исключения на другую часть изделия.
-POSITION_TOLERANCE_NORM = 0.15
+# Learned exceptions are evaluated after image alignment.  Keep their spatial
+# allowance in pixels of the actual analysis frame; percentages of the frame
+# made the same exception drift by tens of pixels on production images.
+POSITION_TOLERANCE_PX = 6.0
+POSITION_JITTER_FLOOR_PX = 4.0
+POLYGON_GAP_FLOOR_PX = 3.0
 THIN_TRACE_MIN_SIMILARITY = 0.68
 SCALED_SHAPE_MIN_SIMILARITY = 0.76
 REDUCED_SHAPE_MIN_SIMILARITY = 0.78
 GENERAL_MIN_SIMILARITY = 0.80
-DEFAULT_REVIEW_LIMIT = 50
+DEFAULT_REVIEW_LIMIT = 200
 # Review must expose secondary components that can still keep the verdict BAD
 # after the largest components have been accepted. 15% keeps material defects
 # visible without bringing back the many weak speckles from the raw mask.
@@ -94,6 +99,72 @@ def _decode(data: bytes, flags: int = cv2.IMREAD_UNCHANGED) -> np.ndarray:
     if image is None:
         raise ValueError("Could not decode stored review image")
     return image
+
+
+def _pixel_bbox_from_normalized(
+    bbox_norm: tuple[float, float, float, float],
+    width: int,
+    height: int,
+) -> tuple[int, int, int, int]:
+    """Convert a normalized bbox to the pixel convention used by heatmaps."""
+    x, y, box_width, box_height = bbox_norm
+    safe_width = max(1, int(width))
+    safe_height = max(1, int(height))
+    x0 = int(round(np.clip(x, 0.0, 1.0) * (safe_width - 1)))
+    y0 = int(round(np.clip(y, 0.0, 1.0) * (safe_height - 1)))
+    x1 = int(round(np.clip(x + box_width, 0.0, 1.0) * (safe_width - 1)))
+    y1 = int(round(np.clip(y + box_height, 0.0, 1.0) * (safe_height - 1)))
+    return (x0, y0, max(1, x1 - x0 + 1), max(1, y1 - y0 + 1))
+
+
+def _pixel_polygon_from_normalized(
+    polygon_norm: list[tuple[float, float]],
+    width: int,
+    height: int,
+) -> list[tuple[int, int]]:
+    safe_width = max(1, int(width))
+    safe_height = max(1, int(height))
+    return [
+        (
+            int(round(np.clip(x, 0.0, 1.0) * (safe_width - 1))),
+            int(round(np.clip(y, 0.0, 1.0) * (safe_height - 1))),
+        )
+        for x, y in polygon_norm
+    ]
+
+
+def _parse_pixel_bbox(raw_bbox: object) -> Optional[tuple[int, int, int, int]]:
+    if isinstance(raw_bbox, dict):
+        values = [raw_bbox.get(key) for key in ("x", "y", "width", "height")]
+    elif isinstance(raw_bbox, (list, tuple)) and len(raw_bbox) >= 4:
+        values = list(raw_bbox[:4])
+    else:
+        return None
+    try:
+        x, y, width, height = (int(round(float(value))) for value in values)
+    except (TypeError, ValueError):
+        return None
+    if width <= 0 or height <= 0:
+        return None
+    return (x, y, width, height)
+
+
+def _parse_pixel_polygon(raw_polygon: object) -> list[tuple[int, int]]:
+    if not isinstance(raw_polygon, (list, tuple)):
+        return []
+    points: list[tuple[int, int]] = []
+    for point in raw_polygon:
+        if isinstance(point, dict):
+            x_raw, y_raw = point.get("x"), point.get("y")
+        elif isinstance(point, (list, tuple)) and len(point) >= 2:
+            x_raw, y_raw = point[0], point[1]
+        else:
+            continue
+        try:
+            points.append((int(round(float(x_raw))), int(round(float(y_raw)))))
+        except (TypeError, ValueError):
+            continue
+    return points
 
 
 def _fit_template(image: np.ndarray, *, binary: bool = False) -> np.ndarray:
@@ -192,6 +263,7 @@ class AcceptedNormalCase:
     product_type: str
     reference_hash: str
     bbox_norm: tuple[float, float, float, float]
+    polygon_norm: list[tuple[float, float]]
     area: int
     diff_mean: float
     diff_q90: float
@@ -206,6 +278,14 @@ class AcceptedNormalCase:
     diff_template: np.ndarray = field(repr=False)
     appearance_template: np.ndarray = field(repr=False)
     source_crop: Optional[np.ndarray] = field(default=None, repr=False)
+    source_frame: Optional[np.ndarray] = field(default=None, repr=False)
+    # Pixel geometry is kept in addition to normalized coordinates.  The
+    # latter is useful for compatibility, but the former is the authoritative
+    # position for fixed-resolution camera frames and heatmap overlays.
+    bbox: Optional[tuple[int, int, int, int]] = None
+    polygon: list[tuple[int, int]] = field(default_factory=list)
+    coordinate_width: int = 0
+    coordinate_height: int = 0
     _geometry_cache: Optional["_MaskGeometry"] = field(default=None, repr=False, compare=False)
     _template_cache: Optional[tuple[np.ndarray, np.ndarray, np.ndarray]] = field(
         default=None,
@@ -214,7 +294,7 @@ class AcceptedNormalCase:
     )
 
     def to_public_dict(self) -> dict:
-        return {
+        payload = {
             "id": self.id,
             "product_type": self.product_type,
             "reference_hash": self.reference_hash,
@@ -224,6 +304,7 @@ class AcceptedNormalCase:
                 "width": self.bbox_norm[2],
                 "height": self.bbox_norm[3],
             },
+            "polygon_norm": [{"x": x, "y": y} for x, y in self.polygon_norm],
             "area": self.area,
             "diff_mean": self.diff_mean,
             "diff_q90": self.diff_q90,
@@ -235,6 +316,17 @@ class AcceptedNormalCase:
             "enabled": self.enabled,
             "template_version": self.template_version,
         }
+        if self.bbox is not None:
+            x, y, width, height = self.bbox
+            payload["bbox"] = {"x": x, "y": y, "width": width, "height": height}
+        if self.polygon:
+            payload["polygon"] = [{"x": x, "y": y} for x, y in self.polygon]
+        if self.coordinate_width > 0 and self.coordinate_height > 0:
+            payload["coordinate_space"] = {
+                "width": self.coordinate_width,
+                "height": self.coordinate_height,
+            }
+        return payload
 
 
 @dataclass
@@ -243,6 +335,9 @@ class LearnedFilterResult:
     filtered_mask: np.ndarray
     candidates: list[DefectCandidate]
     matched_case_ids: list[str]
+    # Candidates immediately removed from both diff and mask. The caller
+    # combines them with matched candidates and verifies the final score maps.
+    suppressed_candidates: list[DefectCandidate]
     matched_candidates_count: int = 0
     all_important_candidates_matched: bool = False
     original_max_candidate_impact: float = 0.0
@@ -356,8 +451,21 @@ class InspectionReviewStore:
     ) -> InspectionReview:
         mask_gray = _gray(raw_mask)
         diff_gray = _gray(diff_map)
-        energy = cv2.max(mask_gray, cv2.normalize(diff_gray, None, 0, 255, cv2.NORM_MINMAX))
+        diff_norm = cv2.normalize(diff_gray, None, 0, 255, cv2.NORM_MINMAX)
+        energy = cv2.max(mask_gray, diff_norm)
+        energy = cv2.normalize(energy, None, 0, 255, cv2.NORM_MINMAX)
+        energy = np.clip(
+            np.power(energy.astype(np.float32) / 255.0, 0.8) * 255.0,
+            0,
+            255,
+        ).astype(np.uint8)
         heatmap = cv2.applyColorMap(energy, cv2.COLORMAP_JET)
+        mask_float = (mask_gray.astype(np.float32) / 255.0)[..., np.newaxis]
+        heatmap = np.clip(
+            heatmap.astype(np.float32) * (1.0 + 0.5 * mask_float),
+            0,
+            255,
+        ).astype(np.uint8)
         review_candidates = [
             replace(candidate, mask=np.zeros((0, 0), dtype=bool))
             for candidate in candidates
@@ -382,6 +490,7 @@ class InspectionReviewStore:
             self._order[inspection_id] = review.summary()
             self._order.move_to_end(inspection_id)
             while len(self._order) > self.max_items:
+                # The configured FIFO limit applies to both the hot index and disk.
                 evicted_id, _ = self._order.popitem(last=False)
                 self._delete_review_dir(evicted_id)
         return review
@@ -395,20 +504,48 @@ class InspectionReviewStore:
 
     def get(self, inspection_id: str) -> Optional[InspectionReview]:
         with self._lock:
-            if inspection_id not in self._order:
-                return None
             if self.storage_dir is None:
                 return None
+            if inspection_id in self._order:
+                return self._read_review(inspection_id)
+            # Cold path: review left the hot FIFO but files remain for archive-backed accept.
             return self._read_review(inspection_id)
+
+    def _trim_cold_review_dirs(self) -> None:
+        """Cap on-disk review folders so soft-FIFO does not grow forever."""
+        if self.storage_dir is None or not self.storage_dir.is_dir():
+            return
+        try:
+            dirs = [p for p in self.storage_dir.iterdir() if p.is_dir()]
+        except OSError:
+            return
+        # Keep up to 5x hot index capacity on disk for delayed operator learning.
+        disk_limit = max(self.max_items * 5, self.max_items)
+        if len(dirs) <= disk_limit:
+            return
+        dirs.sort(key=lambda p: p.stat().st_mtime if p.exists() else 0.0)
+        hot = set(self._order.keys())
+        overflow = len(dirs) - disk_limit
+        deleted = 0
+        for folder in dirs:
+            if deleted >= overflow:
+                break
+            if folder.name in hot:
+                continue
+            self._delete_review_dir(folder.name)
+            deleted += 1
 
     def put(self, review: InspectionReview) -> None:
         """Перезаписать review на диске. Индекс в RAM обновляется из summary()."""
         with self._lock:
-            if review.inspection_id not in self._order:
-                raise KeyError(review.inspection_id)
             if self.storage_dir is not None:
+                if review.inspection_id not in self._order and self._read_review(review.inspection_id) is None:
+                    raise KeyError(review.inspection_id)
                 self._write_review(review)
+            elif review.inspection_id not in self._order:
+                raise KeyError(review.inspection_id)
             self._order[review.inspection_id] = review.summary()
+            self._order.move_to_end(review.inspection_id)
 
     def mark_accepted(
         self,
@@ -643,6 +780,7 @@ class AcceptedNormalMemory:
         self.storage_dir = Path(storage_dir)
         self._cases: dict[str, AcceptedNormalCase] = {}
         self._lock = threading.RLock()
+        self._storage_generation: Optional[str] = None
         if session_wipe:
             wipe_directory(self.storage_dir)
         else:
@@ -651,22 +789,55 @@ class AcceptedNormalMemory:
 
     def list(self, product_type: Optional[str] = None) -> list[dict]:
         with self._lock:
+            self._refresh_from_disk_if_changed()
             cases = list(self._cases.values())
             if product_type:
                 cases = [case for case in cases if case.product_type == product_type]
             cases.sort(key=lambda case: case.created_at, reverse=True)
             return [case.to_public_dict() for case in cases]
 
+
     def get(self, case_id: str) -> Optional[AcceptedNormalCase]:
         with self._lock:
+            self._refresh_from_disk_if_changed()
             return self._cases.get(case_id)
 
     def image(self, case_id: str) -> Optional[tuple[bytes, str]]:
         """Наглядный crop сохранённого фрагмента с подсвеченной маской."""
         with self._lock:
+            self._refresh_from_disk_if_changed()
             case = self._cases.get(case_id)
             if case is None:
                 return None
+            if case.source_frame is not None:
+                preview = case.source_frame.copy()
+                height, width = preview.shape[:2]
+                if case.polygon:
+                    scale_x = (
+                        (width - 1) / max(1, case.coordinate_width - 1)
+                        if case.coordinate_width > 0
+                        else 1.0
+                    )
+                    scale_y = (
+                        (height - 1) / max(1, case.coordinate_height - 1)
+                        if case.coordinate_height > 0
+                        else 1.0
+                    )
+                    polygon = np.array(
+                        [[round(x * scale_x), round(y * scale_y)] for x, y in case.polygon],
+                        dtype=np.int32,
+                    )
+                else:
+                    polygon = np.array(
+                        [[round(x * (width - 1)), round(y * (height - 1))] for x, y in case.polygon_norm],
+                        dtype=np.int32,
+                    )
+                if polygon.shape[0] >= 3:
+                    tint = preview.copy()
+                    cv2.fillPoly(tint, [polygon], (40, 70, 255))
+                    preview = cv2.addWeighted(preview, 0.72, tint, 0.28, 0.0)
+                    cv2.polylines(preview, [polygon], True, (45, 70, 255), max(2, round(min(width, height) / 350)))
+                return _encode(preview, ".png"), "image/png"
             appearance = case.appearance_template.copy()
             mask = case.mask_template.copy() > 0
 
@@ -689,13 +860,35 @@ class AcceptedNormalMemory:
         reference_hash: str,
         inspection_id: str,
         candidate: DefectCandidate,
+        source_frame: Optional[np.ndarray] = None,
         note: str = "",
     ) -> AcceptedNormalCase:
+        coordinate_height = (
+            int(source_frame.shape[0])
+            if source_frame is not None and source_frame.ndim >= 2
+            else 0
+        )
+        coordinate_width = (
+            int(source_frame.shape[1])
+            if source_frame is not None and source_frame.ndim >= 2
+            else 0
+        )
+        pixel_polygon = _pixel_polygon_from_normalized(
+            candidate.polygon_norm,
+            coordinate_width,
+            coordinate_height,
+        ) if coordinate_width > 0 and coordinate_height > 0 else []
         case = AcceptedNormalCase(
             id=str(uuid.uuid4()),
             product_type=product_type,
             reference_hash=reference_hash,
             bbox_norm=candidate.bbox_norm,
+            polygon_norm=list(candidate.polygon_norm) or [
+                (candidate.bbox_norm[0], candidate.bbox_norm[1]),
+                (candidate.bbox_norm[0] + candidate.bbox_norm[2], candidate.bbox_norm[1]),
+                (candidate.bbox_norm[0] + candidate.bbox_norm[2], candidate.bbox_norm[1] + candidate.bbox_norm[3]),
+                (candidate.bbox_norm[0], candidate.bbox_norm[1] + candidate.bbox_norm[3]),
+            ],
             area=candidate.area,
             diff_mean=candidate.diff_mean,
             diff_q90=candidate.diff_q90,
@@ -710,11 +903,18 @@ class AcceptedNormalMemory:
             diff_template=candidate.diff_template.copy(),
             appearance_template=candidate.appearance_template.copy(),
             source_crop=(candidate.source_crop.copy() if candidate.source_crop is not None else None),
+            source_frame=(source_frame.copy() if source_frame is not None else None),
+            bbox=tuple(int(value) for value in candidate.bbox),
+            polygon=pixel_polygon,
+            coordinate_width=coordinate_width,
+            coordinate_height=coordinate_height,
         )
         with self._lock:
+            self._refresh_from_disk_if_changed()
             self._cases[case.id] = case
             try:
                 self._save_case(case)
+                self._publish_storage_generation()
             except Exception:
                 self._cases.pop(case.id, None)
                 raise
@@ -722,6 +922,7 @@ class AcceptedNormalMemory:
 
     def delete(self, case_id: str) -> bool:
         with self._lock:
+            self._refresh_from_disk_if_changed()
             case = self._cases.pop(case_id, None)
             if case is None:
                 return False
@@ -730,14 +931,17 @@ class AcceptedNormalMemory:
                     (self.storage_dir / f"{case_id}{suffix}").unlink(missing_ok=True)
                 except OSError:
                     logger.exception("failed to delete accepted-normal artifact case_id=%s", case_id)
+            self._publish_storage_generation()
             return True
 
     def clear(self) -> int:
         """Удалить все сохранённые нормы текущей сессии."""
         with self._lock:
+            self._refresh_from_disk_if_changed()
             deleted_count = len(self._cases)
             self._cases.clear()
             wipe_directory(self.storage_dir)
+            self._publish_storage_generation()
             return deleted_count
 
     def apply(
@@ -752,7 +956,7 @@ class AcceptedNormalMemory:
         """Каскад по кропу вокруг сохранённого ложняка, не второй полный inspect.
 
         1. Кандидат в маске — кроп уже сработал против основного эталона.
-        2. Нет блоба рядом с нормой (~15% кадра) — мини-эталон не трогаем.
+        2. Нет блоба в локальном размер-зависимом допуске (не более 8.5% кадра) — мини-эталон не трогаем.
         3. Блоб рядом — кроп vs мини-эталон (форма + diff):
            похож → погасить; для широкого блика оставить цветовой остаток,
            чтобы новый скол поверх ложняка остался браком.
@@ -760,6 +964,7 @@ class AcceptedNormalMemory:
         """
         candidates = extract_defect_candidates(aligned, diff_map, segmentation_mask)
         with self._lock:
+            self._refresh_from_disk_if_changed()
             cases = [
                 case
                 for case in self._cases.values()
@@ -779,6 +984,7 @@ class AcceptedNormalMemory:
         filtered_diff = diff_map.copy()
         filtered_mask = segmentation_mask.copy()
         matched_case_ids: list[str] = []
+        suppressed_candidates: list[DefectCandidate] = []
         for candidate in candidates:
             best_case, best_similarity = self._best_matching_case(candidate, cases)
             if best_case is None:
@@ -786,34 +992,27 @@ class AcceptedNormalMemory:
             candidate.matched_case_id = best_case.id
             candidate.similarity = best_similarity
             matched_candidate_ids.add(candidate.id)
-            self._apply_crop_cascade(
+            fully_suppressed = self._apply_crop_cascade(
                 candidate,
                 best_case,
                 aligned,
                 filtered_diff,
                 filtered_mask,
             )
+            if fully_suppressed:
+                suppressed_candidates.append(candidate)
             matched_case_ids.append(best_case.id)
 
-        # После вычитания нормы слабые остатки нельзя ранжировать заново как
-        # «самые важные»: иначе тот же принятый оператором кадр снова становится
-        # БРАК. Если совпали все исходно значимые области, подавляем только
-        # незначимые компоненты исходного кадра. Новый значимый дефект не даст
-        # этому условию выполниться и продолжит влиять на вердикт.
-        if (
-            important_candidate_ids
-            and important_candidate_ids.issubset(matched_candidate_ids)
-        ):
-            for candidate in candidates:
-                if candidate.id in matched_candidate_ids:
-                    continue
-                self._suppress_candidate(filtered_diff, filtered_mask, candidate)
+        # Never suppress an unmatched component merely because every other
+        # important component matched. Its spatial gate has already said that
+        # the saved normal does not explain it; it must remain score-bearing.
 
         return LearnedFilterResult(
             filtered_diff_map=filtered_diff,
             filtered_mask=filtered_mask,
             candidates=candidates,
             matched_case_ids=list(dict.fromkeys(matched_case_ids)),
+            suppressed_candidates=suppressed_candidates,
             matched_candidates_count=len(matched_case_ids),
             all_important_candidates_matched=bool(important_candidate_ids)
             and important_candidate_ids.issubset(matched_candidate_ids),
@@ -841,16 +1040,29 @@ class AcceptedNormalMemory:
         aligned: np.ndarray,
         filtered_diff: np.ndarray,
         filtered_mask: np.ndarray,
-    ) -> None:
+    ) -> bool:
+        """Apply a saved normal and report whether its candidate was fully removed."""
         x, y, box_width, box_height = candidate.bbox
+        _, _, candidate_width_norm, candidate_height_norm = candidate.bbox_norm
+        _, _, case_width_norm, case_height_norm = matched_case.bbox_norm
+        bbox_area_ratio = (
+            (candidate_width_norm * candidate_height_norm)
+            / max(1e-9, case_width_norm * case_height_norm)
+        )
         # Широкий блик: кроп vs мини-эталон в RGB, чтобы новый дефект поверх
         # знакомого засвета остался в остатке. Тонкие царапины гасятся по форме.
+        broad_color_region = (
+            box_width * box_height >= 2048
+            and candidate.area / max(1, box_width * box_height) >= 0.35
+            and (box_width * box_height) / max(1, aligned.shape[0] * aligned.shape[1]) >= 0.10
+        )
         use_color_residual = (
             matched_case.source_crop is not None
             and matched_case.source_crop.size > 0
-            and box_width * box_height >= 2048
-            and candidate.area / max(1, box_width * box_height) >= 0.35
-            and (box_width * box_height) / max(1, aligned.shape[0] * aligned.shape[1]) >= 0.10
+            # Similar-size matches can be checked pixel-wise and must retain a
+            # new branch/scratch inside the same connected component. Strongly
+            # reduced/fragmented legitimate variants keep shape-based handling.
+            and (broad_color_region or bbox_area_ratio >= 0.70)
         )
         if use_color_residual:
             residual_padding = 2
@@ -873,8 +1085,16 @@ class AcceptedNormalMemory:
             color_residual = np.clip(color_residual - 12, 0, 255).astype(np.uint8)
             residual_bgr = cv2.cvtColor(color_residual, cv2.COLOR_GRAY2BGR)
             filtered_diff[y : y + box_height, x : x + box_width] = residual_bgr
-            return
+            # An identical broad normal produces an empty residual and is a
+            # true exclusion. A new defect inside it remains score-bearing and
+            # must not be presented to the operator as an excluded whole zone.
+            return not bool(np.any(color_residual))
+        # candidate_similarity has already compared the complete component
+        # against the saved shape/diff/appearance templates. Suppress that
+        # matched component only; unrelated components are never removed by
+        # the cascade below.
         AcceptedNormalMemory._suppress_candidate(filtered_diff, filtered_mask, candidate)
+        return True
 
     @staticmethod
     def _suppress_candidate(
@@ -928,12 +1148,36 @@ class AcceptedNormalMemory:
                 diff_template=case.diff_template,
                 appearance_template=case.appearance_template,
                 source_crop=case.source_crop if case.source_crop is not None else np.empty((0, 0, 3), dtype=np.uint8),
+                source_frame=case.source_frame if case.source_frame is not None else np.empty((0, 0, 3), dtype=np.uint8),
             )
         temp_json.replace(json_path)
         temp_npz.replace(npz_path)
 
+    def _read_storage_generation(self) -> Optional[str]:
+        try:
+            return (self.storage_dir / ".generation").read_text(encoding="ascii").strip()
+        except OSError:
+            return None
+
+    def _publish_storage_generation(self) -> None:
+        self.storage_dir.mkdir(parents=True, exist_ok=True)
+        generation = uuid.uuid4().hex
+        marker = self.storage_dir / ".generation"
+        temporary_marker = self.storage_dir / f".generation.{generation}.tmp"
+        temporary_marker.write_text(generation, encoding="ascii")
+        temporary_marker.replace(marker)
+        self._storage_generation = generation
+
+    def _refresh_from_disk_if_changed(self) -> None:
+        current_generation = self._read_storage_generation()
+        if current_generation == self._storage_generation:
+            return
+        self._load()
+
     def _load(self) -> None:
+        self._cases.clear()
         if not self.storage_dir.exists():
+            self._storage_generation = None
             return
         for json_path in self.storage_dir.glob("*.json"):
             try:
@@ -942,16 +1186,60 @@ class AcceptedNormalMemory:
                 arrays_path = self.storage_dir / f"{case_id}.npz"
                 with np.load(arrays_path, allow_pickle=False) as arrays:
                     bbox = payload.get("bbox_norm", {})
+                    polygon_payload = payload.get("polygon_norm", [])
+                    bbox_norm = (
+                        float(bbox.get("x", 0.0)),
+                        float(bbox.get("y", 0.0)),
+                        float(bbox.get("width", 0.0)),
+                        float(bbox.get("height", 0.0)),
+                    )
+                    source_frame = (
+                        arrays["source_frame"].copy()
+                        if "source_frame" in arrays.files and arrays["source_frame"].size > 0
+                        else None
+                    )
+                    coordinate_space = payload.get("coordinate_space")
+                    if not isinstance(coordinate_space, dict):
+                        coordinate_space = {}
+                    coordinate_width = int(coordinate_space.get("width", 0))
+                    coordinate_height = int(coordinate_space.get("height", 0))
+                    if source_frame is not None and source_frame.ndim >= 2:
+                        coordinate_width = coordinate_width or int(source_frame.shape[1])
+                        coordinate_height = coordinate_height or int(source_frame.shape[0])
+                    pixel_bbox = _parse_pixel_bbox(payload.get("bbox"))
+                    if pixel_bbox is None and coordinate_width > 0 and coordinate_height > 0:
+                        pixel_bbox = _pixel_bbox_from_normalized(
+                            bbox_norm,
+                            coordinate_width,
+                            coordinate_height,
+                        )
+                    pixel_polygon = _parse_pixel_polygon(payload.get("polygon"))
+                    if not pixel_polygon and coordinate_width > 0 and coordinate_height > 0:
+                        normalized_polygon = [
+                            (float(point.get("x", 0.0)), float(point.get("y", 0.0)))
+                            for point in polygon_payload
+                            if isinstance(point, dict)
+                        ]
+                        pixel_polygon = _pixel_polygon_from_normalized(
+                            normalized_polygon,
+                            coordinate_width,
+                            coordinate_height,
+                        )
                     case = AcceptedNormalCase(
                         id=case_id,
                         product_type=str(payload["product_type"]),
                         reference_hash=str(payload.get("reference_hash", "")),
-                        bbox_norm=(
-                            float(bbox.get("x", 0.0)),
-                            float(bbox.get("y", 0.0)),
-                            float(bbox.get("width", 0.0)),
-                            float(bbox.get("height", 0.0)),
-                        ),
+                        bbox_norm=bbox_norm,
+                        polygon_norm=[
+                            (float(point.get("x", 0.0)), float(point.get("y", 0.0)))
+                            for point in polygon_payload
+                            if isinstance(point, dict)
+                        ] or [
+                            (float(bbox.get("x", 0.0)), float(bbox.get("y", 0.0))),
+                            (float(bbox.get("x", 0.0)) + float(bbox.get("width", 0.0)), float(bbox.get("y", 0.0))),
+                            (float(bbox.get("x", 0.0)) + float(bbox.get("width", 0.0)), float(bbox.get("y", 0.0)) + float(bbox.get("height", 0.0))),
+                            (float(bbox.get("x", 0.0)), float(bbox.get("y", 0.0)) + float(bbox.get("height", 0.0))),
+                        ],
                         area=int(payload.get("area", 0)),
                         diff_mean=float(payload.get("diff_mean", 0.0)),
                         diff_q90=float(payload.get("diff_q90", 0.0)),
@@ -970,10 +1258,16 @@ class AcceptedNormalMemory:
                             if "source_crop" in arrays.files and arrays["source_crop"].size > 0
                             else None
                         ),
+                        source_frame=source_frame,
+                        bbox=pixel_bbox,
+                        polygon=pixel_polygon,
+                        coordinate_width=coordinate_width,
+                        coordinate_height=coordinate_height,
                     )
                 self._cases[case.id] = case
             except Exception:
                 logger.exception("failed to load accepted-normal case metadata=%s", json_path)
+        self._storage_generation = self._read_storage_generation()
 
 
 def extract_defect_candidates(
@@ -1275,6 +1569,78 @@ def _mask_overlap_metrics(first_mask: np.ndarray, second_mask: np.ndarray) -> tu
     return tolerant_similarity, dice_similarity
 
 
+def _spatial_mask_geometry(
+    mask: np.ndarray,
+    bbox_norm: tuple[float, float, float, float],
+    coordinate_scale: tuple[float, float] = (1.0, 1.0),
+) -> Optional[tuple[np.ndarray, np.ndarray, float, float]]:
+    """Return centroid, major/minor axes and elongation in full-frame coordinates."""
+    binary = np.asarray(mask) > 0
+    y_points, x_points = np.where(binary)
+    if x_points.size < 3:
+        return None
+
+    x, y, width, height = bbox_norm
+    scale_x, scale_y = coordinate_scale
+    x *= scale_x
+    width *= scale_x
+    y *= scale_y
+    height *= scale_y
+    mask_height, mask_width = binary.shape[:2]
+    points = np.column_stack(
+        (
+            x + ((x_points.astype(np.float64) + 0.5) / max(1, mask_width)) * width,
+            y + ((y_points.astype(np.float64) + 0.5) / max(1, mask_height)) * height,
+        )
+    )
+    centroid = np.mean(points, axis=0)
+    centered = points - centroid
+    covariance = centered.T @ centered / max(1, points.shape[0] - 1)
+    eigenvalues, eigenvectors = np.linalg.eigh(covariance)
+    major_index = int(np.argmax(eigenvalues))
+    major_value = max(1e-12, float(eigenvalues[major_index]))
+    minor_value = max(1e-12, float(eigenvalues[1 - major_index]))
+    major_axis = eigenvectors[:, major_index]
+    minor_axis = eigenvectors[:, 1 - major_index]
+    return centroid, major_axis, minor_axis, math.sqrt(major_value / minor_value)
+
+
+def _point_to_segment_distance(point: np.ndarray, start: np.ndarray, end: np.ndarray) -> float:
+    segment = end - start
+    length_squared = float(np.dot(segment, segment))
+    if length_squared <= 1e-18:
+        return float(np.linalg.norm(point - start))
+    projection = float(np.clip(np.dot(point - start, segment) / length_squared, 0.0, 1.0))
+    return float(np.linalg.norm(point - (start + projection * segment)))
+
+
+def _polygon_gap(
+    first: list[tuple[float, float]],
+    second: list[tuple[float, float]],
+) -> Optional[float]:
+    """Minimum distance between two full-frame polygons; zero when they overlap."""
+    if len(first) < 3 or len(second) < 3:
+        return None
+    first_points = np.asarray(first, dtype=np.float32)
+    second_points = np.asarray(second, dtype=np.float32)
+    try:
+        intersection_area, _ = cv2.intersectConvexConvex(first_points, second_points)
+        if intersection_area > 1e-12:
+            return 0.0
+    except cv2.error:
+        pass
+
+    minimum = math.inf
+    for points, other in ((first_points, second_points), (second_points, first_points)):
+        for point in points:
+            for index in range(len(other)):
+                minimum = min(
+                    minimum,
+                    _point_to_segment_distance(point, other[index], other[(index + 1) % len(other)]),
+                )
+    return float(minimum) if math.isfinite(minimum) else None
+
+
 def _diff_core_mask(diff_template: np.ndarray, mask: np.ndarray) -> np.ndarray:
     """Выделить устойчивое ядро отличия, менее зависимое от морфологии общей маски."""
     binary_mask = np.asarray(mask, dtype=bool)
@@ -1297,16 +1663,99 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     cx, cy, cw, ch = candidate.bbox_norm
     sx, sy, sw, sh = case.bbox_norm
 
-    candidate_center = (cx + cw * 0.5, cy + ch * 0.5)
-    sample_center = (sx + sw * 0.5, sy + sh * 0.5)
+    case_mask_template, case_diff_template, case_appearance_template = _case_templates(case)
+    bbox_x, bbox_y, bbox_width, bbox_height = candidate.bbox
+    frame_width = (
+        bbox_width / cw
+        if cw > 1e-9 and bbox_width > 0
+        else float(case.coordinate_width or 1)
+    )
+    frame_height = (
+        bbox_height / ch
+        if ch > 1e-9 and bbox_height > 0
+        else float(case.coordinate_height or 1)
+    )
+    coordinate_scale = (frame_width, frame_height)
+    candidate_spatial = _spatial_mask_geometry(
+        candidate.mask_template, candidate.bbox_norm, coordinate_scale,
+    )
+    sample_spatial = _spatial_mask_geometry(
+        case_mask_template, case.bbox_norm, coordinate_scale,
+    )
+    candidate_center = np.array(
+        ((cx + cw * 0.5) * frame_width, (cy + ch * 0.5) * frame_height),
+        dtype=np.float64,
+    )
+    sample_center = np.array(
+        ((sx + sw * 0.5) * frame_width, (sy + sh * 0.5) * frame_height),
+        dtype=np.float64,
+    )
+    if candidate_spatial is not None:
+        candidate_center = candidate_spatial[0]
+    if sample_spatial is not None:
+        sample_center = sample_spatial[0]
     position_distance = math.hypot(
         candidate_center[0] - sample_center[0],
         candidate_center[1] - sample_center[1],
     )
+    # Small saved normals must not inherit a frame-wide allowance. Permit a
+    # minimum amount of segmentation/alignment jitter, then scale the allowance
+    # with the saved geometry up to the global safety cap.
+    sample_width_px = sw * frame_width
+    sample_height_px = sh * frame_height
+    sample_diagonal = math.hypot(sample_width_px, sample_height_px)
+    position_tolerance = min(
+        POSITION_TOLERANCE_PX,
+        max(POSITION_JITTER_FLOOR_PX, sample_diagonal * 0.12),
+    )
     # Проверка выполняется до дорогого сравнения шаблонов. Координаты нормированы,
     # поэтому допуск одинаков по смыслу при полном кадре и inspect_scale=0.5.
-    if position_distance > POSITION_TOLERANCE_NORM:
+    if position_distance > position_tolerance:
         return None
+
+    # A long scratch may have a large bbox diagonal while being only a few
+    # pixels wide.  Its learned exception may follow small alignment jitter
+    # along the trace, but must not move freely across the trace.
+    if sample_spatial is not None and sample_spatial[3] >= 3.0:
+        displacement = candidate_center - sample_center
+        transverse_distance = abs(float(np.dot(displacement, sample_spatial[2])))
+        minor_extent = min(sample_width_px, sample_height_px)
+        transverse_tolerance = min(
+            position_tolerance,
+            max(POLYGON_GAP_FLOOR_PX, min(5.0, minor_extent * 0.35)),
+        )
+        if transverse_distance > transverse_tolerance:
+            return None
+
+    candidate_polygon_px = [
+        (x * frame_width, y * frame_height) for x, y in candidate.polygon_norm
+    ]
+    sample_polygon_px = [
+        (x * frame_width, y * frame_height) for x, y in case.polygon_norm
+    ]
+    geometry_gap = _polygon_gap(candidate_polygon_px, sample_polygon_px)
+    if geometry_gap is None:
+        horizontal_gap = max(sx - (cx + cw), cx - (sx + sw), 0.0) * frame_width
+        vertical_gap = max(sy - (cy + ch), cy - (sy + sh), 0.0) * frame_height
+        geometry_gap = math.hypot(horizontal_gap, vertical_gap)
+    polygon_gap_tolerance = max(
+        POLYGON_GAP_FLOOR_PX,
+        min(6.0, min(sample_width_px, sample_height_px) * 0.35),
+    )
+    if geometry_gap > polygon_gap_tolerance:
+        return None
+
+    inner_tolerance = position_tolerance * 0.40
+    if position_distance <= inner_tolerance:
+        position_quality = 1.0
+    else:
+        transition = (position_distance - inner_tolerance) / max(
+            1e-9,
+            position_tolerance - inner_tolerance,
+        )
+        # Distance is primarily a safety gate; this small continuous penalty
+        # makes an exact-location case win over an edge-of-tolerance case.
+        position_quality = 1.0 - min(1.0, transition) * 0.25
 
     candidate_area_norm = max(1e-9, cw * ch)
     sample_area_norm = max(1e-9, sw * sh)
@@ -1327,7 +1776,6 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     if candidate.diff_max > maximum_diff_max:
         return None
 
-    case_mask_template, case_diff_template, case_appearance_template = _case_templates(case)
     candidate_mask = candidate.mask_template > 0
     candidate_diff_template = candidate.diff_template
     candidate_appearance_template = candidate.appearance_template
@@ -1476,7 +1924,7 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
             + fill_similarity * 0.10
             + diff_similarity * 0.25
             + appearance_similarity * 0.10
-        )
+        ) * position_quality
         return float(partial_similarity) if partial_similarity >= 0.66 else None
 
     stable_thin_trace_candidate = (
@@ -1557,7 +2005,7 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         + diff_similarity * 0.18
         + appearance_similarity * 0.07
         + scale_similarity * 0.05
-    )
+    ) * position_quality
     if stable_thin_trace_candidate:
         minimum_similarity = THIN_TRACE_MIN_SIMILARITY
     elif stable_scaled_shape_candidate:

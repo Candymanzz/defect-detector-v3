@@ -19,7 +19,9 @@ import {
   FALLBACK_CAMERA_IDS,
   hasDisplayableInspectImage,
   hasImmutableInspectArtifact,
+  isPreviewFrameNewerOrEqual,
   isInspectionCounterReset,
+  inspectionHistoryLimit,
   latestSnapshotToInspectResult,
   loadArchivedInspectionHistory,
   loadMainOverviewData,
@@ -81,6 +83,8 @@ export function useMainOverview(inspectionResetVersion = 0) {
   const inspectionAcceptedFromFrameIdByCameraIdRef = useRef<Record<number, string>>({});
   const pendingPreviewUrlsByCameraIdRef = useRef<CameraImageUrlsById>({});
   const previewUpdateFrameRef = useRef<number | null>(null);
+  const pendingTestJobIdRef = useRef<string | null | undefined>(undefined);
+  const earlyTestResultsByJobIdRef = useRef(new Map<string, InspectResultPayload>());
 
   const resetCameraInspectionOrdering = useCallback((cameraId: number) => {
     delete latestInspectResultByCameraIdRef.current[cameraId];
@@ -193,7 +197,70 @@ export function useMainOverview(inspectionResetVersion = 0) {
     setModalSnapshot((currentSnapshot) => selectModalInspectionSnapshot(currentSnapshot, frameId));
   }, []);
 
-  const closeInspectionModal = useCallback(() => setModalSnapshot(null), []);
+  const freezeModalTestFrame = useCallback(
+    (frameId: string, cameraImageUrl: string, pinHttpPath: string, pinId: string, jpegSha256: string) => {
+      setModalSnapshot((current) => {
+        if (!current?.inspectResult) {
+          return current;
+        }
+        if (
+          current.pinnedTestImageUrl &&
+          current.pinnedTestImageUrl.startsWith("blob:") &&
+          current.pinnedTestImageUrl !== cameraImageUrl
+        ) {
+          URL.revokeObjectURL(current.pinnedTestImageUrl);
+        }
+        return {
+          ...current,
+          cameraImageUrl,
+          pinnedTestImageUrl: cameraImageUrl,
+          pinnedTestHttpPath: pinHttpPath,
+          pinnedTestFrameId: frameId,
+          pinnedTestPinId: pinId,
+          pinnedTestJpegSha256: jpegSha256,
+          inspectResult: {
+            ...current.inspectResult,
+            frame_id: frameId,
+            test_analyze: true,
+            http_path: pinHttpPath,
+            current: {
+              ...current.inspectResult.current,
+              frame_id: frameId,
+              http_path: pinHttpPath,
+            },
+          },
+        };
+      });
+    },
+    [],
+  );
+
+  const setPendingTestJob = useCallback((jobId: string | null | undefined) => {
+    pendingTestJobIdRef.current = jobId;
+    setModalSnapshot((current) => (current ? { ...current, pendingTestJobId: jobId ?? undefined } : current));
+    if (jobId === null) {
+      earlyTestResultsByJobIdRef.current.clear();
+      return;
+    }
+    if (jobId === undefined) {
+      earlyTestResultsByJobIdRef.current.clear();
+      return;
+    }
+    const earlyResult = earlyTestResultsByJobIdRef.current.get(jobId);
+    earlyTestResultsByJobIdRef.current.clear();
+    if (earlyResult) {
+      addModalInspectionItem(setModalSnapshot, earlyResult, jobId, earlyTestResultsByJobIdRef.current);
+    }
+  }, []);
+
+  const closeInspectionModal = useCallback(() => {
+    setModalSnapshot((current) => {
+      if (current?.pinnedTestImageUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(current.pinnedTestImageUrl);
+      }
+      return null;
+    });
+  }, []);
 
   const loadArchivedHistory = useCallback(
     async (targetCameraIds: number[] = cameraIds) => {
@@ -362,9 +429,7 @@ export function useMainOverview(inspectionResetVersion = 0) {
       if (message.type === "server.hello" || message.type === "server.state") {
         const nextHasReference = message.payload.session_state !== "NO_REFERENCE";
         setHasReference(nextHasReference);
-        const hasDisabledInspection = Object.values(inspectionEnabledByCameraIdRef.current).some(
-          (enabled) => !enabled,
-        );
+        const hasDisabledInspection = Object.values(inspectionEnabledByCameraIdRef.current).some((enabled) => !enabled);
         setPreviewImagesEnabled(!nextHasReference || hasDisabledInspection);
         return;
       }
@@ -435,6 +500,33 @@ export function useMainOverview(inspectionResetVersion = 0) {
 
       const inspectResult = message.payload;
       const cameraId = inspectResult.camera_id;
+      const isTestAnalyze = Boolean(inspectResult.test_analyze);
+
+      // TEST re-runs must bypass capture-only / production acceptance gates.
+      if (isTestAnalyze) {
+        setHasReference(true);
+        addInspectionHistoryItem(setInspectionHistoryByCameraId, inspectResult);
+        addInspectionStatsItem(setInspectionStatsByCameraId, inspectResult);
+        addModalInspectionItem(
+          setModalSnapshot,
+          inspectResult,
+          pendingTestJobIdRef.current,
+          earlyTestResultsByJobIdRef.current,
+        );
+        latestInspectResultByCameraIdRef.current[cameraId] = inspectResult;
+        setInspectResultsByCameraId((previousResults) => ({
+          ...previousResults,
+          [cameraId]: inspectResult,
+        }));
+        if (hasImmutableInspectArtifact(inspectResult) || inspectResult.artifact_bundle_id) {
+          latestArtifactResultByCameraIdRef.current[cameraId] = inspectResult;
+          setInspectArtifactResultsByCameraId((previousResults) => ({
+            ...previousResults,
+            [cameraId]: inspectResult,
+          }));
+        }
+        return;
+      }
 
       // Preview-only captures remain visible while inspection is globally stopped.
       if (isCaptureOnlyInspectResult(inspectResult)) {
@@ -491,7 +583,12 @@ export function useMainOverview(inspectionResetVersion = 0) {
       setHasReference(true);
       addInspectionHistoryItem(setInspectionHistoryByCameraId, inspectResult);
       addInspectionStatsItem(setInspectionStatsByCameraId, inspectResult);
-      addModalInspectionItem(setModalSnapshot, inspectResult);
+      addModalInspectionItem(
+        setModalSnapshot,
+        inspectResult,
+        pendingTestJobIdRef.current,
+        earlyTestResultsByJobIdRef.current,
+      );
 
       const previousLiveResult = latestInspectResultByCameraIdRef.current[cameraId];
       if (
@@ -572,6 +669,8 @@ export function useMainOverview(inspectionResetVersion = 0) {
     openInspectionModal,
     selectModalInspection,
     closeInspectionModal,
+    freezeModalTestFrame,
+    setPendingTestJob,
   };
 }
 
@@ -616,12 +715,12 @@ function applyPreviewFrames(
   const nextFrameIds: Record<number, string> = {};
   for (const previewFrame of frames) {
     const cameraId = previewFrame.camera_id;
-    const previousTimestamp = latestPreviewTimestampByCameraIdRef.current[cameraId] ?? 0;
-    if (previewFrame.server_ts_ms < previousTimestamp) {
+    const previousFrameId = latestPreviewFrameIdByCameraIdRef.current[cameraId];
+    const previousTimestamp = latestPreviewTimestampByCameraIdRef.current[cameraId];
+    if (!isPreviewFrameNewerOrEqual(previewFrame, previousFrameId, previousTimestamp)) {
       continue;
     }
 
-    const previousFrameId = latestPreviewFrameIdByCameraIdRef.current[cameraId];
     if (previousFrameId && compareFrameIds(previewFrame.frame_id, previousFrameId) < 0) {
       resetCameraInspectionOrdering(cameraId);
     }
@@ -891,10 +990,25 @@ function addInspectionHistoryItem(
 function addModalInspectionItem(
   setModalSnapshot: Dispatch<SetStateAction<ModalInspectionSnapshot | null>>,
   inspectResult: InspectResultPayload,
+  pendingTestJobId: string | null | undefined,
+  earlyTestResultsByJobId: Map<string, InspectResultPayload>,
 ) {
   const result = resolveInspectionResultState(inspectResult);
   if (!result) {
     return;
+  }
+
+  if (inspectResult.test_analyze) {
+    const resultJobId = inspectResult.test_analyze_job_id;
+    if (pendingTestJobId === null) {
+      if (resultJobId) {
+        earlyTestResultsByJobId.set(resultJobId, inspectResult);
+      }
+      return;
+    }
+    if (pendingTestJobId && resultJobId !== pendingTestJobId) {
+      return;
+    }
   }
 
   setModalSnapshot((currentSnapshot) => {
@@ -902,16 +1016,35 @@ function addModalInspectionItem(
       return currentSnapshot;
     }
 
+    // While TEST settings are open on a pinned frame, ignore live production results so the
+    // modal does not jump to newer DI3 frames / live current.jpg.
+    if (!inspectResult.test_analyze && currentSnapshot.inspectResult?.test_analyze) {
+      return currentSnapshot;
+    }
+
+    const historyResult = result ?? "fail";
     const nextItems = upsertModalInspectionItem(currentSnapshot.inspectionItems, {
       frameId: inspectResult.frame_id,
       inspectionId: resolveInspectionId(inspectResult),
-      result,
+      result: historyResult,
       inspectResult,
     });
     const nextSnapshot = {
       ...currentSnapshot,
       inspectionItems: nextItems,
     };
+
+    // Test-analyze: always refresh the open modal with the newest geometry/python result.
+    if (inspectResult.test_analyze) {
+      if (
+        currentSnapshot.pinnedTestPinId &&
+        (inspectResult.test_pin_id !== currentSnapshot.pinnedTestPinId ||
+          inspectResult.pin_jpeg_sha256 !== currentSnapshot.pinnedTestJpegSha256)
+      ) {
+        return currentSnapshot;
+      }
+      return updateModalSnapshotResult(nextSnapshot, inspectResult);
+    }
 
     if (
       currentSnapshot.inspectResult?.frame_id === inspectResult.frame_id &&
@@ -1117,7 +1250,10 @@ function mergeInspectionStats(
         if (item.result === "capture") {
           return items;
         }
-        return [item, ...items.filter((existingItem) => existingItem.frameId !== item.frameId)];
+        return trimInspectionStatsItems([
+          item,
+          ...items.filter((existingItem) => existingItem.frameId !== item.frameId),
+        ]);
       }, currentItems);
     }
     return merged;
@@ -1143,9 +1279,16 @@ function addInspectionStatsItem(
     };
     return {
       ...current,
-      [inspectResult.camera_id]: [nextItem, ...cameraStats.filter((item) => item.frameId !== nextItem.frameId)],
+      [inspectResult.camera_id]: trimInspectionStatsItems([
+        nextItem,
+        ...cameraStats.filter((item) => item.frameId !== nextItem.frameId),
+      ]),
     };
   });
+}
+
+export function trimInspectionStatsItems(items: InspectionHistoryItem[]) {
+  return items.slice(0, inspectionHistoryLimit);
 }
 
 function createInspectionStatsCounts(historyByCameraId: Record<number, InspectionHistoryItem[]>) {

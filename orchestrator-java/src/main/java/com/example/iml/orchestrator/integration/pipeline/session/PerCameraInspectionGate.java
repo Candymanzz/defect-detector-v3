@@ -5,6 +5,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +41,9 @@ public final class PerCameraInspectionGate {
     private final ConcurrentHashMap<Integer, AtomicLong> resumeAfterTriggerSequence = new ConcurrentHashMap<>();
     /** When true, phase N+1 may start while phase N is still in-flight (DI2 window / dual Line0). */
     private volatile boolean awaitPriorPhase = true;
+    private final AtomicBoolean systemBlocked = new AtomicBoolean(false);
+    /** TEST mode: soft-stop must not run/publish DI3 preview-only inspect_result (swaps UI frame). */
+    private final AtomicBoolean suppressSoftStopPreview = new AtomicBoolean(false);
 
     private PerCameraInspectionGate(
             Map<Integer, AtomicBoolean> enabled,
@@ -97,8 +101,59 @@ public final class PerCameraInspectionGate {
         return awaitPriorPhase;
     }
 
+    /** Блокировка новых циклов при vision_fault (analis_surface / geometry / workers и т.п.). */
+    public void setSystemBlocked(boolean blocked) {
+        systemBlocked.set(blocked);
+    }
+
+    public boolean isSystemBlocked() {
+        return systemBlocked.get();
+    }
+
     public Set<Integer> cameraIds() {
         return Set.copyOf(inspectionEnabled.keySet());
+    }
+
+    /** Снимок флагов Start/Stop до vision_fault — для автоматического re-arm после recovery. */
+    public Map<Integer, Boolean> snapshotInspectionEnabled() {
+        Map<Integer, Boolean> out = new LinkedHashMap<>();
+        for (Map.Entry<Integer, AtomicBoolean> entry : inspectionEnabled.entrySet()) {
+            AtomicBoolean flag = entry.getValue();
+            out.put(entry.getKey(), flag != null && flag.get());
+        }
+        return Map.copyOf(out);
+    }
+
+    public void restoreInspectionEnabled(Map<Integer, Boolean> snapshot) {
+        if (snapshot == null || snapshot.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<Integer, Boolean> entry : snapshot.entrySet()) {
+            if (entry.getKey() != null && entry.getValue() != null) {
+                setInspectionEnabled(entry.getKey(), entry.getValue());
+            }
+        }
+    }
+
+    /** Снимок флагов Start/Stop до vision_fault — для автоматического re-arm после recovery. */
+    public Map<Integer, Boolean> snapshotInspectionEnabled() {
+        Map<Integer, Boolean> out = new LinkedHashMap<>();
+        for (Map.Entry<Integer, AtomicBoolean> entry : inspectionEnabled.entrySet()) {
+            AtomicBoolean flag = entry.getValue();
+            out.put(entry.getKey(), flag != null && flag.get());
+        }
+        return Map.copyOf(out);
+    }
+
+    public void restoreInspectionEnabled(Map<Integer, Boolean> snapshot) {
+        if (snapshot == null || snapshot.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<Integer, Boolean> entry : snapshot.entrySet()) {
+            if (entry.getKey() != null && entry.getValue() != null) {
+                setInspectionEnabled(entry.getKey(), entry.getValue());
+            }
+        }
     }
 
     public boolean isInspectionEnabled(int cameraId) {
@@ -221,6 +276,18 @@ public final class PerCameraInspectionGate {
         return Set.copyOf(cancelled);
     }
 
+    /**
+     * When true, DI3 soft-stop preview-only cycles are skipped (no capture, no inspect_result).
+     * Used in UI TEST mode so live current frames cannot replace the pinned test frame.
+     */
+    public void setSuppressSoftStopPreview(boolean suppress) {
+        suppressSoftStopPreview.set(suppress);
+    }
+
+    public boolean suppressSoftStopPreview() {
+        return suppressSoftStopPreview.get();
+    }
+
     public BeginResult tryBeginInspection(int cameraId) {
         return tryBeginInspection(cameraId, 0L);
     }
@@ -241,6 +308,9 @@ public final class PerCameraInspectionGate {
             return BeginResult.DISABLED;
         }
         synchronized (flight) {
+            if (systemBlocked.get()) {
+                return BeginResult.DISABLED;
+            }
             if (!isInspectionEnabled(cameraId)) {
                 return BeginResult.DISABLED;
             }

@@ -129,7 +129,7 @@ Write-Host "`nОстановка: Ctrl+C в этом окне или .\stop-dev.
 
 Write-Step "Запуск оркестратора (логи ниже, Ctrl+C = стоп всего стека)"
 try {
-    & java -jar $OrchestratorJar $ConfigPath
+    & java -Xms256m -Xmx1024m -XX:+ExitOnOutOfMemoryError -jar $OrchestratorJar $ConfigPath
 } finally {
     Write-Step "Остановка стека"
     & (Join-Path $RepoRoot "stop-dev.ps1") -Quiet

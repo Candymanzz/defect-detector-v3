@@ -36,6 +36,10 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Локальный HTTP для превью current/heatmap и (при наличии {@link GeometrySnapshotCache}) geometry.
@@ -64,11 +68,14 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
 
     public record InspectionPreviewArtifacts(
             ClientPreviewArtifact frame,
-            ClientPreviewArtifact card
+            ClientPreviewArtifact card,
+            /** Native SHM resolution (no downscale) for frame-archive / test-analyze pin. */
+            ClientPreviewArtifact archive
     ) {
     }
 
     private final HttpServer httpServer;
+    private final ExecutorService httpExecutor;
     private final HttpApplicationContext httpContext;
     private final Map<Integer, Latest> latestByCamera = new ConcurrentHashMap<>();
     private final HeatmapArtifactRegistry heatmapArtifacts = new HeatmapArtifactRegistry();
@@ -149,7 +156,18 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
         HttpFrontController frontController = new HttpFrontController(httpContext);
         OrchestratorApiDocumentationHandlers.register(httpServer);
         httpServer.createContext("/", exchange -> frontController.dispatch(exchange));
-        httpServer.setExecutor(null);
+        // Cached pool so long-lived MJPEG streams do not starve /health and other short requests.
+        this.httpExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
+            private final AtomicInteger n = new AtomicInteger();
+
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread t = new Thread(r, "ui-http-" + n.incrementAndGet());
+                t.setDaemon(true);
+                return t;
+            }
+        });
+        httpServer.setExecutor(httpExecutor);
         httpServer.start();
     }
 
@@ -209,6 +227,14 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
         return inspectionArtifacts.read(bundleId, artifactName);
     }
 
+    public record InspectionArtifactIdentity(int cameraId, long frameId) {}
+
+    public InspectionArtifactIdentity inspectionArtifactIdentity(String bundleId) throws IOException {
+        InspectionArtifactRegistry.Bundle bundle = inspectionArtifacts.resolve(bundleId)
+                .orElseThrow(() -> new IOException("inspection artifact bundle is missing"));
+        return new InspectionArtifactIdentity(bundle.cameraId(), bundle.frameId());
+    }
+
     @Override
     public void update(
             int cameraId,
@@ -234,7 +260,7 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
         if (decision != null) {
             overallPass = decision.overallPass();
             action = decision.action();
-            anomalyScore = decision.anomalyScore();
+            anomalyScore = decision.hasAnomalyScore() ? decision.anomalyScore() : null;
             pythonStatus = decision.pythonStatus();
             geometryStatus = decision.geometryStatus();
         }
@@ -278,6 +304,9 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
     @Override
     public void close() {
         httpServer.stop(0);
+        if (httpExecutor != null) {
+            httpExecutor.shutdownNow();
+        }
     }
 
     private static Path resolveImlShmPath(String fileNameInShmDir) {
@@ -335,19 +364,23 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
             int frameMaxWidth,
             float frameQuality,
             int cardMaxWidth,
-            float cardQuality
+            float cardQuality,
+            float archiveQuality
     ) {
         final BufferedImage source;
         try {
             source = readBgrImageFromShm(shmName, width, height, stride, shmOffset, -1);
         } catch (Exception e) {
             ClientPreviewArtifact failed = previewJpegFailed(e.getMessage());
-            return new InspectionPreviewArtifacts(failed, failed);
+            return new InspectionPreviewArtifacts(failed, failed, failed);
         }
 
+        // frameMaxWidth/cardMaxWidth downscale for live UI; archive maxWidth=0 keeps SHM size
+        // so test-analyze pin matches reference geometry.
         return new InspectionPreviewArtifacts(
                 writePreviewJpeg(source, frameMaxWidth, frameQuality, -1),
-                writePreviewJpeg(source, cardMaxWidth, cardQuality, -1)
+                writePreviewJpeg(source, cardMaxWidth, cardQuality, -1),
+                writePreviewJpeg(source, 0, archiveQuality, -1)
         );
     }
 

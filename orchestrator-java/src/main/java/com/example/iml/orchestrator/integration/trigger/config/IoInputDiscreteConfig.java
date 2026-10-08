@@ -37,7 +37,12 @@ public record IoInputDiscreteConfig(
          * Временно: DI2↑ → сразу wait_frame; софтовый DI3/DI5 не стартует цикл.
          * Экспозиция по-прежнему с железа (Line0); Java только ждёт кадры в окне DI2=1.
          */
-        boolean armOnDirection
+        boolean armOnDirection,
+        /**
+         * {@code true} — физическое направление DI2 должно совпадать с выбранным в UI «Прямой/Обратный»
+         * (станки на 2 изделия, {@code core-dev}); {@code false} — UI не фильтрует, считается только DI2.
+         */
+        boolean directionMustMatchSelected
 ) {
 
     public List<Integer> resolveTriggerPorts() {
@@ -72,7 +77,8 @@ public record IoInputDiscreteConfig(
         return new IoInputDiscreteConfig(
                 1, 2, 3, List.of(3), 4, 0, "json", false, TriggerEdgeMode.RISING,
                 true, false, false, false, false, false, true,
-                5000, 1, 0, true, false, false
+                5000, 1, 0, true, false, false,
+                true
         );
     }
 
@@ -131,6 +137,10 @@ public record IoInputDiscreteConfig(
                 defaults.repeatDi3Capture()
         );
         boolean armOnDirection = YamlScalars.toBool(io.get("arm_on_direction"), defaults.armOnDirection());
+        boolean directionMustMatchSelected = YamlScalars.toBool(
+                io.get("direction_must_match_selected"),
+                defaults.directionMustMatchSelected()
+        );
         return new IoInputDiscreteConfig(
                 workPort,
                 directionPort,
@@ -153,7 +163,8 @@ public record IoInputDiscreteConfig(
                 captureDelayMs,
                 externalHardwareCapture,
                 repeatDi3Capture,
-                armOnDirection
+                armOnDirection,
+                directionMustMatchSelected
         );
     }
 
@@ -200,7 +211,8 @@ public record IoInputDiscreteConfig(
                 defaults.captureDelayMs(),
                 defaults.externalHardwareCapture(),
                 defaults.repeatDi3Capture(),
-                defaults.armOnDirection()
+                defaults.armOnDirection(),
+                defaults.directionMustMatchSelected()
         );
     }
 

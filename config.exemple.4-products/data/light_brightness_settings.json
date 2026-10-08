@@ -1,0 +1,17 @@
+{
+  "version" : 1,
+  "default_brightness_percent" : 80,
+  "constant_flash_mode" : true,
+  "endpoints" : {
+    "camera-8" : 80,
+    "camera-9" : 80,
+    "camera-0" : 80,
+    "camera-1" : 80,
+    "camera-2" : 80,
+    "camera-3" : 80,
+    "camera-4" : 80,
+    "camera-5" : 80,
+    "camera-6" : 80,
+    "camera-7" : 80
+  }
+}

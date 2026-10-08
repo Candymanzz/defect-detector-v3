@@ -1,23 +1,66 @@
 package com.example.iml.orchestrator.integration.health;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Агрегат здоровья критичных сервисов: unhealthy → PLC vision_fault + gated vision_ready.
+ * Агрегат здоровья критичных сервисов.
+ * {@link #healthyForVision()} — для ПЛК и пайплайна; {@link #IO_INPUT_MONITOR} из него исключён.
  */
 public final class ServiceHealthGate {
 
-    private final Set<String> unhealthy = ConcurrentHashMap.newKeySet();
-    private volatile Runnable onChanged;
+    /** Падение IoInputMonitor не даёт vision_fault и не останавливает инспекцию (только restart в watchdog). */
+    public static final String IO_INPUT_MONITOR = "io_input_monitor";
 
+    private final Set<String> unhealthy = ConcurrentHashMap.newKeySet();
+    private final List<Runnable> onChangedListeners = new CopyOnWriteArrayList<>();
+
+    /** Заменяет всех слушателей одним (тесты / legacy). */
     public void setOnChanged(Runnable onChanged) {
-        this.onChanged = onChanged;
+        onChangedListeners.clear();
+        addOnChanged(onChanged);
+    }
+
+    public void addOnChanged(Runnable onChanged) {
+        if (onChanged != null) {
+            onChangedListeners.add(onChanged);
+        }
+    }
+
+    /** Участвует ли сервис в vision_ready / vision_fault на ПЛК. */
+    public static boolean affectsVisionPlc(String name) {
+        String key = normalize(name);
+        return key != null && !IO_INPUT_MONITOR.equals(key);
     }
 
     public boolean healthy() {
         return unhealthy.isEmpty();
+    }
+
+    /** Здоровье для vision_ready / vision_fault и блокировки пайплайна (без io_input_monitor). */
+    public boolean healthyForVision() {
+        for (String key : unhealthy) {
+            if (!IO_INPUT_MONITOR.equals(key)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public Set<String> visionBlockingReasons() {
+        if (unhealthy.isEmpty()) {
+            return Set.of();
+        }
+        Set<String> out = ConcurrentHashMap.newKeySet();
+        for (String key : unhealthy) {
+            if (!IO_INPUT_MONITOR.equals(key)) {
+                out.add(key);
+            }
+        }
+        return Collections.unmodifiableSet(out);
     }
 
     public Set<String> unhealthyReasons() {
@@ -45,8 +88,7 @@ public final class ServiceHealthGate {
     }
 
     private void fireChanged() {
-        Runnable listener = onChanged;
-        if (listener != null) {
+        for (Runnable listener : onChangedListeners) {
             try {
                 listener.run();
             } catch (Exception ignored) {

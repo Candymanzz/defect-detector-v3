@@ -48,6 +48,13 @@ public final class InspectionCycleResumeService {
         log.info("inspection resume cam={} seq={} injected={}", cameraId, seq, injected);
     }
 
+    /** Soft-stop: пересчитать открытые вёдра без остановленных камер. */
+    public void reevaluateOpenBucketsAfterGateChange() {
+        if (bucketAggregator != null) {
+            bucketAggregator.reevaluateOpenBucketsAfterGateChange();
+        }
+    }
+
     public long currentTriggerSequence() {
         return bus == null ? 0L : bus.currentSequence();
     }

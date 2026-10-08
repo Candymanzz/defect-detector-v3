@@ -250,6 +250,9 @@ public final class PipelineReferenceRegistry {
         if (polygonNorm.size() >= 3) {
             header.put("interest_polygon_norm", polygonNorm);
         }
+        if (slot.hasPerspectiveLineNorm()) {
+            header.put("perspective_line_norm", InterestPolygonNormCodec.fromNormLine(slot.perspectiveLineNorm()));
+        }
         if (bucketJointRoiNorm != null) {
             header.put("joint_roi_norm", bucketJointRoiNorm);
         }

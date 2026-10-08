@@ -2,6 +2,8 @@ type AppEnv = {
   apiBaseUrl: string;
   apiRequestBaseUrl: string;
   wsUrl: string;
+  /** Фаз инспекции: 1 — станок на 2 изделия, 2 — станок на 4 изделия (DECISIONS.md, D-011). */
+  bucketPhaseCount: number;
   mode: string;
   isDev: boolean;
   isProd: boolean;
@@ -18,10 +20,16 @@ export const appEnv: AppEnv = Object.freeze({
   apiBaseUrl: configuredApiBaseUrl,
   apiRequestBaseUrl: resolveApiRequestBaseUrl(configuredApiBaseUrl),
   wsUrl: normalizeUrl(readEnv(import.meta.env.VITE_WS_URL, DEFAULT_WS_URL), ["ws:", "wss:"]),
+  bucketPhaseCount: readPhaseCount(import.meta.env.VITE_BUCKET_PHASE_COUNT),
   mode: import.meta.env.MODE,
   isDev: import.meta.env.DEV,
   isProd: import.meta.env.PROD,
 });
+
+function readPhaseCount(value: string | undefined) {
+  const parsed = Number(value);
+  return parsed === 2 ? 2 : 1;
+}
 
 function readEnv(value: string | undefined, fallback: string) {
   return value && value.trim() ? value : fallback;

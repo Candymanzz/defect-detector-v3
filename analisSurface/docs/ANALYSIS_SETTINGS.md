@@ -16,15 +16,18 @@
 | `DELETE` | `/analysis-settings/{product_type}` | Сброс overrides для продукта |
 | `GET` | `/analysis-settings/{product_type}/simple` | Последние simple-knobs + эффективные settings |
 | `PUT` | `/analysis-settings/{product_type}/simple` | Быстрая настройка: `threshold` + `sensitivity` |
-| `GET` | `/analysis-settings/{product_type}/pro` | Последние pro-knobs + эффективные settings |
-| `PUT` | `/analysis-settings/{product_type}/pro` | Pro-настройка: `threshold` + 5 абстрактных ручек |
+| `GET` | `/analysis-settings/{product_type}/strengths` | **Силы групп** (0–100), лёгкий ответ |
+| `PUT` | `/analysis-settings/{product_type}/strengths` | Сохранить силы групп |
+| `GET` | `/analysis-settings/{product_type}/detailed` | Силы + полные settings (расширенный ответ) |
+| `PUT` | `/analysis-settings/{product_type}/detailed` | Alias для `/strengths` |
 
 После `PUT` / `DELETE` настройки сохраняются в файл:
 
 `backend/app/data/analysis_settings.json`
 
-Документация для инженеров по `/simple` и `/pro`: **[ANALYSIS_SETTINGS_SIMPLE_PRO.md](ANALYSIS_SETTINGS_SIMPLE_PRO.md)**.  
-Подписи и пояснения для UI: **[ANALYSIS_SETTINGS_UI.md](ANALYSIS_SETTINGS_UI.md)**.
+Документация для инженеров: **[ANALYSIS_SETTINGS_SIMPLE_PRO.md](ANALYSIS_SETTINGS_SIMPLE_PRO.md)**.  
+Стыковка с оркестратором и фронтом: **[ANALYSIS_SETTINGS_INTEGRATION.md](ANALYSIS_SETTINGS_INTEGRATION.md)**.  
+Подписи для UI: **[ANALYSIS_SETTINGS_UI.md](ANALYSIS_SETTINGS_UI.md)**.
 
 ---
 
@@ -32,13 +35,41 @@
 
 ```json
 {
-  "product_type": "your-product",
+  "analysis_profile": "your-product",
   "settings": { "...": "эффективные значения (defaults + overrides)" },
   "defaults": { "...": "заводские значения" },
   "overrides": { "...": "только изменённые поля" },
+  "simple_knobs": { "threshold": 0.25, "sensitivity": 0.5 },
+  "strength_knobs": {
+    "noise_tolerance": 50,
+    "scratch_sensitivity": 50,
+    "edge_suppression": 50,
+    "text_handling": 50,
+    "preprocess_strength": 50
+  },
   "detector_id": "..."
 }
 ```
+
+`simple_knobs` и `strength_knobs` — `null`, если для профиля ещё не сохраняли через `/simple` и `/strengths`.
+
+### Формат `/strengths`
+
+```json
+{
+  "analysis_profile": "your-product",
+  "saved": true,
+  "strengths": {
+    "noise_tolerance": 50,
+    "scratch_sensitivity": 80,
+    "edge_suppression": 50,
+    "text_handling": 50,
+    "preprocess_strength": 100
+  }
+}
+```
+
+Если силы не сохраняли: `saved: false`, все поля `50`.
 
 Поле `detector_id` добавляется middleware приложения ко всем JSON-ответам.
 
@@ -135,6 +166,8 @@ curl -s -X PUT "http://127.0.0.1:8000/analysis-settings/your-product" \
 |------|-----|----------|--------------|------------|
 | `enable_clahe` | bool | — | `true` | Локальное выравнивание контраста (CLAHE) для ref/current gray, если std кадра > 5. **false** → меньше усиления текстуры на гладких поверхностях. |
 | `clahe_clip_limit` | float | `> 0` | `1.2` | Лимит контраста CLAHE. **Выше** → сильнее подчёркиваются локальные различия (риск шума). |
+| `far_edge_max_gain` | float | `[1, 4]` | `1.35` | Максимальное усиление diff на дальнем краю (последние 35% линии перспективы; без линии — верх кадра). **Выше** → слабые дефекты вдали заметнее (риск шума). Обычно задаётся ручкой `far_edge_boost`: 0 → 1.2, 50 → 1.35, 100 → 2.2. |
+| `far_edge_edge_suppress_factor` | float | `[0, 1]` | `0.35` | Множитель diff у статических границ на дальнем краю (плавно от `edge_suppress_factor`). `far_edge_boost`: 0 → 0.2, 50 → 0.35, 100 → 0.8. |
 | `edge_suppress_factor` | float | `[0, 1]` | `0.2` | Множитель diff у статических границ эталона (Canny по ref). **Ниже** → сильнее глушится реакция на кромки/рамку. |
 | `text_structure_threshold` | int | `[0, 255]` | `30` | Порог Sobel на эталоне: зона «похожа на текст/структуру». | 
 | `text_min_contrast` | int | `[0, 255]` | `55` | В текстовых зонах оставлять только пиксели diff **не ниже** порога; слабый отклик обнуляется. **Выше** → меньше ложных срабатываний на тексте. |

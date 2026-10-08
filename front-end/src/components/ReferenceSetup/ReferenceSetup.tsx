@@ -1,16 +1,18 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { CSSProperties, MouseEvent } from "react";
+import { createPortal } from "react-dom";
 import "../ModalWrapper/ModalWrapper.css";
 import "./ReferenceSetup.css";
 import { RoiContourEditor } from "../RoiContourEditor";
-import { FpZoneEditor } from "../FpZoneEditor";
+import { orchestratorApi } from "../../shared/api";
 import {
   deleteArchivedReferenceGroup,
+  detachLearnedCaseFromReferences,
   getArchivedReferenceGroups,
   getReferenceImage,
   subscribeReferenceImages,
 } from "../../shared/referenceImages";
-import type { ArchivedReferenceGroup } from "../../shared/referenceImages";
+import type { ArchivedReferenceGroup, StoredLearnedCase } from "../../shared/referenceImages";
 import { Button } from "../../shared/ui/Button";
 import { useReferenceSetupController } from "./ReferenceController";
 
@@ -21,7 +23,6 @@ type ReferenceSetupProps = {
 
 export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps) {
   const {
-    status,
     message,
     cameraSlots,
     cameraGroups,
@@ -33,8 +34,15 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     canSendAllReferences,
     hasAnyStoredReferenceForActiveGroup,
     isNewReferenceMode,
+    replacementCameraIds,
+    isFullReferenceReplacement,
+    isRoiOnlyEditMode,
+    referenceName,
+    setReferenceName,
     referenceSubmission,
     handleCaptureNewReferenceFrames,
+    handleCreateNewReference,
+    handleToggleCameraReplacement,
     handleSendAllReferences,
     handleSelectCamera,
     handleSelectJointRoi,
@@ -43,19 +51,21 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     selectedRoiMode,
     jointRoiPolygon,
     roiPolygonsByCameraId,
+    perspectiveLinesByCameraId,
     setJointRoiPolygon,
     setRoiPolygonForCamera,
+    setPerspectiveLineForCamera,
     fpZonesByCameraId,
-    setFpZonesForCameraId,
   } = useReferenceSetupController(onClose, initialCameraId);
-  const [isFpZoneMode, setIsFpZoneMode] = useState(false);
   const [selectedArchiveId, setSelectedArchiveId] = useState<string | null>(null);
+  const [selectedLearnedCaseId, setSelectedLearnedCaseId] = useState<string | null>(null);
   const selectedSlot = cameraSlots.find((slot) => slot.cameraId === selectedCameraId);
   const editorKey = `${selectedRoiMode}-${selectedCameraId}`;
   const selectedEditorPoints =
     selectedRoiMode === "joint" ? jointRoiPolygon : (roiPolygonsByCameraId[selectedCameraId] ?? []);
   const archivedReferences = useSyncExternalStore(subscribeReferenceImages, getArchivedReferenceGroups, () => []);
   const activeCameraIds = cameraSlots.map((slot) => slot.cameraId);
+  // Эталоны хранятся по ведру (фаза + группа): одни и те же камеры есть в обеих фазах.
   const activeGroupArchivedReferences = archivedReferences.filter(
     (archive) =>
       (archive.bundle.phase_id ?? 0) === (activeReferenceGroup?.phaseId ?? 0) &&
@@ -72,8 +82,11 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   const activeArchive = activeGroupArchivedReferences.find(
     (archive) => createArchiveReferenceKey(archive) === activeReferenceKey,
   );
-  const fpZoneSlot = selectedSlot ?? cameraSlots[0];
-  const selectedFpZones = fpZoneSlot ? (fpZonesByCameraId[fpZoneSlot.cameraId] ?? []) : [];
+  const learnedNormals = useLearnedNormals(
+    selectedSlot && !isFullReferenceReplacement
+      ? (activeArchive ?? selectedArchive)?.learnedCasesByCameraId[selectedSlot.cameraId] ?? []
+      : [],
+  );
   const readyCameraCount = cameraSlots.filter(
     (slot) => Boolean(slot.frame) && (roiPolygonsByCameraId[slot.cameraId]?.length ?? 0) >= 3,
   ).length;
@@ -82,7 +95,9 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   const primaryReferenceLabel = shouldStartNewReference
     ? "Задать новый эталон"
     : isNewReferenceMode
-      ? "Подтвердить новые эталоны →"
+      ? isFullReferenceReplacement
+        ? "Подтвердить новый эталон →"
+        : "Подтвердить изменения →"
       : "Задать и использовать эталон →";
 
   useEffect(() => {
@@ -96,6 +111,30 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
       document.documentElement.style.overflow = previousHtmlOverflow;
     };
   }, []);
+
+  useEffect(() => {
+    if (!selectedLearnedCaseId) return;
+
+    const handleGalleryKeyDown = (event: KeyboardEvent) => {
+      const selectedIndex = learnedNormals.cases.findIndex((item) => item.id === selectedLearnedCaseId);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        setSelectedLearnedCaseId(null);
+      } else if (event.key === "ArrowLeft" && selectedIndex >= 0) {
+        event.preventDefault();
+        const previousIndex = (selectedIndex - 1 + learnedNormals.cases.length) % learnedNormals.cases.length;
+        setSelectedLearnedCaseId(learnedNormals.cases[previousIndex]?.id ?? null);
+      } else if (event.key === "ArrowRight" && selectedIndex >= 0) {
+        event.preventDefault();
+        const nextIndex = (selectedIndex + 1) % learnedNormals.cases.length;
+        setSelectedLearnedCaseId(learnedNormals.cases[nextIndex]?.id ?? null);
+      }
+    };
+
+    window.addEventListener("keydown", handleGalleryKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", handleGalleryKeyDown, { capture: true });
+  }, [learnedNormals.cases, selectedLearnedCaseId]);
 
   return (
     <div
@@ -189,9 +228,9 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                           : "reference-setup__slot"
                       }
                       data-ready={hasFrame && hasRoi}
+                      data-replacement={replacementCameraIds.includes(slot.cameraId)}
                       type="button"
                       onClick={() => {
-                        setIsFpZoneMode(false);
                         handleSelectCamera(slot.cameraId);
                       }}
                     >
@@ -205,7 +244,14 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                         <strong>Камера {slot.cameraId}</strong>
                         <small>{hasFrame ? "Кадр получен" : "Кадр не получен"}</small>
                         <small data-state={hasRoi ? "ready" : "missing"}>{hasRoi ? "ROI задан" : "ROI не задан"}</small>
-                        <small>Исключающих зон: {fpZonesByCameraId[slot.cameraId]?.length ?? 0}</small>
+                        {isNewReferenceMode && hasAnyStoredReferenceForActiveGroup && (
+                          <small data-state={replacementCameraIds.includes(slot.cameraId) ? "replacement" : "current"}>
+                            {replacementCameraIds.includes(slot.cameraId) ? "Будет заменён" : "Останется прежним"}
+                          </small>
+                        )}
+                        <small>
+                          Доп. кадров: {slot.cameraId === selectedSlot?.cameraId ? learnedNormals.cases.length : "—"}
+                        </small>
                       </span>
                       <span
                         className="reference-setup__camera-state"
@@ -218,12 +264,32 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 })}
               </div>
 
-              <Button
-                className="reference-setup__button reference-setup__refresh"
-                onClick={handleCaptureNewReferenceFrames}
-              >
-                {hasAnyStoredReferenceForActiveGroup ? "＋ Добавить новый кадр" : "↻ Обновить кадры"}
-              </Button>
+              {!isRoiOnlyEditMode && (
+                <Button
+                  className="reference-setup__button reference-setup__refresh"
+                  onClick={() => {
+                    if (isNewReferenceMode && hasAnyStoredReferenceForActiveGroup) {
+                      if (isFullReferenceReplacement) {
+                        void handleCreateNewReference();
+                        return;
+                      }
+                      void handleToggleCameraReplacement(selectedCameraId);
+                      return;
+                    }
+                    void handleCaptureNewReferenceFrames();
+                  }}
+                >
+                  {isNewReferenceMode && hasAnyStoredReferenceForActiveGroup
+                    ? isFullReferenceReplacement
+                      ? "Обновить все кадры ещё раз"
+                      : replacementCameraIds.includes(selectedCameraId)
+                        ? `Оставить прежний кадр камеры ${selectedCameraId}`
+                        : `Заменить кадр камеры ${selectedCameraId}`
+                    : hasAnyStoredReferenceForActiveGroup
+                      ? "Редактировать текущий эталон"
+                      : "↻ Обновить кадры"}
+                </Button>
+              )}
               <div className="reference-setup__legend">
                 <span>
                   <i data-state="missing" /> Кадр не получен
@@ -254,7 +320,6 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     }
                     type="button"
                     onClick={() => {
-                      setIsFpZoneMode(false);
                       handleSelectJointRoi(selectedSlot.cameraId);
                     }}
                   >
@@ -264,16 +329,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               </header>
 
               <div className="reference-setup__editor">
-                {isFpZoneMode && fpZoneSlot?.imageUrl ? (
-                  <FpZoneEditor
-                    key={`${fpZoneSlot.cameraId}-${selectedFpZones.length}`}
-                    imageUrl={fpZoneSlot.imageUrl}
-                    roiPoints={roiPolygonsByCameraId[fpZoneSlot.cameraId] ?? []}
-                    zones={selectedFpZones}
-                    disabled={status.state !== "open"}
-                    onChange={(zones) => setFpZonesForCameraId(fpZoneSlot.cameraId, zones)}
-                  />
-                ) : selectedSlot?.imageUrl ? (
+                {selectedSlot?.imageUrl ? (
                   <RoiContourEditor
                     key={editorKey}
                     imageUrl={selectedSlot.imageUrl}
@@ -281,6 +337,8 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     exclusionZones={fpZonesByCameraId[selectedSlot.cameraId] ?? []}
                     shapeMode={selectedRoiMode === "joint" ? "oriented-rect" : "polygon"}
                     allowRadiusMode={selectedRoiMode !== "joint"}
+                    perspectiveLine={perspectiveLinesByCameraId[selectedSlot.cameraId] ?? []}
+                    onPerspectiveLineChange={(points) => setPerspectiveLineForCamera(selectedSlot.cameraId, points)}
                     onChange={(points) => {
                       if (selectedRoiMode === "joint") {
                         setJointRoiPolygon(points);
@@ -303,7 +361,13 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   <strong>{isNewReferenceMode ? "Новый эталон" : "В работе"}</strong>
                   <span>
                     {isNewReferenceMode
-                      ? "Свежие кадры — контуры нужно задать заново"
+                      ? isFullReferenceReplacement
+                        ? "Создаётся полностью новый эталон. Кадры анализа предыдущего эталона не переносятся."
+                        : isRoiOnlyEditMode
+                          ? "Редактирование ROI текущих кадров. После изменений нажмите «Подтвердить изменения»."
+                        : replacementCameraIds.length > 0
+                        ? `Изменяются камеры: ${replacementCameraIds.join(", ")}. Остальные останутся прежними.`
+                        : "Выберите камеры для изменения. Текущие кадры уже отображаются."
                       : activeArchive
                         ? `Архив от ${formatArchiveTime(activeArchive.createdAtMs)}`
                         : "Текущий эталон"}
@@ -322,13 +386,12 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 </header>
                 <button
                   className={
-                    !isFpZoneMode && selectedRoiMode === "interest"
+                    selectedRoiMode === "interest"
                       ? "reference-setup__object-row reference-setup__object-row--active"
                       : "reference-setup__object-row"
                   }
                   type="button"
                   onClick={() => {
-                    setIsFpZoneMode(false);
                     if (selectedSlot) handleSelectCamera(selectedSlot.cameraId);
                   }}
                 >
@@ -338,50 +401,44 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               </section>
               <section className="reference-setup__object-section">
                 <header>
-                  <span>Исключающие зоны</span>
+                  <span>Доп. кадры анализа</span>
                   <i data-kind="fp" />
                 </header>
-                {selectedFpZones.map((zone, index) => (
-                  <div
-                    className="reference-setup__object-row"
-                    key={zone.id ?? index}
-                  >
-                    <i data-kind="fp" /> {zone.note || `Зона ${index + 1}`}
-                  </div>
-                ))}
-                <button
-                  className={
-                    isFpZoneMode
-                      ? "reference-setup__button reference-setup__button--fp reference-setup__button--active"
-                      : "reference-setup__button reference-setup__button--fp"
-                  }
-                  type="button"
-                  aria-pressed={isFpZoneMode}
-                  disabled={!fpZoneSlot?.imageUrl}
-                  onClick={() => setIsFpZoneMode(true)}
-                >
-                  Редактировать зоны
-                </button>
-                <button
-                  className="reference-setup__button reference-setup__button--fp"
-                  type="button"
-                  disabled={!fpZoneSlot?.imageUrl}
-                  onClick={() => {
-                    if (!fpZoneSlot) return;
-                    const nextIndex = selectedFpZones.length + 1;
-                    setFpZonesForCameraId(fpZoneSlot.cameraId, [
-                      ...selectedFpZones,
-                      {
-                        id: createFpZoneId(),
-                        note: `Зона ${nextIndex}`,
-                        points_norm_heatmap: [],
-                      },
-                    ]);
-                    setIsFpZoneMode(true);
-                  }}
-                >
-                  ＋ Добавить ещё зону
-                </button>
+                {learnedNormals.loading && <div className="reference-setup__learned-empty">Загрузка…</div>}
+                {learnedNormals.error && (
+                  <div className="reference-setup__learned-empty" role="alert">{learnedNormals.error}</div>
+                )}
+                {!learnedNormals.loading && !learnedNormals.error && learnedNormals.cases.length === 0 && (
+                  <div className="reference-setup__learned-empty">Для камеры пока нет добавленных кадров</div>
+                )}
+                <div className="reference-setup__learned-grid">
+                  {learnedNormals.cases.map((item, index) => (
+                    <figure key={item.id} className="reference-setup__learned-card">
+                      <button
+                        className="reference-setup__learned-delete"
+                        type="button"
+                        aria-label={`Удалить дополнительный фрагмент ${index + 1}`}
+                        title="Удалить из анализа"
+                        disabled={learnedNormals.deletingId === item.id}
+                        onClick={() => void learnedNormals.remove(item.id)}
+                      >
+                        {learnedNormals.deletingId === item.id ? "…" : "×"}
+                      </button>
+                      <button
+                        className="reference-setup__learned-open"
+                        type="button"
+                        aria-label={`Увеличить дополнительный фрагмент ${index + 1}`}
+                        onClick={() => setSelectedLearnedCaseId(item.id)}
+                      >
+                        <img
+                          src={item.imageUrl}
+                          alt={`Дополнительный фрагмент ${index + 1}`}
+                        />
+                      </button>
+                      <figcaption>{item.note || `Фрагмент ${index + 1}`}</figcaption>
+                    </figure>
+                  ))}
+                </div>
               </section>
               <section className="reference-setup__object-section">
                 <header>
@@ -416,10 +473,22 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   role={hasSetupError ? "alert" : undefined}
                 >
                   {shouldStartNewReference
-                    ? "Можно задать новые эталоны для любого количества камер. Остальные камеры сохранят старые эталоны."
+                    ? "Откройте редактирование и выберите камеры, которые нужно изменить."
                     : message}
                 </p>
                 <div className="reference-setup__footer-actions">
+                  {!shouldStartNewReference && (
+                    <label className="reference-setup__name-field">
+                      <span>Название эталона</span>
+                      <input
+                        type="text"
+                        value={referenceName}
+                        maxLength={80}
+                        placeholder={`Эталон камер ${activeCameraIds.join(", ")}`}
+                        onChange={(event) => setReferenceName(event.target.value)}
+                      />
+                    </label>
+                  )}
                   <button
                     className="reference-setup__cancel"
                     type="button"
@@ -430,7 +499,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   <Button
                     className="reference-setup__button reference-setup__save"
                     disabled={!shouldStartNewReference && !canSendAllReferences}
-                    onClick={shouldStartNewReference ? handleCaptureNewReferenceFrames : handleSendAllReferences}
+                    onClick={shouldStartNewReference ? handleCreateNewReference : handleSendAllReferences}
                   >
                     {primaryReferenceLabel}
                   </Button>
@@ -443,17 +512,100 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
             archivedReferences={activeGroupArchivedReferences}
             activeArchiveId={activeArchive?.id}
             selectedArchive={selectedArchive}
-            onDelete={(archiveId) => {
-              deleteArchivedReferenceGroup(archiveId);
-              if (selectedArchiveId === archiveId) {
-                setSelectedArchiveId(null);
+            onDelete={async (archiveId) => {
+              try {
+                await deleteArchivedReferenceGroup(archiveId);
+                if (selectedArchiveId === archiveId) {
+                  setSelectedArchiveId(null);
+                }
+              } catch (error) {
+                window.alert(error instanceof Error ? error.message : "Не удалось удалить эталон и его кадры анализа");
               }
             }}
             onSelect={setSelectedArchiveId}
             onUse={handleUseArchivedReference}
           />
 
+          {selectedLearnedCaseId && createPortal(
+            <LearnedFramesGallery
+              cases={learnedNormals.cases}
+              selectedId={selectedLearnedCaseId}
+              onClose={() => setSelectedLearnedCaseId(null)}
+              onSelect={setSelectedLearnedCaseId}
+            />,
+            document.body,
+          )}
+
         </div>
+      </section>
+    </div>
+  );
+}
+
+function LearnedFramesGallery({
+  cases,
+  selectedId,
+  onClose,
+  onSelect,
+}: {
+  cases: StoredLearnedCase[];
+  selectedId: string;
+  onClose: () => void;
+  onSelect: (caseId: string) => void;
+}) {
+  const selectedIndex = Math.max(0, cases.findIndex((item) => item.id === selectedId));
+  const selectedCase = cases[selectedIndex];
+  if (!selectedCase) return null;
+
+  const selectOffset = (offset: number) => {
+    const nextIndex = (selectedIndex + offset + cases.length) % cases.length;
+    onSelect(cases[nextIndex].id);
+  };
+
+  return (
+    <div
+      className="reference-setup__gallery-backdrop"
+      role="presentation"
+      onMouseDown={onClose}
+    >
+      <section
+        className="reference-setup__gallery"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Просмотр дополнительных кадров анализа"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header>
+          <strong>{selectedCase.note || `Фрагмент ${selectedIndex + 1}`}</strong>
+          <span>{selectedIndex + 1} / {cases.length}</span>
+          <button type="button" aria-label="Закрыть" onClick={onClose}>x</button>
+        </header>
+        <div className="reference-setup__gallery-stage">
+          {cases.length > 1 && (
+            <button type="button" aria-label="Предыдущий кадр" onClick={() => selectOffset(-1)}>‹</button>
+          )}
+          <img
+            src={selectedCase.imageUrl}
+            alt={selectedCase.note || `Дополнительный фрагмент ${selectedIndex + 1}`}
+          />
+          {cases.length > 1 && (
+            <button type="button" aria-label="Следующий кадр" onClick={() => selectOffset(1)}>›</button>
+          )}
+        </div>
+        <nav className="reference-setup__gallery-strip" aria-label="Дополнительные кадры">
+          {cases.map((item, index) => (
+            <button
+              key={item.id}
+              type="button"
+              aria-label={`Открыть кадр ${index + 1}`}
+              aria-current={item.id === selectedCase.id ? "true" : undefined}
+              onClick={() => onSelect(item.id)}
+            >
+              <img src={item.imageUrl} alt="" />
+              <span>{index + 1}</span>
+            </button>
+          ))}
+        </nav>
       </section>
     </div>
   );
@@ -470,7 +622,7 @@ function ReferenceArchive({
   archivedReferences: ArchivedReferenceGroup[];
   activeArchiveId?: string;
   selectedArchive?: ArchivedReferenceGroup;
-  onDelete: (archiveId: string) => void;
+  onDelete: (archiveId: string) => Promise<void>;
   onSelect: (archiveId: string) => void;
   onUse: (archiveId: string) => void;
 }) {
@@ -518,7 +670,8 @@ function ReferenceArchive({
                 alt={`Эталон камер ${archive.cameraIds.join(", ")}`}
               />
               <span>{formatArchiveTime(archive.createdAtMs)}</span>
-              <strong>Камеры {archive.cameraIds.join(", ")}</strong>
+              <strong>{archive.name || `Эталон камер ${archive.cameraIds.join(", ")}`}</strong>
+              <small>Камеры {archive.cameraIds.join(", ")}</small>
               {archive.id === activeArchiveId && <em>В работе</em>}
               <button
                 className="reference-setup__archive-delete"
@@ -526,7 +679,7 @@ function ReferenceArchive({
                 aria-label="Удалить старый эталон"
                 onClick={(event: MouseEvent<HTMLButtonElement>) => {
                   event.stopPropagation();
-                  onDelete(archive.id);
+                  void onDelete(archive.id);
                 }}
               >
                 x
@@ -604,11 +757,24 @@ function formatArchiveTime(createdAtMs: number) {
   return new Date(createdAtMs).toLocaleTimeString();
 }
 
-function createFpZoneId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `fp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+function useLearnedNormals(cases: StoredLearnedCase[]) {
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const remove = async (caseId: string) => {
+    setDeletingId(caseId);
+    try {
+      await orchestratorApi.deleteLearnedNormal(caseId);
+      detachLearnedCaseFromReferences(caseId);
+      setError(null);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Не удалось удалить дополнительный кадр");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  return { cases, error, loading: false, deletingId, remove };
 }
 
 function createActiveReferenceKey(cameraIds: number[], phaseId?: number, groupId?: number) {

@@ -3,6 +3,7 @@ package com.example.iml.positioning.wire;
 import com.example.iml.positioning.dto.NormPoint;
 import com.example.iml.positioning.dto.PositioningRequest;
 import com.example.iml.positioning.dto.PositioningResponse;
+import com.example.iml.positioning.dto.PositioningTuning;
 import com.example.iml.positioning.dto.RoiRect;
 
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ public final class PositioningHeaderMapper {
         if (h.containsKey("writeAligned")) {
             writeAligned = bool(h.get("writeAligned"), writeAligned);
         }
+        PositioningTuning defaults = PositioningTuning.defaults();
         return new PositioningRequest(
                 roiOrDefault(h.get("mainRoi")),
                 polygonNormOrNull(h),
@@ -31,7 +33,15 @@ public final class PositioningHeaderMapper {
                 num(h.get("maxShiftMm"), 0.5),
                 num(h.get("maxRotationDeg"), 1.0),
                 output,
-                writeAligned
+                writeAligned,
+                new PositioningTuning(
+                        numOrNull(h.get("alignFailAbsdiff"), h.get("align_fail_absdiff"), defaults.alignFailAbsdiff()),
+                        numOrNull(h.get("alignFailAbsdiffHard"), h.get("align_fail_absdiff_hard"), defaults.alignFailAbsdiffHard()),
+                        numOrNull(h.get("alignFailResidualPx"), h.get("align_fail_residual_px"), defaults.alignFailResidualPx()),
+                        numOrNull(h.get("eccSkipNcc"), h.get("ecc_skip_ncc"), defaults.eccSkipNcc()),
+                        numOrNull(h.get("eccSkipAbsdiff"), h.get("ecc_skip_absdiff"), defaults.eccSkipAbsdiff()),
+                        numOrNull(h.get("eccSkipResidualPx"), h.get("ecc_skip_residual_px"), defaults.eccSkipResidualPx())
+                )
         );
     }
 
@@ -60,6 +70,22 @@ public final class PositioningHeaderMapper {
             // Flat keys only — nested Map is fine for Jackson, but keep one level for consumers.
             Map<String, Object> sanitizedDiag = sanitizeDiag(response.diagnostics());
             out.put("diagnostics", sanitizedDiag);
+            // Promote split stage timings / usage flags to top-level for orchestrator grep.
+            copyDiagNum(out, sanitizedDiag, "stage_ms_coarse");
+            copyDiagNum(out, sanitizedDiag, "stage_ms_residual_polish");
+            copyDiagNum(out, sanitizedDiag, "stage_ms_post_ecc_polish");
+            copyDiagBool(out, sanitizedDiag, "coarse_used");
+            copyDiagBool(out, sanitizedDiag, "coarse_rejected");
+            copyDiagBool(out, sanitizedDiag, "coarse_residual_fallback");
+            copyDiagBool(out, sanitizedDiag, "orb_applied");
+            copyDiagBool(out, sanitizedDiag, "orb_fullframe_fallback");
+            copyDiagBool(out, sanitizedDiag, "orb_rejected_quality");
+            copyDiagBool(out, sanitizedDiag, "orb_failed");
+            copyDiagBool(out, sanitizedDiag, "residual_polish");
+            copyDiagBool(out, sanitizedDiag, "ecc_skipped");
+            copyDiagBool(out, sanitizedDiag, "ecc_applied");
+            copyDiagBool(out, sanitizedDiag, "ecc_rejected");
+            copyDiagBool(out, sanitizedDiag, "post_ecc_residual_polish");
             for (Map.Entry<String, Object> e : sanitizedDiag.entrySet()) {
                 String key = e.getKey();
                 if ("status".equals(key) || "ref_cache_key".equals(key)) {
@@ -69,6 +95,20 @@ public final class PositioningHeaderMapper {
             }
         }
         return out;
+    }
+
+    private static void copyDiagNum(Map<String, Object> out, Map<String, Object> diag, String key) {
+        Object v = diag.get(key);
+        if (v instanceof Number n) {
+            out.put(key, jsonNum(n.doubleValue()));
+        }
+    }
+
+    private static void copyDiagBool(Map<String, Object> out, Map<String, Object> diag, String key) {
+        Object v = diag.get(key);
+        if (v instanceof Boolean b) {
+            out.put(key, b);
+        }
     }
 
     /** Jackson cannot encode NaN/Inf — that turned every positioning RPC into MSG_ERROR. */
@@ -153,6 +193,16 @@ public final class PositioningHeaderMapper {
             return fallback;
         }
         return Double.parseDouble(String.valueOf(o));
+    }
+
+    private static double numOrNull(Object primary, Object secondary, double fallback) {
+        if (primary != null) {
+            return num(primary, fallback);
+        }
+        if (secondary != null) {
+            return num(secondary, fallback);
+        }
+        return fallback;
     }
 
     public static boolean bool(Object o, boolean fallback) {

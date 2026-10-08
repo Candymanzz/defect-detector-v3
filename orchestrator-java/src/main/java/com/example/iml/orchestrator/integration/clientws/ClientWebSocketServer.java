@@ -281,6 +281,16 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         if (captureHeader == null || cameraId < 0) {
             return;
         }
+        // TEST: only test-analyze results may update the UI. Soft-stop DI3 preview-only
+        // inspect_result still carries live/current and would replace the pinned frame.
+        if (isTestMode() && !YamlScalars.toBool(captureHeader.get("test_analyze"), false)) {
+            log.debug(
+                    "client_ws suppress inspect_result in TEST cam={} frame={} (not test_analyze)",
+                    cameraId,
+                    captureHeader.get("frame_id")
+            );
+            return;
+        }
         Object sn = captureHeader.get("shm_name");
         if (sn == null) {
             return;

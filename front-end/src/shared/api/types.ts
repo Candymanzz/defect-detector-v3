@@ -127,6 +127,13 @@ export type GeometryInspectResponse = {
   jointWidthBottomMm?: number;
   jointTaperMm?: number;
   jointVisibility?: number;
+  jointRimSkewDeg?: number;
+  jointGapLeftMm?: number;
+  jointGapRightMm?: number;
+  jointGapAsymmetryMm?: number;
+  rimSkewPass?: boolean;
+  maxJointRimSkewDeg?: number;
+  maxJointGapAsymmetryMm?: number;
   wrinklesScore?: number;
   homographyRefToCurrent?: number[] | number[][];
   debugImageBase64?: string;
@@ -244,7 +251,7 @@ export type FrameArchiveHistoryFrame = {
   inspection_id: string;
   overall_pass: boolean;
   action: string;
-  anomaly_score: number;
+  anomaly_score: number | null;
   python_status: string;
   geometry_status: string;
   product_type: string;
@@ -252,10 +259,14 @@ export type FrameArchiveHistoryFrame = {
   saved_at_ms: number;
   has_heatmap: boolean;
   frame_url: string;
+  frame_width?: number;
+  frame_height?: number;
   heatmap_url?: string;
   heatmap_width?: number;
   heatmap_height?: number;
   result_url: string;
+  learned_review_id?: string;
+  geometry?: GeometryInspectResponse;
 };
 
 export type FrameArchiveHistoryResponse = {
@@ -344,12 +355,96 @@ export type SimpleAnalysisKnobs = {
 };
 
 export type ProAnalysisKnobs = {
+  /** Threshold is a unit interval; detailed strengths below are percentages. */
   threshold: number;
+  /** Detailed strength values use the backend's 0–100 scale. */
   noise_tolerance: number;
   scratch_sensitivity: number;
   edge_suppression: number;
   text_handling: number;
   preprocess_strength: number;
+  /** Усиление чувствительности на дальнем краю изделия (линия перспективы), 50 = стандарт. */
+  far_edge_boost: number;
+};
+
+/** Силы групп алгоритма (0–100), без threshold/sensitivity — см. ANALYSIS_SETTINGS_INTEGRATION.md */
+export type StrengthKnobs = {
+  noise_tolerance: number;
+  scratch_sensitivity: number;
+  edge_suppression: number;
+  text_handling: number;
+  preprocess_strength: number;
+  far_edge_boost: number;
+};
+
+export type StrengthKnobsResponse = {
+  analysis_profile: string;
+  saved: boolean;
+  strengths: StrengthKnobs;
+};
+
+export type ClientModeResponse = {
+  ok: boolean;
+  session_state: string;
+  test_mode: boolean;
+  message?: string;
+};
+
+export type TestAnalyzeResponse = {
+  ok: boolean;
+  jobId: string;
+  cameraId: number;
+  frameId: number;
+  pinId: string;
+  pinJpegSha256: string;
+};
+
+export type PinTestFrameRequest = {
+  cameraId: number;
+  frameId: string | number;
+  source?: "archive" | "artifact";
+  httpPath?: string;
+};
+
+export type PinTestFrameResponse = {
+  ok: boolean;
+  cameraId: number;
+  frameId: number;
+  pinId: string;
+  jpegSha256: string;
+  imageHttpPath: string;
+};
+
+export type AcceptLearnedNormalsRequest = {
+  frameId: string | number;
+  productType: string;
+  cameraId?: number;
+  learnedReviewId?: string;
+  note?: string;
+};
+
+export type AcceptLearnedNormalsResponse = {
+  saved?: boolean;
+  accepted_count?: number;
+  inspection_id?: string;
+  learned_review_id?: string;
+  accepted_case_ids?: string[];
+  accepted_cases?: LearnedNormalCase[];
+  affects_original_pipeline_decision?: boolean;
+  [key: string]: unknown;
+};
+
+export type LearnedNormalCase = {
+  id: string;
+  product_type: string;
+  bbox?: { x: number; y: number; width: number; height: number };
+  polygon?: Array<{ x: number; y: number }>;
+  coordinate_space?: { width: number; height: number };
+  source_inspection_id?: string;
+  source_defect_id?: string;
+  created_at?: string;
+  note?: string;
+  enabled?: boolean;
 };
 
 export type AnalysisPresetResponse<TKnobs> = AnalysisSettingsResponse & {

@@ -1,5 +1,5 @@
 import { orchestratorApi } from "../../shared/api/orchestratorApi";
-import type { HeatmapDescriptor } from "../../shared/ws";
+import type { ExcludedNormalZone, HeatmapDescriptor } from "../../shared/ws";
 import { createNormalizationLut, HEATMAP_COLOR_LUT } from "./HeatmapColor";
 
 const HEATMAP_CACHE_LIMIT = 12;
@@ -132,6 +132,117 @@ export function drawHeatmapBitmap(
   context.clearRect(0, 0, width, height);
   context.drawImage(bitmap, 0, 0);
   bitmap.close();
+}
+
+export function drawExcludedNormalZones(
+  canvas: HTMLCanvasElement | null,
+  heatmap: HeatmapDescriptor,
+  zones: readonly ExcludedNormalZone[],
+) {
+  if (!canvas || zones.length === 0) {
+    return;
+  }
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return;
+  }
+
+  context.save();
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  for (const zone of zones) {
+    if (zone.excluded_from_score !== true) {
+      continue;
+    }
+    const points = pixelPolygon(zone, heatmap.width, heatmap.height)
+      ?? normalizedPolygon(zone.polygon, heatmap.width, heatmap.height);
+    if (points.length < 3) {
+      continue;
+    }
+
+    context.save();
+    drawPolygon(context, points);
+    context.clip();
+    context.strokeStyle = "rgba(185, 75, 210, 0.72)";
+    context.lineWidth = 2;
+    const spacing = 18;
+    for (let offset = -heatmap.height; offset < heatmap.width; offset += spacing) {
+      context.beginPath();
+      context.moveTo(offset, 0);
+      context.lineTo(offset + heatmap.height, heatmap.height);
+      context.stroke();
+    }
+    context.restore();
+
+    drawPolygon(context, points);
+    context.strokeStyle = "rgb(185, 75, 210)";
+    context.lineWidth = 5;
+    context.stroke();
+  }
+  context.restore();
+}
+
+function pixelPolygon(
+  zone: ExcludedNormalZone,
+  width: number,
+  height: number,
+): Array<[number, number]> | null {
+  const polygon = zone.polygon_px;
+  const sourceWidth = Number(zone.coordinate_width);
+  const sourceHeight = Number(zone.coordinate_height);
+  if (!polygon || polygon.length < 3 || sourceWidth <= 0 || sourceHeight <= 0) {
+    return null;
+  }
+
+  const points: Array<[number, number]> = [];
+  for (const point of polygon) {
+    const x = Array.isArray(point) ? point[0] : point.x;
+    const y = Array.isArray(point) ? point[1] : point.y;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      continue;
+    }
+    points.push([
+      Math.round(
+        (Math.min(sourceWidth - 1, Math.max(0, x)) * (width - 1)) /
+          Math.max(1, sourceWidth - 1),
+      ),
+      Math.round(
+        (Math.min(sourceHeight - 1, Math.max(0, y)) * (height - 1)) /
+          Math.max(1, sourceHeight - 1),
+      ),
+    ]);
+  }
+  return points.length >= 3 ? points : null;
+}
+
+function normalizedPolygon(
+  polygon: ExcludedNormalZone["polygon"],
+  width: number,
+  height: number,
+): Array<[number, number]> {
+  const points: Array<[number, number]> = [];
+  for (const point of polygon) {
+    const x = Array.isArray(point) ? point[0] : point.x;
+    const y = Array.isArray(point) ? point[1] : point.y;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      continue;
+    }
+    points.push([
+      Math.round(Math.min(1, Math.max(0, x)) * (width - 1)),
+      Math.round(Math.min(1, Math.max(0, y)) * (height - 1)),
+    ]);
+  }
+  return points;
+}
+
+function drawPolygon(context: CanvasRenderingContext2D, points: Array<[number, number]>) {
+  context.beginPath();
+  context.moveTo(points[0][0], points[0][1]);
+  for (let index = 1; index < points.length; index += 1) {
+    context.lineTo(points[index][0], points[index][1]);
+  }
+  context.closePath();
 }
 
 function resolveHeatmapUrl(path: string) {

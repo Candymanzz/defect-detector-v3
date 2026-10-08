@@ -238,7 +238,7 @@ public final class WsOutboundMessenger {
             frame.put("frame_id", Long.toString(decision.frameId()));
             frame.put("overall_pass", decision.overallPass());
             frame.put("action", decision.action());
-            frame.put("anomaly_score", decision.anomalyScore());
+            putAnomalyScore(frame, decision);
             frame.put("python_status", decision.pythonStatus());
             frame.put("geometry_status", decision.geometryStatus());
             frames.add(frame);
@@ -624,17 +624,38 @@ public final class WsOutboundMessenger {
         if (decision != null) {
             payload.put("overall_pass", decision.overallPass());
             payload.put("action", decision.action());
-            payload.put("anomaly_score", decision.anomalyScore());
+            putAnomalyScore(payload, decision);
             payload.put("python_status", decision.pythonStatus());
             payload.put("geometry_status", decision.geometryStatus());
+            if (decision.geometry() != null && !decision.geometry().isEmpty()) {
+                payload.set("geometry", JSON.valueToTree(decision.geometry()));
+            }
         } else {
             // Missing aggregation is not a reject decision.
             payload.put("python_status", "UNKNOWN");
             payload.put("geometry_status", "UNKNOWN");
         }
         payload.set("fp_zones", fpZonesJsonArray(cameraId));
+        JsonNode excludedNormalZones = JSON.valueToTree(
+                captureHeader == null ? List.of() : captureHeader.get("excluded_normal_zones")
+        );
+        payload.set(
+                "excluded_normal_zones",
+                excludedNormalZones.isArray() ? excludedNormalZones : JSON.createArrayNode()
+        );
         if (YamlScalars.toBool(captureHeader == null ? null : captureHeader.get("test_analyze"), false)) {
             payload.put("test_analyze", true);
+            Object jobId = captureHeader == null ? null : captureHeader.get("test_analyze_job_id");
+            if (jobId != null) payload.put("test_analyze_job_id", String.valueOf(jobId));
+            Object pinId = captureHeader == null ? null : captureHeader.get("test_pin_id");
+            if (pinId != null) payload.put("test_pin_id", String.valueOf(pinId));
+            Object pinSha = captureHeader == null ? null : captureHeader.get("pin_jpeg_sha256");
+            if (pinSha != null) {
+                String sha = String.valueOf(pinSha).trim();
+                if (!sha.isEmpty()) {
+                    payload.put("pin_jpeg_sha256", sha);
+                }
+            }
         }
         int hmw = referenceContext.effectiveHeatmapWidth();
         int hmh = referenceContext.effectiveHeatmapHeight();
@@ -744,6 +765,14 @@ public final class WsOutboundMessenger {
             }
         }
         root.put("message_id", UUID.randomUUID().toString());
+    }
+
+    private static void putAnomalyScore(ObjectNode target, InspectionDecision decision) {
+        if (decision.hasAnomalyScore()) {
+            target.put("anomaly_score", decision.anomalyScore());
+        } else {
+            target.putNull("anomaly_score");
+        }
     }
 
     private String writeJson(ObjectNode root) throws ClientWsJsonSerializationException {

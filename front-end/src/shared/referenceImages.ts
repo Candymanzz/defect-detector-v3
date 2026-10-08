@@ -1,5 +1,6 @@
-import { orchestratorApi } from "./api";
-import { isValidJointRoiPolygon } from "../components/ReferenceSetup/referenceRoi";
+import { HttpError, orchestratorApi } from "./api";
+import type { LearnedNormalCase } from "./api/types";
+import { isValidJointRoiPolygon, isValidPerspectiveLine } from "../components/ReferenceSetup/referenceRoi";
 import type {
   ClientReferenceBundlePayload,
   FpZoneNorm,
@@ -17,17 +18,22 @@ export type StoredReferenceImage = {
   committedAtMs?: number;
   roiPoints: InterestPointNorm[];
   jointRoiPoints?: InterestPointNorm[];
+  perspectiveLine?: InterestPointNorm[];
   fpZones?: FpZoneNorm[];
 };
 export type ArchivedReferenceGroup = {
   id: string;
+  name?: string;
   createdAtMs: number;
   cameraIds: number[];
   jointCameraId: number;
   bundle: ClientReferenceBundlePayload;
   imageUrlsByCameraId: Record<number, string>;
   images: Array<StoredReferenceImage & { cameraId: number }>;
+  learnedCaseIdsByCameraId: Record<number, string[]>;
+  learnedCasesByCameraId: Record<number, StoredLearnedCase[]>;
 };
+export type StoredLearnedCase = LearnedNormalCase & { imageUrl: string };
 
 const referenceImagesBySlot = new Map<string, StoredReferenceImage>();
 
@@ -46,6 +52,9 @@ const pendingReferenceBundles = new Map<
     roiPointsByCameraId?: Record<number, InterestPointNorm[]>;
     jointCameraId?: number;
     jointRoiPoints?: InterestPointNorm[];
+    name?: string;
+    archiveCameraIds?: number[];
+    inheritLearnedCases?: boolean;
   }
 >();
 const listeners = new Set<ReferenceImageListener>();
@@ -57,9 +66,13 @@ const REFERENCE_DB_KEY = "current";
 let persistenceChain: Promise<void> = Promise.resolve();
 
 type PersistedReferenceImage = Omit<StoredReferenceImage, "imageUrl"> & { imageKey: string };
-type PersistedArchivedReferenceGroup = Omit<ArchivedReferenceGroup, "imageUrlsByCameraId" | "images"> & {
+type PersistedArchivedReferenceGroup = Omit<
+  ArchivedReferenceGroup,
+  "imageUrlsByCameraId" | "images" | "learnedCasesByCameraId"
+> & {
   imageKeysByCameraId: Record<number, string>;
   images: Array<PersistedReferenceImage & { cameraId: number }>;
+  learnedCasesByCameraId: Record<number, Array<Omit<StoredLearnedCase, "imageUrl"> & { imageKey: string }>>;
 };
 type PersistedReferenceState = {
   version: 1;
@@ -95,6 +108,9 @@ export function resolveReferenceBundleImages(messageId: string, accepted: boolea
       pendingBundle.roiPointsByCameraId,
       pendingBundle.jointCameraId,
       pendingBundle.jointRoiPoints,
+      pendingBundle.name,
+      pendingBundle.archiveCameraIds,
+      pendingBundle.inheritLearnedCases,
     );
   }
 }
@@ -120,12 +136,36 @@ export function stageReferenceBundleContours(
   pendingBundle.jointRoiPoints = copyRoiPoints(jointRoiPoints);
 }
 
+export function stageReferenceBundleName(messageId: string, name: string) {
+  const pendingBundle = pendingReferenceBundles.get(messageId);
+  if (!pendingBundle) {
+    return;
+  }
+  const normalizedName = name.trim().slice(0, 80);
+  pendingBundle.name = normalizedName || undefined;
+}
+
+export function stageReferenceArchiveCameraIds(messageId: string, cameraIds: number[]) {
+  const pendingBundle = pendingReferenceBundles.get(messageId);
+  if (!pendingBundle) return;
+  pendingBundle.archiveCameraIds = [...new Set(cameraIds)].sort((left, right) => left - right);
+}
+
+export function stageReferenceLearnedCaseInheritance(messageId: string, inherit: boolean) {
+  const pendingBundle = pendingReferenceBundles.get(messageId);
+  if (!pendingBundle) return;
+  pendingBundle.inheritLearnedCases = inherit;
+}
+
 export function commitReferenceBundleImages(
   bundle: ClientReferenceBundlePayload,
   fallbackImageUrlsByCameraId: Record<number, string> = {},
   roiPointsByCameraId?: Record<number, InterestPointNorm[]>,
   jointCameraId?: number,
   jointRoiPoints?: InterestPointNorm[],
+  name?: string,
+  archiveCameraIds?: number[],
+  inheritLearnedCases = true,
 ) {
   const phaseId = bundle.phase_id ?? 0;
   const groupId = bundle.group_id;
@@ -155,6 +195,9 @@ export function commitReferenceBundleImages(
             : viewIndex === bundle.joint_view_index && view.joint_roi
               ? createNormalizedRoiPolygon(view.joint_roi, view.frame.width, view.frame.height)
               : undefined,
+        perspectiveLine: isValidPerspectiveLine(view.perspective_line_norm)
+          ? copyRoiPoints(view.perspective_line_norm ?? [])
+          : undefined,
         fpZones: copyFpZonesForCamera(bundle.fp_zones, cameraId),
       };
 
@@ -166,7 +209,8 @@ export function commitReferenceBundleImages(
     return;
   }
 
-  archiveCurrentReferenceGroup([...updatedCameraIds], phaseId, groupId);
+  const archivedCameraIds = archiveCameraIds?.length ? archiveCameraIds : [...updatedCameraIds];
+  archiveCurrentReferenceGroup(archivedCameraIds, phaseId, groupId);
 
   for (const cameraId of updatedCameraIds) {
     const referenceImage = referenceImagesBySlot.get(referenceSlotKey(phaseId, groupId, cameraId));
@@ -188,7 +232,8 @@ export function commitReferenceBundleImages(
   });
   referenceImageVersion = nextReferenceImageVersion;
 
-  archiveCurrentReferenceGroup([...updatedCameraIds], phaseId, groupId);
+  // Keep the newly accepted reference selectable as well as the superseded one.
+  archiveCurrentReferenceGroup(archivedCameraIds, phaseId, groupId, name, inheritLearnedCases);
   queuePersistReferenceState();
 
   emitReferenceImageChange();
@@ -267,13 +312,38 @@ export function getArchivedReferenceGroup(id: string) {
   return archive ? copyArchivedReferenceGroup(archive) : undefined;
 }
 
-export function deleteArchivedReferenceGroup(id: string) {
+export async function deleteArchivedReferenceGroup(id: string) {
   const archiveIndex = archivedReferenceGroups.findIndex((referenceGroup) => referenceGroup.id === id);
   if (archiveIndex < 0) {
     return;
   }
 
-  const [archive] = archivedReferenceGroups.splice(archiveIndex, 1);
+  const archive = archivedReferenceGroups[archiveIndex];
+  const learnedCaseIds = [...new Set(Object.values(archive.learnedCaseIdsByCameraId).flat())].filter(
+    (caseId) =>
+      !archivedReferenceGroups.some(
+        (candidate) =>
+          candidate.id !== archive.id &&
+          Object.values(candidate.learnedCaseIdsByCameraId)
+            .flat()
+            .includes(caseId),
+      ),
+  );
+  await Promise.all(
+    learnedCaseIds.map(async (caseId) => {
+      try {
+        await orchestratorApi.deleteLearnedNormal(caseId);
+      } catch (error) {
+        if (!(error instanceof HttpError) || error.status !== 404) throw error;
+      }
+    }),
+  );
+  archivedReferenceGroups.splice(archiveIndex, 1);
+  Object.values(archive.learnedCasesByCameraId).flat().forEach((item) => {
+    if (item.imageUrl.startsWith("blob:") && !isLearnedImageUrlInUse(item.imageUrl)) {
+      URL.revokeObjectURL(item.imageUrl);
+    }
+  });
   for (const imageUrl of Object.values(archive.imageUrlsByCameraId)) {
     if (imageUrl.startsWith("blob:") && !isImageUrlInUse(imageUrl)) {
       URL.revokeObjectURL(imageUrl);
@@ -295,7 +365,13 @@ export function subscribeReferenceImages(listener: ReferenceImageListener) {
   };
 }
 
-function archiveCurrentReferenceGroup(cameraIds: number[], phaseId: number, groupId: number | undefined) {
+function archiveCurrentReferenceGroup(
+  cameraIds: number[],
+  phaseId: number,
+  groupId: number | undefined,
+  name?: string,
+  inheritLearnedCases = true,
+) {
   const images = cameraIds
     .map((cameraId) => {
       const referenceImage = referenceImagesBySlot.get(referenceSlotKey(phaseId, groupId, cameraId));
@@ -307,7 +383,22 @@ function archiveCurrentReferenceGroup(cameraIds: number[], phaseId: number, grou
     return;
   }
 
-  const archive = createArchivedReferenceGroup(images);
+  const archive = createArchivedReferenceGroup(images, name);
+  for (const image of inheritLearnedCases ? images : []) {
+    const sourceArchive = archivedReferenceGroups.find((candidate) =>
+      candidate.images.some(
+        (candidateImage) =>
+          candidateImage.cameraId === image.cameraId && candidateImage.frame.frame_id === image.frame.frame_id,
+      ),
+    );
+    if (!sourceArchive) continue;
+    archive.learnedCaseIdsByCameraId[image.cameraId] = [
+      ...(sourceArchive.learnedCaseIdsByCameraId[image.cameraId] ?? []),
+    ];
+    archive.learnedCasesByCameraId[image.cameraId] = (
+      sourceArchive.learnedCasesByCameraId[image.cameraId] ?? []
+    ).map((item) => ({ ...item }));
+  }
   if (isDuplicateArchive(archive)) {
     return;
   }
@@ -323,12 +414,18 @@ function archiveCurrentReferenceGroup(cameraIds: number[], phaseId: number, grou
         URL.revokeObjectURL(imageUrl);
       }
     }
+    for (const item of Object.values(removedArchive.learnedCasesByCameraId).flat()) {
+      if (item.imageUrl.startsWith("blob:") && !isLearnedImageUrlInUse(item.imageUrl)) {
+        URL.revokeObjectURL(item.imageUrl);
+      }
+    }
   }
   markArchivedReferenceGroupsChanged();
 }
 
 function createArchivedReferenceGroup(
   images: Array<StoredReferenceImage & { cameraId: number }>,
+  name?: string,
 ): ArchivedReferenceGroup {
   const sortedImages = [...images].sort((left, right) => left.cameraId - right.cameraId);
   const jointCameraId =
@@ -353,24 +450,31 @@ function createArchivedReferenceGroup(
       ...(viewIndex === jointViewIndex && isValidJointRoiPolygon(image.jointRoiPoints)
         ? { joint_roi_polygon_norm: copyRoiPoints(image.jointRoiPoints ?? []) }
         : {}),
+      ...(isValidPerspectiveLine(image.perspectiveLine)
+        ? { perspective_line_norm: copyRoiPoints(image.perspectiveLine ?? []) }
+        : {}),
     })),
     fp_zones: sortedImages.flatMap((image) => copyFpZonesForCamera(image.fpZones ?? [], image.cameraId)),
   };
 
   return {
     id: createArchiveId(sortedImages),
+    name: name?.trim().slice(0, 80) || undefined,
     createdAtMs: Date.now(),
     cameraIds: sortedImages.map((image) => image.cameraId),
     jointCameraId,
     bundle,
     imageUrlsByCameraId: Object.fromEntries(sortedImages.map((image) => [image.cameraId, image.imageUrl])),
     images: sortedImages.map((image) => ({ cameraId: image.cameraId, ...copyStoredReferenceImage(image) })),
+    learnedCaseIdsByCameraId: {},
+    learnedCasesByCameraId: {},
   };
 }
 
 function copyArchivedReferenceGroup(archive: ArchivedReferenceGroup): ArchivedReferenceGroup {
   return {
     id: archive.id,
+    name: archive.name,
     createdAtMs: archive.createdAtMs,
     cameraIds: [...archive.cameraIds],
     jointCameraId: archive.jointCameraId,
@@ -384,11 +488,23 @@ function copyArchivedReferenceGroup(archive: ArchivedReferenceGroup): ArchivedRe
         ...(view.joint_roi_polygon_norm && view.joint_roi_polygon_norm.length >= 3
           ? { joint_roi_polygon_norm: copyRoiPoints(view.joint_roi_polygon_norm) }
           : {}),
+        ...(isValidPerspectiveLine(view.perspective_line_norm)
+          ? { perspective_line_norm: copyRoiPoints(view.perspective_line_norm ?? []) }
+          : {}),
       })),
       fp_zones: copyFpZones(archive.bundle.fp_zones),
     },
     imageUrlsByCameraId: { ...archive.imageUrlsByCameraId },
     images: archive.images.map((image) => ({ cameraId: image.cameraId, ...copyStoredReferenceImage(image) })),
+    learnedCaseIdsByCameraId: Object.fromEntries(
+      Object.entries(archive.learnedCaseIdsByCameraId).map(([cameraId, caseIds]) => [cameraId, [...caseIds]]),
+    ),
+    learnedCasesByCameraId: Object.fromEntries(
+      Object.entries(archive.learnedCasesByCameraId).map(([cameraId, cases]) => [
+        cameraId,
+        cases.map((item) => ({ ...item })),
+      ]),
+    ),
   };
 }
 
@@ -402,6 +518,7 @@ function copyStoredReferenceImage(referenceImage: StoredReferenceImage): StoredR
     committedAtMs: referenceImage.committedAtMs,
     roiPoints: copyRoiPoints(referenceImage.roiPoints),
     jointRoiPoints: referenceImage.jointRoiPoints ? copyRoiPoints(referenceImage.jointRoiPoints) : undefined,
+    perspectiveLine: referenceImage.perspectiveLine ? copyRoiPoints(referenceImage.perspectiveLine) : undefined,
     fpZones: referenceImage.fpZones ? copyFpZones(referenceImage.fpZones) : undefined,
   };
 }
@@ -456,6 +573,14 @@ function isImageUrlInUse(imageUrl: string) {
   );
 }
 
+function isLearnedImageUrlInUse(imageUrl: string) {
+  return archivedReferenceGroups.some((archive) =>
+    Object.values(archive.learnedCasesByCameraId)
+      .flat()
+      .some((item) => item.imageUrl === imageUrl),
+  );
+}
+
 function createArchiveId(images: Array<StoredReferenceImage & { cameraId: number }>) {
   const frameKey = images.map((image) => `${image.cameraId}:${image.frame.frame_id}`).join("|");
   return `${Date.now()}-${frameKey}-${Math.random().toString(16).slice(2)}`;
@@ -500,6 +625,81 @@ export function updateReferenceFpZones(
   if (changed) queuePersistReferenceState();
 }
 
+export async function attachLearnedCasesToActiveReference(cameraId: number, cases: LearnedNormalCase[]) {
+  if (cases.length === 0) return;
+  const activeImage = getReferenceImage(cameraId);
+  if (!activeImage) return;
+  const archive = archivedReferenceGroups.find((candidate) =>
+    candidate.images.some(
+      (image) => image.cameraId === cameraId && image.frame.frame_id === activeImage.frame.frame_id,
+    ),
+  );
+  if (!archive) return;
+
+  const storedCases = (
+    await Promise.all(
+      cases.map(async (item): Promise<StoredLearnedCase | null> => {
+        try {
+          const response = await fetch(orchestratorApi.learnedNormalImageUrl(item.id), { cache: "no-store" });
+          if (!response.ok) return null;
+          return { ...item, imageUrl: URL.createObjectURL(await response.blob()) };
+        } catch {
+          return null;
+        }
+      }),
+    )
+  ).filter((item): item is StoredLearnedCase => item !== null);
+  if (storedCases.length === 0) return;
+
+  archive.learnedCaseIdsByCameraId[cameraId] = [
+    ...new Set([...(archive.learnedCaseIdsByCameraId[cameraId] ?? []), ...storedCases.map((item) => item.id)]),
+  ];
+  const previousCases = archive.learnedCasesByCameraId[cameraId] ?? [];
+  const nextById = new Map(previousCases.map((item) => [item.id, item]));
+  const replacedImageUrls = new Set<string>();
+  for (const item of storedCases) {
+    const previous = nextById.get(item.id);
+    if (previous) replacedImageUrls.add(previous.imageUrl);
+    nextById.set(item.id, item);
+  }
+  archive.learnedCasesByCameraId[cameraId] = [...nextById.values()];
+  replacedImageUrls.forEach((imageUrl) => {
+    if (imageUrl.startsWith("blob:") && !isLearnedImageUrlInUse(imageUrl)) URL.revokeObjectURL(imageUrl);
+  });
+  markArchivedReferenceGroupsChanged();
+  queuePersistReferenceState();
+  emitReferenceImageChange();
+}
+
+export function detachLearnedCaseFromReferences(caseId: string) {
+  let changed = false;
+  const removedImageUrls = new Set<string>();
+  for (const archive of archivedReferenceGroups) {
+    for (const [cameraId, caseIds] of Object.entries(archive.learnedCaseIdsByCameraId)) {
+      const nextIds = caseIds.filter((id) => id !== caseId);
+      if (nextIds.length === caseIds.length) continue;
+      archive.learnedCaseIdsByCameraId[Number(cameraId)] = nextIds;
+      changed = true;
+    }
+    for (const [cameraId, cases] of Object.entries(archive.learnedCasesByCameraId)) {
+      const removed = cases.filter((item) => item.id === caseId);
+      if (removed.length === 0) continue;
+      removed.forEach((item) => removedImageUrls.add(item.imageUrl));
+      archive.learnedCasesByCameraId[Number(cameraId)] = cases.filter((item) => item.id !== caseId);
+      changed = true;
+    }
+  }
+  if (!changed) return;
+  removedImageUrls.forEach((imageUrl) => {
+    if (imageUrl.startsWith("blob:") && !isLearnedImageUrlInUse(imageUrl)) {
+      URL.revokeObjectURL(imageUrl);
+    }
+  });
+  markArchivedReferenceGroupsChanged();
+  queuePersistReferenceState();
+  emitReferenceImageChange();
+}
+
 function createDurableReferenceFrame(frame: ShmFrameRefData, phaseId = 0): ShmFrameRefData {
   return {
     ...frame,
@@ -527,6 +727,9 @@ async function createPersistedReferenceState(): Promise<PersistedReferenceState>
   const urls = new Set<string>();
   activeImages.forEach((image) => urls.add(image.imageUrl));
   archives.forEach((archive) => Object.values(archive.imageUrlsByCameraId).forEach((url) => urls.add(url)));
+  archives.forEach((archive) =>
+    Object.values(archive.learnedCasesByCameraId).flat().forEach((item) => urls.add(item.imageUrl)),
+  );
   const blobs = await Promise.all(
     [...urls].map(async (url): Promise<[string, Blob] | null> => {
       try {
@@ -543,12 +746,20 @@ async function createPersistedReferenceState(): Promise<PersistedReferenceState>
     activeImages: activeImages.map(({ cameraId, imageUrl, ...image }) => ({ cameraId, imageKey: imageUrl, ...image })),
     archives: archives.map((archive) => ({
       id: archive.id,
+      name: archive.name,
       createdAtMs: archive.createdAtMs,
       cameraIds: archive.cameraIds,
       jointCameraId: archive.jointCameraId,
       bundle: archive.bundle,
       imageKeysByCameraId: { ...archive.imageUrlsByCameraId },
       images: archive.images.map(({ cameraId, imageUrl, ...image }) => ({ cameraId, imageKey: imageUrl, ...image })),
+      learnedCaseIdsByCameraId: archive.learnedCaseIdsByCameraId,
+      learnedCasesByCameraId: Object.fromEntries(
+        Object.entries(archive.learnedCasesByCameraId).map(([cameraId, cases]) => [
+          cameraId,
+          cases.map(({ imageUrl, ...item }) => ({ ...item, imageKey: imageUrl })),
+        ]),
+      ),
     })),
     blobs: blobs.filter((entry): entry is [string, Blob] => entry !== null),
   };
@@ -580,6 +791,7 @@ async function hydratePersistedReferenceState() {
       if (images.length !== archive.images.length) continue;
       archivedReferenceGroups.push({
         id: archive.id,
+        name: archive.name,
         createdAtMs: archive.createdAtMs,
         cameraIds: [...archive.cameraIds],
         jointCameraId: archive.jointCameraId,
@@ -592,6 +804,18 @@ async function hydratePersistedReferenceState() {
         },
         imageUrlsByCameraId: Object.fromEntries(images.map((image) => [image.cameraId, image.imageUrl])),
         images,
+        learnedCaseIdsByCameraId: Object.fromEntries(
+          Object.entries(archive.learnedCaseIdsByCameraId ?? {}).map(([cameraId, caseIds]) => [cameraId, [...caseIds]]),
+        ),
+        learnedCasesByCameraId: Object.fromEntries(
+          Object.entries(archive.learnedCasesByCameraId ?? {}).map(([cameraId, cases]) => [
+            cameraId,
+            cases.flatMap(({ imageKey, ...item }) => {
+              const imageUrl = resolveUrl(imageKey);
+              return imageUrl ? [{ ...item, imageUrl }] : [];
+            }),
+          ]),
+        ),
       });
       for (const image of images) {
         const phaseId = image.phaseId ?? archive.bundle.phase_id ?? 0;
@@ -604,9 +828,52 @@ async function hydratePersistedReferenceState() {
     referenceImageVersion += 1;
     markArchivedReferenceGroupsChanged();
     emitReferenceImageChange();
+    if (await migrateLegacyLearnedCases()) {
+      markArchivedReferenceGroupsChanged();
+      queuePersistReferenceState();
+      emitReferenceImageChange();
+    }
   } catch (error) {
     console.warn("Не удалось загрузить локальную библиотеку эталонов", error);
   }
+}
+
+async function migrateLegacyLearnedCases() {
+  let changed = false;
+  for (const archive of archivedReferenceGroups) {
+    for (const [cameraIdText, caseIds] of Object.entries(archive.learnedCaseIdsByCameraId)) {
+      const cameraId = Number(cameraIdText);
+      const existingIds = new Set((archive.learnedCasesByCameraId[cameraId] ?? []).map((item) => item.id));
+      const missingIds = caseIds.filter((id) => !existingIds.has(id));
+      if (missingIds.length === 0) continue;
+      const productType = archive.images.find((image) => image.cameraId === cameraId)?.productType;
+      if (!productType) continue;
+      try {
+        const payload = await orchestratorApi.getLearnedNormals(productType, cameraId);
+        const metadataById = new Map((payload.cases ?? []).map((item) => [item.id, item]));
+        const restored = (
+          await Promise.all(
+            missingIds.map(async (id): Promise<StoredLearnedCase | null> => {
+              const metadata = metadataById.get(id);
+              if (!metadata) return null;
+              const response = await fetch(orchestratorApi.learnedNormalImageUrl(id), { cache: "no-store" });
+              return response.ok ? { ...metadata, imageUrl: URL.createObjectURL(await response.blob()) } : null;
+            }),
+          )
+        ).filter((item): item is StoredLearnedCase => item !== null);
+        if (restored.length > 0) {
+          archive.learnedCasesByCameraId[cameraId] = [
+            ...(archive.learnedCasesByCameraId[cameraId] ?? []),
+            ...restored,
+          ];
+          changed = true;
+        }
+      } catch {
+        // The saved IDs remain available for a later migration when the backend is reachable.
+      }
+    }
+  }
+  return changed;
 }
 
 function restorePersistedReferenceImage(persisted: PersistedReferenceImage, imageUrl: string): StoredReferenceImage {
@@ -619,6 +886,7 @@ function restorePersistedReferenceImage(persisted: PersistedReferenceImage, imag
     committedAtMs: persisted.committedAtMs,
     roiPoints: copyRoiPoints(persisted.roiPoints),
     jointRoiPoints: persisted.jointRoiPoints ? copyRoiPoints(persisted.jointRoiPoints) : undefined,
+    perspectiveLine: persisted.perspectiveLine ? copyRoiPoints(persisted.perspectiveLine) : undefined,
     fpZones: persisted.fpZones ? copyFpZones(persisted.fpZones) : undefined,
   };
 }

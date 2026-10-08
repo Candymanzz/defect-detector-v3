@@ -23,7 +23,11 @@ public record InspectionRequest(
         double maxJointTaperMm,
         boolean jointSeamSegmentationEnabled,
         /** 0..1: higher = easier band lock + stricter parallelism gate when segmentation is on. */
-        double jointSeamSegmentationSensitivity
+        double jointSeamSegmentationSensitivity,
+        /** Max |label↔rim| skew angle (deg). Inactive when yellow rim not found. */
+        double maxJointRimSkewDeg,
+        /** Max |gapLeft − gapRight| between label bottom and yellow rim (mm). */
+        double maxJointGapAsymmetryMm
 ) {
     public boolean jointVisibilityOnly() {
         return jointMode != null && "visibility".equalsIgnoreCase(jointMode.trim());

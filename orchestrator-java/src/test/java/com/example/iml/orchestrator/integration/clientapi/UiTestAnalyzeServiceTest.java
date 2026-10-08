@@ -11,6 +11,7 @@ import com.example.iml.orchestrator.integration.pipeline.spi.GeometryInspectStag
 import com.example.iml.orchestrator.integration.pipeline.spi.PythonInspectStage;
 import com.example.iml.orchestrator.integration.ui.FrameArchiveConfig;
 import com.example.iml.orchestrator.integration.ui.FrameArchiveService;
+import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -28,6 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -38,9 +41,11 @@ class UiTestAnalyzeServiceTest {
     Path tempDir;
 
     @Test
-    void parseSourceAcceptsArchiveAndArtifact() throws Exception {
+    void parseSourceAcceptsArchiveArtifactAndPin() throws Exception {
         assertEquals(UiTestAnalyzeService.Source.ARCHIVE, UiTestAnalyzeService.parseSource("archive"));
         assertEquals(UiTestAnalyzeService.Source.ARTIFACT, UiTestAnalyzeService.parseSource("ARTIFACT"));
+        assertEquals(UiTestAnalyzeService.Source.CURRENT, UiTestAnalyzeService.parseSource("current"));
+        assertEquals(UiTestAnalyzeService.Source.PIN, UiTestAnalyzeService.parseSource("pin"));
         UiTestAnalyzeService.AnalyzeException ex = assertThrows(
                 UiTestAnalyzeService.AnalyzeException.class,
                 () -> UiTestAnalyzeService.parseSource("nope")
@@ -77,6 +82,150 @@ class UiTestAnalyzeServiceTest {
                 UiTestAnalyzeService.AnalyzeException.class,
                 () -> service.submit(new UiTestAnalyzeService.Request(
                         0, UiTestAnalyzeService.Source.ARCHIVE, 999L, null
+                ))
+        );
+        assertEquals(404, ex.status());
+    }
+
+    @Test
+    void pinFailsWithoutReference() throws Exception {
+        FrameArchiveService archive = openArchive();
+        writeArchiveFrame(archive, 0, 7L);
+        UiTestAnalyzeService service = service(archive, null, List.of(dummySupervisor()), List.of(dummySupervisor()),
+                passthroughGeometry(), passthroughPython(), decidePass(), noopSidecar());
+
+        UiTestAnalyzeService.AnalyzeException ex = assertThrows(
+                UiTestAnalyzeService.AnalyzeException.class,
+                () -> service.pin(new UiTestAnalyzeService.Request(
+                        0, UiTestAnalyzeService.Source.ARCHIVE, 7L, null
+                ))
+        );
+        assertEquals(409, ex.status());
+        assertTrue(ex.getMessage().contains("reference"));
+    }
+
+    @Test
+    void pinResizesMismatchedArchiveToReferenceResolution() throws Exception {
+        FrameArchiveService archive = openArchive();
+        writeArchiveFrame(archive, 0, 42L, 8, 6);
+        PipelineReferenceRegistry refs = new PipelineReferenceRegistry();
+        refs.byCamera().put(0, usableRef());
+        TestFramePinStore pinStore = new TestFramePinStore(tempDir.resolve("pins-resize"));
+        UiTestAnalyzeService service = service(
+                archive,
+                refs,
+                List.of(dummySupervisor()),
+                List.of(dummySupervisor()),
+                passthroughGeometry(),
+                passthroughPython(),
+                decidePass(),
+                noopSidecar(),
+                pinStore
+        );
+
+        UiTestAnalyzeService.Pinned pinned = service.pin(new UiTestAnalyzeService.Request(
+                0, UiTestAnalyzeService.Source.ARCHIVE, 42L, null
+        ));
+        byte[] pinnedBytes = Files.readAllBytes(pinStore.get(pinned.pinId()).orElseThrow().jpegPath());
+        BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(pinnedBytes));
+        assertNotNull(decoded);
+        assertEquals(16, decoded.getWidth());
+        assertEquals(12, decoded.getHeight());
+    }
+
+    @Test
+    void pinSurvivesArchiveOverwriteAndPinSourceRunsJob() throws Exception {
+        FrameArchiveService archive = openArchive();
+        writeArchiveFrame(archive, 0, 42L);
+        byte[] original = Files.readAllBytes(
+                archive.resolveArtifact(0, 42L, "frame.jpg").orElseThrow()
+        );
+        PipelineReferenceRegistry refs = new PipelineReferenceRegistry();
+        refs.byCamera().put(0, usableRef());
+
+        AtomicBoolean sidecarCalled = new AtomicBoolean();
+        AtomicReference<PipelineState> lastState = new AtomicReference<>();
+        PythonInspectStage python = (state, cameraId, productType, detectorId, activeReference, pythonCfg,
+                                     pythonPool, pythonSlots, pythonRoundRobin) -> {
+            lastState.set(state);
+            return state;
+        };
+        AfterInspectionSidecar sidecar = (uiServer, uiCfg, uiVisualsPython, uiArtifactsExecutor, cameraId,
+                                          productType, detectorId, inspectionId, activeReference, decision,
+                                          capture, pythonMsg, geometryMsg) -> sidecarCalled.set(true);
+
+        TestFramePinStore pinStore = new TestFramePinStore(tempDir.resolve("pins"));
+        UiTestAnalyzeService service = service(
+                archive,
+                refs,
+                List.of(dummySupervisor()),
+                List.of(dummySupervisor()),
+                passthroughGeometry(),
+                python,
+                decidePass(),
+                sidecar,
+                pinStore
+        );
+
+        UiTestAnalyzeService.Pinned pinned = service.pin(new UiTestAnalyzeService.Request(
+                0, UiTestAnalyzeService.Source.ARCHIVE, 42L, null
+        ));
+        assertEquals(0, pinned.cameraId());
+        assertEquals(42L, pinned.frameId());
+
+        // Overwrite archive slot with a different JPEG — pin must keep the original bytes.
+        Path overwrite = Files.createTempFile(tempDir, "overwrite", ".jpg");
+        BufferedImage other = new BufferedImage(32, 24, BufferedImage.TYPE_3BYTE_BGR);
+        ImageIO.write(other, "jpg", overwrite.toFile());
+        assertTrue(archive.saveImmediately(new FrameArchiveService.SaveRequest(
+                0, 42L, 2L, "bench", "v1", null, overwrite, null, 0, 0
+        )));
+        byte[] overwritten = Files.readAllBytes(
+                archive.resolveArtifact(0, 42L, "frame.jpg").orElseThrow()
+        );
+        assertTrue(overwritten.length != original.length || !java.util.Arrays.equals(overwritten, original));
+
+        UiTestAnalyzeService.Accepted accepted = service.submit(new UiTestAnalyzeService.Request(
+                0, UiTestAnalyzeService.Source.PIN, 42L, null, pinned.pinId()
+        ));
+        assertEquals(42L, accepted.frameId());
+
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (System.nanoTime() < deadline && !sidecarCalled.get()) {
+            Thread.sleep(20);
+        }
+        assertTrue(sidecarCalled.get(), "after-inspection sidecar");
+        assertNotNull(lastState.get());
+        assertEquals(Boolean.TRUE, lastState.get().capture().header().get("test_analyze"));
+        assertEquals(42L, ((Number) lastState.get().capture().header().get("frame_id")).longValue());
+
+        byte[] pinnedBytes = Files.readAllBytes(pinStore.get(pinned.pinId()).orElseThrow().jpegPath());
+        assertTrue(java.util.Arrays.equals(original, pinnedBytes));
+        assertEquals(
+                UiTestAnalyzeService.sha256Hex(original),
+                lastState.get().capture().header().get("pin_jpeg_sha256")
+        );
+        assertEquals(
+                pinned.imageHttpPath(),
+                lastState.get().capture().header().get("http_path")
+        );
+        assertFalse(
+                String.valueOf(lastState.get().capture().header().get("http_path")).contains("current.jpg")
+        );
+    }
+
+    @Test
+    void submitPinFailsWhenNotPinned() throws Exception {
+        FrameArchiveService archive = openArchive();
+        PipelineReferenceRegistry refs = new PipelineReferenceRegistry();
+        refs.byCamera().put(0, usableRef());
+        UiTestAnalyzeService service = service(archive, refs, List.of(dummySupervisor()), List.of(dummySupervisor()),
+                passthroughGeometry(), passthroughPython(), decidePass(), noopSidecar());
+
+        UiTestAnalyzeService.AnalyzeException ex = assertThrows(
+                UiTestAnalyzeService.AnalyzeException.class,
+                () -> service.submit(new UiTestAnalyzeService.Request(
+                        0, UiTestAnalyzeService.Source.PIN, 1L, null, "missing-pin"
                 ))
         );
         assertEquals(404, ex.status());
@@ -137,9 +286,50 @@ class UiTestAnalyzeServiceTest {
         return FrameArchiveService.open(cfg);
     }
 
+    @Test
+    void submitNormalizesArchiveJpegToReferenceResolution() throws Exception {
+        FrameArchiveService archive = openArchive();
+        writeArchiveFrame(archive, 0, 42L, 8, 6);
+        PipelineReferenceRegistry refs = new PipelineReferenceRegistry();
+        refs.byCamera().put(0, usableRef());
+
+        AtomicReference<PipelineState> lastState = new AtomicReference<>();
+        PythonInspectStage python = (state, cameraId, productType, detectorId, activeReference, pythonCfg,
+                                     pythonPool, pythonSlots, pythonRoundRobin) -> {
+            lastState.set(state);
+            return state;
+        };
+
+        UiTestAnalyzeService service = service(archive, refs, List.of(dummySupervisor()), List.of(dummySupervisor()),
+                passthroughGeometry(), python, decidePass(), noopSidecar());
+
+        UiTestAnalyzeService.Accepted accepted = service.submit(new UiTestAnalyzeService.Request(
+                0, UiTestAnalyzeService.Source.ARCHIVE, 42L, null
+        ));
+        assertEquals(42L, accepted.frameId());
+
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (System.nanoTime() < deadline && lastState.get() == null) {
+            Thread.sleep(20);
+        }
+        assertNotNull(lastState.get());
+        assertEquals(16, YamlScalars.toInt(lastState.get().capture().header().get("width"), 0));
+        assertEquals(12, YamlScalars.toInt(lastState.get().capture().header().get("height"), 0));
+    }
+
     private static void writeArchiveFrame(FrameArchiveService archive, int cameraId, long frameId) throws Exception {
+        writeArchiveFrame(archive, cameraId, frameId, 16, 12);
+    }
+
+    private static void writeArchiveFrame(
+            FrameArchiveService archive,
+            int cameraId,
+            long frameId,
+            int width,
+            int height
+    ) throws Exception {
         Path src = Files.createTempFile("uitest-frame", ".jpg");
-        BufferedImage img = new BufferedImage(16, 12, BufferedImage.TYPE_3BYTE_BGR);
+        BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
         ImageIO.write(img, "jpg", src.toFile());
         boolean ok = archive.saveImmediately(new FrameArchiveService.SaveRequest(
                 cameraId,
@@ -167,6 +357,30 @@ class UiTestAnalyzeServiceTest {
             InspectionDecisionPolicy decision,
             AfterInspectionSidecar sidecar
     ) {
+        return service(
+                archive,
+                refs,
+                geometryPool,
+                pythonPool,
+                geometry,
+                python,
+                decision,
+                sidecar,
+                new TestFramePinStore(tempDir.resolve("pins-" + System.nanoTime()))
+        );
+    }
+
+    private UiTestAnalyzeService service(
+            FrameArchiveService archive,
+            PipelineReferenceRegistry refs,
+            List<BinaryRpcSupervisor> geometryPool,
+            List<BinaryRpcSupervisor> pythonPool,
+            GeometryInspectStage geometry,
+            PythonInspectStage python,
+            InspectionDecisionPolicy decision,
+            AfterInspectionSidecar sidecar,
+            TestFramePinStore pinStore
+    ) {
         PipelineReferenceRegistry registry = refs == null ? new PipelineReferenceRegistry() : refs;
         return new UiTestAnalyzeService(
                 LogManager.getLogger(getClass()),
@@ -181,6 +395,7 @@ class UiTestAnalyzeServiceTest {
                 decision,
                 sidecar,
                 archive,
+                pinStore,
                 () -> null,
                 () -> null,
                 () -> null,

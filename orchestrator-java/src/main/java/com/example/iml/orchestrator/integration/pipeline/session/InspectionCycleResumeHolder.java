@@ -22,6 +22,13 @@ public final class InspectionCycleResumeHolder {
         }
     }
 
+    public void reevaluateOpenBucketsAfterGateChange() {
+        InspectionCycleResumeService current = service;
+        if (current != null) {
+            current.reevaluateOpenBucketsAfterGateChange();
+        }
+    }
+
     public long currentTriggerSequence() {
         InspectionCycleResumeService current = service;
         return current == null ? 0L : current.currentTriggerSequence();

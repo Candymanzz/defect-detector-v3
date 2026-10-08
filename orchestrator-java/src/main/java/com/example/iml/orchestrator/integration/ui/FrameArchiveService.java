@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.ui;
 
+import com.example.iml.orchestrator.integration.clientapi.JpegBgrShmWriter;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -43,7 +44,11 @@ public final class FrameArchiveService implements AutoCloseable {
             Path frameJpeg,
             Path heatmapU8,
             int heatmapWidth,
-            int heatmapHeight
+            int heatmapHeight,
+            String learnedReviewId,
+            /** Target reference WxH; archive JPEG is normalized to this size when both > 0. */
+            int frameWidth,
+            int frameHeight
     ) {
         public SaveRequest(
                 int cameraId,
@@ -57,8 +62,89 @@ public final class FrameArchiveService implements AutoCloseable {
                 int heatmapWidth,
                 int heatmapHeight
         ) {
-            this(cameraId, frameId, inspectionId, 0, -1, productType, detectorId, decision, frameJpeg, heatmapU8,
-                    heatmapWidth, heatmapHeight);
+            this(
+                    cameraId,
+                    frameId,
+                    inspectionId,
+                    0,
+                    -1,
+                    productType,
+                    detectorId,
+                    decision,
+                    frameJpeg,
+                    heatmapU8,
+                    heatmapWidth,
+                    heatmapHeight,
+                    null,
+                    0,
+                    0
+            );
+        }
+
+        public SaveRequest(
+                int cameraId,
+                long frameId,
+                long inspectionId,
+                String productType,
+                String detectorId,
+                InspectionDecision decision,
+                Path frameJpeg,
+                Path heatmapU8,
+                int heatmapWidth,
+                int heatmapHeight,
+                String learnedReviewId
+        ) {
+            this(
+                    cameraId,
+                    frameId,
+                    inspectionId,
+                    0,
+                    -1,
+                    productType,
+                    detectorId,
+                    decision,
+                    frameJpeg,
+                    heatmapU8,
+                    heatmapWidth,
+                    heatmapHeight,
+                    learnedReviewId,
+                    0,
+                    0
+            );
+        }
+
+        public SaveRequest(
+                int cameraId,
+                long frameId,
+                long inspectionId,
+                String productType,
+                String detectorId,
+                InspectionDecision decision,
+                Path frameJpeg,
+                Path heatmapU8,
+                int heatmapWidth,
+                int heatmapHeight,
+                String learnedReviewId,
+                int frameWidth,
+                int frameHeight
+        ) {
+            this(
+                    cameraId,
+                    frameId,
+                    inspectionId,
+                    0,
+                    -1,
+                    productType,
+                    detectorId,
+                    decision,
+                    frameJpeg,
+                    heatmapU8,
+                    heatmapWidth,
+                    heatmapHeight,
+                    learnedReviewId,
+                    frameWidth,
+                    frameHeight
+            );
         }
     }
 
@@ -69,7 +155,7 @@ public final class FrameArchiveService implements AutoCloseable {
             int groupId,
             boolean overallPass,
             String action,
-            double anomalyScore,
+            Double anomalyScore,
             String pythonStatus,
             String geometryStatus,
             String productType,
@@ -77,8 +163,15 @@ public final class FrameArchiveService implements AutoCloseable {
             long savedAtEpochMs,
             boolean hasHeatmap,
             int heatmapWidth,
-            int heatmapHeight
+            int heatmapHeight,
+            int frameWidth,
+            int frameHeight,
+            String learnedReviewId,
+            Map<String, Object> geometry
     ) {
+        public ArchivedFrame {
+            geometry = geometry == null || geometry.isEmpty() ? Map.of() : Map.copyOf(geometry);
+        }
     }
 
     private final FrameArchiveConfig config;
@@ -173,14 +266,9 @@ public final class FrameArchiveService implements AutoCloseable {
         if (maxFramesPerCamera() <= 0) {
             return;
         }
-        // Snapshot bytes while source paths are still valid (UI finally / next inspection may delete them).
-        final byte[] frameBytes;
-        final byte[] heatmapBytes;
+        PreparedSave prepared;
         try {
-            frameBytes = Files.readAllBytes(request.frameJpeg());
-            heatmapBytes = request.heatmapU8() != null && Files.isRegularFile(request.heatmapU8())
-                    ? Files.readAllBytes(request.heatmapU8())
-                    : null;
+            prepared = prepareSave(request);
         } catch (IOException e) {
             LOG.warn(
                     "frame archive snapshot failed camera_id={} frame_id={}: {}",
@@ -190,7 +278,6 @@ public final class FrameArchiveService implements AutoCloseable {
             );
             return;
         }
-        PreparedSave prepared = new PreparedSave(request, frameBytes, heatmapBytes);
         try {
             executor.execute(() -> savePrepared(prepared));
         } catch (RejectedExecutionException e) {
@@ -211,11 +298,7 @@ public final class FrameArchiveService implements AutoCloseable {
             return false;
         }
         try {
-            byte[] frameBytes = Files.readAllBytes(request.frameJpeg());
-            byte[] heatmapBytes = request.heatmapU8() != null && Files.isRegularFile(request.heatmapU8())
-                    ? Files.readAllBytes(request.heatmapU8())
-                    : null;
-            savePrepared(new PreparedSave(request, frameBytes, heatmapBytes));
+            savePrepared(prepareSave(request));
             return Files.isRegularFile(frameDirectory(request.cameraId(), request.frameId()).resolve("frame.jpg"));
         } catch (Exception e) {
             LOG.warn(
@@ -343,13 +426,36 @@ public final class FrameArchiveService implements AutoCloseable {
         }
     }
 
+    private PreparedSave prepareSave(SaveRequest request) throws IOException {
+        byte[] frameBytes = Files.readAllBytes(request.frameJpeg());
+        if (request.frameWidth() > 0 && request.frameHeight() > 0) {
+            frameBytes = JpegBgrShmWriter.ensureJpegSize(
+                    frameBytes,
+                    request.frameWidth(),
+                    request.frameHeight()
+            );
+        }
+        int storedWidth = 0;
+        int storedHeight = 0;
+        try {
+            int[] frameDims = JpegBgrShmWriter.jpegDimensions(frameBytes);
+            storedWidth = frameDims[0];
+            storedHeight = frameDims[1];
+        } catch (IOException ignored) {
+            if (request.frameWidth() > 0 && request.frameHeight() > 0) {
+                storedWidth = request.frameWidth();
+                storedHeight = request.frameHeight();
+            }
+        }
+        byte[] heatmapBytes = request.heatmapU8() != null && Files.isRegularFile(request.heatmapU8())
+                ? Files.readAllBytes(request.heatmapU8())
+                : null;
+        return new PreparedSave(request, frameBytes, heatmapBytes, storedWidth, storedHeight);
+    }
+
     private void saveNow(SaveRequest request) {
         try {
-            byte[] frameBytes = Files.readAllBytes(request.frameJpeg());
-            byte[] heatmapBytes = request.heatmapU8() != null && Files.isRegularFile(request.heatmapU8())
-                    ? Files.readAllBytes(request.heatmapU8())
-                    : null;
-            savePrepared(new PreparedSave(request, frameBytes, heatmapBytes));
+            savePrepared(prepareSave(request));
         } catch (Exception e) {
             LOG.warn(
                     "frame archive save failed camera_id={} frame_id={}: {}",
@@ -373,7 +479,13 @@ public final class FrameArchiveService implements AutoCloseable {
                 Files.write(frameDir.resolve("heatmap.u8"), prepared.heatmapBytes());
             }
 
-            writeResultJson(frameDir.resolve("result.json"), request, hasHeatmap);
+            writeResultJson(
+                    frameDir.resolve("result.json"),
+                    request,
+                    hasHeatmap,
+                    prepared.frameWidth(),
+                    prepared.frameHeight()
+            );
             trimOldFrames(request.cameraId());
             LOG.debug(
                     "frame archive saved camera_id={} frame_id={} heatmap={}",
@@ -391,10 +503,16 @@ public final class FrameArchiveService implements AutoCloseable {
         }
     }
 
-    private record PreparedSave(SaveRequest request, byte[] frameBytes, byte[] heatmapBytes) {
+    private record PreparedSave(SaveRequest request, byte[] frameBytes, byte[] heatmapBytes, int frameWidth, int frameHeight) {
     }
 
-    private void writeResultJson(Path resultPath, SaveRequest request, boolean hasHeatmap) throws IOException {
+    private void writeResultJson(
+            Path resultPath,
+            SaveRequest request,
+            boolean hasHeatmap,
+            int frameWidth,
+            int frameHeight
+    ) throws IOException {
         ObjectNode root = JSON.createObjectNode();
         root.put("camera_id", request.cameraId());
         root.put("frame_id", Long.toString(request.frameId()));
@@ -413,6 +531,10 @@ public final class FrameArchiveService implements AutoCloseable {
                 "frame_http_path",
                 frameArtifactHttpPath(request.cameraId(), request.frameId(), "frame.jpg")
         );
+        if (frameWidth > 0 && frameHeight > 0) {
+            root.put("frame_width", frameWidth);
+            root.put("frame_height", frameHeight);
+        }
         if (hasHeatmap) {
             ObjectNode heatmap = root.putObject("heatmap");
             heatmap.put("width", request.heatmapWidth());
@@ -430,9 +552,19 @@ public final class FrameArchiveService implements AutoCloseable {
         if (decision != null) {
             root.put("overall_pass", decision.overallPass());
             root.put("action", decision.action());
-            root.put("anomaly_score", decision.anomalyScore());
+            if (decision.hasAnomalyScore()) {
+                root.put("anomaly_score", decision.anomalyScore());
+            } else {
+                root.putNull("anomaly_score");
+            }
             root.put("python_status", decision.pythonStatus());
             root.put("geometry_status", decision.geometryStatus());
+            if (decision.geometry() != null && !decision.geometry().isEmpty()) {
+                root.set("geometry", JSON.valueToTree(decision.geometry()));
+            }
+        }
+        if (request.learnedReviewId() != null && !request.learnedReviewId().isBlank()) {
+            root.put("learned_review_id", request.learnedReviewId().trim());
         }
         JSON.writerWithDefaultPrettyPrinter().writeValue(resultPath.toFile(), root);
     }
@@ -492,7 +624,9 @@ public final class FrameArchiveService implements AutoCloseable {
             int groupId = (int) parseLong(root.get("group_id"), -1L);
             boolean overallPass = Boolean.TRUE.equals(root.get("overall_pass"));
             String action = stringValue(root.get("action"));
-            double anomalyScore = parseDouble(root.get("anomaly_score"));
+            Double anomalyScore = root.get("anomaly_score") instanceof Number
+                    ? parseDouble(root.get("anomaly_score"))
+                    : null;
             String pythonStatus = stringValue(root.get("python_status"));
             String geometryStatus = stringValue(root.get("geometry_status"));
             String productType = stringValue(root.get("product_type"));
@@ -518,6 +652,28 @@ public final class FrameArchiveService implements AutoCloseable {
                 heatmapWidth = inferredSize[0];
                 heatmapHeight = inferredSize[1];
             }
+            int frameWidth = (int) Math.max(0, parseLong(root.get("frame_width"), 0L));
+            int frameHeight = (int) Math.max(0, parseLong(root.get("frame_height"), 0L));
+            if (frameWidth <= 0 || frameHeight <= 0) {
+                int[] inferredFrame = inferFrameSize(frameDir.resolve("frame.jpg"));
+                frameWidth = inferredFrame[0];
+                frameHeight = inferredFrame[1];
+            }
+            String learnedReviewId = stringValue(root.get("learned_review_id"));
+            if (learnedReviewId.isEmpty()) {
+                learnedReviewId = null;
+            }
+            Map<String, Object> geometry = Map.of();
+            Object geometryRaw = root.get("geometry");
+            if (geometryRaw instanceof Map<?, ?> geometryMap && !geometryMap.isEmpty()) {
+                Map<String, Object> copied = new java.util.LinkedHashMap<>();
+                for (Map.Entry<?, ?> entry : geometryMap.entrySet()) {
+                    if (entry.getKey() != null) {
+                        copied.put(String.valueOf(entry.getKey()), entry.getValue());
+                    }
+                }
+                geometry = copied;
+            }
             return Optional.of(new ArchivedFrame(
                     frameId,
                     inspectionId,
@@ -533,11 +689,33 @@ public final class FrameArchiveService implements AutoCloseable {
                     savedAt,
                     hasHeatmap,
                     heatmapWidth,
-                    heatmapHeight
+                    heatmapHeight,
+                    frameWidth,
+                    frameHeight,
+                    learnedReviewId,
+                    geometry
             ));
         } catch (IOException e) {
             LOG.debug("frame archive metadata read failed {}: {}", frameDir, e.getMessage());
             return Optional.empty();
+        }
+    }
+
+    /** Durable learning key for accept-all even after in-memory review index/FIFO churn. */
+    public Optional<String> learnedReviewId(int cameraId, long frameId) {
+        return parseFrameDir(frameDirectory(cameraId, frameId))
+                .map(ArchivedFrame::learnedReviewId)
+                .filter(id -> id != null && !id.isBlank());
+    }
+
+    private static int[] inferFrameSize(Path frameJpeg) {
+        try {
+            if (!Files.isRegularFile(frameJpeg)) {
+                return new int[] {0, 0};
+            }
+            return JpegBgrShmWriter.jpegDimensions(Files.readAllBytes(frameJpeg));
+        } catch (Exception e) {
+            return new int[] {0, 0};
         }
     }
 

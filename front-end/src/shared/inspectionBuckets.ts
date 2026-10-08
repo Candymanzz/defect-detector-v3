@@ -1,5 +1,6 @@
+import { appEnv } from "./config/env";
+
 export const CAMERAS_PER_BUCKET = 5;
-export const BUCKET_PHASE_COUNT = 2;
 
 export type InspectionBucket = {
   key: string;
@@ -9,8 +10,14 @@ export type InspectionBucket = {
   label: string;
 };
 
-/** phase 0 → ведра 1–2, phase 1 → ведра 3–4. Одни camera id в обеих фазах. */
-export function createInspectionBuckets(cameraIds: number[]): InspectionBucket[] {
+/**
+ * phaseCount=1 (станок на 2 изделия): ведра 1–2. phaseCount=2 (4 изделия): phase 0 → ведра 1–2, phase 1 → ведра 3–4,
+ * одни camera id в обеих фазах. По умолчанию из VITE_BUCKET_PHASE_COUNT (1 или 2).
+ */
+export function createInspectionBuckets(
+  cameraIds: number[],
+  phaseCount: number = appEnv.bucketPhaseCount,
+): InspectionBucket[] {
   const uniqueCameraIds = [...new Set(cameraIds)].sort((left, right) => left - right);
   const cameraSets: number[][] = [];
   for (let index = 0; index < uniqueCameraIds.length; index += CAMERAS_PER_BUCKET) {
@@ -18,7 +25,7 @@ export function createInspectionBuckets(cameraIds: number[]): InspectionBucket[]
   }
   const sets = cameraSets.slice(0, 2);
 
-  return Array.from({ length: BUCKET_PHASE_COUNT }, (_, phaseId) => phaseId).flatMap((phaseId) =>
+  return Array.from({ length: phaseCount }, (_, phaseId) => phaseId).flatMap((phaseId) =>
     sets.map((groupCameraIds, cameraSetIndex) => {
       const groupId = phaseId * sets.length + cameraSetIndex;
       return {

@@ -129,7 +129,37 @@ public final class AsyncInspectionCycleRunner {
             long tDecisionDone = System.nanoTime();
             BinaryProtocol.Message capture = withCycleIdentity(state.capture(), in);
             boolean resultPublished = publishIfAllowed(inspectionGate, in.cameraId(), () -> {
+                Runnable publishUi = () -> {
+                    try {
+                        svc.afterInspectionSidecar().scheduleAfterInspection(
+                                in.uiServer(),
+                                in.uiCfg(),
+                                in.uiVisualsPython(),
+                                in.uiArtifactsExecutor(),
+                                in.cameraId(),
+                                in.productType(),
+                                in.detectorId(),
+                                in.inspectionId(),
+                                in.activeReference(),
+                                decision,
+                                capture,
+                                state.py(),
+                                state.geom()
+                        );
+                    } catch (RuntimeException e) {
+                        svc.afterInspectionSidecar().discardInspectionArtifacts(state.py());
+                        svc.log().warn(
+                                "ui artifact scheduling failed camera_id={} frame_id={}: {}",
+                                in.cameraId(),
+                                decision.frameId(),
+                                e.getMessage()
+                        );
+                    } finally {
+                        releaseCycleShm(state.capture());
+                    }
+                };
                 if (in.bucketAggregator() != null) {
+                    // UI после FINS по seq (приоритет ПЛК).
                     in.bucketAggregator().recordFrameResult(
                             in.triggerSequence(),
                             in.parentCycleId(),
@@ -137,35 +167,11 @@ public final class AsyncInspectionCycleRunner {
                             in.rawTriggerSequence(),
                             in.cameraId(),
                             decision,
-                            in.fanOut()
+                            in.fanOut(),
+                            publishUi
                     );
-                }
-                try {
-                    svc.afterInspectionSidecar().scheduleAfterInspection(
-                            in.uiServer(),
-                            in.uiCfg(),
-                            in.uiVisualsPython(),
-                            in.uiArtifactsExecutor(),
-                            in.cameraId(),
-                            in.productType(),
-                            in.detectorId(),
-                            in.inspectionId(),
-                            in.activeReference(),
-                            decision,
-                            capture,
-                            state.py(),
-                            state.geom()
-                    );
-                } catch (RuntimeException e) {
-                    svc.afterInspectionSidecar().discardInspectionArtifacts(state.py());
-                    svc.log().warn(
-                            "ui artifact scheduling failed camera_id={} frame_id={}: {}",
-                            in.cameraId(),
-                            decision.frameId(),
-                            e.getMessage()
-                    );
-                } finally {
-                    releaseCycleShm(state.capture());
+                } else {
+                    publishUi.run();
                 }
             });
             if (!resultPublished) {
@@ -357,6 +363,34 @@ public final class AsyncInspectionCycleRunner {
         InspectionDecision decision = InspectionDecision.captureOnly(in.cameraId(), frameId);
         // Soft-stop passes a null gate: must still publish (do not short-circuit the publish runnable).
         boolean published = publishIfAllowed(inspectionGate, in.cameraId(), () -> {
+            Runnable publishUi = () -> {
+                try {
+                    svc.afterInspectionSidecar().scheduleAfterInspection(
+                            in.uiServer(),
+                            in.uiCfg(),
+                            in.uiVisualsPython(),
+                            in.uiArtifactsExecutor(),
+                            in.cameraId(),
+                            in.productType(),
+                            in.detectorId(),
+                            in.inspectionId(),
+                            in.activeReference(),
+                            decision,
+                            capture,
+                            null,
+                            null
+                    );
+                } catch (RuntimeException e) {
+                    svc.log().warn(
+                            "capture-only ui publish failed camera_id={} frame_id={}: {}",
+                            in.cameraId(),
+                            frameId,
+                            e.getMessage()
+                    );
+                } finally {
+                    releaseCycleShm(state.capture());
+                }
+            };
             if (inspectionGate != null && in.bucketAggregator() != null) {
                 in.bucketAggregator().recordFrameResult(
                         in.triggerSequence(),
@@ -365,34 +399,11 @@ public final class AsyncInspectionCycleRunner {
                         in.rawTriggerSequence(),
                         in.cameraId(),
                         decision,
-                        in.fanOut()
+                        in.fanOut(),
+                        publishUi
                 );
-            }
-            try {
-                svc.afterInspectionSidecar().scheduleAfterInspection(
-                        in.uiServer(),
-                        in.uiCfg(),
-                        in.uiVisualsPython(),
-                        in.uiArtifactsExecutor(),
-                        in.cameraId(),
-                        in.productType(),
-                        in.detectorId(),
-                        in.inspectionId(),
-                        in.activeReference(),
-                        decision,
-                        capture,
-                        null,
-                        null
-                );
-            } catch (RuntimeException e) {
-                svc.log().warn(
-                        "capture-only ui publish failed camera_id={} frame_id={}: {}",
-                        in.cameraId(),
-                        frameId,
-                        e.getMessage()
-                );
-            } finally {
-                releaseCycleShm(state.capture());
+            } else {
+                publishUi.run();
             }
         });
         if (!published) {

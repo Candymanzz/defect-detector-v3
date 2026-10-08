@@ -1,7 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"D:/App/defect-detector-v3/camera-worker/build/cmake_install.cmake"
-	],
-	"Parallel" : false
-}

@@ -539,14 +539,14 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                     di3RiseEpochMs = System.currentTimeMillis();
                     // Строго DI2=1: поздний DI5 после DI2↓ не армит wait (иначе чужие Line0).
                     boolean directionOk = !ioInputConfig.requireDirection()
-                            || (ioInputConfig.directionLatch() ? directionLatched : directionActive);
+                            || (ioInputConfig.directionLatch() ? directionLatched : directionMatchesSelected());
                     if (!directionOk) {
                         log.info(
                                 "io_input_trigger skip DI{}↑: направление ещё не зафиксировано (жди DI2=1), source={}",
                                 port,
                                 directionSourceLabel()
                         );
-                    } else if (!twoPhaseConfig.enabled() && directionActive && captureFiredThisDi2Window) {
+                    } else if (!twoPhaseConfig.enabled() && directionMatchesSelected() && captureFiredThisDi2Window) {
                         log.info(
                                 "io_input_trigger skip DI{}↑: холостой (уже сняли при DI2=1), source={}",
                                 port,
@@ -831,8 +831,8 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                 );
             }
         }
-        if (!twoPhaseConfig.enabled() && directionActive && captureFiredThisDi2Window) {
-            log.info("io_input_trigger skip: холостой DI3 (уже сняли при DI2=1)");
+        if (!twoPhaseConfig.enabled() && directionMatchesSelected() && captureFiredThisDi2Window) {
+            log.info("io_input_trigger skip: холостой DI3 (уже сняли в выбранном направлении)");
             return;
         }
         if (ioInputConfig.requireWork() && !isEffectiveWork()) {
@@ -856,7 +856,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         int published = publishLineCapture(targetCameras);
         if (published > 0) {
             captureFiredThisPulse = true;
-            if (directionActive && !twoPhaseConfig.enabled()) {
+            if (directionMatchesSelected() && !twoPhaseConfig.enabled()) {
                 captureFiredThisDi2Window = true;
             }
             long dispatchMs = System.currentTimeMillis() - triggerReceivedMs;
@@ -1096,18 +1096,44 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     }
 
     /**
-     * UI «Прямой/Обратный» не фильтрует. При {@code require_direction} — DI2=1
-     * (или уже latched после первого DI2=1).
+     * При {@code require_direction} нужно направление: DI2=1 (или уже latched после первого DI2=1).
+     * При {@code direction_must_match_selected} физическое направление ещё и должно совпадать с выбранным в UI
+     * «Прямой/Обратный» (см. {@link #directionMatchesSelected()}).
      */
     private boolean allowsCaptureForSelectedDirection() {
         if (!ioInputConfig.requireDirection()) {
             return true;
         }
-        if (ioInputConfig.directionLatch() ? directionLatched : directionActive) {
+        if (ioInputConfig.directionLatch() ? directionLatched : directionMatchesSelected()) {
             return true;
         }
-        log.info("io_input_trigger skip: DI2=0 (need direction before DI3 capture)");
+        if (ioInputConfig.directionMustMatchSelected()) {
+            log.info(
+                    "io_input_trigger skip: physical_direction={} selected_direction={}",
+                    directionActive ? "forward" : "reverse",
+                    manualLineDirection == null ? "forward" : manualLineDirection.wireValue()
+            );
+        } else {
+            log.info("io_input_trigger skip: DI2=0 (need direction before DI3 capture)");
+        }
         return false;
+    }
+
+    /**
+     * Переключатель {@code io_input.direction_must_match_selected} (DECISIONS.md, D-006).
+     * <ul>
+     *   <li>{@code false} (станок на 4 изделия) — UI «Прямой/Обратный» не фильтрует, считается только DI2
+     *       ({@code directionActive});</li>
+     *   <li>{@code true} (станки на 2 изделия, {@code core-dev}) — физическое направление DI2 должно совпадать
+     *       с выбранным в UI.</li>
+     * </ul>
+     */
+    private boolean directionMatchesSelected() {
+        if (!ioInputConfig.directionMustMatchSelected()) {
+            return directionActive;
+        }
+        boolean selectedForward = manualLineDirection == null || manualLineDirection.isForward();
+        return selectedForward == directionActive;
     }
 
     private String effectiveDirectionWire() {

@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.clientapi;
 
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
+import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -10,6 +11,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -25,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Вызовы детектора FastAPI analisSurface по HTTP: те же {@code op}, что ожидает пайплайн,
@@ -38,7 +41,6 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     private static final ConcurrentHashMap<String, String> SHARED_REFERENCE_SIGNATURES = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, String> SHARED_ROI_SIGNATURES = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Object> SCOPE_LOCKS = new ConcurrentHashMap<>();
-    private static volatile Map<Integer, String> ANALYSIS_PROFILE_BY_CAMERA = Map.of();
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15))
             .build();
@@ -58,6 +60,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             "jointMaxWidthMm",
             "maxJointParallelismDeg",
             "maxJointTaperMm",
+            "maxJointRimSkewDeg",
+            "maxJointGapAsymmetryMm",
             "jointSeamSegmentationEnabled",
             "jointSeamSegmentationSensitivity",
             "maxWrinklesScore",
@@ -78,6 +82,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             "joint_max_width_mm",
             "max_joint_parallelism_deg",
             "max_joint_taper_mm",
+            "max_joint_rim_skew_deg",
+            "max_joint_gap_asymmetry_mm",
             "joint_seam_segmentation_enabled",
             "joint_seam_segmentation_sensitivity",
             "max_wrinkles_score"
@@ -87,6 +93,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     private final String baseUrl;
     private final int commandTimeoutMs;
     private int restartCount;
+    private volatile Consumer<Boolean> healthListener;
 
     public AnalisSurfaceHttpBinaryRpcSupervisor(String name, String baseUrl, int commandTimeoutMs) {
         this.name = Objects.requireNonNull(name);
@@ -96,7 +103,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     }
 
     public static void setAnalysisProfilesByCamera(Map<Integer, String> profiles) {
-        ANALYSIS_PROFILE_BY_CAMERA = profiles == null || profiles.isEmpty() ? Map.of() : Map.copyOf(profiles);
+        CameraAnalysisProfiles.setByCamera(profiles);
     }
 
     @Override
@@ -111,6 +118,30 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     @Override
     public int restartCount() {
         return restartCount;
+    }
+
+    public void setHealthListener(Consumer<Boolean> healthListener) {
+        this.healthListener = healthListener;
+    }
+
+    private void reportHealthy() {
+        Consumer<Boolean> listener = healthListener;
+        if (listener != null) {
+            try {
+                listener.accept(true);
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private void reportUnhealthy() {
+        Consumer<Boolean> listener = healthListener;
+        if (listener != null) {
+            try {
+                listener.accept(false);
+            } catch (Exception ignored) {
+            }
+        }
     }
 
     @Override
@@ -137,23 +168,34 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 HttpResponse<byte[]> resp = httpGetRaw(path);
                 if (resp.statusCode() / 100 == 2) {
                     Map<String, Object> h = readJson(resp.body());
+                    reportHealthy();
                     return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, h, new byte[0]);
                 }
             } catch (IOException e) {
                 last = e;
             }
         }
+        reportUnhealthy();
         throw last == null ? new IOException("health: no path succeeded") : last;
     }
 
     @Override
     public BinaryProtocol.Message command(Map<String, Object> header) throws IOException {
         try {
-            return commandNoRetry(header);
+            BinaryProtocol.Message response = commandNoRetry(header);
+            reportHealthy();
+            return response;
         } catch (IOException first) {
             LOG.warn("{} command failed; retry once: {}", name, first.getMessage());
-            restart();
-            return commandNoRetry(header);
+            try {
+                restart();
+                BinaryProtocol.Message response = commandNoRetry(header);
+                reportHealthy();
+                return response;
+            } catch (IOException second) {
+                reportUnhealthy();
+                throw second;
+            }
         }
     }
 
@@ -169,6 +211,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             case "health" -> health();
             case "set_reference_shm" -> uploadRefShm(header);
             case "inspect_shm" -> inspectShm(header);
+            case "inspect_test_frame" -> inspectTestFrame(header);
             case "replace_fp_zones" -> replaceFpZones(header);
             case "sync_client_reference_bundle" -> syncClientReferenceBundle(header);
             case "set_active_reference_view" -> setActiveReferenceView(header);
@@ -389,6 +432,156 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         return inspectShmWithReference(header);
     }
 
+    /**
+     * UI test-analyze: JPEG on disk + ephemeral knobs → {@code POST /inspect-test-frame}.
+     * Production line keeps {@link #inspectShm}.
+     */
+    private BinaryProtocol.Message inspectTestFrame(Map<String, Object> header) throws IOException {
+        BinaryProtocol.Message referenceResponse = uploadInspectionReference(header);
+        if (referenceResponse != null && referenceResponse.type() == BinaryProtocol.MSG_ERROR) {
+            return referenceResponse;
+        }
+        int cameraId = YamlScalars.toInt(header.get("camera_id"), -1);
+        String originalProductType = String.valueOf(header.get("product_type"));
+        String scopedProductType = scopedProductType(originalProductType, cameraId);
+        Object poly = header.get("roi_polygon_norm");
+        if (poly instanceof List<?> list && list.size() >= 3) {
+            List<Map<String, Object>> points = normalizeRoiPoints(list);
+            if (points.size() >= 3) {
+                BinaryProtocol.Message roiResp = ensureRoiPolygon(
+                        originalProductType,
+                        cameraId,
+                        scopedProductType,
+                        points,
+                        header
+                );
+                if (roiResp != null && roiResp.type() == BinaryProtocol.MSG_ERROR) {
+                    return roiResp;
+                }
+            }
+        }
+
+        Map<String, Object> body = testFrameJson(header, scopedProductType);
+        String invalid = validateTestFrameFields(body);
+        if (invalid != null) {
+            return new BinaryProtocol.Message(
+                    BinaryProtocol.MSG_ERROR,
+                    Map.of("error", invalid, "op", "inspect_test_frame"),
+                    new byte[0]
+            );
+        }
+        Path jpegPath = Path.of(String.valueOf(body.get("file_path")));
+        if (!Files.isRegularFile(jpegPath)) {
+            return new BinaryProtocol.Message(
+                    BinaryProtocol.MSG_ERROR,
+                    Map.of(
+                            "error", "inspect-test-frame: file_path not found: " + jpegPath,
+                            "op", "inspect_test_frame"
+                    ),
+                    new byte[0]
+            );
+        }
+        LOG.info(
+                "inspect-test-frame POST cam={} frame={} cache_key={} file_path={} bytes={} image_url={}",
+                cameraId,
+                header.get("frame_id"),
+                body.get("cache_key"),
+                jpegPath.toAbsolutePath(),
+                Files.size(jpegPath),
+                body.getOrDefault("image_url", "")
+        );
+
+        Object heatmapOut = body.get("heatmap_u8_output_path");
+        BinaryProtocol.Message response;
+        if (heatmapOut != null && !String.valueOf(heatmapOut).isBlank()) {
+            synchronized (scopeLock("heatmap:" + String.valueOf(heatmapOut).trim())) {
+                response = postInspectTestFrame(header, body, originalProductType);
+            }
+        } else {
+            response = postInspectTestFrame(header, body, originalProductType);
+        }
+        return response;
+    }
+
+    private BinaryProtocol.Message postInspectTestFrame(
+            Map<String, Object> header,
+            Map<String, Object> body,
+            String originalProductType
+    ) throws IOException {
+        HttpResponse<byte[]> resp = httpPostJson("/inspect-test-frame", body);
+        if (resp.statusCode() / 100 != 2) {
+            return errorMessageToMsg(resp, "inspect-test-frame");
+        }
+        Map<String, Object> json = readJson(resp.body());
+        rememberLearnedReview(header, json);
+        Map<String, Object> pyHeader = inspectJsonToStdioHeader(json);
+        pyHeader.put("product_type", originalProductType);
+        Object hm = json.get("heatmap_u8");
+        if (hm instanceof Map<?, ?> hmMap) {
+            pyHeader.put("heatmap_u8_path", hmMap.get("path"));
+            pyHeader.put("heatmap_width", hmMap.get("width"));
+            pyHeader.put("heatmap_height", hmMap.get("height"));
+        }
+        return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, pyHeader, new byte[0]);
+    }
+
+    private Map<String, Object> testFrameJson(Map<String, Object> header, String scopedProductType) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("cache_key", String.valueOf(header.getOrDefault("cache_key", "")).trim());
+        body.put("file_path", String.valueOf(header.getOrDefault("file_path", "")).trim());
+        body.put("product_type", scopedProductType);
+        copyIfPresent(body, header, "image_url");
+        int cameraId = YamlScalars.toInt(header.get("camera_id"), -1);
+        String analysisProfile = resolveAnalysisProfile(header, cameraId);
+        if (analysisProfile != null && !analysisProfile.isBlank()) {
+            body.put("analysis_profile", analysisProfile);
+        }
+        if (header.get("detector_id") != null) {
+            body.put("detector_id", header.get("detector_id"));
+        }
+        copyIfPresent(body, header, "alignment_h_ref_to_cur");
+        copyIfPresent(body, header, "roi_polygon_norm");
+        copyIfPresent(body, header, "perspective_line_norm");
+        if (header.get("simple") instanceof Map<?, ?> simple) {
+            body.put("simple", simple);
+        }
+        if (header.get("detailed") instanceof Map<?, ?> detailed) {
+            body.put("detailed", detailed);
+        } else if (header.get("pro") instanceof Map<?, ?> pro) {
+            body.put("pro", pro);
+        }
+        Object heatmapPath = header.get("heatmap_u8_output_path");
+        if (heatmapPath != null && !String.valueOf(heatmapPath).isBlank()) {
+            body.put("heatmap_u8_output_path", String.valueOf(heatmapPath));
+        }
+        copyIfPresent(body, header, "heatmap_max_width");
+        copyIfPresent(body, header, "inspect_scale");
+        copyIfPresent(body, header, "aligned_image_u8_output_path");
+        copyIfPresent(body, header, "diff_map_u8_output_path");
+        copyIfPresent(body, header, "segmentation_mask_u8_output_path");
+        return body;
+    }
+
+    private static String validateTestFrameFields(Map<String, Object> body) {
+        String cacheKey = String.valueOf(body.getOrDefault("cache_key", "")).trim();
+        String filePath = String.valueOf(body.getOrDefault("file_path", "")).trim();
+        if (cacheKey.isEmpty()) {
+            return "inspect-test-frame: cache_key required";
+        }
+        if (filePath.isEmpty()) {
+            return "inspect-test-frame: file_path required";
+        }
+        boolean hasSimple = body.get("simple") instanceof Map<?, ?>;
+        boolean hasPro = body.get("pro") instanceof Map<?, ?>;
+        if (!hasSimple && !hasPro) {
+            return "inspect-test-frame: simple knobs required";
+        }
+        if (hasSimple && hasPro) {
+            return "inspect-test-frame: provide either simple or pro knobs, not both";
+        }
+        return null;
+    }
+
     private BinaryProtocol.Message inspectShmWithReference(Map<String, Object> header) throws IOException {
         BinaryProtocol.Message referenceResponse = uploadInspectionReference(header);
         if (referenceResponse != null && referenceResponse.type() == BinaryProtocol.MSG_ERROR) {
@@ -413,12 +606,6 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 }
             }
         }
-        Object heatmapOut = header.get("heatmap_u8_output_path");
-        if (heatmapOut != null && !String.valueOf(heatmapOut).isBlank()) {
-            synchronized (scopeLock("heatmap:" + String.valueOf(heatmapOut).trim())) {
-                return inspectShmVisuals(header);
-            }
-        }
         Map<String, Object> body = shmFrameJson(header);
         String invalid = validateRequiredShmFrameFields(body, "inspect-shm");
         if (invalid != null) {
@@ -436,6 +623,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         rememberLearnedReview(header, json);
         Map<String, Object> pyHeader = inspectJsonToStdioHeader(json);
         pyHeader.put("product_type", originalProductType);
+        appendHeatmapOutput(pyHeader, json);
         return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, pyHeader, new byte[0]);
     }
 
@@ -491,7 +679,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             return null;
         }
         String roiKey = runtimeKey(productType, cameraId);
-        String signature = roiSignature(points);
+        List<Map<String, Object>> perspectiveLine = perspectiveLinePoints(header);
+        String signature = roiSignature(points) + roiSignature(perspectiveLine);
         if (signature.equals(SHARED_ROI_SIGNATURES.get(roiKey))) {
             return null;
         }
@@ -502,6 +691,9 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             Map<String, Object> roiBody = new LinkedHashMap<>();
             roiBody.put("product_type", scopedProductType);
             roiBody.put("points", points);
+            if (perspectiveLine.size() == 2) {
+                roiBody.put("perspective_line", perspectiveLine);
+            }
             appendAlgorithmParams(roiBody, header);
             HttpResponse<byte[]> roiResp = httpPostJson("/roi-polygon", roiBody);
             if (roiResp.statusCode() / 100 != 2) {
@@ -514,6 +706,9 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
 
     private BinaryProtocol.Message inspectShmVisuals(Map<String, Object> header) throws IOException {
         Map<String, Object> body = shmFrameJson(header);
+        // The production inspect_shm request owns the learning-review record.
+        // This second pass exists only to export heatmaps/UI artifacts.
+        body.put("skip_learning_review", true);
         String invalid = validateRequiredShmFrameFields(body, "inspect-shm-visuals");
         if (invalid != null) {
             return new BinaryProtocol.Message(
@@ -683,6 +878,21 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         copyIfPresent(body, header, "camera_id");
         copyIfPresent(body, header, "frame_id");
         copyIfPresent(body, header, "phase_id");
+        copyIfPresent(body, header, "roi_polygon_norm");
+        copyIfPresent(body, header, "perspective_line_norm");
+        copyIfPresent(body, header, "heatmap_u8_output_path");
+        copyIfPresent(body, header, "heatmap_max_width");
+        copyIfPresent(body, header, "inspect_scale");
+        if (YamlScalars.toBool(header.get("test_analyze"), false)
+                || YamlScalars.toBool(header.get("skip_learning_review"), false)) {
+            body.put("skip_learning_review", true);
+        }
+        if (YamlScalars.toBool(header.get("defer_learning_review"), false)) {
+            body.put("defer_learning_review", true);
+        }
+        if (header.get("analysis_test_settings") instanceof Map<?, ?> temporaryAnalysis && !temporaryAnalysis.isEmpty()) {
+            body.put("analysis_test_settings", temporaryAnalysis);
+        }
         appendAlgorithmParams(body, header);
         return body;
     }
@@ -791,10 +1001,31 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         }
         h.put("learned_normal_matches_count", YamlScalars.toInt(json.get("learned_normal_matches_count"), 0));
         h.put("learned_normal_adjustment", YamlScalars.toDouble(json.get("learned_normal_adjustment"), 0.0));
+        Object excludedNormalZones = json.get("excluded_normal_zones");
+        h.put("excluded_normal_zones", excludedNormalZones instanceof List<?> ? excludedNormalZones : List.of());
+        for (String timing : List.of("py_align_ms", "py_diff_ms", "py_anomaly_ms", "py_fp_recheck_ms", "py_heatmap_ms", "py_total_ms")) {
+            h.put(timing, YamlScalars.toDouble(json.get(timing), 0.0));
+        }
         return h;
     }
 
+    private static void appendHeatmapOutput(Map<String, Object> header, Map<String, Object> json) {
+        Object value = json.get("heatmap_u8");
+        if (!(value instanceof Map<?, ?> heatmap)) {
+            return;
+        }
+        header.put("heatmap_u8_path", heatmap.get("path"));
+        header.put("heatmap_u8_width", heatmap.get("width"));
+        header.put("heatmap_u8_height", heatmap.get("height"));
+        header.put("heatmap_u8_stride", heatmap.get("stride"));
+    }
+
     private void rememberLearnedReview(Map<String, Object> header, Map<String, Object> json) {
+        // TEST re-runs must not steal the production learning review id for this frameId.
+        if (YamlScalars.toBool(header.get("test_analyze"), false)
+                || YamlScalars.toBool(header.get("skip_learning_review"), false)) {
+            return;
+        }
         Object learnedReviewId = json.get("inspection_id");
         if (learnedReviewId == null) {
             return;
@@ -991,14 +1222,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 return value;
             }
         }
-        if (cameraId < 0) {
-            return null;
-        }
-        String mapped = ANALYSIS_PROFILE_BY_CAMERA.get(cameraId);
-        if (mapped == null || mapped.isBlank()) {
-            return null;
-        }
-        return mapped.trim();
+        return CameraAnalysisProfiles.resolve(cameraId, null);
     }
 
     private static String referenceSignature(
@@ -1043,6 +1267,17 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         } catch (Exception e) {
             return "err";
         }
+    }
+
+    /** Линия перспективы из заголовка запроса: ровно две нормализованные точки, иначе пусто. */
+    private static List<Map<String, Object>> perspectiveLinePoints(Map<String, Object> header) {
+        if (header != null && header.get("perspective_line_norm") instanceof List<?> list) {
+            List<Map<String, Object>> points = normalizeRoiPoints(list);
+            if (points.size() == 2) {
+                return points;
+            }
+        }
+        return List.of();
     }
 
     private static String roiSignature(List<Map<String, Object>> points) {

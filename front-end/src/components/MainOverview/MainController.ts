@@ -68,6 +68,20 @@ export function createWsFrameImageUrl(frame: PreviewFramePayload | InspectResult
   return undefined;
 }
 
+export function isPreviewFrameNewerOrEqual(
+  frame: Pick<PreviewFramePayload, "frame_id" | "server_ts_ms">,
+  previousFrameId: string | undefined,
+  previousTimestamp: number | undefined,
+) {
+  if (previousTimestamp === undefined) {
+    return true;
+  }
+  if (frame.server_ts_ms !== previousTimestamp) {
+    return frame.server_ts_ms > previousTimestamp;
+  }
+  return previousFrameId === undefined || compareFrameIds(frame.frame_id, previousFrameId) >= 0;
+}
+
 export function createInspectionControlStates(inspectionStatus: {
   enabledCameraIds: number[];
   disabledCameraIds: number[];
@@ -101,10 +115,7 @@ export function resolveCardInspectImageUrl(
     if (archiveUrl) {
       return archiveUrl;
     }
-    if (
-      artifactInspectResult?.artifact_bundle_id &&
-      artifactInspectResult.frame_id === inspectResult.frame_id
-    ) {
+    if (artifactInspectResult?.artifact_bundle_id && artifactInspectResult.frame_id === inspectResult.frame_id) {
       return orchestratorApi.url(
         `/api/inspection-artifacts/${encodeURIComponent(artifactInspectResult.artifact_bundle_id)}/card.jpg`,
       );
@@ -127,10 +138,7 @@ export function resolveCardInspectImageUrl(
     return archiveUrl;
   }
 
-  if (
-    artifactInspectResult?.artifact_bundle_id &&
-    artifactInspectResult.frame_id === inspectResult.frame_id
-  ) {
+  if (artifactInspectResult?.artifact_bundle_id && artifactInspectResult.frame_id === inspectResult.frame_id) {
     return orchestratorApi.url(
       `/api/inspection-artifacts/${encodeURIComponent(artifactInspectResult.artifact_bundle_id)}/card.jpg`,
     );
@@ -189,12 +197,69 @@ export function updateModalSnapshotResult(
   currentSnapshot: ModalInspectionSnapshot,
   inspectResult: InspectResultPayload,
 ) {
+  const nextHeatmapUrl = resolveInspectHeatmapUrl(inspectResult);
+  // Immediate test-analyze notifies arrive without heatmap; keep the last map/descriptor until the final one lands.
+  const retainPreviousHeatmap =
+    Boolean(inspectResult.test_analyze) && !inspectResult.heatmap && currentSnapshot.inspectResult?.heatmap;
+  let displayInspectResult = retainPreviousHeatmap
+    ? { ...inspectResult, heatmap: currentSnapshot.inspectResult?.heatmap ?? null }
+    : inspectResult;
+
+  const lockedPinPath = currentSnapshot.pinnedTestHttpPath;
+  const lockedPinImageUrl = currentSnapshot.pinnedTestImageUrl;
+  if ((displayInspectResult.test_analyze || currentSnapshot.pinnedTestHttpPath) && lockedPinPath) {
+    displayInspectResult = {
+      ...displayInspectResult,
+      http_path: lockedPinPath,
+      // Keep the production learning review — test-analyze must not erase it.
+      learned_review_id: currentSnapshot.inspectResult?.learned_review_id ?? displayInspectResult.learned_review_id,
+      current: {
+        ...displayInspectResult.current,
+        http_path: lockedPinPath,
+        frame_id: currentSnapshot.pinnedTestFrameId ?? displayInspectResult.current.frame_id,
+      },
+    };
+  }
+
+  const nextCameraImageUrl =
+    lockedPinImageUrl ??
+    resolvePinnedTestFrameImageUrl(currentSnapshot, displayInspectResult) ??
+    resolveImmutableInspectionImageUrl(displayInspectResult) ??
+    createWsFrameImageUrl(displayInspectResult) ??
+    currentSnapshot.cameraImageUrl;
+
+  // Once a TEST pin is locked, never swap the modal image — even if WS carries another http_path.
+  const frozenTestImage = currentSnapshot.pinnedTestImageUrl ?? lockedPinImageUrl;
+
   return {
     ...currentSnapshot,
-    inspectResult,
-    cameraImageUrl: resolveImmutableInspectionImageUrl(inspectResult) ?? createWsFrameImageUrl(inspectResult),
-    heatmapUrl: resolveInspectHeatmapUrl(inspectResult),
+    inspectResult: displayInspectResult,
+    cameraImageUrl: frozenTestImage ?? nextCameraImageUrl ?? currentSnapshot.cameraImageUrl,
+    pinnedTestImageUrl: frozenTestImage,
+    heatmapUrl: nextHeatmapUrl ?? (inspectResult.test_analyze ? currentSnapshot.heatmapUrl : undefined),
   };
+}
+
+/** While TEST settings are open, keep showing the durable pin JPEG — not artifact/current re-encodes. */
+function resolvePinnedTestFrameImageUrl(currentSnapshot: ModalInspectionSnapshot, inspectResult: InspectResultPayload) {
+  const candidatePaths = [
+    inspectResult.http_path,
+    inspectResult.current?.http_path,
+    currentSnapshot.inspectResult?.http_path,
+    currentSnapshot.inspectResult?.current?.http_path,
+  ];
+  for (const path of candidatePaths) {
+    if (path?.includes("/api/client/inspection/test-pin/")) {
+      return orchestratorApi.imageUrl(path, inspectResult.frame_id || currentSnapshot.inspectResult?.frame_id);
+    }
+  }
+  if (
+    (inspectResult.test_analyze || currentSnapshot.inspectResult?.test_analyze) &&
+    currentSnapshot.cameraImageUrl?.includes("/api/client/inspection/test-pin/")
+  ) {
+    return currentSnapshot.cameraImageUrl;
+  }
+  return undefined;
 }
 
 export function compareInspectResults(left: InspectResultPayload, right: InspectResultPayload) {
@@ -212,7 +277,11 @@ export function hasDisplayableInspectImage(inspectResult: InspectResultPayload) 
 
 export function hasImmutableInspectArtifact(inspectResult: InspectResultPayload) {
   const imagePath = inspectResult.http_path ?? inspectResult.current?.http_path ?? "";
-  return Boolean(inspectResult.artifact_bundle_id || imagePath.includes("/api/frame-archive/"));
+  return Boolean(
+    inspectResult.artifact_bundle_id ||
+    imagePath.includes("/api/frame-archive/") ||
+    imagePath.includes("/api/client/inspection/test-pin/"),
+  );
 }
 
 export function upsertInspectionHistoryItem(items: InspectionHistoryItem[], nextItem: InspectionHistoryItem) {
@@ -244,9 +313,7 @@ export type ArchivedInspectionHistoryLoadResult = {
   failedCameraIds: number[];
 };
 
-export async function loadArchivedInspectionHistory(
-  cameraIds: number[],
-): Promise<ArchivedInspectionHistoryLoadResult> {
+export async function loadArchivedInspectionHistory(cameraIds: number[]): Promise<ArchivedInspectionHistoryLoadResult> {
   const histories = await Promise.all(
     cameraIds.map(async (cameraId) => {
       try {
@@ -301,11 +368,12 @@ async function enrichArchivedFrameHeatmapSize(frame: FrameArchiveHistoryFrame): 
   }
 }
 
-export function archivedFrameToInspectResult(
-  cameraId: number,
-  frame: FrameArchiveHistoryFrame,
-): InspectResultPayload {
+export function archivedFrameToInspectResult(cameraId: number, frame: FrameArchiveHistoryFrame): InspectResultPayload {
   const frameHttpPath = frame.frame_url;
+  const frameWidth = frame.frame_width ?? 0;
+  const frameHeight = frame.frame_height ?? 0;
+  const heatmapWidth = frame.heatmap_width ?? 0;
+  const heatmapHeight = frame.heatmap_height ?? 0;
   return {
     camera_id: cameraId,
     frame_id: frame.frame_id,
@@ -315,20 +383,21 @@ export function archivedFrameToInspectResult(
       camera_id: cameraId,
       frame_id: frame.frame_id,
       shm_name: "",
-      width: 0,
-      height: 0,
-      stride: 0,
+      width: frameWidth,
+      height: frameHeight,
+      stride: frameWidth > 0 ? frameWidth * 3 : 0,
       shm_offset: 0,
       pixel_format: "bgr_u8",
       channels: 3,
       http_path: frameHttpPath,
     },
     http_path: frameHttpPath,
+    learned_review_id: frame.learned_review_id,
     heatmap:
-      frame.has_heatmap && (frame.heatmap_width ?? 0) > 0 && (frame.heatmap_height ?? 0) > 0
+      frame.has_heatmap && heatmapWidth > 0 && heatmapHeight > 0
         ? {
-            width: frame.heatmap_width!,
-            height: frame.heatmap_height!,
+            width: heatmapWidth,
+            height: heatmapHeight,
             pixel_format: "gray_u8",
             channels: 1,
             http_path: frame.heatmap_url,
@@ -341,10 +410,15 @@ export function archivedFrameToInspectResult(
     },
     overall_pass: frame.overall_pass,
     action: frame.action,
-    anomaly_score: frame.anomaly_score,
+    anomaly_score: frame.anomaly_score ?? undefined,
     python_status: frame.python_status,
     geometry_status: frame.geometry_status,
+    geometry: frame.geometry,
     fp_zones: [],
+    fp_coordinate_space:
+      heatmapWidth > 0 && heatmapHeight > 0
+        ? { heatmap_width: heatmapWidth, heatmap_height: heatmapHeight }
+        : undefined,
     server_ts_ms: frame.saved_at_ms,
   };
 }
@@ -413,6 +487,12 @@ export function latestSnapshotToInspectResult(snapshot: UiLatestSnapshot): Inspe
 }
 
 function resolveImmutableInspectionImageUrl(inspectResult: InspectResultPayload) {
+  const imagePath = inspectResult.http_path ?? inspectResult.current?.http_path ?? "";
+  // Pin must win over archive/artifact: test-analyze WS often carries both bundle id and pin path.
+  if (imagePath.includes("/api/client/inspection/test-pin/")) {
+    return orchestratorApi.imageUrl(imagePath, inspectResult.frame_id);
+  }
+
   const archiveUrl = resolveArchiveFrameImageUrl(inspectResult);
   if (archiveUrl) {
     return archiveUrl;
@@ -429,10 +509,10 @@ function resolveImmutableInspectionImageUrl(inspectResult: InspectResultPayload)
 
 function resolveArchiveFrameImageUrl(inspectResult: InspectResultPayload) {
   const imagePath = inspectResult.http_path ?? inspectResult.current?.http_path ?? "";
-  if (!imagePath.includes("/api/frame-archive/")) {
-    return undefined;
+  if (imagePath.includes("/api/frame-archive/")) {
+    return orchestratorApi.imageUrl(imagePath, inspectResult.frame_id);
   }
-  return orchestratorApi.imageUrl(imagePath, inspectResult.frame_id);
+  return undefined;
 }
 
 function createInitialModalInspectionItems(

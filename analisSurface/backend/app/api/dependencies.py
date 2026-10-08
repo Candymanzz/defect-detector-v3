@@ -1,7 +1,16 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
 
+import cv2
+
 from app.services.inspection_service import InspectionService
+
+
+# Parallelism is provided by the inspection process pool. Letting every OpenCV
+# call create its own worker team oversubscribes the CPU when 10 cameras arrive
+# together and produces large tail-latency spikes.
+cv2.setNumThreads(1)
+cv2.ocl.setUseOpenCL(False)
 
 
 def _inspect_worker_count() -> int:
@@ -12,5 +21,8 @@ def _inspect_worker_count() -> int:
         return 10
 
 
-inspection_service = InspectionService()
+inspection_service = InspectionService(
+    session_wipe=False,
+    learned_normals_session_wipe=False,
+)
 inspect_executor = ThreadPoolExecutor(max_workers=_inspect_worker_count(), thread_name_prefix="inspect")

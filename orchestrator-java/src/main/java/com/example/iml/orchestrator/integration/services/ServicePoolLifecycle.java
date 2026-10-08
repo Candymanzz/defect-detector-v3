@@ -92,19 +92,38 @@ public final class ServicePoolLifecycle {
         if (command == null || command.isEmpty() || !looksLikeJavaLauncher(command.get(0))) {
             return command;
         }
+        boolean hasTmpDir = false;
+        boolean hasInitialHeap = false;
+        boolean hasMaxHeap = false;
+        boolean hasExitOnOom = false;
         for (String arg : command) {
-            if (arg != null && arg.startsWith("-Djava.io.tmpdir=")) {
-                return command;
+            if (arg == null) {
+                continue;
             }
+            hasTmpDir |= arg.startsWith("-Djava.io.tmpdir=");
+            hasInitialHeap |= arg.startsWith("-Xms");
+            hasMaxHeap |= arg.startsWith("-Xmx");
+            hasExitOnOom |= "-XX:+ExitOnOutOfMemoryError".equals(arg);
         }
-        Path base = projectRoot == null
-                ? Path.of(System.getProperty("java.io.tmpdir", "."))
-                : projectRoot.resolve(".tmp").resolve("svc-io");
-        Path tmp = base.resolve(sanitizeServiceName(serviceName));
-        Files.createDirectories(tmp);
-        List<String> out = new ArrayList<>(command.size() + 1);
+        List<String> out = new ArrayList<>(command.size() + 4);
         out.add(command.get(0));
-        out.add("-Djava.io.tmpdir=" + tmp.toAbsolutePath().normalize());
+        if (!hasInitialHeap) {
+            out.add("-Xms32m");
+        }
+        if (!hasMaxHeap) {
+            out.add("-Xmx256m");
+        }
+        if (!hasExitOnOom) {
+            out.add("-XX:+ExitOnOutOfMemoryError");
+        }
+        if (!hasTmpDir) {
+            Path base = projectRoot == null
+                    ? Path.of(System.getProperty("java.io.tmpdir", "."))
+                    : projectRoot.resolve(".tmp").resolve("svc-io");
+            Path tmp = base.resolve(sanitizeServiceName(serviceName));
+            Files.createDirectories(tmp);
+            out.add("-Djava.io.tmpdir=" + tmp.toAbsolutePath().normalize());
+        }
         out.addAll(command.subList(1, command.size()));
         return List.copyOf(out);
     }

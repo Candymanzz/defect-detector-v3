@@ -1,13 +1,18 @@
 package com.example.iml.orchestrator.integration.pipeline.stages;
 
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
+import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
+import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
+import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.LogManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,6 +27,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class InspectGeometryExecutorTest {
 
     private final InspectGeometryExecutor executor = new InspectGeometryExecutor(LogManager.getLogger(getClass()));
+
+    @AfterEach
+    void clearProfiles() {
+        CameraAnalysisProfiles.setByCamera(Map.of());
+    }
 
     @Test
     void returnsUnchangedStateWhenPoolEmpty() {
@@ -62,8 +72,8 @@ class InspectGeometryExecutorTest {
     }
 
     @Test
-    void skipsDisabledCameraWithoutCallingPool() {
-        AtomicInteger calls = new AtomicInteger();
+    void skipsDisabledCameraWithoutCallingGeometryPool() {
+        AtomicInteger geometryCalls = new AtomicInteger();
         InspectGeometryExecutor disabledExecutor = new InspectGeometryExecutor(
                 LogManager.getLogger(getClass()),
                 null,
@@ -79,15 +89,50 @@ class InspectGeometryExecutorTest {
                 reference(),
                 Map.of(),
                 Map.of(),
-                List.of(countingSupervisor(calls)),
+                List.of(countingSupervisor(geometryCalls)),
                 new Semaphore(1),
                 new AtomicInteger(0)
         );
 
-        assertEquals(0, calls.get());
+        assertEquals(0, geometryCalls.get());
         assertEquals("SKIPPED", result.geom().header().get("status"));
         assertEquals(true, result.geom().header().get("overallPass"));
         assertEquals(false, result.geom().header().get("jointCamera"));
+    }
+
+    @Test
+    void runsPositioningForGeometryDisabledCamera() {
+        AtomicInteger positioningCalls = new AtomicInteger();
+        InspectPositioningExecutor positioning = new InspectPositioningExecutor(
+                LogManager.getLogger(getClass()),
+                List.of(countingSupervisor(positioningCalls)),
+                new Semaphore(1),
+                new AtomicInteger(),
+                Map.of("enabled", true)
+        );
+        InspectGeometryExecutor withPositioning = new InspectGeometryExecutor(
+                LogManager.getLogger(getClass()),
+                null,
+                null,
+                positioning,
+                Set.of(2)
+        );
+
+        PipelineState result = withPositioning.apply(
+                stateWithCapture(),
+                2,
+                "bench",
+                reference(),
+                Map.of(),
+                Map.of(),
+                List.of(),
+                new Semaphore(1),
+                new AtomicInteger(0)
+        );
+
+        assertEquals(1, positioningCalls.get());
+        assertEquals("SKIPPED", result.geom().header().get("status"));
+        assertEquals(true, result.geom().header().get("overallPass"));
     }
 
     @Test
@@ -178,6 +223,78 @@ class InspectGeometryExecutorTest {
         assertTrue(Boolean.TRUE.equals(result.geom().header().get("overallPass")));
         assertEquals(4, sentHeader.get().get("camera_id"));
         assertTrue(result.geometryMs() >= 0);
+    }
+
+    @Test
+    void appliesGeometryRuntimeUnderCameraAnalysisProfileNotProductType() {
+        CameraAnalysisProfiles.setByCamera(Map.of(4, "bench-lan3"));
+        GeometryRuntimeConfig runtime = new GeometryRuntimeConfig();
+        runtime.replaceAllFromClient("bench-lan3", Map.of("maxShiftMm", 7.5));
+        runtime.replaceAllFromClient("bench", Map.of("maxShiftMm", 0.1));
+
+        AtomicReference<Map<String, Object>> sentHeader = new AtomicReference<>();
+        BinaryRpcSupervisor geometry = new BinaryRpcSupervisor() {
+            @Override
+            public BinaryProtocol.Message command(Map<String, Object> header) {
+                sentHeader.set(header);
+                return new BinaryProtocol.Message(
+                        BinaryProtocol.MSG_RESPONSE,
+                        Map.of("overallPass", true, "status", "PASS"),
+                        new byte[0]
+                );
+            }
+
+            @Override
+            public BinaryProtocol.Message commandNoRetry(Map<String, Object> header) {
+                return command(header);
+            }
+
+            @Override
+            public BinaryProtocol.Message health() {
+                return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, Map.of("status", "ok"), new byte[0]);
+            }
+
+            @Override
+            public void start() {
+            }
+
+            @Override
+            public void restart() {
+            }
+
+            @Override
+            public int restartCount() {
+                return 0;
+            }
+
+            @Override
+            public String supervisorLabel() {
+                return "geometry-profile-test";
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+
+        InspectGeometryExecutor withRuntime = new InspectGeometryExecutor(
+                LogManager.getLogger(getClass()),
+                null,
+                runtime
+        );
+        withRuntime.apply(
+                stateWithCapture(),
+                4,
+                "bench",
+                reference(),
+                Map.of(),
+                Map.of(),
+                List.of(geometry),
+                new Semaphore(1),
+                new AtomicInteger(0)
+        );
+
+        assertEquals(7.5, sentHeader.get().get("maxShiftMm"));
     }
 
     @Test
@@ -279,6 +396,105 @@ class InspectGeometryExecutorTest {
 
         assertEquals(1, calls.get());
         assertEquals(true, result.geom().header().get("overallPass"));
+    }
+
+    @Test
+    void poseQcFailsWhenPositioningShiftExceedsGeometryLimit() {
+        BinaryProtocol.Message geomPass = new BinaryProtocol.Message(
+                BinaryProtocol.MSG_RESPONSE,
+                Map.of(
+                        "status", "PASS",
+                        "overallPass", true,
+                        "alignmentPass", true,
+                        "jointPass", true,
+                        "wrinklesPass", true,
+                        "concentricityPass", true,
+                        "shiftXmm", 0.0,
+                        "shiftYmm", 0.0
+                ),
+                new byte[0]
+        );
+        BinaryProtocol.Message capture = new BinaryProtocol.Message(
+                BinaryProtocol.MSG_RESPONSE,
+                Map.of(
+                        "frame_id", 350L,
+                        InspectPositioningExecutor.HEADER_ALIGNED, true,
+                        "positioning_shift_x_mm", 0.8,
+                        "positioning_shift_y_mm", 0.1,
+                        "positioning_rotation_deg", 0.2
+                ),
+                new byte[0]
+        );
+
+        BinaryProtocol.Message gated = InspectGeometryExecutor.applyPoseQcFromPositioning(
+                geomPass,
+                capture,
+                Map.of("maxShiftMm", 0.5, "maxRotationDeg", 1.0)
+        );
+
+        assertEquals(false, gated.header().get("overallPass"));
+        assertEquals(false, gated.header().get("alignmentPass"));
+        assertEquals("FAIL", gated.header().get("status"));
+        assertEquals(0.8, ((Number) gated.header().get("shiftXmm")).doubleValue(), 1e-9);
+        assertEquals(true, gated.header().get("poseQcFromPositioning"));
+    }
+
+    @Test
+    void poseQcKeepsPassWhenPositioningShiftWithinLimit() {
+        BinaryProtocol.Message geomPass = new BinaryProtocol.Message(
+                BinaryProtocol.MSG_RESPONSE,
+                Map.of(
+                        "status", "PASS",
+                        "overallPass", true,
+                        "alignmentPass", true,
+                        "jointPass", true,
+                        "wrinklesPass", true,
+                        "concentricityPass", true,
+                        "shiftXmm", 0.0,
+                        "shiftYmm", 0.0
+                ),
+                new byte[0]
+        );
+        BinaryProtocol.Message capture = new BinaryProtocol.Message(
+                BinaryProtocol.MSG_RESPONSE,
+                Map.of(
+                        InspectPositioningExecutor.HEADER_ALIGNED, true,
+                        "positioning_shift_x_mm", 0.04,
+                        "positioning_shift_y_mm", 0.01,
+                        "positioning_rotation_deg", 0.1
+                ),
+                new byte[0]
+        );
+
+        BinaryProtocol.Message gated = InspectGeometryExecutor.applyPoseQcFromPositioning(
+                geomPass,
+                capture,
+                Map.of("maxShiftMm", 0.5, "maxRotationDeg", 1.0)
+        );
+
+        assertEquals(true, gated.header().get("overallPass"));
+        assertEquals(true, gated.header().get("alignmentPass"));
+        assertEquals("PASS", gated.header().get("status"));
+        assertEquals(0.04, ((Number) gated.header().get("shiftXmm")).doubleValue(), 1e-9);
+    }
+
+    @Test
+    void geometryProfileOverridesWidenLowerLineParallelism() {
+        Map<String, Object> header = new HashMap<>();
+        header.put("maxJointParallelismDeg", 2.5);
+        Map<String, Object> geometryCfg = Map.of(
+                "max_joint_parallelism_deg", 2.5,
+                "profiles", Map.of(
+                        "bench-lan6", Map.of("max_joint_parallelism_deg", 5.0)
+                )
+        );
+
+        BinaryInspectHeaders.applyGeometryProfileOverrides(
+                header,
+                BinaryInspectHeaders.resolveGeometryProfileOverrides(geometryCfg, "bench-lan6")
+        );
+
+        assertEquals(5.0, ((Number) header.get("maxJointParallelismDeg")).doubleValue(), 1e-9);
     }
 
     private static PipelineState stateWithCapture() {

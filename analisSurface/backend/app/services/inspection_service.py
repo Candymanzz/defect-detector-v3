@@ -1,9 +1,14 @@
 import base64
+import copy
 import json
 import logging
+import os
+import queue
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
+from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -13,15 +18,21 @@ import numpy as np
 from PIL import Image
 
 from app.runtime import get_application_id
+from app.detector_settings import is_file_logging_enabled
+from app.file_logging import log_analysis_stage
 from app.services.analysis_settings import AnalysisSettings
+from app.services.analysis_settings_presets import DEFAULT_STRENGTHS, expand_merged, normalize_strengths
 from app.services.inspection_geometry import (
+    PerspectiveLine,
     combine_region_masks,
+    perspective_far_weights,
     mask_to_polygon,
     polygon_area,
     polygon_bbox_from_norm_points,
     polygon_mask_from_norm_points,
     padded_bbox_polygon,
     validate_polygon_inside_parent,
+    validate_perspective_line,
     validate_polygon_points,
 )
 from app.services.inspection_models import FPZone, FPZoneScore, InspectionResult, RoiSubZone, RoiSubZoneScore
@@ -38,6 +49,112 @@ from app.services.learned_normals import (
 logger = logging.getLogger(__name__)
 
 _FP_CROP_MIN = 64
+# Conservative perspective compensation for the fixed, inverted-bucket camera
+# layout.  It is deliberately kept local to the full-frame difference map: FP
+# mini-etalon crops must retain their original score semantics.
+_VERTICAL_COMPENSATION_MAX_GAIN = 1.20
+_VERTICAL_COMPENSATION_ACTIVE_HEIGHT = 0.75
+_FAR_EDGE_ACTIVE_ROI_HEIGHT = 0.35
+
+# Smooth illumination changes keep local texture and gradients, unlike a real
+# scratch/tear. Suppress them conservatively before structural defect boosts.
+_ILLUMINATION_MIN_SHIFT = 6.0
+_ILLUMINATION_FULL_SHIFT = 22.0
+_ILLUMINATION_DETAIL_SCALE = 18.0
+_ILLUMINATION_GRADIENT_SCALE = 32.0
+_ILLUMINATION_LOCAL_MAX_SUPPRESSION = 0.30
+_ILLUMINATION_BROAD_MAX_SUPPRESSION = 0.75
+
+# These kernels are read-only inputs to OpenCV. Reusing them avoids allocating
+# the same arrays for every frame in every inspection worker.
+_LOCAL_ENVELOPE_KERNEL = np.ones((5, 5), dtype=np.uint8)
+_THIN_DEFECT_KERNEL = np.ones((15, 15), dtype=np.uint8)
+_EDGE_ZONE_KERNEL = np.ones((3, 3), dtype=np.uint8)
+
+
+@lru_cache(maxsize=8)
+def _cached_vertical_compensation_gain(height: int) -> np.ndarray:
+    """Build the immutable, resolution-dependent gain vector only once."""
+    if height <= 1:
+        gain = np.ones((max(0, height),), dtype=np.float32)
+    else:
+        y_norm = np.arange(height, dtype=np.float32) / float(height - 1)
+        active_height = _VERTICAL_COMPENSATION_ACTIVE_HEIGHT
+        far_from_camera = np.clip((active_height - y_norm) / active_height, 0.0, 1.0)
+        far_from_camera = far_from_camera * far_from_camera * (3.0 - 2.0 * far_from_camera)
+        gain = 1.0 + (_VERTICAL_COMPENSATION_MAX_GAIN - 1.0) * far_from_camera
+    gain.setflags(write=False)
+    return gain
+
+
+def _gaussian_similarity(values: np.ndarray, scale: float) -> np.ndarray:
+    """Return exp(-(values / scale)^2) with one full-size allocation.
+
+    Keeping the ufunc sequence identical while writing intermediate results
+    in-place avoids two temporary float images per call.
+    """
+    result = np.divide(values, scale)
+    np.square(result, out=result)
+    np.negative(result, out=result)
+    np.exp(result, out=result)
+    return result
+
+
+class _DeferredLearningReviewWriter:
+    """Bounded, best-effort writer kept off the production verdict path."""
+
+    def __init__(self, store: InspectionReviewStore) -> None:
+        raw_size = os.environ.get("ANALIS_LEARNING_REVIEW_QUEUE_SIZE", "16")
+        raw_delay = os.environ.get("ANALIS_LEARNING_REVIEW_DEFER_DELAY_MS", "250")
+        try:
+            queue_size = max(1, min(128, int(raw_size)))
+        except ValueError:
+            queue_size = 16
+        try:
+            self._defer_delay_s = max(0, min(5000, int(raw_delay))) / 1000.0
+        except ValueError:
+            self._defer_delay_s = 0.250
+        self._store = store
+        self._queue: queue.Queue[Optional[dict]] = queue.Queue(maxsize=queue_size)
+        self._thread = threading.Thread(
+            target=self._run,
+            name="learning-review-writer",
+            daemon=True,
+        )
+        self._thread.start()
+
+    def submit(self, task: dict) -> bool:
+        try:
+            self._queue.put_nowait(task)
+            return True
+        except queue.Full:
+            return False
+
+    def _run(self) -> None:
+        while True:
+            task = self._queue.get()
+            try:
+                if task is None:
+                    return
+                if self._defer_delay_s > 0:
+                    time.sleep(self._defer_delay_s)
+                self._store.add(**task)
+                log_analysis_stage(
+                    "learning_review",
+                    "deferred inspection history saved",
+                    product_type=str(task.get("product_type", "")),
+                    extra={"inspection_id": task.get("inspection_id")},
+                )
+            except Exception:
+                logger.exception(
+                    "failed to save deferred inspection history product_type=%s inspection_id=%s",
+                    task.get("product_type") if task else None,
+                    task.get("inspection_id") if task else None,
+                )
+            finally:
+                self._queue.task_done()
+
+
 _verdict_logger_ready = False
 _verdict_logger_lock = threading.Lock()
 
@@ -81,24 +198,31 @@ class InspectionService:
         review_limit: Optional[int] = None,
         reviews_dir: Optional[Path] = None,
         session_wipe: bool = True,
+        learned_normals_session_wipe: Optional[bool] = None,
     ) -> None:
         self.references: Dict[str, np.ndarray] = {}
         self._reference_hashes: Dict[str, str] = {}
         self._ref_orb_cache: Dict[str, Tuple[list, Optional[np.ndarray]]] = {}
         self.roi_polygons: Dict[str, list[Tuple[float, float]]] = {}
+        self.perspective_lines: Dict[str, PerspectiveLine] = {}
         self.roi_sub_zones: Dict[str, list[RoiSubZone]] = {}
         self._roi_sub_zones_file = Path(__file__).resolve().parent.parent / "data" / "roi_sub_zones.json"
         self._analysis_settings_file = Path(__file__).resolve().parent.parent / "data" / "analysis_settings.json"
         self._analysis_settings_overrides: Dict[str, dict[str, object]] = {}
         self._analysis_settings_simple_knobs: Dict[str, dict[str, object]] = {}
-        self._analysis_settings_pro_knobs: Dict[str, dict[str, object]] = {}
+        self._analysis_settings_detailed_knobs: Dict[str, dict[str, object]] = {}
         self._analysis_settings_lock = threading.Lock()
+        self._product_locks_guard = threading.Lock()
+        self._product_locks: Dict[str, threading.RLock] = {}
+        self._feature_lock = threading.Lock()
         self._analysis_settings_mtime_ns = -1
         self._orb = cv2.ORB_create(nfeatures=1800)
         self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
         self._fp_zones_file = Path(__file__).resolve().parent.parent / "data" / "fp_zones.json"
         self._fp_crops_dir = Path(__file__).resolve().parent.parent / "data" / "fp_zone_crops"
         self.fp_zones: Dict[str, list[FPZone]] = {}
+        self._fp_zones_lock = threading.RLock()
+        self._fp_zones_generation: Optional[str] = None
         self._last_diff_maps: Dict[str, np.ndarray] = {}
         self._last_segmentation_masks: Dict[str, np.ndarray] = {}
         self._last_aligned: Dict[str, np.ndarray] = {}
@@ -106,13 +230,14 @@ class InspectionService:
         data_dir = Path(__file__).resolve().parent.parent / "data"
         self._accepted_normals = AcceptedNormalMemory(
             learned_normals_dir if learned_normals_dir is not None else data_dir / "accepted_normals",
-            session_wipe=session_wipe,
+            session_wipe=session_wipe if learned_normals_session_wipe is None else learned_normals_session_wipe,
         )
         self._learning_reviews = InspectionReviewStore(
             max_items=review_limit,
             storage_dir=reviews_dir if reviews_dir is not None else data_dir / "learning_reviews",
             session_wipe=session_wipe,
         )
+        self._deferred_learning_reviews = _DeferredLearningReviewWriter(self._learning_reviews)
 
         self._anomaly_engine = None
         self._load_anomalib_engine()
@@ -133,15 +258,21 @@ class InspectionService:
 
     def set_reference(self, product_type: str, image_bytes: bytes) -> None:
         image = self._decode_image(image_bytes)
-        self.references[product_type] = image
-        self._reference_hashes[product_type] = reference_fingerprint(image)
-        self._update_ref_orb_cache(product_type, image)
+        with self._product_lock(product_type):
+            self.references[product_type] = image
+            self._reference_hashes[product_type] = reference_fingerprint(image)
+            self._update_ref_orb_cache(product_type, image)
 
     def set_reference_frame(self, product_type: str, frame: np.ndarray) -> None:
         image = frame.copy()
-        self.references[product_type] = image
-        self._reference_hashes[product_type] = reference_fingerprint(image)
-        self._update_ref_orb_cache(product_type, image)
+        with self._product_lock(product_type):
+            self.references[product_type] = image
+            self._reference_hashes[product_type] = reference_fingerprint(image)
+            self._update_ref_orb_cache(product_type, image)
+
+    def _product_lock(self, product_type: str) -> threading.RLock:
+        with self._product_locks_guard:
+            return self._product_locks.setdefault(product_type, threading.RLock())
 
     def get_reference(self, product_type: str) -> Optional[np.ndarray]:
         return self.references.get(product_type)
@@ -158,6 +289,7 @@ class InspectionService:
         self._reference_hashes.clear()
         self._ref_orb_cache.clear()
         self.roi_polygons.clear()
+        self.perspective_lines.clear()
         self.roi_sub_zones.clear()
         self.fp_zones.clear()
         self._last_diff_maps.clear()
@@ -227,11 +359,13 @@ class InspectionService:
         if candidate.matched_case_id is not None:
             raise ValueError("Defect is already recognized as an accepted normal")
 
+        aligned, _, _ = decode_review_arrays(review)
         accepted_case = self._accepted_normals.add_from_candidate(
             product_type=review.product_type,
             reference_hash=review.reference_hash,
             inspection_id=review.inspection_id,
             candidate=candidate,
+            source_frame=aligned,
             note=note,
         )
         candidate.matched_case_id = accepted_case.id
@@ -276,6 +410,7 @@ class InspectionService:
             raise ValueError("All review defects are already accepted as normal")
 
         accepted_cases = []
+        aligned, _, _ = decode_review_arrays(review)
         try:
             for candidate in candidates:
                 accepted_case = self._accepted_normals.add_from_candidate(
@@ -283,6 +418,7 @@ class InspectionService:
                     reference_hash=review.reference_hash,
                     inspection_id=review.inspection_id,
                     candidate=candidate,
+                    source_frame=aligned,
                     note=note,
                 )
                 candidate.matched_case_id = accepted_case.id
@@ -373,10 +509,26 @@ class InspectionService:
         return counterfactual_score, counterfactual_status
 
     def set_roi_polygon(self, product_type: str, points: list[Tuple[float, float]]) -> None:
-        self.roi_polygons[product_type] = validate_polygon_points(points, "ROI polygon")
+        with self._product_lock(product_type):
+            self.roi_polygons[product_type] = validate_polygon_points(points, "ROI polygon")
 
     def get_roi_polygon(self, product_type: str) -> Optional[list[Tuple[float, float]]]:
         return self.roi_polygons.get(product_type)
+
+    def set_perspective_line(
+        self,
+        product_type: str,
+        points: Optional[list[Tuple[float, float]]],
+    ) -> None:
+        """Линия от ближнего края изделия к дальнему; None — вернуть допущение по умолчанию."""
+        with self._product_lock(product_type):
+            if points is None:
+                self.perspective_lines.pop(product_type, None)
+            else:
+                self.perspective_lines[product_type] = validate_perspective_line(points)
+
+    def get_perspective_line(self, product_type: str) -> Optional[PerspectiveLine]:
+        return self.perspective_lines.get(product_type)
 
     def get_roi_sub_zones(self, product_type: str) -> list[RoiSubZone]:
         return list(self.roi_sub_zones.get(product_type, []))
@@ -480,14 +632,14 @@ class InspectionService:
         self._analysis_settings_overrides[analysis_profile] = current
         # Полный API сбивает abstract-режим: knobs больше не соответствуют overrides.
         self._analysis_settings_simple_knobs.pop(analysis_profile, None)
-        self._analysis_settings_pro_knobs.pop(analysis_profile, None)
+        self._analysis_settings_detailed_knobs.pop(analysis_profile, None)
         self._save_analysis_settings()
         return dict(current)
 
     def reset_analysis_settings(self, analysis_profile: str) -> dict[str, object]:
         self._analysis_settings_overrides.pop(analysis_profile, None)
         self._analysis_settings_simple_knobs.pop(analysis_profile, None)
-        self._analysis_settings_pro_knobs.pop(analysis_profile, None)
+        self._analysis_settings_detailed_knobs.pop(analysis_profile, None)
         self._save_analysis_settings()
         return {}
 
@@ -495,9 +647,9 @@ class InspectionService:
         self._reload_analysis_settings_if_stale()
         return self._resolve_analysis_settings_knobs(self._analysis_settings_simple_knobs, analysis_profile)
 
-    def get_pro_knobs(self, analysis_profile: str) -> dict[str, object] | None:
+    def get_detailed_knobs(self, analysis_profile: str) -> dict[str, object] | None:
         self._reload_analysis_settings_if_stale()
-        return self._resolve_analysis_settings_knobs(self._analysis_settings_pro_knobs, analysis_profile)
+        return self._resolve_analysis_settings_knobs(self._analysis_settings_detailed_knobs, analysis_profile)
 
     def _resolve_analysis_settings_knobs(
         self,
@@ -517,33 +669,50 @@ class InspectionService:
                 return dict(knobs)
         return None
 
+    def get_strengths_for_profile(self, analysis_profile: str) -> dict[str, float]:
+        return normalize_strengths(self.get_detailed_knobs(analysis_profile))
+
+    def expand_settings_for_profile(
+        self,
+        analysis_profile: str,
+        *,
+        threshold: float | None = None,
+        sensitivity: float | None = None,
+    ) -> dict[str, object]:
+        simple = self.get_simple_knobs(analysis_profile)
+        thr = float(threshold if threshold is not None else (simple or {}).get("threshold", 0.25))
+        sens = float(sensitivity if sensitivity is not None else (simple or {}).get("sensitivity", 0.5))
+        strengths = self.get_strengths_for_profile(analysis_profile)
+        return expand_merged(thr, sens, **strengths)
+
     def apply_simple_settings(
         self,
         analysis_profile: str,
         overrides: dict[str, object],
         knobs: dict[str, object],
     ) -> dict[str, object]:
-        """Полная замена overrides из simple-пресета + сохранение knobs."""
+        """Сохранить simple-knobs и пересчитать overrides (силы detailed сохраняются)."""
         AnalysisSettings.from_overrides(overrides)
         self._analysis_settings_overrides[analysis_profile] = dict(overrides)
         self._analysis_settings_simple_knobs[analysis_profile] = dict(knobs)
-        self._analysis_settings_pro_knobs.pop(analysis_profile, None)
+        if analysis_profile not in self._analysis_settings_detailed_knobs:
+            self._analysis_settings_detailed_knobs[analysis_profile] = dict(DEFAULT_STRENGTHS)
         self._save_analysis_settings()
         return dict(overrides)
 
-    def apply_pro_settings(
+    def apply_detailed_settings(
         self,
         analysis_profile: str,
-        overrides: dict[str, object],
-        knobs: dict[str, object],
+        strength_knobs: dict[str, object],
     ) -> dict[str, object]:
-        """Полная замена overrides из pro-пресета + сохранение knobs."""
-        AnalysisSettings.from_overrides(overrides)
-        self._analysis_settings_overrides[analysis_profile] = dict(overrides)
-        self._analysis_settings_pro_knobs[analysis_profile] = dict(knobs)
-        self._analysis_settings_simple_knobs.pop(analysis_profile, None)
+        """Сохранить силы групп и пересчитать overrides с текущей simple-чувствительностью."""
+        normalized = self._normalize_detailed_knobs(strength_knobs)
+        self._analysis_settings_detailed_knobs[analysis_profile] = normalized
+        expanded = self.expand_settings_for_profile(analysis_profile)
+        AnalysisSettings.from_overrides(expanded)
+        self._analysis_settings_overrides[analysis_profile] = dict(expanded)
         self._save_analysis_settings()
-        return dict(overrides)
+        return dict(expanded)
 
     def add_fp_zone(
         self,
@@ -589,9 +758,11 @@ class InspectionService:
             source_inspection_id=source_inspection_id,
             source_defect_id=source_defect_id,
         )
-        self.fp_zones.setdefault(product_type, []).append(zone)
-        self._save_fp_zones()
-        self._save_fp_crop(zone)
+        with self._fp_zones_lock:
+            self._refresh_fp_zones_if_changed()
+            self.fp_zones.setdefault(product_type, []).append(zone)
+            self._save_fp_crop(zone)
+            self._save_fp_zones()
         return zone
 
     def _add_fp_zones_from_candidates(self, review, candidates, note: str = "") -> list[FPZone]:
@@ -630,46 +801,54 @@ class InspectionService:
     def _delete_fp_zones_for_source(self, source_defect_id: str, source_inspection_id: str) -> None:
         if not source_defect_id and not source_inspection_id:
             return
-        changed = False
-        for product_type, zones in list(self.fp_zones.items()):
-            retained = []
-            for zone in zones:
-                linked = (
-                    source_defect_id
-                    and zone.source_defect_id == source_defect_id
-                    and zone.source_inspection_id == source_inspection_id
-                )
-                if linked:
-                    self._delete_fp_crop_file(zone.id)
-                    changed = True
-                    continue
-                retained.append(zone)
-            self.fp_zones[product_type] = retained
-        if changed:
-            self._save_fp_zones()
+        with self._fp_zones_lock:
+            self._refresh_fp_zones_if_changed()
+            changed = False
+            for product_type, zones in list(self.fp_zones.items()):
+                retained = []
+                for zone in zones:
+                    linked = (
+                        source_defect_id
+                        and zone.source_defect_id == source_defect_id
+                        and zone.source_inspection_id == source_inspection_id
+                    )
+                    if linked:
+                        self._delete_fp_crop_file(zone.id)
+                        changed = True
+                        continue
+                    retained.append(zone)
+                self.fp_zones[product_type] = retained
+            if changed:
+                self._save_fp_zones()
 
     def _delete_auto_fp_zones(self) -> None:
-        changed = False
-        for product_type, zones in list(self.fp_zones.items()):
-            retained = []
-            for zone in zones:
-                if zone.source_defect_id:
-                    self._delete_fp_crop_file(zone.id)
-                    changed = True
-                    continue
-                retained.append(zone)
-            self.fp_zones[product_type] = retained
-        if changed:
-            self._save_fp_zones()
+        with self._fp_zones_lock:
+            self._refresh_fp_zones_if_changed()
+            changed = False
+            for product_type, zones in list(self.fp_zones.items()):
+                retained = []
+                for zone in zones:
+                    if zone.source_defect_id:
+                        self._delete_fp_crop_file(zone.id)
+                        changed = True
+                        continue
+                    retained.append(zone)
+                self.fp_zones[product_type] = retained
+            if changed:
+                self._save_fp_zones()
 
     def get_fp_zones(self, product_type: str) -> list[FPZone]:
-        return list(self.fp_zones.get(product_type, []))
+        with self._fp_zones_lock:
+            self._refresh_fp_zones_if_changed()
+            return list(self.fp_zones.get(product_type, []))
 
     def get_fp_zone(self, zone_id: str) -> Optional[FPZone]:
-        for zones in self.fp_zones.values():
-            for zone in zones:
-                if zone.id == zone_id:
-                    return zone
+        with self._fp_zones_lock:
+            self._refresh_fp_zones_if_changed()
+            for zones in self.fp_zones.values():
+                for zone in zones:
+                    if zone.id == zone_id:
+                        return zone
         return None
 
     def get_fp_zone_crop_png(self, zone_id: str) -> Optional[bytes]:
@@ -682,21 +861,25 @@ class InspectionService:
         return buffer.tobytes()
 
     def delete_fp_zone(self, zone_id: str) -> bool:
-        for product_type, zones in self.fp_zones.items():
-            retained = [zone for zone in zones if zone.id != zone_id]
-            if len(retained) != len(zones):
-                self.fp_zones[product_type] = retained
-                self._delete_fp_crop_file(zone_id)
-                self._save_fp_zones()
-                return True
+        with self._fp_zones_lock:
+            self._refresh_fp_zones_if_changed()
+            for product_type, zones in self.fp_zones.items():
+                retained = [zone for zone in zones if zone.id != zone_id]
+                if len(retained) != len(zones):
+                    self.fp_zones[product_type] = retained
+                    self._delete_fp_crop_file(zone_id)
+                    self._save_fp_zones()
+                    return True
         return False
 
     def delete_all_fp_zones(self) -> int:
-        deleted_count = sum(len(zones) for zones in self.fp_zones.values())
-        self.fp_zones = {}
-        self._save_fp_zones()
-        self._clear_fp_crop_files()
-        return deleted_count
+        with self._fp_zones_lock:
+            self._refresh_fp_zones_if_changed()
+            deleted_count = sum(len(zones) for zones in self.fp_zones.values())
+            self.fp_zones = {}
+            self._clear_fp_crop_files()
+            self._save_fp_zones()
+            return deleted_count
 
     def inspect(
         self,
@@ -717,9 +900,15 @@ class InspectionService:
             include_heatmap_u8=include_heatmap_u8,
             detector_id=detector_id,
             alignment_h_ref_to_cur=alignment_h_ref_to_cur,
+            pre_learning_heatmap=True,
         )
 
-    def inspect_frame(
+    def inspect_frame(self, product_type: str, frame: np.ndarray, *args, **kwargs) -> InspectionResult:
+        """Inspect against one atomic camera-scoped configuration snapshot."""
+        with self._product_lock(product_type):
+            return self._inspect_frame_unlocked(product_type, frame, *args, **kwargs)
+
+    def _inspect_frame_unlocked(
         self,
         product_type: str,
         frame: np.ndarray,
@@ -729,32 +918,83 @@ class InspectionService:
         detector_id: Optional[str] = None,
         alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None,
         analysis_profile: Optional[str] = None,
+        settings: Optional[AnalysisSettings] = None,
+        temporary_analysis_overrides: Optional[dict[str, object]] = None,
+        pre_learning_heatmap: bool = False,
+        inspect_scale_after_align: Optional[float] = None,
+        store_learning_review: bool = True,
+        defer_learning_review: bool = False,
         camera_id: Optional[int] = None,
         frame_id: Optional[str | int] = None,
         phase_id: Optional[int] = None,
         shm_name: Optional[str] = None,
     ) -> InspectionResult:
         # --- Пайплайн инспекции (см. docs/GUIDE.md) ---
+        pipeline_started = time.perf_counter()
         settings_key = (analysis_profile or "").strip() or product_type
-        settings = self.get_analysis_settings(settings_key)
+        log_analysis_stage(
+            "start",
+            "pipeline started",
+            product_type=product_type,
+            extra={
+                "analysis_profile": settings_key,
+                "threshold": threshold,
+                "include_visuals": include_visuals,
+                "store_learning_review": store_learning_review,
+                "defer_learning_review": defer_learning_review,
+            },
+        )
+        if settings is None:
+            settings = self.get_analysis_settings(settings_key)
+            if temporary_analysis_overrides:
+                merged_overrides = self.get_analysis_settings_overrides(settings_key)
+                merged_overrides.update(temporary_analysis_overrides)
+                settings = AnalysisSettings.from_overrides(merged_overrides)
         reference = self.get_reference(product_type)
         if reference is None:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
         reference = reference.copy()
 
-        # 1. Совместить текущий кадр с эталоном (geometry H или ORB+homography, затем ECC).
-        aligned, align_mode = self._align_to_reference(
-            frame,
-            reference,
-            product_type,
-            alignment_h_ref_to_cur=alignment_h_ref_to_cur,
+        # Positioning is owned exclusively by java-positioning. Python receives
+        # a frame that is already in reference coordinates and must never run a
+        # second ORB/ECC/warp pass over it.
+        aligned = self._use_fixed_frame(frame, reference)
+        log_analysis_stage(
+            "alignment",
+            "frame accepted from positioning service",
+            product_type=product_type,
+            extra={
+                "method": "positioning_service",
+                "resized": frame.shape[:2] != reference.shape[:2],
+            },
         )
-        pose_gap = self._measure_pose_gap(aligned, reference)
+        align_finished = time.perf_counter()
+
+        if inspect_scale_after_align is not None and inspect_scale_after_align < 0.999:
+            aligned, reference = self._downscale_aligned_pair(
+                aligned,
+                reference,
+                inspect_scale_after_align,
+                product_type=product_type,
+            )
 
         # 2. Ограничить анализ ROI-полигоном (вне полигона — нули).
         polygon = self.get_roi_polygon(product_type)
         if polygon is not None:
             aligned, reference = mask_to_polygon(aligned, reference, polygon)
+            log_analysis_stage(
+                "roi_mask",
+                "ROI polygon applied",
+                product_type=product_type,
+                extra={"points": len(polygon)},
+            )
+        else:
+            log_analysis_stage(
+                "roi_mask",
+                "no ROI polygon configured",
+                product_type=product_type,
+                skipped=True,
+            )
 
         self._last_aligned[product_type] = aligned.copy()
         inspection_threshold = (
@@ -762,13 +1002,131 @@ class InspectionService:
         )
 
         # 3. Карта отличий эталон vs выровненный кадр.
-        diff_map = self._compute_advanced_difference(aligned, reference, settings)
+        illumination_diagnostics: dict[str, object] = {}
+        diff_source_aligned = aligned
+        diff_source_reference = reference
+        diff_bbox: Optional[tuple[int, int, int, int]] = None
+        roi_vertical_bounds: Optional[tuple[int, int]] = None
+        if polygon is not None:
+            frame_height, frame_width = reference.shape[:2]
+            _, roi_y, _, roi_height = polygon_bbox_from_norm_points(
+                frame_width,
+                frame_height,
+                polygon,
+                padding=0,
+            )
+            if roi_height > 0:
+                roi_vertical_bounds = (roi_y, roi_y + roi_height)
+            # Keep enough context for the widest local illumination kernel
+            # (up to 81 px) so defects near the ROI edge are not weakened.
+            diff_bbox = polygon_bbox_from_norm_points(
+                frame_width,
+                frame_height,
+                polygon,
+                padding=48,
+            )
+            crop_x, crop_y, crop_width, crop_height = diff_bbox
+            if crop_width > 0 and crop_height > 0:
+                diff_source_aligned = aligned[
+                    crop_y : crop_y + crop_height,
+                    crop_x : crop_x + crop_width,
+                ]
+                diff_source_reference = reference[
+                    crop_y : crop_y + crop_height,
+                    crop_x : crop_x + crop_width,
+                ]
+            else:
+                diff_bbox = None
+
+        perspective_weights = self._perspective_weights_for(
+            product_type,
+            reference.shape,
+            diff_bbox,
+            diff_source_aligned.shape,
+        )
+        diff_crop = self._compute_advanced_difference(
+            diff_source_aligned,
+            diff_source_reference,
+            settings,
+            vertical_compensation=True,
+            perspective_weights=perspective_weights,
+            illumination_diagnostics=illumination_diagnostics,
+            vertical_compensation_frame=(reference.shape[0], diff_bbox[1])
+            if diff_bbox is not None
+            else None,
+            roi_vertical_bounds=roi_vertical_bounds,
+        )
+        if diff_bbox is not None:
+            crop_x, crop_y, crop_width, crop_height = diff_bbox
+            diff_map = np.zeros(reference.shape, dtype=diff_crop.dtype)
+            diff_map[
+                crop_y : crop_y + crop_height,
+                crop_x : crop_x + crop_width,
+            ] = diff_crop
+            illumination_diagnostics.update(
+                roi_crop=f"{crop_x},{crop_y},{crop_width},{crop_height}",
+                roi_crop_percent=round(
+                    100.0 * crop_width * crop_height / max(1, reference.shape[0] * reference.shape[1]),
+                    1,
+                ),
+            )
+        else:
+            diff_map = diff_crop
+        log_analysis_stage(
+            "illumination",
+            "shadow/glare guard applied",
+            product_type=product_type,
+            extra=illumination_diagnostics,
+        )
+        diff_finished = time.perf_counter()
+        log_analysis_stage(
+            "diff_map",
+            "difference map computed",
+            product_type=product_type,
+            extra={"shape": f"{diff_map.shape[1]}x{diff_map.shape[0]}"},
+        )
 
         # 4. Бинарная маска дефектов + глобальный score по diff.
-        anomaly_score, segmentation_mask = self._run_anomaly_model(diff_map, settings)
+        anomaly_score, segmentation_mask = self._run_anomaly_model(
+            diff_map,
+            settings,
+            decision_threshold=inspection_threshold,
+        )
+        anomaly_finished = time.perf_counter()
+        log_analysis_stage(
+            "anomaly_detection",
+            "initial anomaly score computed",
+            product_type=product_type,
+            extra={
+                "raw_score": round(float(anomaly_score), 4),
+                "mask_pixels": int(np.count_nonzero(segmentation_mask)),
+            },
+        )
         self._last_diff_maps[product_type] = diff_map.copy()
         self._last_segmentation_masks[product_type] = segmentation_mask.copy()
         raw_score = anomaly_score
+        raw_segmentation_mask = segmentation_mask.copy()
+        # Freeze the local multipart heatmap before accepted normals, FP
+        # mini-etalon checks and regional scoring. This is the source/formula
+        # used by the pre-learning pipeline in 29c9cfa.
+        pre_learning_heatmap_u8 = (
+            self._build_pre_learning_heatmap_gray(raw_segmentation_mask, diff_map)
+            if include_visuals and pre_learning_heatmap
+            else None
+        )
+        if pre_learning_heatmap_u8 is not None:
+            log_analysis_stage(
+                "pre_learning_heatmap",
+                "pre-learning heatmap built",
+                product_type=product_type,
+            )
+        else:
+            log_analysis_stage(
+                "pre_learning_heatmap",
+                "pre-learning heatmap not requested",
+                product_type=product_type,
+                skipped=True,
+            )
 
         # 5. Обучаемая память нормы: совпавшие фрагменты удаляются до зонального score.
         ref_hash = self._reference_hashes.get(product_type) or reference_fingerprint(reference)
@@ -784,7 +1142,11 @@ class InspectionService:
         learned_diff_map = learned_filter.filtered_diff_map
         segmentation_mask = learned_filter.filtered_mask
         if learned_filter.matched_case_ids:
-            learned_score, segmentation_mask = self._run_anomaly_model(learned_diff_map, settings)
+            learned_score, segmentation_mask = self._run_anomaly_model(
+                learned_diff_map,
+                settings,
+                decision_threshold=inspection_threshold,
+            )
             if learned_filter.all_important_candidates_matched:
                 residual_candidates = extract_defect_candidates(
                     aligned,
@@ -795,10 +1157,40 @@ class InspectionService:
                     residual_candidates,
                     baseline_maximum_impact=learned_filter.original_max_candidate_impact,
                 )
-                if not significant_residuals:
+                guarded_residuals = [
+                    candidate
+                    for candidate in residual_candidates
+                    if (
+                        candidate.diff_q90 >= max(12.0, settings.min_diff_signal * 1.5)
+                        and candidate.diff_max >= max(18.0, settings.min_diff_signal * 2.0)
+                    )
+                    or (
+                        max(candidate.bbox[2], candidate.bbox[3])
+                        / max(1, min(candidate.bbox[2], candidate.bbox[3]))
+                        >= settings.scratch_aspect_floor
+                        and candidate.diff_q90 >= settings.min_diff_signal
+                    )
+                ]
+                if not significant_residuals and not guarded_residuals:
                     learned_diff_map = np.zeros_like(learned_diff_map)
                     segmentation_mask = np.zeros_like(segmentation_mask)
                     learned_score = 0.0
+            log_analysis_stage(
+                "learned_normals",
+                "accepted normals matched and score recalculated",
+                product_type=product_type,
+                extra={
+                    "matched_cases": len(learned_filter.matched_case_ids),
+                    "learned_score": round(float(learned_score), 4),
+                },
+            )
+        else:
+            log_analysis_stage(
+                "learned_normals",
+                "no accepted-normal matches",
+                product_type=product_type,
+                skipped=True,
+            )
 
         # 6. FP-зоны: дырка в основном score + отдельная проверка vs мини-эталон.
         fp_recheck = self._recheck_fp_zones(
@@ -812,11 +1204,38 @@ class InspectionService:
             ref_hash,
             inspection_threshold,
         )
+        fp_recheck_finished = time.perf_counter()
         filtered_diff_map = fp_recheck["filtered_diff_map"]
         segmentation_mask = fp_recheck["filtered_mask"]
+        fp_skipped = not self.get_fp_zones(product_type) or not settings.fp_recheck_enabled
+        log_analysis_stage(
+            "fp_recheck",
+            "FP zone recheck finished" if not fp_skipped else "FP recheck disabled or no zones",
+            product_type=product_type,
+            skipped=fp_skipped,
+            extra={
+                "rechecked_zones": len(fp_recheck["rechecked_zone_ids"]),
+                "fp_zone_scores": len(fp_recheck["fp_zone_scores"]),
+            },
+        )
 
         # 8. Score по main ROI (с «дырами» sub-zones) и по каждой подзоне отдельно.
         sub_zones = self.get_roi_sub_zones(product_type)
+        precomputed_main_score: Optional[float] = None
+        if (
+            polygon is None
+            and not sub_zones
+            and not learned_filter.matched_case_ids
+            and fp_skipped
+        ):
+            full_region = np.ones(filtered_diff_map.shape[:2], dtype=bool)
+            activity = self._measure_zone_activity_mask(
+                filtered_diff_map,
+                segmentation_mask,
+                full_region,
+            )
+            precomputed_main_score = float(max(raw_score, activity["score"]))
+
         main_roi_score, sub_zone_scores, anomaly_score, status = self._score_inspection_regions(
             filtered_diff_map=filtered_diff_map,
             segmentation_mask=segmentation_mask,
@@ -824,6 +1243,19 @@ class InspectionService:
             settings=settings,
             polygon=polygon,
             sub_zones=sub_zones,
+            precomputed_main_score=precomputed_main_score,
+        )
+        log_analysis_stage(
+            "regional_scoring",
+            "regional verdict computed",
+            product_type=product_type,
+            extra={
+                "status": status,
+                "main_roi_score": round(float(main_roi_score), 4),
+                "anomaly_score": round(float(anomaly_score), 4),
+                "sub_zones": len(sub_zone_scores),
+                "threshold": inspection_threshold,
+            },
         )
 
         candidate_source = extract_defect_candidates(
@@ -841,40 +1273,194 @@ class InspectionService:
             display_region = display_mask[y : y + box_height, x : x + box_width]
             display_region[local_mask] = 255
 
+        excluded_normal_zones = []
+        for candidate in learned_filter.candidates:
+            if candidate.matched_case_id is None:
+                continue
+            x, y, box_width, box_height = candidate.bbox
+            residual_region = segmentation_mask[y : y + box_height, x : x + box_width]
+            if int(np.count_nonzero(residual_region)) > 0:
+                # A saved broad normal may still contain a new scratch. In that
+                # case the region is not wholly excluded and must not be labelled
+                # as an accepted-normal overlay.
+                continue
+            matched_case = self._accepted_normals.get(candidate.matched_case_id)
+            # Prefer the saved case geometry: it is in the same fixed camera
+            # coordinate space as the heatmap and remains stable when the
+            # detected component jitters a few pixels between frames.
+            polygon_norm = (
+                list(matched_case.polygon_norm)
+                if matched_case is not None and len(matched_case.polygon_norm) >= 3
+                else list(candidate.polygon_norm)
+            )
+            if len(polygon_norm) < 3:
+                continue
+            zone = {
+                "kind": "accepted_normal",
+                "case_id": candidate.matched_case_id,
+                "similarity": candidate.similarity,
+                "polygon": polygon_norm,
+                "excluded_from_score": True,
+            }
+            if matched_case is not None and matched_case.polygon:
+                zone["polygon_px"] = list(matched_case.polygon)
+                zone["coordinate_width"] = matched_case.coordinate_width
+                zone["coordinate_height"] = matched_case.coordinate_height
+            excluded_normal_zones.append(zone)
+        fp_zone_by_id = {zone.id: zone for zone in self.get_fp_zones(product_type)}
+        for zone_score in fp_recheck["fp_zone_scores"]:
+            zone = fp_zone_by_id.get(zone_score.zone_id)
+            if (
+                zone is None
+                or not zone_score.applied_fp_etalon
+                or zone_score.note != "matched FP mini-etalon"
+                or len(zone.points_norm_ref) < 3
+            ):
+                continue
+            excluded_normal_zones.append(
+                {
+                    "kind": "fp_zone",
+                    "case_id": zone.id,
+                    "similarity": None,
+                    "polygon": list(zone.points_norm_ref),
+                    "excluded_from_score": True,
+                }
+            )
+
+        # Heatmap повторяет реализацию до появления дообучения: для отображения
+        # используются исходные diff и mask, а не результат вычитания норм.
         # 8. Визуализации (heatmap_u8 — gray для SHM/UI, heatmap — цветной JET для base64).
         # Только энергия дефекта: сырой min-max по всему ROI заливает полигон зелёным.
+        heatmap_started = time.perf_counter()
         heatmap_mask = display_mask if int(np.count_nonzero(display_mask)) > 0 else segmentation_mask
         heatmap_u8 = None
         if include_visuals:
             heatmap_u8 = self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
         elif include_heatmap_u8:
             try:
+                # Production/UI heatmap must describe the same signal that produced
+                # the verdict.  Using the raw pre-learning mask here made accepted
+                # normals and suppressed FP zones remain bright even for a passing
+                # inspection.
                 heatmap_u8 = self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
             except Exception:
                 logger.exception("UI heatmap generation failed after inspection completed")
-        heatmap = self._colorize_heatmap(heatmap_u8, segmentation_mask) if include_visuals else None
+
+        # The difference pipeline intentionally uses local blur/morphology and
+        # therefore can leave a small halo just outside the ROI boundary. Keep
+        # that numerical tolerance for scoring, but never expose it in the UI
+        # heatmap. This is applied to both the regular and pre-learning paths.
+        heatmap_visual_mask = raw_segmentation_mask
+        if polygon is not None and heatmap_u8 is not None:
+            roi_mask = polygon_mask_from_norm_points(heatmap_u8.shape[1], heatmap_u8.shape[0], polygon) > 0
+            heatmap_u8 = np.where(roi_mask, heatmap_u8, 0).astype(np.uint8)
+            heatmap_visual_mask = raw_segmentation_mask.copy()
+            heatmap_visual_mask[~roi_mask] = 0
+        if include_visuals and pre_learning_heatmap:
+            heatmap = self._colorize_heatmap_29c9cfa(heatmap_u8)
+        else:
+            heatmap = self._colorize_heatmap(heatmap_u8, heatmap_visual_mask) if include_visuals else None
         if include_visuals and heatmap is not None:
-            heatmap = self._draw_fp_zone_overlay(heatmap, self.get_fp_zones(product_type), fp_recheck["fp_zone_scores"])
-            heatmap = self._draw_roi_sub_zone_overlay(heatmap, sub_zones, sub_zone_scores)
+            if not pre_learning_heatmap:
+                heatmap = self._draw_fp_zone_overlay(
+                    heatmap,
+                    self.get_fp_zones(product_type),
+                    fp_recheck["fp_zone_scores"],
+                )
+                heatmap = self._draw_roi_sub_zone_overlay(heatmap, sub_zones, sub_zone_scores)
+            # Exclusion polygons are a visual annotation only; they do not
+            # participate in the frozen pre-learning heatmap energy.
+            heatmap = self._draw_excluded_normal_overlay(heatmap, excluded_normal_zones)
+            log_analysis_stage(
+                "visuals",
+                "heatmap and overlays built",
+                product_type=product_type,
+                extra={"excluded_zones": len(excluded_normal_zones)},
+            )
+        else:
+            log_analysis_stage(
+                "visuals",
+                "visual output not requested",
+                product_type=product_type,
+                skipped=not include_visuals,
+            )
+        heatmap_finished = time.perf_counter()
 
         # История кадров: и ГОДЕН, и БРАК. Обучение меняет только будущие инспекции.
-        inspection_id = str(uuid.uuid4())
-        try:
-            self._learning_reviews.add(
-                inspection_id=inspection_id,
+        # TEST/UI re-runs must not invent a new review id for the same frameId.
+        inspection_id = None
+        if store_learning_review:
+            inspection_id = str(uuid.uuid4())
+            review_task = {
+                "inspection_id": inspection_id,
+                "product_type": product_type,
+                "reference_hash": ref_hash,
+                "status": status,
+                "score": anomaly_score,
+                "threshold": inspection_threshold,
+                "aligned": aligned.copy() if defer_learning_review else aligned,
+                "diff_map": diff_map.copy() if defer_learning_review else diff_map,
+                "raw_mask": raw_segmentation_mask.copy() if defer_learning_review else raw_segmentation_mask,
+                "candidates": copy.deepcopy(review_candidates) if defer_learning_review else review_candidates,
+            }
+            if defer_learning_review:
+                if self._deferred_learning_reviews.submit(review_task):
+                    log_analysis_stage(
+                        "learning_review",
+                        "inspection history queued for deferred save",
+                        product_type=product_type,
+                        extra={"inspection_id": inspection_id, "status": status},
+                    )
+                else:
+                    logger.warning(
+                        "learning review queue full; dropping product_type=%s inspection_id=%s",
+                        product_type,
+                        inspection_id,
+                    )
+                    log_analysis_stage(
+                        "learning_review",
+                        "deferred history queue full; review dropped",
+                        product_type=product_type,
+                        skipped=True,
+                    )
+                    inspection_id = None
+            else:
+                try:
+                    self._learning_reviews.add(**review_task)
+                except Exception:
+                    inspection_id = None
+                    logger.exception("failed to save inspection history product_type=%s", product_type)
+                    log_analysis_stage(
+                        "learning_review",
+                        "failed to save inspection history",
+                        product_type=product_type,
+                        skipped=True,
+                    )
+                else:
+                    log_analysis_stage(
+                        "learning_review",
+                        "inspection history saved",
+                        product_type=product_type,
+                        extra={"inspection_id": inspection_id, "status": status},
+                    )
+        else:
+            log_analysis_stage(
+                "learning_review",
+                "history storage disabled for this run",
                 product_type=product_type,
-                reference_hash=ref_hash,
-                status=status,
-                score=anomaly_score,
-                threshold=inspection_threshold,
-                aligned=aligned,
-                diff_map=filtered_diff_map,
-                raw_mask=display_mask,
-                candidates=review_candidates,
+                skipped=True,
             )
-        except Exception:
-            inspection_id = None
-            logger.exception("failed to save inspection history product_type=%s", product_type)
+
+        log_analysis_stage(
+            "complete",
+            "pipeline finished",
+            product_type=product_type,
+            extra={
+                "status": status,
+                "anomaly_score": round(float(anomaly_score), 4),
+                "duration_ms": round((time.perf_counter() - pipeline_started) * 1000.0, 1),
+            },
+        )
 
         self._log_inspect_verdict(
             product_type=product_type,
@@ -882,8 +1468,8 @@ class InspectionService:
             frame_id=frame_id,
             phase_id=phase_id,
             shm_name=shm_name,
-            align_mode=align_mode,
-            pose_gap=pose_gap,
+            aligned=aligned,
+            reference=reference,
             status=status,
             anomaly_score=anomaly_score,
             raw_score=raw_score,
@@ -920,6 +1506,13 @@ class InspectionService:
             heatmap=heatmap if include_visuals else None,
             heatmap_u8=heatmap_u8,
             segmentation_mask=segmentation_mask if include_visuals else None,
+            excluded_normal_zones=excluded_normal_zones,
+            py_align_ms=(align_finished - pipeline_started) * 1000.0,
+            py_diff_ms=(diff_finished - align_finished) * 1000.0,
+            py_anomaly_ms=(anomaly_finished - diff_finished) * 1000.0,
+            py_fp_recheck_ms=(fp_recheck_finished - anomaly_finished) * 1000.0,
+            py_heatmap_ms=(heatmap_finished - heatmap_started) * 1000.0,
+            py_total_ms=(time.perf_counter() - pipeline_started) * 1000.0,
         )
 
     def _score_inspection_regions(
@@ -931,22 +1524,34 @@ class InspectionService:
         settings: AnalysisSettings,
         polygon: Optional[list[Tuple[float, float]]],
         sub_zones: list[RoiSubZone],
+        precomputed_main_score: Optional[float] = None,
     ) -> tuple[float, list[RoiSubZoneScore], float, str]:
         """Единый расчёт вердикта для live-inspect и ознакомительного review."""
         h, w = filtered_diff_map.shape[:2]
         hole_polygons = [zone.points for zone in sub_zones]
         main_region_mask = combine_region_masks(w, h, polygon, hole_polygons)
-        main_roi_score = self._score_region(
-            filtered_diff_map,
-            segmentation_mask,
-            main_region_mask,
-            settings,
+        main_roi_score = (
+            float(precomputed_main_score)
+            if precomputed_main_score is not None
+            else self._score_region(
+                filtered_diff_map,
+                segmentation_mask,
+                main_region_mask,
+                settings,
+                inspection_threshold,
+            )
         )
         sub_zone_scores: list[RoiSubZoneScore] = []
         for zone in sub_zones:
             zone_mask = polygon_mask_from_norm_points(w, h, zone.points) > 0
-            zone_score = self._score_region(filtered_diff_map, segmentation_mask, zone_mask, settings)
             zone_threshold = zone.threshold if zone.threshold is not None else inspection_threshold
+            zone_score = self._score_region(
+                filtered_diff_map,
+                segmentation_mask,
+                zone_mask,
+                settings,
+                zone_threshold,
+            )
             sub_zone_scores.append(
                 RoiSubZoneScore(
                     zone_id=zone.id,
@@ -964,10 +1569,34 @@ class InspectionService:
         status = "БРАК" if main_failed or sub_failed else "ГОДЕН"
         return main_roi_score, sub_zone_scores, anomaly_score, status
 
+    @staticmethod
+    def _migrate_legacy_pro_knobs(raw: dict[str, object]) -> dict[str, object]:
+        """pro_knobs (0–1) → detailed strengths (0–100), без threshold/sensitivity."""
+        migrated: dict[str, object] = {}
+        for key in (
+            "noise_tolerance",
+            "scratch_sensitivity",
+            "edge_suppression",
+            "text_handling",
+            "preprocess_strength",
+            "far_edge_boost",
+        ):
+            if key in raw:
+                value = float(raw[key])
+                migrated[key] = value * 100.0 if value <= 1.0 else value
+            else:
+                migrated[key] = 50.0
+        return migrated
+
+    @staticmethod
+    def _normalize_detailed_knobs(raw: dict[str, object]) -> dict[str, object]:
+        normalized = normalize_strengths(raw)
+        return {key: int(round(value)) for key, value in normalized.items()}
+
     def _load_analysis_settings(self) -> None:
         self._analysis_settings_overrides = {}
         self._analysis_settings_simple_knobs = {}
-        self._analysis_settings_pro_knobs = {}
+        self._analysis_settings_detailed_knobs = {}
         if not self._analysis_settings_file.exists():
             return
         try:
@@ -992,13 +1621,21 @@ class InspectionService:
                 simple_knobs = entry.get("simple_knobs")
                 if isinstance(simple_knobs, dict) and simple_knobs:
                     self._analysis_settings_simple_knobs[analysis_profile] = dict(simple_knobs)
-                pro_knobs = entry.get("pro_knobs")
-                if isinstance(pro_knobs, dict) and pro_knobs:
-                    self._analysis_settings_pro_knobs[analysis_profile] = dict(pro_knobs)
+                detailed_knobs = entry.get("detailed_knobs")
+                if isinstance(detailed_knobs, dict) and detailed_knobs:
+                    self._analysis_settings_detailed_knobs[analysis_profile] = self._normalize_detailed_knobs(
+                        detailed_knobs
+                    )
+                else:
+                    pro_knobs = entry.get("pro_knobs")
+                    if isinstance(pro_knobs, dict) and pro_knobs:
+                        self._analysis_settings_detailed_knobs[analysis_profile] = self._migrate_legacy_pro_knobs(
+                            pro_knobs
+                        )
         except Exception:
             self._analysis_settings_overrides = {}
             self._analysis_settings_simple_knobs = {}
-            self._analysis_settings_pro_knobs = {}
+            self._analysis_settings_detailed_knobs = {}
 
     def _analysis_settings_file_mtime_ns(self) -> int:
         try:
@@ -1024,7 +1661,7 @@ class InspectionService:
     def _save_analysis_settings(self) -> None:
         self._analysis_settings_file.parent.mkdir(parents=True, exist_ok=True)
         profiles = set(self._analysis_settings_overrides) | set(self._analysis_settings_simple_knobs) | set(
-            self._analysis_settings_pro_knobs
+            self._analysis_settings_detailed_knobs
         )
         entries = []
         for analysis_profile in sorted(profiles):
@@ -1035,9 +1672,11 @@ class InspectionService:
             simple_knobs = self._analysis_settings_simple_knobs.get(analysis_profile)
             if simple_knobs is not None:
                 entry["simple_knobs"] = simple_knobs
-            pro_knobs = self._analysis_settings_pro_knobs.get(analysis_profile)
-            if pro_knobs is not None:
-                entry["pro_knobs"] = pro_knobs
+            detailed_knobs = self._analysis_settings_detailed_knobs.get(analysis_profile)
+            if detailed_knobs is not None:
+                entry["detailed_knobs"] = {
+                    key: int(round(float(value))) for key, value in detailed_knobs.items()
+                }
             entries.append(entry)
         self._analysis_settings_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")
         self._stamp_analysis_settings_mtime()
@@ -1094,6 +1733,7 @@ class InspectionService:
     def _load_fp_zones(self) -> None:
         self.fp_zones = {}
         if not self._fp_zones_file.exists():
+            self._fp_zones_generation = self._read_fp_zones_generation()
             return
         try:
             raw_payload = json.loads(self._fp_zones_file.read_text(encoding="utf-8"))
@@ -1122,6 +1762,21 @@ class InspectionService:
                     self.fp_zones.setdefault(product_type, []).append(zone)
         except Exception:
             self.fp_zones = {}
+        self._fp_zones_generation = self._read_fp_zones_generation()
+
+    def _fp_zones_generation_file(self) -> Path:
+        return self._fp_zones_file.with_suffix(".generation")
+
+    def _read_fp_zones_generation(self) -> Optional[str]:
+        try:
+            return self._fp_zones_generation_file().read_text(encoding="ascii").strip()
+        except OSError:
+            return None
+
+    def _refresh_fp_zones_if_changed(self) -> None:
+        generation = self._read_fp_zones_generation()
+        if generation != self._fp_zones_generation:
+            self._load_fp_zones()
 
     def _save_fp_zones(self) -> None:
         self._fp_zones_file.parent.mkdir(parents=True, exist_ok=True)
@@ -1144,7 +1799,16 @@ class InspectionService:
                         "source_defect_id": zone.source_defect_id,
                     }
                 )
-        self._fp_zones_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")
+        payload = json.dumps(entries, ensure_ascii=True, indent=2)
+        temporary = self._fp_zones_file.with_name(f"{self._fp_zones_file.name}.{uuid.uuid4().hex}.tmp")
+        temporary.write_text(payload, encoding="utf-8")
+        temporary.replace(self._fp_zones_file)
+        generation = uuid.uuid4().hex
+        marker = self._fp_zones_generation_file()
+        temporary_marker = marker.with_name(f"{marker.name}.{generation}.tmp")
+        temporary_marker.write_text(generation, encoding="ascii")
+        temporary_marker.replace(marker)
+        self._fp_zones_generation = generation
 
     def _fp_crop_path(self, zone_id: str) -> Path:
         return self._fp_crops_dir / f"{zone_id}.png"
@@ -1207,12 +1871,15 @@ class InspectionService:
 
         Раньше active_ratio*1.2 зажимал score в 1.0 уже при ~80% маски — любой
         умеренный шум/свет давал вечный БРАК независимо от силы diff.
+        sqrt(active_ratio) + меньшие веса: расширение маски от чувствительности
+        не должно прыгать с ~0.8 сразу в потолок 1.0.
         """
+        ratio = max(0.0, float(active_ratio))
         return float(
             np.clip(
-                (diff_q90 / 255.0) * 0.55
-                + (diff_max / 255.0) * 0.20
-                + float(active_ratio) * 0.35,
+                (diff_q90 / 255.0) * 0.45
+                + (diff_max / 255.0) * 0.15
+                + float(np.sqrt(ratio)) * 0.30,
                 0.0,
                 1.0,
             )
@@ -1247,13 +1914,22 @@ class InspectionService:
         segmentation_mask: np.ndarray,
         region_mask: np.ndarray,
         settings: AnalysisSettings,
+        decision_threshold: Optional[float] = None,
     ) -> float:
         """Score одной области: повторный прогон детектора на маске + метрики активности."""
         if not np.any(region_mask):
             return 0.0
         masked_diff = diff_map.copy()
         masked_diff[~region_mask] = 0
-        score, _ = self._run_anomaly_model(masked_diff, settings)
+        score, _ = self._run_anomaly_model(
+            masked_diff,
+            settings,
+            decision_threshold=(
+                settings.default_threshold
+                if decision_threshold is None
+                else decision_threshold
+            ),
+        )
         # Важно: считать activity по реальной маске ROI, а не по bbox-полигону —
         # bbox раздувает зону и завышает active_ratio вне ROI.
         activity = self._measure_zone_activity_mask(diff_map, segmentation_mask, region_mask)
@@ -1470,7 +2146,11 @@ class InspectionService:
                 )
             )
 
-        remaining_score, filtered_mask = self._run_anomaly_model(filtered_diff_map, settings)
+        remaining_score, filtered_mask = self._run_anomaly_model(
+            filtered_diff_map,
+            settings,
+            decision_threshold=inspection_threshold,
+        )
         return {
             "final_score": float(remaining_score),
             "rechecked_zone_ids": rechecked_zone_ids,
@@ -1533,6 +2213,115 @@ class InspectionService:
             cv2.polylines(overlay, [pts], isClosed=True, color=color, thickness=2)
         return cv2.addWeighted(overlay, 0.18, heatmap, 0.82, 0.0)
 
+    @staticmethod
+    def _draw_excluded_normal_overlay(
+        heatmap: np.ndarray,
+        excluded_zones: list[dict],
+    ) -> np.ndarray:
+        """Mark saved-normal matches directly on the local color heatmap.
+
+        This modifies only the color heatmap returned by the local multipart
+        ``/inspect`` endpoint. The gray SHM heatmap and inspection score stay
+        unchanged.
+        """
+        if not excluded_zones:
+            return heatmap
+
+        height, width = heatmap.shape[:2]
+        polygons: list[np.ndarray] = []
+        for zone in excluded_zones:
+            if zone.get("excluded_from_score") is False:
+                continue
+            pixel_polygon = zone.get("polygon_px") or []
+            coordinate_width = int(zone.get("coordinate_width") or 0)
+            coordinate_height = int(zone.get("coordinate_height") or 0)
+            if (
+                isinstance(pixel_polygon, (list, tuple))
+                and len(pixel_polygon) >= 3
+                and coordinate_width > 0
+                and coordinate_height > 0
+            ):
+                pixel_points: list[tuple[float, float]] = []
+                for point in pixel_polygon:
+                    if isinstance(point, dict):
+                        x_raw, y_raw = point.get("x"), point.get("y")
+                    elif isinstance(point, (list, tuple)) and len(point) >= 2:
+                        x_raw, y_raw = point[0], point[1]
+                    else:
+                        continue
+                    try:
+                        pixel_points.append((float(x_raw), float(y_raw)))
+                    except (TypeError, ValueError):
+                        continue
+                points = np.array(
+                    [
+                        [
+                            int(
+                                round(
+                                    np.clip(x, 0, coordinate_width - 1)
+                                    * (width - 1)
+                                    / max(1, coordinate_width - 1)
+                                )
+                            ),
+                            int(
+                                round(
+                                    np.clip(y, 0, coordinate_height - 1)
+                                    * (height - 1)
+                                    / max(1, coordinate_height - 1)
+                                )
+                            ),
+                        ]
+                        for x, y in pixel_points
+                    ],
+                    dtype=np.int32,
+                )
+                if len(points) >= 3:
+                    polygons.append(points)
+                    continue
+            raw_polygon = zone.get("polygon") or []
+            normalized_points: list[tuple[float, float]] = []
+            for point in raw_polygon:
+                if isinstance(point, dict):
+                    x_raw, y_raw = point.get("x"), point.get("y")
+                elif isinstance(point, (list, tuple)) and len(point) >= 2:
+                    x_raw, y_raw = point[0], point[1]
+                else:
+                    continue
+                try:
+                    normalized_points.append((float(x_raw), float(y_raw)))
+                except (TypeError, ValueError):
+                    continue
+            if len(normalized_points) < 3:
+                continue
+
+            points = np.array(
+                [
+                    [
+                        int(round(np.clip(x, 0.0, 1.0) * (width - 1))),
+                        int(round(np.clip(y, 0.0, 1.0) * (height - 1))),
+                    ]
+                    for x, y in normalized_points
+                ],
+                dtype=np.int32,
+            )
+            polygons.append(points)
+
+        if not polygons:
+            return heatmap
+        result = heatmap.copy()
+        for points in polygons:
+            # BGR purple; the match must be visible without obscuring the heatmap
+            # values under the accepted-normal area.
+            cv2.polylines(
+                result,
+                [points],
+                isClosed=True,
+                color=(210, 75, 185),
+                thickness=12,
+                lineType=cv2.LINE_AA,
+            )
+        return result
+
     def _log_inspect_verdict(
         self,
         *,
@@ -1541,8 +2330,8 @@ class InspectionService:
         frame_id: Optional[str | int],
         phase_id: Optional[int],
         shm_name: Optional[str],
-        align_mode: str,
-        pose_gap: dict[str, float],
+        aligned: np.ndarray,
+        reference: np.ndarray,
         status: str,
         anomaly_score: float,
         raw_score: float,
@@ -1557,6 +2346,11 @@ class InspectionService:
         segmentation_mask: np.ndarray,
     ) -> None:
         """Одна строка на кадр: почему вердикт такой и насколько кадр ещё смещён относительно эталона."""
+        if not is_file_logging_enabled():
+            return
+        # Позиционирование делает java-positioning; здесь только замер остаточного сдвига для диагностики.
+        align_mode = "positioning_service"
+        pose_gap = self._measure_pose_gap(aligned, reference)
         verdict = "FAIL" if status == "БРАК" else "PASS"
         reasons: list[str] = []
         if main_roi_score >= inspection_threshold:
@@ -1714,7 +2508,8 @@ class InspectionService:
 
     def _update_ref_orb_cache(self, product_type: str, reference: np.ndarray) -> None:
         ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
-        kp_ref, des_ref = self._orb.detectAndCompute(ref_gray, None)
+        with self._feature_lock:
+            kp_ref, des_ref = self._orb.detectAndCompute(ref_gray, None)
         self._ref_orb_cache[product_type] = (kp_ref, des_ref)
 
     def _get_ref_orb(self, product_type: str, reference: np.ndarray) -> Tuple[list, Optional[np.ndarray]]:
@@ -1730,7 +2525,7 @@ class InspectionService:
         reference: np.ndarray,
         product_type: str,
         alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None,
-    ) -> tuple[np.ndarray, str]:
+    ) -> np.ndarray:
         """Привести current к системе координат reference.
 
         Приоритет: гомография от java-geometry/positioning → ORB-матчи + findHomography → resize.
@@ -1740,8 +2535,20 @@ class InspectionService:
         """
         if self._is_identity_homography(alignment_h_ref_to_cur):
             if current.shape[:2] != reference.shape[:2]:
-                return cv2.resize(current, (reference.shape[1], reference.shape[0])), "identity_resize"
-            return current, "identity"
+                log_analysis_stage(
+                    "alignment",
+                    "identity homography from orchestrator, resized to reference",
+                    product_type=product_type,
+                    extra={"method": "identity_h_resize"},
+                )
+                return cv2.resize(current, (reference.shape[1], reference.shape[0]))
+            log_analysis_stage(
+                "alignment",
+                "identity homography from orchestrator, frame kept as-is",
+                product_type=product_type,
+                extra={"method": "identity_h"},
+            )
+            return current
 
         geometry_aligned = self._align_with_geometry_homography(
             current,
@@ -1749,16 +2556,31 @@ class InspectionService:
             alignment_h_ref_to_cur,
         )
         if geometry_aligned is not None:
-            return self._refine_alignment_ecc(geometry_aligned, reference), "geometry_ecc"
+            log_analysis_stage(
+                "alignment",
+                "geometry homography from orchestrator with ECC refine",
+                product_type=product_type,
+                extra={"method": "geometry_h_ecc"},
+            )
+            return self._refine_alignment_ecc(geometry_aligned, reference)
 
         cur_gray = cv2.cvtColor(current, cv2.COLOR_BGR2GRAY)
         kp_ref, des_ref = self._get_ref_orb(product_type, reference)
-        kp_cur, des_cur = self._orb.detectAndCompute(cur_gray, None)
+        with self._feature_lock:
+            kp_cur, des_cur = self._orb.detectAndCompute(cur_gray, None)
         if des_ref is None or des_cur is None or len(kp_ref) < 8 or len(kp_cur) < 8:
-            return cv2.resize(current, (reference.shape[1], reference.shape[0])), "resize_no_features"
+            log_analysis_stage(
+                "alignment",
+                "ORB descriptors insufficient, fallback resize only",
+                product_type=product_type,
+                skipped=True,
+                extra={"method": "resize_fallback", "orb_keypoints_ref": len(kp_ref), "orb_keypoints_cur": len(kp_cur)},
+            )
+            return cv2.resize(current, (reference.shape[1], reference.shape[0]))
 
         # Lowe ratio test: оставляем только однозначные дескрипторные соответствия.
-        matches = self._matcher.knnMatch(des_cur, des_ref, k=2)
+        with self._feature_lock:
+            matches = self._matcher.knnMatch(des_cur, des_ref, k=2)
         good_matches = []
         for pair in matches:
             if len(pair) < 2:
@@ -1768,18 +2590,74 @@ class InspectionService:
                 good_matches.append(m)
 
         if len(good_matches) < 8:
-            return cv2.resize(current, (reference.shape[1], reference.shape[0])), "resize_few_matches"
+            log_analysis_stage(
+                "alignment",
+                "ORB matches insufficient, fallback resize only",
+                product_type=product_type,
+                skipped=True,
+                extra={"method": "resize_fallback", "good_matches": len(good_matches)},
+            )
+            return cv2.resize(current, (reference.shape[1], reference.shape[0]))
 
         src_pts = np.float32([kp_cur[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
         dst_pts = np.float32([kp_ref[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
 
         homography, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 1.0)
         if homography is None or mask is None:
-            return cv2.resize(current, (reference.shape[1], reference.shape[0])), "resize_no_homography"
+            log_analysis_stage(
+                "alignment",
+                "ORB homography failed, fallback resize only",
+                product_type=product_type,
+                skipped=True,
+                extra={"method": "resize_fallback", "good_matches": len(good_matches)},
+            )
+            return cv2.resize(current, (reference.shape[1], reference.shape[0]))
 
         height, width = reference.shape[:2]
         aligned = cv2.warpPerspective(current, homography, (width, height))
-        return self._refine_alignment_ecc(aligned, reference), "orb_ecc"
+        log_analysis_stage(
+            "alignment",
+            "ORB homography with ECC refine",
+            product_type=product_type,
+            extra={"method": "orb_h_ecc", "good_matches": len(good_matches)},
+        )
+        return self._refine_alignment_ecc(aligned, reference)
+
+    @staticmethod
+    def _downscale_aligned_pair(
+        aligned: np.ndarray,
+        reference: np.ndarray,
+        scale: float,
+        *,
+        product_type: str,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Downscale after full-res alignment — mirrors production inspect_scale path."""
+        safe_scale = max(0.1, min(1.0, float(scale)))
+        if safe_scale >= 0.999:
+            return aligned, reference
+        out_w = max(1, round(reference.shape[1] * safe_scale))
+        out_h = max(1, round(reference.shape[0] * safe_scale))
+        if aligned.shape[1] == out_w and aligned.shape[0] == out_h:
+            log_analysis_stage(
+                "inspect_scale",
+                "aligned pair already at inspect scale",
+                product_type=product_type,
+                extra={"scale": round(safe_scale, 4), "shape": f"{out_w}x{out_h}"},
+            )
+            return aligned, reference
+        log_analysis_stage(
+            "inspect_scale",
+            "aligned pair downscaled after alignment",
+            product_type=product_type,
+            extra={
+                "scale": round(safe_scale, 4),
+                "from": f"{reference.shape[1]}x{reference.shape[0]}",
+                "to": f"{out_w}x{out_h}",
+            },
+        )
+        aligned_out = cv2.resize(aligned, (out_w, out_h), interpolation=cv2.INTER_LINEAR)
+        reference_out = cv2.resize(reference, (out_w, out_h), interpolation=cv2.INTER_LINEAR)
+        return aligned_out, reference_out
 
     @staticmethod
     def _use_fixed_frame(current: np.ndarray, reference: np.ndarray) -> np.ndarray:
@@ -1843,6 +2721,12 @@ class InspectionService:
         aligned: np.ndarray,
         reference: np.ndarray,
         settings: AnalysisSettings,
+        *,
+        vertical_compensation: bool = False,
+        illumination_diagnostics: Optional[dict[str, object]] = None,
+        vertical_compensation_frame: Optional[tuple[int, int]] = None,
+        roi_vertical_bounds: Optional[tuple[int, int]] = None,
+        perspective_weights: Optional[tuple[np.ndarray, np.ndarray]] = None,
     ) -> np.ndarray:
         """Построить карту отличий (BGR), устойчивую к микросдвигу и тексту эталона."""
         if aligned.shape[:2] != reference.shape[:2]:
@@ -1853,10 +2737,19 @@ class InspectionService:
         # against local min/max envelope of reference.
         ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
         cur_gray = cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY)
+        # Classify illumination on the original gray signal. CLAHE is useful
+        # for defects but can turn a smooth shadow/glare into artificial texture.
+        illumination_ref_gray = ref_gray.copy()
+        illumination_cur_gray = cur_gray.copy()
 
-        # CLAHE can over-amplify texture noise on smooth frames, so apply it only
-        # when the frame has enough contrast/variance.
-        if settings.enable_clahe and float(np.std(cur_gray)) > 5.0:
+        # CLAHE can over-amplify texture noise on smooth frames. clipLimit≈1.0 is a
+        # near no-op — treat it as off so sensitivity can ramp continuously via
+        # clahe_clip_limit without a sudden score cliff when the bool flips.
+        if (
+            settings.enable_clahe
+            and float(settings.clahe_clip_limit) > 1.05
+            and float(np.std(cur_gray)) > 5.0
+        ):
             clahe = cv2.createCLAHE(clipLimit=settings.clahe_clip_limit, tileGridSize=(8, 8))
             ref_gray = clahe.apply(ref_gray)
             cur_gray = clahe.apply(cur_gray)
@@ -1866,9 +2759,8 @@ class InspectionService:
         ref_gray = cv2.GaussianBlur(ref_gray, (5, 5), 0)
         cur_gray = cv2.GaussianBlur(cur_gray, (5, 5), 0)
 
-        kernel = np.ones((5, 5), dtype=np.uint8)
-        ref_min = cv2.erode(ref_gray, kernel, iterations=1)
-        ref_max = cv2.dilate(ref_gray, kernel, iterations=1)
+        ref_min = cv2.erode(ref_gray, _LOCAL_ENVELOPE_KERNEL, iterations=1)
+        ref_max = cv2.dilate(ref_gray, _LOCAL_ENVELOPE_KERNEL, iterations=1)
 
         over = cv2.subtract(cur_gray, ref_max)
         under = cv2.subtract(ref_min, cur_gray)
@@ -1886,24 +2778,116 @@ class InspectionService:
         blackhat = cv2.morphologyEx(
             robust_gray,
             cv2.MORPH_BLACKHAT,
-            np.ones((15, 15), dtype=np.uint8),
+            _THIN_DEFECT_KERNEL,
         )
         tophat = cv2.morphologyEx(
             robust_gray,
             cv2.MORPH_TOPHAT,
-            np.ones((15, 15), dtype=np.uint8),
+            _THIN_DEFECT_KERNEL,
         )
         robust_gray = cv2.addWeighted(robust_gray, 0.6, blackhat, 0.2, 0.0)
         robust_gray = cv2.addWeighted(robust_gray, 1.0, tophat, 0.2, 0.0)
 
-        # Edge suppression on strong static reference edges (lid/border/text bounds):
-        # reduce anomaly response in a small tolerance band around those edges.
+        illumination_confidence = None
+        if vertical_compensation:
+            robust_gray, illumination_confidence = self._suppress_smooth_illumination(
+                robust_gray,
+                illumination_ref_gray,
+                illumination_cur_gray,
+                diagnostics=illumination_diagnostics,
+            )
+
+        # The bucket is inverted in the camera view, so the upper part of the
+        # image is farther from the camera and its defects are weaker. Apply a
+        # small smooth gain there. The cap is intentionally conservative to
+        # avoid turning texture/noise into defects; static reference edges are
+        # still suppressed immediately below.
+        far_edge_weight: Optional[np.ndarray] = None
+        if vertical_compensation and perspective_weights is not None:
+            # The user drew a near→far line: gain follows the real direction
+            # of the perspective instead of the "top of frame is far" default.
+            smooth_weight, far_edge_weight = perspective_weights
+            if smooth_weight.shape != robust_gray.shape[:2]:
+                raise ValueError("Perspective weights do not match the diff crop")
+            extra_gain = self._far_edge_extra_gain(settings)
+            row_gain = (
+                1.0 + (_VERTICAL_COMPENSATION_MAX_GAIN - 1.0) * smooth_weight
+            ) * (1.0 + (extra_gain - 1.0) * far_edge_weight)
+            robust_float = robust_gray.astype(np.float32)
+            robust_float *= row_gain
+            robust_gray = np.clip(robust_float, 0.0, 255.0).astype(np.uint8)
+        elif vertical_compensation:
+            if vertical_compensation_frame is None:
+                row_gain = self._vertical_compensation_gain(robust_gray.shape[0])
+                row_offset = 0
+            else:
+                full_height, row_offset = vertical_compensation_frame
+                full_gain = self._vertical_compensation_gain(full_height)
+                row_gain = full_gain[row_offset : row_offset + robust_gray.shape[0]]
+            if roi_vertical_bounds is not None:
+                roi_top, roi_bottom = roi_vertical_bounds
+                far_edge_weight = self._far_edge_roi_weight(
+                    robust_gray.shape[0],
+                    row_offset,
+                    roi_top,
+                    roi_bottom,
+                )
+                extra_gain = self._far_edge_extra_gain(settings)
+                row_gain = row_gain * (1.0 + (extra_gain - 1.0) * far_edge_weight)
+            robust_float = robust_gray.astype(np.float32)
+            robust_float *= row_gain[:, np.newaxis]
+            robust_gray = np.clip(robust_float, 0.0, 255.0).astype(np.uint8)
+
+        # Compute gradients once and reuse them for stable-edge suppression,
+        # text handling and missing-structure detection.
+        ref_grad_x = cv2.Sobel(ref_gray, cv2.CV_32F, 1, 0, ksize=3)
+        ref_grad_y = cv2.Sobel(ref_gray, cv2.CV_32F, 0, 1, ksize=3)
+        cur_grad_x = cv2.Sobel(cur_gray, cv2.CV_32F, 1, 0, ksize=3)
+        cur_grad_y = cv2.Sobel(cur_gray, cv2.CV_32F, 0, 1, ksize=3)
+        ref_grad_mag = cv2.magnitude(ref_grad_x, ref_grad_y)
+        cur_grad_mag = cv2.magnitude(cur_grad_x, cur_grad_y)
+
+        # Suppress only reference edges that are also present in the current
+        # frame. A missing/broken edge is evidence and must keep its response.
         edges_ref = cv2.Canny(ref_gray, 80, 160)
-        edges_zone = cv2.dilate(edges_ref, np.ones((3, 3), dtype=np.uint8), iterations=2)
-        edge_mask = edges_zone > 0
+        edges_cur = cv2.Canny(cur_gray, 80, 160)
+        edges_zone = cv2.dilate(edges_ref, _EDGE_ZONE_KERNEL, iterations=2)
+        current_edge_zone = cv2.dilate(edges_cur, _EDGE_ZONE_KERNEL, iterations=2)
+        edge_mask = (edges_zone > 0) & (current_edge_zone > 0)
         robust_gray = robust_gray.astype(np.float32)
-        robust_gray[edge_mask] *= settings.edge_suppress_factor
+        if far_edge_weight is None:
+            robust_gray[edge_mask] *= settings.edge_suppress_factor
+        else:
+            far_edge_factor = max(
+                float(settings.edge_suppress_factor),
+                float(settings.far_edge_edge_suppress_factor),
+            )
+            edge_factors = settings.edge_suppress_factor + (
+                far_edge_factor - settings.edge_suppress_factor
+            ) * far_edge_weight
+            if edge_factors.ndim == 1:
+                edge_factors = edge_factors[:, np.newaxis]
+            robust_gray[edge_mask] *= np.broadcast_to(
+                edge_factors,
+                robust_gray.shape,
+            )[edge_mask]
         robust_gray = np.clip(robust_gray, 0, 255).astype(np.uint8)
+
+        contrast_loss_zone = (ref_grad_mag > settings.contrast_loss_ref_grad) & (
+            cur_grad_mag < settings.contrast_loss_cur_grad
+        )
+        if np.any(contrast_loss_zone):
+            robust_float = robust_gray.astype(np.float32)
+            if illumination_confidence is None:
+                robust_float[contrast_loss_zone] *= settings.contrast_loss_boost
+            else:
+                # Do not re-amplify the smooth light field as "missing print".
+                boost = settings.contrast_loss_boost - (
+                    (settings.contrast_loss_boost - 1.0)
+                    * illumination_confidence[contrast_loss_zone]
+                )
+                robust_float[contrast_loss_zone] *= boost
+            robust_gray = np.clip(robust_float, 0, 255).astype(np.uint8)
 
         # Structural masking for text-heavy regions:
         # where reference has dense structure, require stronger local contrast
@@ -1912,31 +2896,177 @@ class InspectionService:
         text_like_zone = structure_mask > settings.text_structure_threshold
         if np.any(text_like_zone):
             text_vals = robust_gray[text_like_zone]
+            preserve_missing_structure = contrast_loss_zone[text_like_zone]
             robust_gray[text_like_zone] = np.where(
-                text_vals >= settings.text_min_contrast,
+                (text_vals >= settings.text_min_contrast) | preserve_missing_structure,
                 text_vals,
                 0,
             ).astype(np.uint8)
-
-        # Boost zones where reference has strong text gradients but current frame
-        # has low gradients (possible erased/missing text).
-        ref_grad_x = cv2.Sobel(ref_gray, cv2.CV_32F, 1, 0, ksize=3)
-        ref_grad_y = cv2.Sobel(ref_gray, cv2.CV_32F, 0, 1, ksize=3)
-        cur_grad_x = cv2.Sobel(cur_gray, cv2.CV_32F, 1, 0, ksize=3)
-        cur_grad_y = cv2.Sobel(cur_gray, cv2.CV_32F, 0, 1, ksize=3)
-        ref_grad_mag = cv2.magnitude(ref_grad_x, ref_grad_y)
-        cur_grad_mag = cv2.magnitude(cur_grad_x, cur_grad_y)
-        contrast_loss_zone = (ref_grad_mag > settings.contrast_loss_ref_grad) & (
-            cur_grad_mag < settings.contrast_loss_cur_grad
-        )
-        if np.any(contrast_loss_zone):
-            robust_float = robust_gray.astype(np.float32)
-            robust_float[contrast_loss_zone] *= settings.contrast_loss_boost
-            robust_gray = np.clip(robust_float, 0, 255).astype(np.uint8)
-
-        # Median blur removes salt-like speckles without erasing thin linear defects.
-        robust_gray = cv2.medianBlur(robust_gray, 3)
         return cv2.cvtColor(robust_gray, cv2.COLOR_GRAY2BGR)
+
+    @staticmethod
+    def _suppress_smooth_illumination(
+        robust_gray: np.ndarray,
+        reference_gray: np.ndarray,
+        current_gray: np.ndarray,
+        *,
+        diagnostics: Optional[dict[str, object]] = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Suppress broad shadow/glare while retaining local structural changes."""
+        height, width = robust_gray.shape[:2]
+        if diagnostics is not None:
+            diagnostics.clear()
+            diagnostics.update(
+                shadow_percent=0.0,
+                glare_percent=0.0,
+                saturated_percent=0.0,
+                structural_protected_percent=0.0,
+                broad_illumination=False,
+                suppression_percent=0.0,
+                raw_energy=0.0,
+                corrected_energy=0.0,
+            )
+        if height == 0 or width == 0:
+            return robust_gray, np.zeros_like(robust_gray, dtype=np.float32)
+
+        kernel_size = int(round(min(height, width) * 0.08))
+        kernel_size = min(81, max(7, kernel_size | 1))
+        ref_float = reference_gray.astype(np.float32)
+        cur_float = current_gray.astype(np.float32)
+        low_ref = cv2.GaussianBlur(ref_float, (kernel_size, kernel_size), 0)
+        low_cur = cv2.GaussianBlur(cur_float, (kernel_size, kernel_size), 0)
+
+        shift = np.abs(low_cur - low_ref)
+        light_confidence = np.clip(
+            (shift - _ILLUMINATION_MIN_SHIFT)
+            / (_ILLUMINATION_FULL_SHIFT - _ILLUMINATION_MIN_SHIFT),
+            0.0,
+            1.0,
+        )
+        smooth_step = 3.0 - 2.0 * light_confidence
+        np.square(light_confidence, out=light_confidence)
+        np.multiply(light_confidence, smooth_step, out=light_confidence)
+
+        # A genuine defect changes high-frequency detail or gradient structure;
+        # only pixels preserving both are eligible for illumination suppression.
+        detail_delta = np.abs((cur_float - low_cur) - (ref_float - low_ref))
+        detail_confidence = _gaussian_similarity(detail_delta, _ILLUMINATION_DETAIL_SCALE)
+        ref_gx = cv2.Sobel(ref_float, cv2.CV_32F, 1, 0, ksize=3)
+        ref_gy = cv2.Sobel(ref_float, cv2.CV_32F, 0, 1, ksize=3)
+        cur_gx = cv2.Sobel(cur_float, cv2.CV_32F, 1, 0, ksize=3)
+        cur_gy = cv2.Sobel(cur_float, cv2.CV_32F, 0, 1, ksize=3)
+        gradient_delta = cv2.magnitude(cur_gx - ref_gx, cur_gy - ref_gy)
+        gradient_confidence = _gaussian_similarity(gradient_delta, _ILLUMINATION_GRADIENT_SCALE)
+
+        confidence = np.multiply(light_confidence, detail_confidence)
+        np.multiply(confidence, gradient_confidence, out=confidence)
+        confidence = confidence.astype(np.float32, copy=False)
+        confidence = cv2.GaussianBlur(confidence, (9, 9), 0)
+
+        # Dual branch guard: the photometric branch may suppress a smooth light
+        # field, while structural changes and clipped highlights always retain
+        # their raw response. A saturated area has lost image information and
+        # must never be silently converted to PASS.
+        structural_mask = (
+            (detail_delta >= _ILLUMINATION_DETAIL_SCALE)
+            | (gradient_delta >= _ILLUMINATION_GRADIENT_SCALE)
+        )
+        saturated_mask = (current_gray >= 250) & (reference_gray < 245)
+        protected_mask = structural_mask | saturated_mask
+        confidence[protected_mask] = 0.0
+
+        detected = confidence >= 0.20
+        detected_ratio = float(np.count_nonzero(detected)) / max(1, height * width)
+        detected_columns = float(np.count_nonzero(np.any(detected, axis=0))) / max(1, width)
+        broad = detected_ratio >= 0.08 and detected_columns >= 0.70
+        suppression = (
+            _ILLUMINATION_BROAD_MAX_SUPPRESSION
+            if broad
+            else _ILLUMINATION_LOCAL_MAX_SUPPRESSION
+        )
+
+        raw_float = robust_gray.astype(np.float32)
+        corrected = raw_float * (1.0 - suppression * confidence)
+        if broad:
+            corrected[confidence >= 0.55] = 0.0
+        corrected[protected_mask] = np.maximum(corrected[protected_mask], raw_float[protected_mask])
+
+        if diagnostics is not None:
+            signed_shift = low_cur - low_ref
+            shadow_mask = detected & (signed_shift <= -_ILLUMINATION_MIN_SHIFT)
+            glare_mask = detected & (signed_shift >= _ILLUMINATION_MIN_SHIFT)
+            pixels = max(1, height * width)
+            raw_energy = float(np.sum(raw_float))
+            corrected_energy = float(np.sum(corrected))
+            diagnostics.update(
+                shadow_percent=round(100.0 * np.count_nonzero(shadow_mask) / pixels, 3),
+                glare_percent=round(100.0 * np.count_nonzero(glare_mask) / pixels, 3),
+                saturated_percent=round(100.0 * np.count_nonzero(saturated_mask) / pixels, 3),
+                structural_protected_percent=round(100.0 * np.count_nonzero(structural_mask) / pixels, 3),
+                broad_illumination=bool(broad),
+                suppression_percent=round(
+                    100.0 * max(0.0, raw_energy - corrected_energy) / max(1.0, raw_energy),
+                    3,
+                ),
+                raw_energy=round(raw_energy, 1),
+                corrected_energy=round(corrected_energy, 1),
+            )
+        return np.clip(corrected, 0.0, 255.0).astype(np.uint8), confidence
+
+    @staticmethod
+    def _far_edge_extra_gain(settings: AnalysisSettings) -> float:
+        """Доп. усиление на дальнем краю сверх общей перспективной компенсации."""
+        total = max(float(settings.far_edge_max_gain), _VERTICAL_COMPENSATION_MAX_GAIN)
+        return total / _VERTICAL_COMPENSATION_MAX_GAIN
+
+    def _perspective_weights_for(
+        self,
+        product_type: str,
+        frame_shape: tuple[int, ...],
+        diff_bbox: Optional[tuple[int, int, int, int]],
+        crop_shape: tuple[int, ...],
+    ) -> Optional[tuple[np.ndarray, np.ndarray]]:
+        line = self.get_perspective_line(product_type)
+        if line is None:
+            return None
+        frame_height, frame_width = frame_shape[:2]
+        bbox = diff_bbox or (0, 0, frame_width, frame_height)
+        if (bbox[3], bbox[2]) != tuple(crop_shape[:2]):
+            return None
+        return perspective_far_weights(
+            frame_width,
+            frame_height,
+            line,
+            bbox,
+            _FAR_EDGE_ACTIVE_ROI_HEIGHT,
+        )
+
+    @staticmethod
+    def _vertical_compensation_gain(height: int) -> np.ndarray:
+        """Return a bounded gain that is largest at the top of a full frame."""
+        return _cached_vertical_compensation_gain(height)
+
+    @staticmethod
+    def _far_edge_roi_weight(
+        row_count: int,
+        row_offset: int,
+        roi_top: int,
+        roi_bottom: int,
+    ) -> np.ndarray:
+        """Return a smooth 1→0 weight over the upper 35% of the actual ROI."""
+        roi_height = max(1, roi_bottom - roi_top - 1)
+        frame_rows = np.arange(
+            row_offset,
+            row_offset + row_count,
+            dtype=np.float32,
+        )
+        roi_y_norm = (frame_rows - float(roi_top)) / float(roi_height)
+        weight = np.clip(
+            (_FAR_EDGE_ACTIVE_ROI_HEIGHT - roi_y_norm) / _FAR_EDGE_ACTIVE_ROI_HEIGHT,
+            0.0,
+            1.0,
+        )
+        return weight * weight * (3.0 - 2.0 * weight)
 
     def _refine_alignment_ecc(self, aligned: np.ndarray, reference: np.ndarray) -> np.ndarray:
         """Доточить affine-сдвиг пирамидальным ECC (после грубой гомографии)."""
@@ -1995,6 +3125,8 @@ class InspectionService:
         self,
         diff_map: np.ndarray,
         settings: AnalysisSettings,
+        *,
+        decision_threshold: Optional[float] = None,
     ) -> Tuple[float, np.ndarray]:
         """Вернуть (score 0..1, маска дефектов BGR).
 
@@ -2010,7 +3142,10 @@ class InspectionService:
             zero = np.zeros_like(gray_blur, dtype=np.uint8)
             return 0.0, cv2.cvtColor(zero, cv2.COLOR_GRAY2BGR)
         threshold_value = float(
-            max(10.0, min(np.percentile(gray_blur, settings.diff_percentile), 35.0))
+            max(
+                settings.min_diff_signal,
+                min(np.percentile(gray_blur, settings.diff_percentile), 35.0),
+            )
         )
         _, binary = cv2.threshold(gray_blur, threshold_value, 255, cv2.THRESH_BINARY)
 
@@ -2067,7 +3202,13 @@ class InspectionService:
                     filtered_region = filtered[y : y + h, x : x + w]
                     filtered_region[component_mask] = 255
                     max_aspect = max(max_aspect, float(aspect))
-                    local_score = float((aspect / 15.0) + (area / 500.0))
+                    component_values = gray_blur[y : y + h, x : x + w][component_mask]
+                    component_q90 = float(np.percentile(component_values, 90)) if component_values.size else 0.0
+                    local_score = float(
+                        (aspect / 15.0)
+                        + (area / 500.0)
+                        + ((component_q90 / 255.0) * 0.25)
+                    )
                     if text_overlap > 0.2:
                         local_score *= 1.3
 
@@ -2094,9 +3235,17 @@ class InspectionService:
         else:
             top_mean = 0.0
 
-        heuristic_score = float(np.clip((max_object_score * 0.85) + (top_mean * 0.55), 0.0, 1.0))
+        # Softer mix than 0.85/0.55: that pair clipped to 1.0 as soon as a few
+        # elongated blobs + bright top-tail appeared, so a small sensitivity nudge
+        # often jumped displayed anomaly from ~80% to 100%.
+        heuristic_score = float(np.clip((max_object_score * 0.55) + (top_mean * 0.40), 0.0, 1.0))
         if max_aspect > settings.scratch_aspect_floor:
-            heuristic_score = max(heuristic_score, settings.scratch_score_floor)
+            # A positively identified scratch must not remain just below the
+            # active verdict threshold. Keep a small margin to avoid equality
+            # and floating-point rounding differences between regional passes.
+            threshold = settings.default_threshold if decision_threshold is None else decision_threshold
+            reject_floor = min(1.0, float(threshold) + 0.01)
+            heuristic_score = max(heuristic_score, settings.scratch_score_floor, reject_floor)
         heuristic_mask = cv2.cvtColor(filtered, cv2.COLOR_GRAY2BGR)
 
         if settings.use_patchcore and self._anomaly_engine is not None:
@@ -2127,9 +3276,32 @@ class InspectionService:
             return mask_gray
 
         diff_gray = diff_map if diff_map.ndim == 2 else cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
-        gate = cv2.dilate(mask_gray, np.ones((11, 11), dtype=np.uint8), iterations=1)
-        gated_diff = np.where(gate > 0, diff_gray, 0).astype(np.uint8)
-        return cv2.max(mask_gray, gated_diff)
+        # The mask is a gate, not heat energy.  max(mask, diff) turns every
+        # detected component into solid 255 and discards the useful difference
+        # amplitude.  Preserve that amplitude and add only a soft visual halo.
+        core = np.where(mask_gray > 0, diff_gray, 0).astype(np.uint8)
+        if not np.any(core) and np.any(mask_gray):
+            core = mask_gray.copy()
+        halo = cv2.GaussianBlur(core, (11, 11), 0)
+        halo = np.clip(halo.astype(np.float32) * 0.65, 0, 255).astype(np.uint8)
+        return cv2.max(core, halo)
+
+    def _build_pre_learning_heatmap_gray(
+        self,
+        mask: np.ndarray,
+        diff_map: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        """Full pre-learning heatmap energy used only for UI visualization."""
+        mask_gray = mask if mask.ndim == 2 else cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+        if diff_map is None:
+            return mask_gray
+
+        diff_gray = diff_map if diff_map.ndim == 2 else cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
+        diff_norm = cv2.normalize(diff_gray, None, 0, 255, cv2.NORM_MINMAX)
+        combined = cv2.max(mask_gray, diff_norm)
+        combined = cv2.normalize(combined, None, 0, 255, cv2.NORM_MINMAX)
+        combined_gamma = np.power(combined.astype(np.float32) / 255.0, 0.8) * 255.0
+        return np.clip(combined_gamma, 0, 255).astype(np.uint8)
 
     def _colorize_heatmap(self, heatmap_gray: np.ndarray, mask: np.ndarray) -> np.ndarray:
         heatmap = cv2.applyColorMap(heatmap_gray, cv2.COLORMAP_JET)
@@ -2137,4 +3309,43 @@ class InspectionService:
         mask_float = (mask_gray.astype(np.float32) / 255.0)[..., np.newaxis]
         boosted = heatmap.astype(np.float32) * (1.0 + 0.5 * mask_float)
         return np.clip(boosted, 0, 255).astype(np.uint8)
+
+    @staticmethod
+    def _colorize_heatmap_29c9cfa(heatmap_gray: np.ndarray) -> np.ndarray:
+        """Apply the exact RGB stops used by HeatmapColor.ts in 29c9cfa.
+
+        The current learned pipeline adds saturated 255 mask pixels which make
+        a literal min/max normalization collapse almost every residual into
+        dark blue. Use the upper percentile of non-saturated energy for display
+        range, then apply the old UI gamma and its exact
+        blue/cyan/green/yellow/orange/red LUT. This path is visual-only.
+        """
+        gray = heatmap_gray if heatmap_gray.ndim == 2 else cv2.cvtColor(heatmap_gray, cv2.COLOR_BGR2GRAY)
+        min_value = int(np.min(gray))
+        max_value = int(np.max(gray))
+        if max_value <= min_value:
+            normalized_u8 = np.zeros_like(gray, dtype=np.uint8)
+        else:
+            non_saturated = gray[(gray > min_value) & (gray < max_value)]
+            if non_saturated.size >= 32:
+                display_max = float(np.percentile(non_saturated, 99.5))
+            else:
+                display_max = float(max_value)
+            display_max = max(float(min_value + 1), min(float(max_value), display_max))
+            normalized = (gray.astype(np.float32) - min_value) / (display_max - min_value)
+            normalized_u8 = np.floor(
+                np.power(np.clip(normalized, 0.0, 1.0), 0.8) * 255.0 + 0.5
+            ).astype(np.uint8)
+        color_ratio = normalized_u8.astype(np.float32) / 255.0
+
+        stop_positions = np.array([0.0, 0.2, 0.42, 0.62, 0.78, 0.9, 1.0], dtype=np.float32)
+        red_stops = np.array([0, 0, 0, 80, 255, 255, 190], dtype=np.float32)
+        green_stops = np.array([0, 95, 255, 255, 235, 120, 0], dtype=np.float32)
+        blue_stops = np.array([150, 255, 255, 80, 0, 0, 0], dtype=np.float32)
+
+        red = np.interp(color_ratio, stop_positions, red_stops)
+        green = np.interp(color_ratio, stop_positions, green_stops)
+        blue = np.interp(color_ratio, stop_positions, blue_stops)
+        bgr = np.floor(np.stack((blue, green, red), axis=-1) + 0.5)
+        return np.clip(bgr, 0, 255).astype(np.uint8)
 

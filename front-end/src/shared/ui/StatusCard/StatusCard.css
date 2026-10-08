@@ -122,7 +122,7 @@
 .camera-card__start,
 .camera-card__stop,
 .camera-card__open {
-  min-height: 32px;
+  min-height: 20px;
   padding: 6px;
   border-radius: 6px;
   cursor: pointer;
@@ -194,8 +194,8 @@
 }
 
 .camera-card__stop-status {
-  min-height: 30px;
-  padding: 0 12px 10px;
+  min-height: 20px;
+  padding: 0 12px 5px;
   overflow-wrap: anywhere;
   color: #b9c7c3;
   font-size: 0.76rem;

@@ -60,6 +60,68 @@ class ReferenceBundleParserTest {
         assertEquals(0, snapshot.views().get(0).frame().cameraId());
     }
 
+    private static String bundleWithPerspectiveLine(String perspectiveLineJson) {
+        return """
+                {
+                  "protocol_version": 1,
+                  "payload": {
+                    "product_type": "bench",
+                    "joint_view_index": 0,
+                    "heatmap_width": 100,
+                    "heatmap_height": 80,
+                    "views": [
+                      {
+                        "frame": { "camera_id": 0, "frame_id": "42", "shm_name": "/iml_cam_0_frame",
+                                   "width": 100, "height": 80, "stride": 300 },
+                        "interest_roi": { "x": 10, "y": 10, "width": 50, "height": 40 },
+                        "interest_polygon_norm": [
+                          { "x": 0.1, "y": 0.1 }, { "x": 0.9, "y": 0.1 }, { "x": 0.5, "y": 0.9 }
+                        ]
+                        %s
+                      }
+                    ],
+                    "fp_zones": []
+                  }
+                }
+                """.formatted(perspectiveLineJson);
+    }
+
+    @Test
+    void parseBundleReadsPerspectiveLine() throws Exception {
+        JsonNode envelope = MAPPER.readTree(bundleWithPerspectiveLine(
+                ", \"perspective_line_norm\": [{\"x\": 0.5, \"y\": 0.9}, {\"x\": 0.5, \"y\": 0.1}]"));
+        ReferenceBundleParser.Result result = ReferenceBundleParser.parseBundle(envelope, 1, List.of(0));
+
+        assertInstanceOf(ReferenceBundleParser.Result.Ok.class, result);
+        ReferenceViewSlot slot = ((ReferenceBundleParser.Result.Ok) result).snapshot().views().get(0);
+        assertTrue(slot.hasPerspectiveLineNorm());
+        assertEquals(0.9, slot.perspectiveLineNorm().get(0).y());
+        assertEquals(0.1, slot.perspectiveLineNorm().get(1).y());
+    }
+
+    @Test
+    void parseBundleWithoutPerspectiveLineKeepsDefault() throws Exception {
+        JsonNode envelope = MAPPER.readTree(bundleWithPerspectiveLine(""));
+        ReferenceBundleParser.Result result = ReferenceBundleParser.parseBundle(envelope, 1, List.of(0));
+
+        assertInstanceOf(ReferenceBundleParser.Result.Ok.class, result);
+        assertTrue(!((ReferenceBundleParser.Result.Ok) result).snapshot().views().get(0).hasPerspectiveLineNorm());
+    }
+
+    @Test
+    void parseBundleRejectsMalformedPerspectiveLine() throws Exception {
+        for (String line : List.of(
+                "[{\"x\": 0.5, \"y\": 0.9}]",
+                "[{\"x\": 0.5, \"y\": 0.9}, {\"x\": 1.5, \"y\": 0.1}]",
+                "[{\"x\": 0.5, \"y\": 0.5}, {\"x\": 0.5, \"y\": 0.51}]")) {
+            JsonNode envelope = MAPPER.readTree(bundleWithPerspectiveLine(", \"perspective_line_norm\": " + line));
+            ReferenceBundleParser.Result result = ReferenceBundleParser.parseBundle(envelope, 1, List.of(0));
+
+            assertInstanceOf(ReferenceBundleParser.Result.Err.class, result, line);
+            assertEquals("invalid_perspective_line", ((ReferenceBundleParser.Result.Err) result).code());
+        }
+    }
+
     @Test
     void parseBundleCarriesExplicitPhaseAndGroup() throws Exception {
         JsonNode envelope = MAPPER.readTree("""

@@ -6,6 +6,8 @@ import com.example.iml.geometry.dto.InspectionRequest;
 import com.example.iml.geometry.dto.InspectionResponse;
 import com.example.iml.geometry.dto.NormPoint;
 import com.example.iml.geometry.dto.RoiRect;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opencv.calib3d.Calib3d;
 import org.opencv.core.*;
 import org.opencv.core.KeyPoint;
@@ -14,11 +16,16 @@ import org.opencv.features2d.ORB;
 import org.opencv.imgproc.Imgproc;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
 public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
+
+    private static final Logger log = LogManager.getLogger(OpenCvGeometryAnalysisService.class);
 
     private static final int MAX_ALIGNMENT_DIM = 640;
     private static final int MAX_CIRCLE_DIM = 320;
@@ -120,6 +127,19 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             String referenceCacheKey,
             boolean poseLocked
     ) {
+        return inspectMats(reference, current, request, includeDebugImage, referenceCacheKey, poseLocked, Map.of());
+    }
+
+    public InspectionResponse inspectMats(
+            Mat reference,
+            Mat current,
+            InspectionRequest request,
+            boolean includeDebugImage,
+            String referenceCacheKey,
+            boolean poseLocked,
+            Map<String, Object> logContext
+    ) {
+        long tTotal0 = System.nanoTime();
         Mat alignedCurrent = null;
         Mat debug = null;
         Mat referenceRoi = null;
@@ -127,27 +147,48 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         Mat roiMask = null;
         AlignmentResult alignment = null;
         List<NormPoint> mainPolygon = request.mainRoiPolygonNorm();
+        Map<String, Object> diag = new LinkedHashMap<>();
         try {
             validateInputFrames(reference, current);
 
+            long tPrep0 = System.nanoTime();
             Rect mainRect = resolveMainRect(request, current.cols(), current.rows());
             referenceRoi = cloneRoi(reference, mainRect);
             currentRoi = cloneRoi(current, mainRect);
-            if (mainPolygon != null && mainPolygon.size() >= 3) {
+            boolean polygonMask = mainPolygon != null && mainPolygon.size() >= 3;
+            if (polygonMask) {
                 roiMask = RoiPolygonMask.maskForRect(mainPolygon, mainRect, current.cols(), current.rows());
                 RoiPolygonMask.applyMask(referenceRoi, roiMask);
                 RoiPolygonMask.applyMask(currentRoi, roiMask);
             }
+            double stageMsPrep = nanosToMs(System.nanoTime() - tPrep0);
+            recordStage("prep", tPrep0);
+            diag.put("stage_ms_prep", stageMsPrep);
+            diag.put("frame_w", current.cols());
+            diag.put("frame_h", current.rows());
+            diag.put("roi_x", mainRect.x);
+            diag.put("roi_y", mainRect.y);
+            diag.put("roi_w", mainRect.width);
+            diag.put("roi_h", mainRect.height);
+            diag.put("polygon_mask", polygonMask);
+            diag.put("pose_locked", poseLocked);
+            diag.put("has_joint_roi", request.jointRoi() != null);
+            diag.put("joint_visibility_only", request.jointVisibilityOnly());
 
             long tAlign0 = System.nanoTime();
             if (poseLocked) {
                 // Frame was already warped to the reference pose by java-positioning.
                 // Re-running ORB here often invents a residual H and destroys the lock.
                 alignment = identityAlignment();
+                diag.put("align_skipped_pose_locked", true);
             } else {
                 alignment = alignByHomography(referenceRoi, currentRoi, request.pixelsToMm(), referenceCacheKey);
+                diag.put("align_skipped_pose_locked", false);
             }
+            double stageMsAlign = nanosToMs(System.nanoTime() - tAlign0);
             recordStage("align", tAlign0);
+            diag.put("stage_ms_align", stageMsAlign);
+
             long tWarp0 = System.nanoTime();
             if (poseLocked) {
                 alignedCurrent = current.clone();
@@ -159,11 +200,23 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                 RoiPolygonMask.applyMask(alignedCurrentRoi, roiMask);
                 alignedCurrentRoi.release();
             }
+            double stageMsWarp = nanosToMs(System.nanoTime() - tWarp0);
             recordStage("warp", tWarp0);
+            diag.put("stage_ms_warp", stageMsWarp);
 
             long tJoint0 = System.nanoTime();
             JointResult joint = inspectJoint(alignedCurrent, request);
+            double stageMsJoint = nanosToMs(System.nanoTime() - tJoint0);
             recordStage("joint", tJoint0);
+            diag.put("stage_ms_joint", stageMsJoint);
+            diag.put("joint_found", joint.found());
+            diag.put("joint_ran", request.jointRoi() != null);
+
+            long tRim0 = System.nanoTime();
+            LabelRimSkewAnalyzer.Result rimSkew = inspectRimSkew(alignedCurrent, mainRect, request);
+            double stageMsRim = nanosToMs(System.nanoTime() - tRim0);
+            recordStage("rim_skew", tRim0);
+            diag.put("stage_ms_rim_skew", stageMsRim);
 
             long tWrinkles0 = System.nanoTime();
             WrinklesResult wrinkles = inspectWrinkles(
@@ -171,7 +224,9 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     alignedCurrent,
                     resolveWrinklesRoi(request)
             );
+            double stageMsWrinkles = nanosToMs(System.nanoTime() - tWrinkles0);
             recordStage("wrinkles", tWrinkles0);
+            diag.put("stage_ms_wrinkles", stageMsWrinkles);
 
             double deviationRadiusMm = Math.hypot(alignment.shiftXmm, alignment.shiftYmm);
 
@@ -183,27 +238,82 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             } finally {
                 concentricityRoi.release();
             }
+            double stageMsConcentricity = nanosToMs(System.nanoTime() - tConcentricity0);
             recordStage("concentricity", tConcentricity0);
+            diag.put("stage_ms_concentricity", stageMsConcentricity);
 
             String debugBase64 = "";
+            double stageMsDebug = 0;
             if (includeDebugImage) {
                 long tDebug0 = System.nanoTime();
                 debug = alignedCurrent.clone();
                 drawDebug(debug, mainRect, alignment, deviationRadiusMm, request);
                 debugBase64 = imageCodec.encodeBase64Png(debug);
+                stageMsDebug = nanosToMs(System.nanoTime() - tDebug0);
                 recordStage("debug", tDebug0);
             }
+            diag.put("stage_ms_debug", stageMsDebug);
+            diag.put("debug_written", includeDebugImage);
 
             boolean alignmentPass = poseLocked
                     || (Math.abs(alignment.shiftXmm) <= request.maxShiftMm()
                     && Math.abs(alignment.shiftYmm) <= request.maxShiftMm()
                     && Math.abs(alignment.rotationDeg) <= request.maxRotationDeg());
-            boolean concentricityPass = concentricity.deviationMm() <= request.maxConcentricityMm();
+            // Sibling (angled) cameras: joint is visibility-only. Perspective makes yellow-rim
+            // wedge / circle centres look skewed — gate only on the joint camera where the
+            // yellow band is intentionally inspected (no need to draw yellow on every bucket).
+            boolean siblingView = request.jointVisibilityOnly();
+            boolean concentricityPass = siblingView
+                    || concentricity.deviationMm() <= request.maxConcentricityMm();
             boolean jointPass = evaluateJointPass(request, joint);
             // After upstream positioning, surface QC belongs to python — geometry absdiff
             // wrinkles are too light-sensitive and caused false rejects on matched frames.
             boolean wrinklesPass = poseLocked || wrinkles.score <= request.maxWrinklesScore();
-            boolean overallPass = alignmentPass && concentricityPass && jointPass && wrinklesPass;
+            boolean rimSkewPass = evaluateRimSkewPass(request, rimSkew);
+            boolean overallPass = alignmentPass && concentricityPass && jointPass && wrinklesPass && rimSkewPass;
+
+            double stageMsTotal = nanosToMs(System.nanoTime() - tTotal0);
+            diag.put("stage_ms_total", stageMsTotal);
+            diag.put("status", overallPass ? "PASS" : "FAIL");
+
+            log.info(
+                    "geometry_usage {} status={} pose_locked={} total_ms={} "
+                            + "prep_ms={} align_ms={} align_skipped={} warp_ms={} "
+                            + "joint_ms={} joint_ran={} joint_found={} "
+                            + "rim_ms={} wrinkles_ms={} concentricity_ms={} debug_ms={} "
+                            + "shift=({}, {}) rot={} conc_mm={} "
+                            + "joint_par={} joint_w={} joint_vis={} wrinkle={} rim_skew={} "
+                            + "pass_align={} pass_conc={} pass_joint={} pass_wrinkle={} pass_rim={}",
+                    ctx(logContext),
+                    overallPass ? "PASS" : "FAIL",
+                    poseLocked,
+                    fmt(stageMsTotal),
+                    fmt(stageMsPrep),
+                    fmt(stageMsAlign),
+                    poseLocked,
+                    fmt(stageMsWarp),
+                    fmt(stageMsJoint),
+                    request.jointRoi() != null,
+                    joint.found(),
+                    fmt(stageMsRim),
+                    fmt(stageMsWrinkles),
+                    fmt(stageMsConcentricity),
+                    fmt(stageMsDebug),
+                    fmt(alignment.shiftXmm),
+                    fmt(alignment.shiftYmm),
+                    fmt(alignment.rotationDeg),
+                    fmt(concentricity.deviationMm()),
+                    fmt(joint.parallelismDeg()),
+                    fmt(joint.widthMm()),
+                    fmt(joint.visibility()),
+                    fmt(wrinkles.score),
+                    fmt(rimSkew.skewDeg()),
+                    alignmentPass,
+                    concentricityPass,
+                    jointPass,
+                    wrinklesPass,
+                    rimSkewPass
+            );
 
             return new InspectionResponse(
                     alignment.shiftXmm,
@@ -220,13 +330,19 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     joint.taperMm,
                     joint.visibility,
                     wrinkles.score,
+                    rimSkew.skewDeg(),
+                    rimSkew.gapLeftMm(),
+                    rimSkew.gapRightMm(),
+                    rimSkew.gapAsymmetryMm(),
                     alignmentPass,
                     concentricityPass,
                     jointPass,
                     wrinklesPass,
+                    rimSkewPass,
                     overallPass,
                     debugBase64,
-                    overallPass ? "PASS" : "FAIL"
+                    overallPass ? "PASS" : "FAIL",
+                    diag
             );
         } finally {
             release(referenceRoi, currentRoi, roiMask, debug, alignedCurrent);
@@ -234,6 +350,29 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                 alignment.homographyRefToCurrent.release();
             }
         }
+    }
+
+    private static double nanosToMs(long nanos) {
+        return nanos / 1_000_000.0;
+    }
+
+    private static String fmt(double v) {
+        if (!Double.isFinite(v)) {
+            return "NaN";
+        }
+        return String.format(Locale.ROOT, "%.3f", v);
+    }
+
+    private static String ctx(Map<String, Object> logContext) {
+        if (logContext == null || logContext.isEmpty()) {
+            return "";
+        }
+        Object cam = logContext.get("camera_id");
+        Object frame = logContext.get("frame_id");
+        if (cam == null && frame == null) {
+            return "";
+        }
+        return "cam=" + cam + " frame=" + frame;
     }
 
     private AlignmentResult identityAlignment() {
@@ -755,6 +894,45 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         }
     }
 
+    private LabelRimSkewAnalyzer.Result inspectRimSkew(Mat current, Rect mainRect, InspectionRequest request) {
+        Mat roiMat = new Mat(current, mainRect);
+        Mat mask = null;
+        try {
+            List<NormPoint> poly = request.mainRoiPolygonNorm();
+            if (poly != null && poly.size() >= 3) {
+                mask = RoiPolygonMask.maskForRect(poly, mainRect, current.cols(), current.rows());
+            }
+            return LabelRimSkewAnalyzer.analyze(roiMat, mask, request.pixelsToMm());
+        } finally {
+            release(roiMat, mask);
+        }
+    }
+
+    private static boolean evaluateRimSkewPass(InspectionRequest request, LabelRimSkewAnalyzer.Result rim) {
+        // Yellow-rim skew only on the joint camera (full mode). Angled sibling buckets
+        // always see an optical wedge; requiring yellow stripes on every view is wrong.
+        if (!isJointCameraYellowInspect(request)) {
+            return true;
+        }
+        if (rim == null || !rim.active()) {
+            return true;
+        }
+        boolean skewOk = rim.skewDeg() <= request.maxJointRimSkewDeg();
+        boolean asymOk = rim.gapAsymmetryMm() <= request.maxJointGapAsymmetryMm();
+        return skewOk && asymOk;
+    }
+
+    /** Joint camera with seam/yellow band ROI — the only view where rim-skew may reject. */
+    static boolean isJointCameraYellowInspect(InspectionRequest request) {
+        if (request == null) {
+            return false;
+        }
+        if (request.jointRoi() == null && (request.jointRoiPolygonNorm() == null || request.jointRoiPolygonNorm().size() < 3)) {
+            return false;
+        }
+        return !request.jointVisibilityOnly();
+    }
+
     private static boolean evaluateJointPass(InspectionRequest request, JointResult joint) {
         if (request.jointRoi() == null) {
             return true;
@@ -778,10 +956,13 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
         // (narrow real seams / Canny thin pairs with good parity).
         double maxParallelismDeg = request.maxJointParallelismDeg();
         if (request.jointSeamSegmentationEnabled()) {
-            // Sensitivity mainly gates parallelism from fitLine edges:
-            // 0 → 2× tolerance, 0.5 → base, 1 → 0.4× (stricter rejects).
+            // Sensitivity scales parallelism tolerance:
+            // 0 → 2×, 0.5 → 1× (base), 1 → 0.4× (stricter rejects).
             double s = clamp01(request.jointSeamSegmentationSensitivity());
-            maxParallelismDeg *= 2.0 - 1.6 * s;
+            double scale = s <= 0.5
+                    ? (2.0 - 2.0 * s)
+                    : (1.0 - 1.2 * (s - 0.5));
+            maxParallelismDeg *= scale;
         }
         boolean parallelismOk = joint.parallelismDeg <= maxParallelismDeg;
         boolean maxWidthOk = joint.widthMm <= request.jointMaxWidthMm();
@@ -861,9 +1042,51 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                 maxJointParallelismDeg,
                 maxJointTaperMm,
                 false,
-                0.5
+                0.5,
+                9999.0,
+                9999.0
         );
         return evaluateJointPass(request, joint);
+    }
+
+    /** Package-visible: rim-skew reject only on joint (yellow-band) camera. */
+    static boolean evaluateRimSkewPassForTest(
+            boolean hasJointRoi,
+            boolean visibilityOnly,
+            boolean rimActive,
+            double skewDeg,
+            double gapAsymmetryMm,
+            double maxSkewDeg,
+            double maxGapAsymmetryMm
+    ) {
+        InspectionRequest request = new InspectionRequest(
+                "",
+                "",
+                null,
+                null,
+                hasJointRoi ? new RoiRect(0, 0, 1, 1) : null,
+                null,
+                null,
+                0.02,
+                0.5,
+                1.0,
+                9999.0,
+                0.5,
+                0.45,
+                visibilityOnly ? "visibility" : "full",
+                0.25,
+                3.0,
+                5.0,
+                0.6,
+                false,
+                0.5,
+                maxSkewDeg,
+                maxGapAsymmetryMm
+        );
+        LabelRimSkewAnalyzer.Result rim = rimActive
+                ? new LabelRimSkewAnalyzer.Result(true, skewDeg, 0.0, gapAsymmetryMm, gapAsymmetryMm)
+                : LabelRimSkewAnalyzer.Result.inactive();
+        return evaluateRimSkewPass(request, rim);
     }
 
     private WrinklesResult inspectWrinkles(Mat reference, Mat current, RoiRect wrinklesRoi) {

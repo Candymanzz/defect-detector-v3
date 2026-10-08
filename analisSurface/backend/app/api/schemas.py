@@ -51,7 +51,17 @@ class InspectResponse(BaseModel):
     learned_normal_matches_count: int = 0
     learned_normal_adjustment: float = 0.0
     matched_accepted_case_ids: list[str] = Field(default_factory=list)
+    # Display-only polygons for saved-normal matches. They do not affect the
+    # score or verdict and let production UI mark already excluded areas.
+    excluded_normal_zones: list[dict] = Field(default_factory=list)
     fp_zone_scores: list[FPZoneScoreResponse] = Field(default_factory=list)
+    py_align_ms: float = 0.0
+    py_diff_ms: float = 0.0
+    py_anomaly_ms: float = 0.0
+    py_fp_recheck_ms: float = 0.0
+    py_heatmap_ms: float = 0.0
+    py_total_ms: float = 0.0
+    heatmap_u8: Optional[ShmImageOutput] = None
 
 
 class InspectWithVisualsResponse(InspectResponse):
@@ -93,6 +103,8 @@ class AnalysisSettingsValues(BaseModel):
     clahe_clip_limit: float = 1.2
     fp_recheck_enabled: bool = True
     fp_trigger_diff_q90: float = 22.0
+    far_edge_max_gain: float = 1.35
+    far_edge_edge_suppress_factor: float = 0.35
     enable_internal_alignment: bool = False
 
 
@@ -115,6 +127,8 @@ class AnalysisSettingsUpdateRequest(BaseModel):
     clahe_clip_limit: Optional[float] = None
     fp_recheck_enabled: Optional[bool] = None
     fp_trigger_diff_q90: Optional[float] = None
+    far_edge_max_gain: Optional[float] = None
+    far_edge_edge_suppress_factor: Optional[float] = None
     enable_internal_alignment: Optional[bool] = None
 
 
@@ -123,6 +137,8 @@ class AnalysisSettingsResponse(BaseModel):
     settings: AnalysisSettingsValues
     defaults: AnalysisSettingsValues
     overrides: dict[str, float | int | bool] = Field(default_factory=dict)
+    simple_knobs: Optional["SimpleSettingsKnobs"] = None
+    strength_knobs: Optional["DetailedStrengthKnobs"] = None
 
 
 class SimpleSettingsKnobs(BaseModel):
@@ -130,13 +146,26 @@ class SimpleSettingsKnobs(BaseModel):
     sensitivity: float = Field(..., ge=0.0, le=1.0)
 
 
-class ProSettingsKnobs(BaseModel):
+class DetailedStrengthKnobs(BaseModel):
+    """Силы изменения групп (сохраняются отдельно от чувствительности)."""
+
+    noise_tolerance: float = Field(..., ge=0.0, le=100.0)
+    scratch_sensitivity: float = Field(..., ge=0.0, le=100.0)
+    edge_suppression: float = Field(..., ge=0.0, le=100.0)
+    text_handling: float = Field(..., ge=0.0, le=100.0)
+    preprocess_strength: float = Field(..., ge=0.0, le=100.0)
+    # Необязательно: старые клиенты без этой ручки получают стандартные 50.
+    far_edge_boost: float = Field(50.0, ge=0.0, le=100.0)
+
+
+# alias для обратной совместимости импортов
+DetailedSensitivityKnobs = DetailedStrengthKnobs
+
+
+class ProSettingsKnobs(DetailedStrengthKnobs):
+    """Legacy pro payload: threshold plus detailed group strengths."""
+
     threshold: float = Field(..., gt=0.0, le=1.0)
-    noise_tolerance: float = Field(..., ge=0.0, le=1.0)
-    scratch_sensitivity: float = Field(..., ge=0.0, le=1.0)
-    edge_suppression: float = Field(..., ge=0.0, le=1.0)
-    text_handling: float = Field(..., ge=0.0, le=1.0)
-    preprocess_strength: float = Field(..., ge=0.0, le=1.0)
 
 
 class SimpleSettingsResponse(BaseModel):
@@ -147,12 +176,32 @@ class SimpleSettingsResponse(BaseModel):
     overrides: dict[str, float | int | bool] = Field(default_factory=dict)
 
 
+class DetailedSensitivityResponse(BaseModel):
+    analysis_profile: str
+    knobs: Optional[DetailedSensitivityKnobs] = None
+    settings: AnalysisSettingsValues
+    defaults: AnalysisSettingsValues
+    overrides: dict[str, float | int | bool] = Field(default_factory=dict)
+
+
 class ProSettingsResponse(BaseModel):
+    """Backward-compatible response for clients still using the /pro endpoint."""
+
     analysis_profile: str
     knobs: Optional[ProSettingsKnobs] = None
     settings: AnalysisSettingsValues
     defaults: AnalysisSettingsValues
     overrides: dict[str, float | int | bool] = Field(default_factory=dict)
+
+
+class StrengthKnobsResponse(BaseModel):
+    """Силы групп (0–100) для product_type — лёгкий ответ без полного settings."""
+
+    analysis_profile: str
+    strengths: DetailedStrengthKnobs
+    saved: bool = Field(
+        description="True если силы явно сохранены в detailed_knobs; False — отдаются defaults (50)."
+    )
 
 
 class DetectorHealthResponse(BaseModel):
@@ -174,10 +223,52 @@ class ShmFrameRequest(BaseModel):
     detector_id: Optional[str] = None
     algorithm_params: Optional[dict] = None
     analysis_profile: Optional[str] = None
+    analysis_test_settings: Optional[dict] = None
     alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None  # 3x3 от geometry
     camera_id: Optional[int] = None
     frame_id: Optional[str | int] = None
     phase_id: Optional[int] = None
+    # Carry the camera-scoped ROI with each request so a Python restart cannot
+    # silently fall back to full-frame processing.
+    roi_polygon_norm: Optional[list[dict[str, float]]] = None
+    # [ближний край, дальний край]; переустанавливается вместе с ROI после рестарта Python.
+    perspective_line_norm: Optional[list[dict[str, float]]] = None
+    skip_learning_review: bool = False
+    defer_learning_review: bool = False
+    test_analyze: bool = False
+    # Applied inside Python after full-resolution alignment to the reference.
+    # Both the aligned frame and reference are resized together.
+    inspect_scale: Optional[float] = None
+    heatmap_u8_output_path: Optional[str] = None
+    heatmap_max_width: Optional[int] = None
+
+
+class TestFrameInspectRequest(BaseModel):
+    """Вход /inspect-test-frame: JPEG с диска + ручки UI, без записи analysis_settings."""
+
+    cache_key: str
+    file_path: str
+    image_url: Optional[str] = None
+    product_type: str
+    analysis_profile: Optional[str] = None
+    detector_id: Optional[str] = None
+    alignment_h_ref_to_cur: Optional[list[float] | list[list[float]]] = None
+    # Same per-camera ROI contract as ShmFrameRequest for UI test inspections.
+    roi_polygon_norm: Optional[list[dict[str, float]]] = None
+    # [ближний край, дальний край]; переустанавливается вместе с ROI после рестарта Python.
+    perspective_line_norm: Optional[list[dict[str, float]]] = None
+    simple: Optional[SimpleSettingsKnobs] = None
+    detailed: Optional[DetailedSensitivityKnobs] = None
+    # Kept for the current UI/orchestrator contract while detailed remains the
+    # canonical name for persisted strength groups.
+    pro: Optional[ProSettingsKnobs] = None
+    heatmap_u8_output_path: Optional[str] = None
+    heatmap_max_width: Optional[int] = None
+    # Match production /inspect-shm scaling for UI test analysis.
+    inspect_scale: Optional[float] = None
+    aligned_image_u8_output_path: Optional[str] = None
+    diff_map_u8_output_path: Optional[str] = None
+    segmentation_mask_u8_output_path: Optional[str] = None
 
 
 class ShmVisualsRequest(ShmFrameRequest):
@@ -208,11 +299,15 @@ class RoiPolygonRequest(BaseModel):
     product_type: str
     points: list[RoiPoint]
     algorithm_params: Optional[dict] = None
+    # Две точки: от ближнего края изделия к дальнему. Без неё действует
+    # прежнее допущение «верх кадра дальше».
+    perspective_line: Optional[list[RoiPoint]] = None
 
 
 class RoiPolygonResponse(BaseModel):
     product_type: str
     points: list[RoiPoint]
+    perspective_line: Optional[list[RoiPoint]] = None
 
 
 class FPZonePoint(BaseModel):

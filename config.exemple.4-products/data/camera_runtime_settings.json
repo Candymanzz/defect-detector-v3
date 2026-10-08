@@ -1,0 +1,105 @@
+{
+  "version" : 1,
+  "cameras" : {
+    "1" : {
+      "gamma" : 1.0,
+      "exposure_us" : 250,
+      "black_level" : 0,
+      "capture_trigger_mode" : "line0",
+      "balance_ratio_blue" : 1.7,
+      "gain_db" : 0.0,
+      "balance_ratio_red" : 1.65,
+      "frame_timeout_ms" : 800
+    },
+    "0" : {
+      "gamma" : 1.0,
+      "exposure_us" : 250,
+      "black_level" : 0,
+      "capture_trigger_mode" : "line0",
+      "balance_ratio_blue" : 1.7,
+      "gain_db" : 0.0,
+      "balance_ratio_red" : 1.65,
+      "frame_timeout_ms" : 800
+    },
+    "2" : {
+      "gamma" : 1.0,
+      "exposure_us" : 250,
+      "black_level" : 0,
+      "capture_trigger_mode" : "line0",
+      "balance_ratio_blue" : 1.7,
+      "gain_db" : 0.0,
+      "balance_ratio_red" : 1.65,
+      "frame_timeout_ms" : 800
+    },
+    "3" : {
+      "gamma" : 1.0,
+      "exposure_us" : 250,
+      "black_level" : 0,
+      "capture_trigger_mode" : "line0",
+      "balance_ratio_blue" : 1.7,
+      "gain_db" : 0.0,
+      "balance_ratio_red" : 1.65,
+      "frame_timeout_ms" : 800
+    },
+    "4" : {
+      "gamma" : 1.0,
+      "exposure_us" : 250,
+      "black_level" : 0,
+      "capture_trigger_mode" : "line0",
+      "balance_ratio_blue" : 1.7,
+      "gain_db" : 0.0,
+      "balance_ratio_red" : 1.65,
+      "frame_timeout_ms" : 800
+    },
+    "5" : {
+      "gamma" : 1.0,
+      "exposure_us" : 250,
+      "black_level" : 0,
+      "capture_trigger_mode" : "line0",
+      "balance_ratio_blue" : 1.7,
+      "gain_db" : 0.0,
+      "balance_ratio_red" : 1.65,
+      "frame_timeout_ms" : 800
+    },
+    "6" : {
+      "gamma" : 1.0,
+      "exposure_us" : 250,
+      "black_level" : 0,
+      "capture_trigger_mode" : "line0",
+      "balance_ratio_blue" : 1.7,
+      "gain_db" : 0.0,
+      "balance_ratio_red" : 1.65,
+      "frame_timeout_ms" : 800
+    },
+    "7" : {
+      "gamma" : 1.0,
+      "exposure_us" : 250,
+      "black_level" : 0,
+      "capture_trigger_mode" : "line0",
+      "balance_ratio_blue" : 1.7,
+      "gain_db" : 0.0,
+      "balance_ratio_red" : 1.65,
+      "frame_timeout_ms" : 800
+    },
+    "8" : {
+      "gamma" : 1.0,
+      "exposure_us" : 250,
+      "black_level" : 0,
+      "capture_trigger_mode" : "line0",
+      "balance_ratio_blue" : 1.7,
+      "gain_db" : 0.0,
+      "balance_ratio_red" : 1.65,
+      "frame_timeout_ms" : 800
+    },
+    "9" : {
+      "gamma" : 1.0,
+      "exposure_us" : 250,
+      "black_level" : 0,
+      "capture_trigger_mode" : "line0",
+      "balance_ratio_blue" : 1.7,
+      "gain_db" : 0.0,
+      "balance_ratio_red" : 1.65,
+      "frame_timeout_ms" : 800
+    }
+  }
+}

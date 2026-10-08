@@ -73,10 +73,63 @@ class BinaryInspectHeadersTest {
         assertEquals(otherHeader.get("mainRoi"), otherHeader.get("wrinklesRoi"));
         assertEquals(0.5, jointHeader.get("maxJointDefectMm"));
         assertEquals(0.25, jointHeader.get("jointMinWidthMm"));
-        assertEquals(3.0, jointHeader.get("jointMaxWidthMm"));
+        assertEquals(1.6, jointHeader.get("jointMaxWidthMm"));
         assertEquals(5.0, jointHeader.get("maxJointParallelismDeg"));
         assertEquals(0.8, jointHeader.get("maxJointTaperMm"));
         assertEquals(0.5, jointHeader.get("jointSeamSegmentationSensitivity"));
+        assertEquals(true, jointHeader.get("jointSeamSegmentationEnabled"));
+        assertEquals(true, otherHeader.get("jointSeamSegmentationEnabled"));
+    }
+
+    @Test
+    void withoutJointRoiSeamIsOffAndModeIsOff() {
+        ReferenceSnapshot noJoint = new ReferenceSnapshot("product", Map.of(
+                "width", 2448,
+                "height", 2048,
+                "client_reference_bundle", true,
+                "interest_polygon_norm", List.of(
+                        Map.of("x", 0.1, "y", 0.1),
+                        Map.of("x", 0.9, "y", 0.1),
+                        Map.of("x", 0.9, "y", 0.9)
+                ),
+                "shm_name", "ref_shm",
+                "shm_offset", 0,
+                "stride", 7344
+        ));
+
+        Map<String, Object> header = BinaryInspectHeaders.geometryInspectHeader(
+                1, capture, noJoint, null, null);
+
+        assertEquals(null, header.get("jointRoi"));
+        assertEquals("off", header.get("jointMode"));
+        assertEquals(false, header.get("jointSeamSegmentationEnabled"));
+    }
+
+    @Test
+    void runtimeOverridesDoNotInjectJointWhenReferenceHasNoJoint() {
+        ReferenceSnapshot noJoint = new ReferenceSnapshot("product", Map.of(
+                "width", 2448,
+                "height", 2048,
+                "client_reference_bundle", true,
+                "shm_name", "ref_shm",
+                "shm_offset", 0,
+                "stride", 7344
+        ));
+        Map<String, Object> header = new HashMap<>(BinaryInspectHeaders.geometryInspectHeader(
+                1, capture, noJoint, null, null));
+
+        GeometryRuntimeConfig runtimeConfig = new GeometryRuntimeConfig();
+        runtimeConfig.replaceAllFromClient(Map.of(
+                "maxShiftMm", 1.25,
+                "jointSeamSegmentationEnabled", true,
+                "jointRoi", Map.of("x", 0, "y", 0, "width", 50, "height", 50)
+        ));
+        runtimeConfig.applyToGeometryHeader(header);
+
+        assertEquals(1.25, header.get("maxShiftMm"));
+        assertEquals(null, header.get("jointRoi"));
+        assertEquals("off", header.get("jointMode"));
+        assertEquals(false, header.get("jointSeamSegmentationEnabled"));
     }
 
     @Test
@@ -179,7 +232,64 @@ class BinaryInspectHeadersTest {
     }
 
     @Test
-    void explicitRuntimeThresholdCanStillOverrideProfileThreshold() {
+    void positioningUsesRegularReferenceRoiAndPythonGetsNoHomography() {
+        List<Map<String, Object>> regularRoi = List.of(
+                Map.of("x", 0.20, "y", 0.25),
+                Map.of("x", 0.80, "y", 0.25),
+                Map.of("x", 0.80, "y", 0.75),
+                Map.of("x", 0.20, "y", 0.75)
+        );
+        ReferenceSnapshot reference = new ReferenceSnapshot("product", Map.of(
+                "width", 2448,
+                "height", 2048,
+                "interest_polygon_norm", regularRoi,
+                "joint_roi_norm", Map.of("x", 0.01, "y", 0.01, "width", 0.05, "height", 0.05),
+                "shm_name", "ref_shm",
+                "shm_offset", 0,
+                "stride", 7344
+        ));
+
+        Map<String, Object> positioning = BinaryInspectHeaders.positioningHeader(
+                1,
+                capture,
+                reference,
+                Map.of("main_roi", Map.of("x", 0, "y", 0, "width", 20, "height", 20)),
+                Map.of("main_roi", Map.of("x", 5, "y", 5, "width", 10, "height", 10))
+        );
+        Map<String, Object> python = BinaryInspectHeaders.pythonInspectHeader(
+                1, "product", "surface", capture,
+                new BinaryProtocol.Message(
+                        BinaryProtocol.MSG_RESPONSE,
+                        Map.of("homographyRefToCurrent", List.of(1, 0, 12, 0, 1, 7, 0, 0, 1)),
+                        new byte[0]
+                ),
+                Map.of(),
+                false
+        );
+
+        assertEquals(regularRoi, positioning.get("mainRoiPolygonNorm"));
+        assertEquals(Map.of("x", 489, "y", 511, "width", 1470, "height", 1026), positioning.get("mainRoi"));
+        assertFalse(positioning.containsKey("jointRoi"));
+        assertFalse(python.containsKey("alignment_h_ref_to_cur"));
+    }
+
+    @Test
+    void pythonHeaderForwardsDeferredLearningReviewSetting() {
+        Map<String, Object> header = BinaryInspectHeaders.pythonInspectHeader(
+                1,
+                "bench-lan1",
+                "surface",
+                capture,
+                null,
+                Map.of("defer_learning_review", true),
+                false
+        );
+
+        assertEquals(true, header.get("defer_learning_review"));
+    }
+
+    @Test
+    void geometryRuntimeDoesNotInjectAnomalyThresholdIntoPythonHeader() {
         Map<String, Object> header = new HashMap<>(BinaryInspectHeaders.pythonInspectHeader(
                 1,
                 "bench-lan1",
@@ -194,7 +304,88 @@ class BinaryInspectHeadersTest {
 
         runtimeConfig.applyToPythonHeader(header, Map.of("fallback_threshold", 0.45), "bench-lan1");
 
-        assertEquals(0.07, header.get("threshold"));
+        assertFalse(header.containsKey("threshold"));
+        Object algorithmParams = header.get("algorithm_params");
+        if (algorithmParams instanceof Map<?, ?> params) {
+            assertFalse(params.containsKey("threshold"));
+        }
+    }
+
+    @Test
+    void pythonTestFrameInspectHeaderUsesJpegPathAndEphemeralSimpleKnobs() {
+        Map<String, Object> cap = new HashMap<>();
+        cap.put("frame_id", 42L);
+        cap.put("test_analyze", true);
+        cap.put("test_analyze_job_id", "abc123def456");
+        cap.put("test_frame_file_path", "/tmp/iml-test-pins/x/frame.jpg");
+        cap.put("test_frame_cache_key", "0:42");
+        cap.put("test_frame_image_url", "/api/client/inspection/test-pin/x/frame.jpg");
+        cap.put("analysis_test_settings", Map.of(
+                "mode", "simple",
+                "knobs", Map.of("threshold", 0.3, "sensitivity", 0.7)
+        ));
+        cap.put("positioning_aligned", true);
+        BinaryProtocol.Message captureMsg = new BinaryProtocol.Message(
+                BinaryProtocol.MSG_RESPONSE, Map.copyOf(cap), new byte[0]);
+        BinaryProtocol.Message geom = new BinaryProtocol.Message(
+                BinaryProtocol.MSG_RESPONSE,
+                Map.of("homographyRefToCurrent", List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.1)),
+                new byte[0]
+        );
+
+        Map<String, Object> header = BinaryInspectHeaders.pythonTestFrameInspectHeader(
+                0, "bench", "v1", captureMsg, geom, null, 512);
+
+        assertEquals("inspect_test_frame", header.get("op"));
+        assertEquals("/tmp/iml-test-pins/x/frame.jpg", header.get("file_path"));
+        assertEquals("0:42", header.get("cache_key"));
+        assertFalse(header.containsKey("alignment_h_ref_to_cur"));
+        assertTrue(header.get("simple") instanceof Map<?, ?>);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> simple = (Map<String, Object>) header.get("simple");
+        assertEquals(0.3, simple.get("threshold"));
+        assertEquals(0.7, simple.get("sensitivity"));
+        assertFalse(header.containsKey("pro"));
+        assertNotNull(header.get("heatmap_u8_output_path"));
+        assertEquals(512, header.get("heatmap_max_width"));
+    }
+
+    @Test
+    void pythonTestFrameInspectHeaderForwardsSimpleAndDetailedKnobsTogether() {
+        Map<String, Object> cap = new HashMap<>();
+        cap.put("frame_id", 42L);
+        cap.put("test_analyze", true);
+        cap.put("test_analyze_job_id", "abc123def456");
+        cap.put("test_frame_file_path", "/tmp/iml-test-pins/x/frame.jpg");
+        cap.put("test_frame_cache_key", "0:42");
+        cap.put("analysis_test_settings", Map.of(
+                "simple", Map.of("threshold", 0.3, "sensitivity", 0.7),
+                "detailed", Map.of(
+                        "noise_tolerance", 50,
+                        "scratch_sensitivity", 80,
+                        "edge_suppression", 50,
+                        "text_handling", 50,
+                        "preprocess_strength", 100
+                )
+        ));
+        BinaryProtocol.Message captureMsg = new BinaryProtocol.Message(
+                BinaryProtocol.MSG_RESPONSE, Map.copyOf(cap), new byte[0]);
+        BinaryProtocol.Message geom = new BinaryProtocol.Message(
+                BinaryProtocol.MSG_RESPONSE,
+                Map.of("homographyRefToCurrent", List.of(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)),
+                new byte[0]
+        );
+
+        Map<String, Object> header = BinaryInspectHeaders.pythonTestFrameInspectHeader(
+                0, "bench", "v1", captureMsg, geom, null, 512);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> simple = (Map<String, Object>) header.get("simple");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> detailed = (Map<String, Object>) header.get("detailed");
+        assertEquals(0.3, simple.get("threshold"));
+        assertEquals(80, detailed.get("scratch_sensitivity"));
+        assertFalse(header.containsKey("pro"));
     }
 
     private static void assertTrueMapsEqual(Object expected, Object actual) {
