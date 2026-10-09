@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.pipeline;
 
+import com.example.iml.orchestrator.integration.capture.ImlShmJanitor;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.roi.InterestPolygonNormCodec;
@@ -159,7 +160,9 @@ public final class BinaryInspectHeaders {
         pHeader.put("maxShiftMm", maxShift);
         pHeader.put("maxRotationDeg", maxRot);
         pHeader.put("write_aligned", YamlScalars.toBool(positioningCfg == null ? null : positioningCfg.get("write_aligned"), true));
-        pHeader.put("output_shm_name", "iml_pos_cam_" + cameraId);
+        // Фазы одной камеры идут подряд: у каждой свой выходной буфер, иначе фаза N+1 затирает кадр фазы N.
+        int phaseId = YamlScalars.toInt(capture.header().get("phase_id"), 0);
+        pHeader.put("output_shm_name", "iml_pos_cam_" + cameraId + ImlShmJanitor.phaseSuffix(phaseId));
         return pHeader;
     }
 

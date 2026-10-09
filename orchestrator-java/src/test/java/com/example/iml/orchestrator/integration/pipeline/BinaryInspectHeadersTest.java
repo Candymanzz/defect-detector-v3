@@ -274,6 +274,25 @@ class BinaryInspectHeadersTest {
     }
 
     @Test
+    void positioningWritesSeparateOutputBufferPerPhase() {
+        ReferenceSnapshot reference = new ReferenceSnapshot("product", Map.of(
+                "width", 2448, "height", 2048, "shm_name", "ref_shm", "shm_offset", 0, "stride", 7344));
+        java.util.function.IntFunction<Object> outputFor = phase -> {
+            Map<String, Object> header = new java.util.HashMap<>(capture.header());
+            header.put("phase_id", phase);
+            return BinaryInspectHeaders.positioningHeader(
+                    1,
+                    new BinaryProtocol.Message(capture.type(), header, capture.payload()),
+                    reference,
+                    Map.of(),
+                    Map.of()
+            ).get("output_shm_name");
+        };
+        assertEquals("iml_pos_cam_1", outputFor.apply(0));
+        assertEquals("iml_pos_cam_1_p1", outputFor.apply(1));
+    }
+
+    @Test
     void pythonHeaderForwardsDeferredLearningReviewSetting() {
         Map<String, Object> header = BinaryInspectHeaders.pythonInspectHeader(
                 1,

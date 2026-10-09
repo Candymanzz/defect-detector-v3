@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -20,6 +21,16 @@ class ImlShmJanitorTest {
         assertTrue(ImlShmJanitor.isDedicatedOrchestratorBuffer("iml_pos_cam_3"));
         assertFalse(ImlShmJanitor.isDedicatedOrchestratorBuffer("iml_cam_0_frame"));
         assertFalse(ImlShmJanitor.isDedicatedOrchestratorBuffer(null));
+    }
+
+    @Test
+    void phaseBuffersAreSeparatePerPhaseAndSurviveStartupPurge() {
+        assertEquals("", ImlShmJanitor.phaseSuffix(0));
+        assertEquals("_p1", ImlShmJanitor.phaseSuffix(1));
+        assertTrue(ImlShmJanitor.isRetainedAtStartup("iml_pos_cam_3_p1"));
+        assertTrue(ImlShmJanitor.isRetainedAtStartup("iml_ui_inspect_cam_3_p1"));
+        assertTrue(ImlShmJanitor.isDedicatedOrchestratorBuffer("iml_pos_cam_3_p1"));
+        assertFalse(ImlShmJanitor.isEphemeralLinePin("iml_pos_cam_3_p1"));
     }
 
     @Test

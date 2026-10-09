@@ -982,7 +982,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                 }
             }
         }
-        String positioned = "/iml_pos_cam_" + cameraId;
+        String positioned = "/iml_pos_cam_" + cameraId
+                + ImlShmJanitor.phaseSuffix(YamlScalars.toInt(cap.get("phase_id"), 0));
         if (previewShmExists(positioned, cameraId)) {
             Object status = cap.get("positioning_status");
             boolean aligned = YamlScalars.toBool(cap.get("positioning_aligned"), false)
@@ -1040,7 +1041,8 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             }
             frozenName = "iml_ui_test_cam_" + cameraId + "_" + suffix;
         } else {
-            frozenName = "iml_ui_inspect_cam_" + cameraId;
+            frozenName = "iml_ui_inspect_cam_" + cameraId
+                    + ImlShmJanitor.phaseSuffix(YamlScalars.toInt(captureHeader.get("phase_id"), 0));
         }
         Path target = FrameJpegWriter.imlShmFilePath(frozenName);
         Files.createDirectories(target.getParent());

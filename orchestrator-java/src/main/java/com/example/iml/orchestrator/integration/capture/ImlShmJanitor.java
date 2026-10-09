@@ -34,16 +34,25 @@ public final class ImlShmJanitor {
             "^iml_cam_\\d+_frame$"
                     + "|^iml_ref_cam\\d+$"
                     + "|^iml_ref_phase\\d+_cam\\d+$"
-                    + "|^iml_pos_cam_\\d+$"
+                    + "|^iml_pos_cam_\\d+(_p\\d+)?$"
                     + "|^iml_ds_[a-z_]+_cam\\d+$"
                     + "|^iml_py_ds_(cur|ref)_cam\\d+$"
-                    + "|^iml_ui_(inspect|heatmap)_cam_\\d+$"
+                    + "|^iml_ui_(inspect|heatmap)_cam_\\d+(_p\\d+)?$"
     );
 
     private static final Pattern LINE_PIN_FILE = Pattern.compile("^iml_line_pin_cam(\\d+)_f\\d+$");
     private static final int RETAIN_LATEST_LINE_PINS_PER_CAMERA = 2;
 
     private ImlShmJanitor() {
+    }
+
+    /**
+     * Суффикс буфера для фазы: фаза 0 — без суффикса (прежние имена), фаза N&gt;0 — {@code _pN}.
+     * Фазы одной камеры идут с интервалом ~80 мс, поэтому делить один буфер нельзя: следующая фаза
+     * затирает кадр, который предыдущая ещё анализирует и публикует в UI.
+     */
+    public static String phaseSuffix(int phaseId) {
+        return phaseId > 0 ? "_p" + phaseId : "";
     }
 
     /** При старте: удалить всё, что не соответствует стабильным шаблонам имён. */
