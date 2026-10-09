@@ -11,6 +11,8 @@ xset s off || true
 xset -dpms || true
 trap 'exit 0' TERM INT HUP
 while true; do
-    /opt/defect-detector-ui/node_modules/electron/dist/electron --ozone-platform=x11 . || true
+    # Autologin cannot unlock a password-protected GNOME keyring. This dedicated
+    # operator UI does not use the keyring for Chromium password storage.
+    /opt/defect-detector-ui/node_modules/electron/dist/electron --ozone-platform=x11 --password-store=basic . || true
     sleep 5
 done
