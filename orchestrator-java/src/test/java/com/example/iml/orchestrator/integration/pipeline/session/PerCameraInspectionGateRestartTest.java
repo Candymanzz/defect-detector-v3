@@ -73,6 +73,31 @@ final class PerCameraInspectionGateRestartTest {
     }
 
     @Test
+    void phaseOneStartsWhenPhaseZeroCaptureReturnsNotWhenCycleEnds() throws Exception {
+        PerCameraInspectionGate gate = gate(true);
+        assertEquals(PerCameraInspectionGate.BeginResult.STARTED, gate.tryBeginInspection(0, 66L, 0, 400L));
+
+        CountDownLatch phaseOneStarted = new CountDownLatch(1);
+        Thread phaseOne = new Thread(() -> {
+            assertEquals(PerCameraInspectionGate.BeginResult.STARTED, gate.tryBeginInspection(0, 66L, 1, 401L));
+            phaseOneStarted.countDown();
+        }, "phase-one-begin");
+        phaseOne.start();
+        assertFalse(phaseOneStarted.await(80, TimeUnit.MILLISECONDS));
+
+        // Capture фазы 0 вернулся; позиционирование/Python фазы 0 ещё идут (цикл не завершён).
+        gate.markCaptureDone(0, 66L, 0);
+        assertTrue(phaseOneStarted.await(2, TimeUnit.SECONDS));
+        phaseOne.join(TimeUnit.SECONDS.toMillis(2));
+        assertTrue(gate.isInspectionInFlight(0));
+
+        gate.endInspection(0, 66L, 0);
+        assertTrue(gate.isInspectionInFlight(0));
+        gate.endInspection(0, 66L, 1);
+        assertFalse(gate.isInspectionInFlight(0));
+    }
+
+    @Test
     void di2CancelKeepsPhase1InFlight() {
         PerCameraInspectionGate gate = gate(true);
 

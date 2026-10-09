@@ -5,7 +5,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDate;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,7 +21,11 @@ class TrafficLogTest {
         TrafficLog.inbound("io_input_monitor", "UDP", "{\"di\":3}");
         TrafficLog.configure(Map.of(), root); // выключение сбрасывает очередь на диск
 
-        Path day = root.resolve("log_p").resolve(LocalDate.now().toString());
+        Path day;
+        try (var dirs = Files.list(root.resolve("log_p"))) {
+            day = dirs.findFirst().orElseThrow();
+        }
+        assertTrue(day.getFileName().toString().matches("\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}"), day.toString());
         String req = Files.readString(day.resolve("analis_surface_8001").resolve("requests.log"));
         String resp = Files.readString(day.resolve("analis_surface_8001").resolve("responses.log"));
         assertTrue(req.contains("#" + id) && req.contains("\"camera_id\":3") && req.contains("<10 bytes>"), req);

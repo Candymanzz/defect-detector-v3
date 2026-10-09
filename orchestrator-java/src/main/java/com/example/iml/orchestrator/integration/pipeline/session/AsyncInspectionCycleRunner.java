@@ -56,6 +56,7 @@ public final class AsyncInspectionCycleRunner {
                 in.parentCycleId(),
                 in.rawTriggerSequence()
         );
+        releasePhaseOrderOnCapture(captureFuture, inspectionGate, in);
         if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
             captureFuture.cancel(true);
             svc.log().info("integration cam={}: inspection cycle cancelled during capture stage", in.cameraId());
@@ -331,6 +332,7 @@ public final class AsyncInspectionCycleRunner {
                 in.parentCycleId(),
                 in.rawTriggerSequence()
         );
+        releasePhaseOrderOnCapture(captureFuture, inspectionGate, in);
         PipelineState state;
         try {
             state = awaitCaptureOrDi2Cancel(captureFuture, timeoutMs, inspectionGate, in.cameraId(), svc);
@@ -507,6 +509,19 @@ public final class AsyncInspectionCycleRunner {
             return true;
         }
         return inspectionGate.runIfInspectionActive(cameraId, publishAction);
+    }
+
+    /** Следующая фаза камеры стартует, как только вернулся capture этой, а не весь её цикл. */
+    private static void releasePhaseOrderOnCapture(
+            CompletableFuture<PipelineState> captureFuture,
+            PerCameraInspectionGate inspectionGate,
+            AsyncInspectionCycleInput in
+    ) {
+        if (inspectionGate == null) {
+            return;
+        }
+        captureFuture.whenComplete((state, error) ->
+                inspectionGate.markCaptureDone(in.cameraId(), in.parentCycleId(), in.phaseId()));
     }
 
     private static BinaryProtocol.Message withCycleIdentity(

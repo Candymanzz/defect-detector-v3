@@ -346,7 +346,10 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         }
 
         long publishSequence = uiPublishSequence.incrementAndGet();
-        latestUiPublishByCamera.put(cameraId, publishSequence);
+        // Dedup per (camera, phase): phases of one camera now finish tens of ms apart, and a
+        // camera-wide "latest wins" dropped the earlier phase's publish after its frame URL was already sent.
+        final int publishKey = cameraId + 1000 * Math.max(0, YamlScalars.toInt(cap.get("phase_id"), 0));
+        latestUiPublishByCamera.put(publishKey, publishSequence);
         final FrozenFrame frozenFrame;
         try {
             frozenFrame = freezeInspectionFrame(cameraId, frameId, shmName, width, height, stride, cap);
@@ -369,13 +372,13 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         }
         // Freeze no longer retains line-pin paths; free per-cycle SHM asap.
         releaseLinePin(capture, stableReferenceFrame);
-        if (!isLatestPublish(cameraId, publishSequence)) {
+        if (!isLatestPublish(publishKey, publishSequence)) {
             deleteTemporaryArtifact(sourceHeatmap.path(), "stale source heatmap");
             deleteFrozenFrameIfOwned(frozenFrame, "stale frozen inspection frame");
             return;
         }
 
-        UiPublishTask publishTask = new UiPublishTask(cameraId, () -> {
+        UiPublishTask publishTask = new UiPublishTask(publishKey, () -> {
             Object cameraPublishLock = uiPublishLockByCamera.computeIfAbsent(cameraId, ignored -> new Object());
             synchronized (cameraPublishLock) {
                 Path generatedHeatmapPreview = null;
@@ -570,7 +573,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                     // capacity on a heatmap that the UI will immediately replace.
                     // Archive the frame JPEG immediately so a superseded publish still persists history.
                     // test-analyze must never rewrite the rolling archive slot used to pin the source frame.
-                    if (!isLatestPublish(cameraId, publishSequence)) {
+                    if (!isLatestPublish(publishKey, publishSequence)) {
                         if (!testAnalyze) {
                             Path toArchive = archiveJpeg != null ? archiveJpeg : (hasCur ? currentJpeg : null);
                             saveFrameArchiveImmediately(
@@ -753,7 +756,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             deleteTemporaryArtifact(sourceHeatmap.path(), "discarded queued source heatmap");
             deleteFrozenFrameIfOwned(frozenFrame, "discarded queued frozen inspection frame");
         });
-        removeQueuedPublishForCamera(uiArtifactsExecutor, cameraId);
+        removeQueuedPublishForCamera(uiArtifactsExecutor, publishKey);
         try {
             uiArtifactsExecutor.execute(publishTask);
         } catch (java.util.concurrent.RejectedExecutionException e) {

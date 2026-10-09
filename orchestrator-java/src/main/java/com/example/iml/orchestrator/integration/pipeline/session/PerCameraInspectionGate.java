@@ -35,6 +35,11 @@ public final class PerCameraInspectionGate {
     private final ConcurrentHashMap<Integer, AtomicBoolean> inspectionEnabled = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicBoolean> inFlight = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, Set<PhaseKey>> inFlightPhases = new ConcurrentHashMap<>();
+    /**
+     * Фазы, у которых capture ещё не вернулся. Именно по ним следующая фаза ждёт очерёдность команд к воркеру;
+     * позиционирование и Python предыдущей фазы ждать не нужно (иначе фазы выполняются строго друг за другом).
+     */
+    private final ConcurrentHashMap<Integer, Set<PhaseKey>> capturePendingPhases = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicBoolean> cancelRequested = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicLong> inspectionSequence = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, AtomicLong> activeTriggerSequence = new ConcurrentHashMap<>();
@@ -61,6 +66,8 @@ public final class PerCameraInspectionGate {
                 this.resumeAfterTriggerSequence.put(cameraId, new AtomicLong(0L)));
         activeTriggerSequence.forEach((cameraId, ignored) ->
                 this.inFlightPhases.put(cameraId, ConcurrentHashMap.newKeySet()));
+        activeTriggerSequence.forEach((cameraId, ignored) ->
+                this.capturePendingPhases.put(cameraId, ConcurrentHashMap.newKeySet()));
     }
 
     public static PerCameraInspectionGate fromCameras(List<Map<String, Object>> cameras) {
@@ -305,9 +312,13 @@ public final class PerCameraInspectionGate {
             if (phases.contains(phaseKey)) {
                 return BeginResult.IN_FLIGHT;
             }
-            awaitPriorPhaseCapture(cameraId, parentCycleId, phaseId, flight, phases);
+            Set<PhaseKey> pending = capturePendingPhases.get(cameraId);
+            awaitPriorPhaseCapture(cameraId, parentCycleId, phaseId, flight, pending);
             if (!phases.add(phaseKey)) {
                 return BeginResult.IN_FLIGHT;
+            }
+            if (pending != null) {
+                pending.add(phaseKey);
             }
             flight.set(true);
             if (boundary != null) {
@@ -436,6 +447,11 @@ public final class PerCameraInspectionGate {
             if (phases != null) {
                 phases.clear();
             }
+            Set<PhaseKey> pending = capturePendingPhases.get(cameraId);
+            if (pending != null) {
+                pending.clear();
+            }
+            flight.notifyAll();
             finishIfIdle(cameraId, flight);
         }
     }
@@ -446,11 +462,35 @@ public final class PerCameraInspectionGate {
             return;
         }
         synchronized (flight) {
+            PhaseKey key = new PhaseKey(Math.max(0L, parentCycleId), Math.max(0, phaseId));
             Set<PhaseKey> phases = inFlightPhases.get(cameraId);
             if (phases != null) {
-                phases.remove(new PhaseKey(Math.max(0L, parentCycleId), Math.max(0, phaseId)));
+                phases.remove(key);
             }
+            Set<PhaseKey> pending = capturePendingPhases.get(cameraId);
+            if (pending != null) {
+                pending.remove(key);
+            }
+            flight.notifyAll();
             finishIfIdle(cameraId, flight);
+        }
+    }
+
+    /**
+     * Capture фазы вернулся (или сорвался): следующая фаза камеры может отправлять свою команду воркеру,
+     * не дожидаясь позиционирования и Python предыдущей.
+     */
+    public void markCaptureDone(int cameraId, long parentCycleId, int phaseId) {
+        AtomicBoolean flight = inFlight.get(cameraId);
+        if (flight == null) {
+            return;
+        }
+        synchronized (flight) {
+            Set<PhaseKey> pending = capturePendingPhases.get(cameraId);
+            if (pending != null
+                    && pending.remove(new PhaseKey(Math.max(0L, parentCycleId), Math.max(0, phaseId)))) {
+                flight.notifyAll();
+            }
         }
     }
 
@@ -459,13 +499,13 @@ public final class PerCameraInspectionGate {
             long parentCycleId,
             int phaseId,
             AtomicBoolean flight,
-            Set<PhaseKey> phases
+            Set<PhaseKey> pendingCaptures
     ) {
-        if (!awaitPriorPhase || phaseId <= 0) {
+        if (!awaitPriorPhase || phaseId <= 0 || pendingCaptures == null) {
             return;
         }
         PhaseKey prior = new PhaseKey(Math.max(0L, parentCycleId), phaseId - 1);
-        if (!phases.contains(prior)) {
+        if (!pendingCaptures.contains(prior)) {
             return;
         }
         LOG.info(
@@ -475,7 +515,7 @@ public final class PerCameraInspectionGate {
                 phaseId,
                 phaseId - 1
         );
-        while (phases.contains(prior)) {
+        while (pendingCaptures.contains(prior)) {
             try {
                 flight.wait();
             } catch (InterruptedException e) {

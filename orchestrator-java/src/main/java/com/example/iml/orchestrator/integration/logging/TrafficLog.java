@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * Журнал обмена между оркестратором и всеми сервисами (camera-worker, geometry, positioning, analisSurface,
  * LightServer, IoInputMonitor, PLC FINS, UI).
  * <p>
- * Раскладка: {@code <корень приложения>/log_p/<yyyy-MM-dd>/<сервис>/requests.log} и {@code responses.log}.
+ * Раскладка: {@code <корень приложения>/log_p/<yyyy-MM-dd_HH-mm-ss (старт приложения)>/<сервис>/requests.log} и {@code responses.log}.
  * {@code requests.log} — то, что оркестратор отправил сервису; {@code responses.log} — то, что пришло от сервиса
  * (в том числе сообщения без запроса, например UDP от IoInputMonitor). Строка начинается с времени,
  * затем {@code #id} — пара запрос/ответ связана одним id.
@@ -43,6 +43,9 @@ public final class TrafficLog {
 
     private static final Logger LOG = LogManager.getLogger(TrafficLog.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final DateTimeFormatter SESSION_DIR = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
+    /** Папка запуска: дата и время старта приложения (одна на весь запуск). */
+    private static volatile String sessionDir = LocalDateTime.now().format(SESSION_DIR);
     private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
     private static final int QUEUE_CAPACITY = 100_000;
     private static final AtomicLong IDS = new AtomicLong();
@@ -76,6 +79,7 @@ public final class TrafficLog {
         maxBodyChars = Math.max(200, toInt(cfg.get("max_body_chars"), 4000));
         baseDir = base.normalize();
         if (writer == null) {
+            sessionDir = LocalDateTime.now().format(SESSION_DIR);
             writer = new Writer();
             writer.start();
         }
@@ -327,7 +331,7 @@ public final class TrafficLog {
             if (base == null) {
                 return;
             }
-            Path dir = base.resolve(e.date().toString()).resolve(e.service());
+            Path dir = base.resolve(sessionDir).resolve(e.service());
             Path file = dir.resolve(e.file());
             try {
                 BufferedWriter w = open.get(file);
@@ -350,7 +354,7 @@ public final class TrafficLog {
             if (base == null) {
                 return;
             }
-            Path currentDir = base.resolve(current.toString());
+            Path currentDir = base.resolve(sessionDir);
             open.entrySet().removeIf(entry -> {
                 if (entry.getKey().startsWith(currentDir)) {
                     return false;
