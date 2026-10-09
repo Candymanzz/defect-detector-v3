@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.clientws;
 
+import com.example.iml.orchestrator.integration.logging.TrafficLog;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.clientws.application.ClientWsApplicationContext;
 import com.example.iml.orchestrator.integration.clientws.bundle.ReferenceBundleSnapshot;
@@ -383,6 +384,9 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         try {
             JsonNode root = JSON.readTree(message);
             String type = root.path("type").asText("?");
+            if (TrafficLog.enabled()) {
+                TrafficLog.request("ui_ws", "recv " + type + " <- " + conn.getRemoteSocketAddress(), message);
+            }
             frontController.dispatch(conn, root, type);
         } catch (JsonProcessingException e) {
             log.warn("client_ws message parse: {}", e.getMessage());

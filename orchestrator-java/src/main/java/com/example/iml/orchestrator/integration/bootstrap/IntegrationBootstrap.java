@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.bootstrap;
 
+import com.example.iml.orchestrator.integration.logging.TrafficLog;
 import com.example.iml.orchestrator.integration.bootstrap.context.IntegrationRuntimeContext;
 import com.example.iml.orchestrator.integration.bootstrap.factory.DefaultIntegrationServicePoolFactory;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationLifecycleComposite;
@@ -30,6 +31,7 @@ public final class IntegrationBootstrap {
     private final PipelineCameraRuntimeService cameraRuntime = new PipelineCameraRuntimeService(log);
 
     public void start(Map<String, Object> root, Path projectRoot) {
+        TrafficLog.configure(root, projectRoot);
         boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
         IntegrationRuntimeContext ctx = new IntegrationRuntimeContext(log, root, projectRoot, isWindows);
         ServicePoolLifecycle servicePools = new ServicePoolLifecycle(log);

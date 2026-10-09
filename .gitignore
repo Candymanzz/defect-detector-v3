@@ -6,6 +6,7 @@
 /script/
 /docs/
 /logs/
+/log_p/
 .dev-stack.pids.json
 .tmp/
 .DS_Store

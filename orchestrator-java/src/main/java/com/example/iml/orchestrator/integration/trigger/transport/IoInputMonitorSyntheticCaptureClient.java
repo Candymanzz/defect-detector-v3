@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.trigger.transport;
 
+import com.example.iml.orchestrator.integration.logging.TrafficLog;
 import org.apache.logging.log4j.Logger;
 
 import java.net.URI;
@@ -45,7 +46,7 @@ final class IoInputMonitorSyntheticCaptureClient {
                 .header("Content-Type", "application/json")
                 .build();
         try {
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = TrafficLog.http("io_input_monitor", httpClient, request, HttpResponse.BodyHandlers.ofString(), null);
             if (response.statusCode() >= 200 && response.statusCode() < 300) {
                 log.info("io_input {} OK status={} body={}", label, response.statusCode(), response.body());
                 return true;

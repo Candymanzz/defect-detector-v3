@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.trigger.transport;
 
+import com.example.iml.orchestrator.integration.logging.TrafficLog;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerBus;
 import com.example.iml.orchestrator.integration.trigger.InspectionTriggerEvent;
 import com.example.iml.orchestrator.integration.trigger.config.UdpTriggerConfig;
@@ -78,6 +79,10 @@ public final class UdpTriggerTransport implements TriggerTransport {
 
     private void handlePacket(DatagramPacket packet) {
         InetSocketAddress remote = new InetSocketAddress(packet.getAddress(), packet.getPort());
+        if (TrafficLog.enabled()) {
+            TrafficLog.inbound("udp_trigger", "UDP from " + remote,
+                    new String(packet.getData(), 0, packet.getLength(), java.nio.charset.StandardCharsets.UTF_8));
+        }
         if (!isRemoteAllowed(remote.getAddress().getHostAddress())) {
             log.debug("udp_trigger ignored sender {}", remote);
             return;

@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.pipeline.session;
 
+import com.example.iml.orchestrator.integration.logging.TrafficLog;
 import com.example.iml.orchestrator.integration.capture.LineFramePinService;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
@@ -128,8 +129,22 @@ public final class AsyncInspectionCycleRunner {
                     in.cameraId(), state.capture(), state.py(), state.geom());
             long tDecisionDone = System.nanoTime();
             BinaryProtocol.Message capture = withCycleIdentity(state.capture(), in);
+            if (TrafficLog.enabled()) {
+                TrafficLog.event("orchestrator", "decision",
+                        "cam=" + in.cameraId() + " frame_id=" + decision.frameId() + " seq=" + in.triggerSequence()
+                                + " phase=" + in.phaseId() + " parent_cycle=" + in.parentCycleId()
+                                + " inspection_id=" + in.inspectionId() + " pass=" + decision.overallPass()
+                                + " action=" + decision.action() + " python=" + decision.pythonStatus()
+                                + " capture_shm=" + capture.header().get("shm_name")
+                                + " capture_frame_id=" + capture.header().get("frame_id"));
+            }
             boolean resultPublished = publishIfAllowed(inspectionGate, in.cameraId(), () -> {
                 Runnable publishUi = () -> {
+                    if (TrafficLog.enabled()) {
+                        TrafficLog.event("orchestrator", "ui_publish_start",
+                                "cam=" + in.cameraId() + " frame_id=" + decision.frameId() + " seq=" + in.triggerSequence()
+                                        + " inspection_id=" + in.inspectionId());
+                    }
                     try {
                         svc.afterInspectionSidecar().scheduleAfterInspection(
                                 in.uiServer(),

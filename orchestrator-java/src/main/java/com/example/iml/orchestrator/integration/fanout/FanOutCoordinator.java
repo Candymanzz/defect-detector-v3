@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.fanout;
 
+import com.example.iml.orchestrator.integration.logging.TrafficLog;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
 import com.example.iml.orchestrator.integration.health.ServiceHealthGate;
@@ -118,6 +119,12 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
 
     @Override
     public void publishBucket(BucketFanOutResult result) {
+        if (TrafficLog.enabled()) {
+            TrafficLog.event("orchestrator", "bucket_fanout",
+                    "group=" + result.groupId() + " seq=" + result.triggerSequence() + " pass=" + result.overallPass()
+                            + " phase=" + result.phaseId() + " parent_cycle=" + result.parentCycleId()
+                            + " cameras=" + result.bucketCameraIds());
+        }
         ServiceHealthGate gate = healthGate;
         if (gate != null && !gate.healthyForVision()) {
             log.warn(

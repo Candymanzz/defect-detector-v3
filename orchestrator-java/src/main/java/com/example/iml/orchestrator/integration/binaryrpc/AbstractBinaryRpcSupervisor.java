@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.binaryrpc;
 
 import com.example.iml.orchestrator.integration.camera.BinaryClient;
+import com.example.iml.orchestrator.integration.logging.TrafficLog;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 
 import java.io.IOException;
@@ -91,6 +92,11 @@ public abstract class AbstractBinaryRpcSupervisor {
     protected abstract void ensureAlive() throws IOException;
 
     protected final BinaryProtocol.Message awaitCommandOnClient(Map<String, Object> header) throws IOException {
+        final String service = supervisorLabel();
+        final Object op = header == null ? null : header.get("op");
+        final String opName = op == null ? "command" : String.valueOf(op);
+        final long trafficId = TrafficLog.request(service, opName, header);
+        final long startNanos = System.nanoTime();
         CompletableFuture<BinaryProtocol.Message> future = CompletableFuture.supplyAsync(() -> {
             try {
                 return client.command(header);
@@ -99,12 +105,20 @@ public abstract class AbstractBinaryRpcSupervisor {
             }
         }, callExecutor);
         try {
-            return future.get(commandTimeoutMs, TimeUnit.MILLISECONDS);
+            BinaryProtocol.Message response = future.get(commandTimeoutMs, TimeUnit.MILLISECONDS);
+            if (trafficId != 0L) {
+                TrafficLog.response(
+                        service, trafficId, opName, response == null ? "null" : response.type(),
+                        response == null ? null : response.header(), startNanos);
+            }
+            return response;
         } catch (TimeoutException e) {
+            TrafficLog.failure(service, trafficId, opName, e, startNanos);
             future.cancel(true);
             throw new IOException(supervisorLabel() + " command timeout after " + commandTimeoutMs + " ms", e);
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
+            TrafficLog.failure(service, trafficId, opName, cause, startNanos);
             if (cause instanceof RuntimeException re && re.getCause() instanceof IOException io) {
                 throw io;
             }

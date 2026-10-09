@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.http;
 
 
 
+import com.example.iml.orchestrator.integration.logging.TrafficLog;
 import com.example.iml.orchestrator.integration.http.controller.CameraMjpegHttpController;
 import com.example.iml.orchestrator.integration.http.controller.CameraPreviewHttpController;
 import com.example.iml.orchestrator.integration.camera.CameraSettingsService;
@@ -75,11 +76,22 @@ public final class HttpFrontController {
 
         if (handler.isPresent()) {
 
+            long trafficId = 0L;
+            long trafficStart = System.nanoTime();
+            String trafficOp = method + " " + exchange.getRequestURI().getRawPath()
+                    + (exchange.getRequestURI().getRawQuery() == null ? "" : "?" + exchange.getRequestURI().getRawQuery());
+            if (TrafficLog.enabled()) {
+                trafficId = TrafficLog.request("ui_http", trafficOp, "from=" + exchange.getRemoteAddress());
+            }
             try {
 
                 handler.get().handle(req);
 
+                TrafficLog.response("ui_http", trafficId, trafficOp, exchange.getResponseCode(), null, trafficStart);
+
             } catch (Exception e) {
+
+                TrafficLog.failure("ui_http", trafficId, trafficOp, e, trafficStart);
 
                 if (!req.exchange().getResponseHeaders().containsKey("Content-type")) {
 

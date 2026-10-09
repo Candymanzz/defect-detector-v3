@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.plc.fins;
 
+import com.example.iml.orchestrator.integration.logging.TrafficLog;
 import com.example.iml.orchestrator.integration.plc.PlcFinsTrafficEvent;
 import com.example.iml.orchestrator.integration.plc.PlcFinsTrafficListener;
 import com.example.iml.orchestrator.integration.plc.PlcFinsTrafficSubject;
@@ -147,6 +148,11 @@ public final class OmronFinsTransport implements AutoCloseable {
   ) throws IOException {
     InetAddress target = InetAddress.getByName(host);
     DatagramPacket packet = new DatagramPacket(request, request.length, target, port);
+    long trafficId = TrafficLog.request(
+        "plc_fins",
+        operation + " " + area + " " + address,
+        "signal=" + signal + " value=" + value + " sid=" + sid + " hex=" + FinsFrameBuilder.toHex(request, request.length));
+    long trafficStart = System.nanoTime();
     socket.send(packet);
 
     byte[] buffer = new byte[512];
@@ -154,6 +160,7 @@ public final class OmronFinsTransport implements AutoCloseable {
     try {
       socket.receive(response);
     } catch (SocketTimeoutException e) {
+      TrafficLog.failure("plc_fins", trafficId, operation + " " + area + " " + address, e, trafficStart);
       log.warn(
           "plc fins response timeout host={}:{} op={} area={} address={} sid={}",
           host,
@@ -166,6 +173,13 @@ public final class OmronFinsTransport implements AutoCloseable {
       emitResponse(operation, signal, area, address, value, null, 0, sid, null, false, "timeout");
       throw new IOException("FINS timeout host=" + host + ":" + port, e);
     }
+    TrafficLog.response(
+        "plc_fins",
+        trafficId,
+        operation + " " + area + " " + address,
+        "end_code=" + extractEndCode(response.getData(), response.getLength()),
+        "hex=" + FinsFrameBuilder.toHex(response.getData(), response.getLength()),
+        trafficStart);
     try {
       validateResponse(response.getData(), response.getLength(), sid);
     } catch (IOException e) {

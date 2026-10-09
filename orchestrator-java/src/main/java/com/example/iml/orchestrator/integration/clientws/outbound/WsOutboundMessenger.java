@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.clientws.outbound;
 
+import com.example.iml.orchestrator.integration.logging.TrafficLog;
 import com.example.iml.orchestrator.integration.clientapi.LearnedReviewIndex;
 import com.example.iml.orchestrator.integration.clientws.bundle.FpZoneNorm;
 import com.example.iml.orchestrator.integration.clientws.config.ClientWsConfig;
@@ -785,6 +786,9 @@ public final class WsOutboundMessenger {
 
     private static void sendRaw(WebSocket conn, String json, String type) throws ClientWsSendFailedException {
         try {
+            if (TrafficLog.enabled()) {
+                TrafficLog.push("ui_ws", "send " + type + " -> " + (conn == null ? "?" : conn.getRemoteSocketAddress()), json);
+            }
             conn.send(json);
         } catch (RuntimeException e) {
             throw new ClientWsSendFailedException(type, e);

@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.clientapi;
 
+import com.example.iml.orchestrator.integration.logging.TrafficLog;
 import com.sun.net.httpserver.HttpExchange;
 
 import java.io.IOException;
@@ -58,7 +59,8 @@ public final class KopcheniHttpProxy {
         }
         rb.header("Accept", ex.getRequestHeaders().getFirst("Accept") != null ? ex.getRequestHeaders().getFirst("Accept") : "*/*");
         try {
-            HttpResponse<byte[]> resp = CLIENT.send(rb.build(), HttpResponse.BodyHandlers.ofByteArray());
+            HttpResponse<byte[]> resp = TrafficLog.http("analis_surface_ui_proxy", CLIENT, rb.build(), HttpResponse.BodyHandlers.ofByteArray(),
+                    body == null || body.length == 0 ? null : new String(body, java.nio.charset.StandardCharsets.UTF_8));
             ex.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
             String respCt = resp.headers().firstValue("Content-Type").orElse("application/octet-stream");
             ex.getResponseHeaders().set("Content-Type", respCt);

@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.ui;
 
+import com.example.iml.orchestrator.integration.logging.TrafficLog;
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
 import com.example.iml.orchestrator.integration.clientapi.LearnedReviewIndex;
@@ -213,6 +214,13 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             return;
         }
         Map<String, Object> cap = new LinkedHashMap<>(capture.header());
+        if (TrafficLog.enabled()) {
+            TrafficLog.event("orchestrator", "ui_artifacts_schedule",
+                    "cam=" + cameraId + " frame_id=" + cap.get("frame_id") + " inspection_id=" + inspectionId
+                            + " shm_name=" + cap.get("shm_name") + " ui_preview_shm=" + cap.get("ui_preview_shm_name")
+                            + " positioning_aligned=" + cap.get("positioning_aligned") + " phase=" + cap.get("phase_id")
+                            + " pass=" + (decision == null ? null : decision.overallPass()));
+        }
         copyDisplayOnlyInspectionMetadata(cap, pyResp);
         // ui.stable_reference_frame (DECISIONS.md, D-012): line-pin не освобождается сразу, а в UI/WS уходит
         // имя замороженной копии. Иначе окно эталона присылает имя пина, который уже удалён

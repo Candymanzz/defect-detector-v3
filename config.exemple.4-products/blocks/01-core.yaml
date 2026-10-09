@@ -40,6 +40,12 @@ orchestrator:
 
 # camera — эталон снимается с камеры при старте; client — только client.reference_bundle по WebSocket.
 integration:
+  # Журнал обмена со всеми сервисами: log_p/<дата>/<сервис>/requests.log и responses.log (время на каждой строке).
+  # Один переключатель на всё: true — писать, false — выключено. Читается при старте оркестратора.
+  traffic_log:
+    enabled: false
+    dir: log_p              # относительно корня приложения
+    max_body_chars: 4000    # длиннее — обрезается (кадры/SHM пишутся как размер, не содержимое)
   reference_source: client
   # false: DI3/триггер не стартует цикл, пока нет client.reference_bundle.
   capture_without_reference: true

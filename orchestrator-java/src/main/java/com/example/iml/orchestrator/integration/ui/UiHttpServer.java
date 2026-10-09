@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.ui;
 
+import com.example.iml.orchestrator.integration.logging.TrafficLog;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
@@ -252,6 +253,11 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
             int heatmapU8H,
             InspectionDecision decision
     ) {
+        if (TrafficLog.enabled()) {
+            TrafficLog.event("orchestrator", "ui_latest_update",
+                    "cam=" + cameraId + " frame_id=" + frameId + " shm_name=" + shmName + " jpeg=" + currentJpeg
+                            + " heatmap=" + heatmapU8 + " pass=" + (decision == null ? null : decision.overallPass()));
+        }
         Boolean overallPass = null;
         String action = null;
         Double anomalyScore = null;

@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.lighting;
 
+import com.example.iml.orchestrator.integration.logging.TrafficLog;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -35,7 +36,7 @@ public final class LightUpstreamClient {
                 .timeout(timeout)
                 .GET()
                 .build();
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = TrafficLog.http("light_server", httpClient, request, HttpResponse.BodyHandlers.ofString(), null);
         return new UpstreamResponse(response.statusCode(), response.body());
     }
 
@@ -47,7 +48,9 @@ public final class LightUpstreamClient {
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body == null ? new byte[0] : body))
                 .build();
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = TrafficLog.http(
+                "light_server", httpClient, request, HttpResponse.BodyHandlers.ofString(),
+                body == null ? null : new String(body, java.nio.charset.StandardCharsets.UTF_8));
         return new UpstreamResponse(response.statusCode(), response.body());
     }
 

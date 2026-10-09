@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.trigger;
 
+import com.example.iml.orchestrator.integration.logging.TrafficLog;
 import com.example.iml.orchestrator.integration.diagnostics.TwoPhaseCaptureDiagnostics;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -332,7 +333,13 @@ public final class InspectionTriggerBus implements AutoCloseable {
                 parentCycleId,
                 rawTriggerSequence
         );
-        return queue.offer(event);
+        boolean offered = queue.offer(event);
+        if (TrafficLog.enabled()) {
+            TrafficLog.event("orchestrator", "trigger -> camera_queue",
+                    "cam=" + cameraId + " seq=" + seq + " phase=" + phaseId + " parent_cycle=" + parentCycleId
+                            + " raw_seq=" + rawTriggerSequence + " source=" + source + " offered=" + offered);
+        }
+        return offered;
     }
 
     public InspectionTriggerEvent take(int cameraId) throws InterruptedException {

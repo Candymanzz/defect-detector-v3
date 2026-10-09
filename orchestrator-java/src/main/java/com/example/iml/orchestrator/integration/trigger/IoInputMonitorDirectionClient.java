@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.trigger;
 
+import com.example.iml.orchestrator.integration.logging.TrafficLog;
 import org.apache.logging.log4j.Logger;
 
 import java.net.URI;
@@ -56,7 +57,7 @@ public final class IoInputMonitorDirectionClient {
                     .header("Content-Type", "application/json")
                     .PUT(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
                     .build();
-            HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            HttpResponse<String> response = TrafficLog.http("io_input_monitor", http, request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8), body);
             if (response.statusCode() >= 200 && response.statusCode() < 300) {
                 log.info("io_input_monitor direction synced url={} direction={}", putUrl, directionWire);
             } else {

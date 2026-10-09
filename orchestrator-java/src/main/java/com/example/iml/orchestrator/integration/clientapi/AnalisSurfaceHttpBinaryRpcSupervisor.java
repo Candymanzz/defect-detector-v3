@@ -4,6 +4,7 @@ import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.logging.TrafficLog;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -1049,7 +1050,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 .GET()
                 .header("Accept", "application/json")
                 .build();
-        return send(req);
+        return send(req, null);
     }
 
     private void httpDeleteRaw(String path) throws IOException {
@@ -1059,8 +1060,11 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 .DELETE()
                 .header("Accept", "application/json")
                 .build();
+        long trafficId = TrafficLog.request(trafficName(), "DELETE " + req.uri().getPath(), null);
+        long startNanos = System.nanoTime();
         try {
-            HTTP.send(req, HttpResponse.BodyHandlers.discarding());
+            HttpResponse<Void> resp = HTTP.send(req, HttpResponse.BodyHandlers.discarding());
+            TrafficLog.response(trafficName(), trafficId, "DELETE " + req.uri().getPath(), resp.statusCode(), null, startNanos);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException(name + " DELETE interrupted", e);
@@ -1077,19 +1081,42 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
                 .header("Accept", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofByteArray(json))
                 .build();
-        HttpResponse<byte[]> resp = send(req);
+        HttpResponse<byte[]> resp = send(req, jsonBody);
         if (resp.statusCode() / 100 != 2) {
             logHttpFailure(path, jsonBody, resp);
         }
         return resp;
     }
 
-    private HttpResponse<byte[]> send(HttpRequest req) throws IOException {
+    /** Папка журнала: по одному на сервер analisSurface (порт определяет фазу). */
+    private String trafficName() {
         try {
-            return HTTP.send(req, HttpResponse.BodyHandlers.ofByteArray());
+            return "analis_surface_" + URI.create(baseUrl).getPort();
+        } catch (IllegalArgumentException e) {
+            return "analis_surface";
+        }
+    }
+
+    private HttpResponse<byte[]> send(HttpRequest req, Object requestBody) throws IOException {
+        String op = req.method() + " " + req.uri().getRawPath();
+        long trafficId = TrafficLog.request(trafficName(), op, requestBody);
+        long startNanos = System.nanoTime();
+        try {
+            HttpResponse<byte[]> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofByteArray());
+            if (trafficId != 0L) {
+                byte[] body = resp.body();
+                TrafficLog.response(trafficName(), trafficId, op, resp.statusCode(),
+                        body == null ? null : new String(body, java.nio.charset.StandardCharsets.UTF_8),
+                        startNanos);
+            }
+            return resp;
         } catch (InterruptedException e) {
+            TrafficLog.failure(trafficName(), trafficId, op, e, startNanos);
             Thread.currentThread().interrupt();
             throw new IOException(name + " HTTP interrupted", e);
+        } catch (IOException e) {
+            TrafficLog.failure(trafficName(), trafficId, op, e, startNanos);
+            throw e;
         }
     }
 

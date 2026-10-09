@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.lighting;
 
+import com.example.iml.orchestrator.integration.logging.TrafficLog;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.LogManager;
@@ -718,7 +719,7 @@ public final class LightTriggerClient {
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofByteArray(json))
                     .build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = TrafficLog.http("light_server", httpClient, request, HttpResponse.BodyHandlers.ofString(), body);
             LightServerV3Http.requireLightCommandSuccess("light", "POST", url, response);
             if (response.body() != null && !response.body().isBlank()) {
                 LOG.info("light {} -> {}", label, response.body());
@@ -742,7 +743,7 @@ public final class LightTriggerClient {
                 .header("Accept", "application/json")
                 .GET()
                 .build();
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = TrafficLog.http("light_server", httpClient, request, HttpResponse.BodyHandlers.ofString(), null);
         if (response.statusCode() / 100 != 2 || response.body() == null || response.body().isBlank()) {
             return false;
         }
