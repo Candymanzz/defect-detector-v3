@@ -201,6 +201,12 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
 
     @Override
     public BinaryProtocol.Message commandNoRetry(Map<String, Object> header) throws IOException {
+        try {
+            header = bindReferenceScope(header);
+        } catch (IllegalArgumentException exc) {
+            return new BinaryProtocol.Message(BinaryProtocol.MSG_ERROR,
+                    Map.of("error", exc.getMessage(), "op", String.valueOf(header.get("op"))), new byte[0]);
+        }
         String op = String.valueOf(header.getOrDefault("op", ""));
         return switch (op) {
             case "stop" -> new BinaryProtocol.Message(
@@ -1188,6 +1194,34 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
 
     private String runtimeKey(String productType, int cameraId) {
         return baseUrl + "|" + scopedProductType(productType, cameraId);
+    }
+
+    static Map<String, Object> bindReferenceScope(Map<String, Object> header) {
+        if (header.get("phase_id") == null || header.get("product_type") == null) {
+            return header;
+        }
+        int phaseId = YamlScalars.toInt(header.get("phase_id"), -1);
+        int cameraId = YamlScalars.toInt(header.get("camera_id"), -1);
+        String productType = String.valueOf(header.get("product_type"));
+        if (phaseId < 0) {
+            throw new IllegalArgumentException("invalid reference phase_id");
+        }
+        if (productType.contains("#phase=") && extractScopeId(productType) != phaseId) {
+            throw new IllegalArgumentException("reference product phase does not match inspection phase_id");
+        }
+        Object referenceName = header.get("reference_shm_name");
+        if (referenceName != null) {
+            java.util.regex.Matcher pin = java.util.regex.Pattern
+                    .compile("^/?iml_ref_phase(\\d+)_cam(\\d+)$")
+                    .matcher(String.valueOf(referenceName));
+            if (pin.matches() && (Integer.parseInt(pin.group(1)) != phaseId
+                    || Integer.parseInt(pin.group(2)) != cameraId)) {
+                throw new IllegalArgumentException("reference SHM does not match inspection phase/camera");
+            }
+        }
+        Map<String, Object> scoped = new LinkedHashMap<>(header);
+        scoped.put("product_type", scopedProductType(productType, phaseId, cameraId));
+        return scoped;
     }
 
     private static String scopedProductType(String productType, int cameraId) {
