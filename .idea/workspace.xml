@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="фикса экрана">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/kiosk/session.sh" beforeDir="false" afterPath="$PROJECT_DIR$/deploy/kiosk/session.sh" afterDir="false" />
-    </list>
+    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="фикс продрачивания хромиума" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -98,6 +95,7 @@
     <MESSAGE value="git" />
     <MESSAGE value="фикс для линукса" />
     <MESSAGE value="фикса экрана" />
-    <option name="LAST_COMMIT_MESSAGE" value="фикса экрана" />
+    <MESSAGE value="фикс продрачивания хромиума" />
+    <option name="LAST_COMMIT_MESSAGE" value="фикс продрачивания хромиума" />
   </component>
 </project>
