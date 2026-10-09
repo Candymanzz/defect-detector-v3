@@ -1,105 +1,105 @@
 {
-  "version": 1,
-  "cameras": {
-    "1": {
-      "capture_trigger_mode": "line0",
-      "black_level": 200,
-      "exposure_us": 250,
-      "gain_db": 0.0,
-      "gamma": 2.48,
-      "frame_timeout_ms": 15000,
-      "balance_ratio_red": 1.65,
-      "balance_ratio_blue": 1.7
+  "version" : 1,
+  "cameras" : {
+    "1" : {
+      "frame_timeout_ms" : 15000,
+      "gamma" : 0.7,
+      "exposure_us" : 100,
+      "balance_ratio_red" : 1.65,
+      "gain_db" : 10.0,
+      "balance_ratio_blue" : 1.7,
+      "capture_trigger_mode" : "line0",
+      "black_level" : 200
     },
-    "0": {
-      "capture_trigger_mode": "line0",
-      "black_level": 200,
-      "exposure_us": 250,
-      "gain_db": 0.0,
-      "gamma": 2.48,
-      "frame_timeout_ms": 15000,
-      "balance_ratio_red": 1.65,
-      "balance_ratio_blue": 1.7
+    "0" : {
+      "frame_timeout_ms" : 15000,
+      "gamma" : 0.7,
+      "exposure_us" : 100,
+      "balance_ratio_red" : 1.65,
+      "gain_db" : 10.0,
+      "balance_ratio_blue" : 1.7,
+      "capture_trigger_mode" : "line0",
+      "black_level" : 200
     },
-    "2": {
-      "capture_trigger_mode": "line0",
-      "black_level": 200,
-      "exposure_us": 250,
-      "gain_db": 0.0,
-      "gamma": 2.48,
-      "frame_timeout_ms": 15000,
-      "balance_ratio_red": 1.65,
-      "balance_ratio_blue": 1.7
+    "2" : {
+      "frame_timeout_ms" : 15000,
+      "gamma" : 0.7,
+      "exposure_us" : 100,
+      "balance_ratio_red" : 1.65,
+      "gain_db" : 10.0,
+      "balance_ratio_blue" : 1.7,
+      "capture_trigger_mode" : "line0",
+      "black_level" : 200
     },
-    "3": {
-      "capture_trigger_mode": "line0",
-      "black_level": 200,
-      "exposure_us": 250,
-      "gain_db": 0.0,
-      "gamma": 2.48,
-      "frame_timeout_ms": 15000,
-      "balance_ratio_red": 1.65,
-      "balance_ratio_blue": 1.7
+    "3" : {
+      "frame_timeout_ms" : 15000,
+      "gamma" : 0.7,
+      "exposure_us" : 100,
+      "balance_ratio_red" : 1.65,
+      "gain_db" : 10.0,
+      "balance_ratio_blue" : 1.7,
+      "capture_trigger_mode" : "line0",
+      "black_level" : 200
     },
-    "4": {
-      "capture_trigger_mode": "line0",
-      "black_level": 200,
-      "exposure_us": 250,
-      "gain_db": 0.0,
-      "gamma": 2.48,
-      "frame_timeout_ms": 15000,
-      "balance_ratio_red": 1.65,
-      "balance_ratio_blue": 1.7
+    "4" : {
+      "frame_timeout_ms" : 15000,
+      "gamma" : 0.7,
+      "exposure_us" : 100,
+      "balance_ratio_red" : 1.65,
+      "gain_db" : 10.0,
+      "balance_ratio_blue" : 1.7,
+      "capture_trigger_mode" : "line0",
+      "black_level" : 200
     },
-    "5": {
-      "capture_trigger_mode": "line0",
-      "black_level": 200,
-      "exposure_us": 250,
-      "gain_db": 0.0,
-      "gamma": 2.48,
-      "frame_timeout_ms": 15000,
-      "balance_ratio_red": 1.65,
-      "balance_ratio_blue": 1.7
+    "5" : {
+      "frame_timeout_ms" : 15000,
+      "gamma" : 0.7,
+      "exposure_us" : 100,
+      "balance_ratio_red" : 1.65,
+      "gain_db" : 10.0,
+      "balance_ratio_blue" : 1.7,
+      "capture_trigger_mode" : "line0",
+      "black_level" : 200
     },
-    "6": {
-      "capture_trigger_mode": "line0",
-      "black_level": 200,
-      "exposure_us": 250,
-      "gain_db": 0.0,
-      "gamma": 2.48,
-      "frame_timeout_ms": 15000,
-      "balance_ratio_red": 1.65,
-      "balance_ratio_blue": 1.7
+    "6" : {
+      "frame_timeout_ms" : 15000,
+      "gamma" : 0.7,
+      "exposure_us" : 100,
+      "balance_ratio_red" : 1.65,
+      "gain_db" : 10.0,
+      "balance_ratio_blue" : 1.7,
+      "capture_trigger_mode" : "line0",
+      "black_level" : 200
     },
-    "7": {
-      "capture_trigger_mode": "line0",
-      "black_level": 200,
-      "exposure_us": 250,
-      "gain_db": 0.0,
-      "gamma": 2.48,
-      "frame_timeout_ms": 15000,
-      "balance_ratio_red": 1.65,
-      "balance_ratio_blue": 1.7
+    "7" : {
+      "frame_timeout_ms" : 15000,
+      "gamma" : 0.7,
+      "exposure_us" : 100,
+      "balance_ratio_red" : 1.65,
+      "gain_db" : 10.0,
+      "balance_ratio_blue" : 1.7,
+      "capture_trigger_mode" : "line0",
+      "black_level" : 200
     },
-    "8": {
-      "capture_trigger_mode": "line0",
-      "black_level": 200,
-      "exposure_us": 250,
-      "gain_db": 0.0,
-      "gamma": 2.48,
-      "frame_timeout_ms": 15000,
-      "balance_ratio_red": 1.65,
-      "balance_ratio_blue": 1.7
+    "8" : {
+      "frame_timeout_ms" : 15000,
+      "gamma" : 0.7,
+      "exposure_us" : 100,
+      "balance_ratio_red" : 1.65,
+      "gain_db" : 10.0,
+      "balance_ratio_blue" : 1.7,
+      "capture_trigger_mode" : "line0",
+      "black_level" : 200
     },
-    "9": {
-      "capture_trigger_mode": "line0",
-      "black_level": 200,
-      "exposure_us": 250,
-      "gain_db": 0.0,
-      "gamma": 2.48,
-      "frame_timeout_ms": 15000,
-      "balance_ratio_red": 1.65,
-      "balance_ratio_blue": 1.7
+    "9" : {
+      "frame_timeout_ms" : 15000,
+      "gamma" : 0.7,
+      "exposure_us" : 100,
+      "balance_ratio_red" : 1.65,
+      "gain_db" : 10.0,
+      "balance_ratio_blue" : 1.7,
+      "capture_trigger_mode" : "line0",
+      "black_level" : 200
     }
   }
 }

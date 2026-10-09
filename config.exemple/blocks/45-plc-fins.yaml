@@ -9,7 +9,7 @@ plc_fins:
   enabled: true
   host: "169.254.220.232"
   port: 9600
-  dest_node: 231
+  dest_node: 232
   src_node: 254
   response_timeout_ms: 1000
   pulse_ms: 80

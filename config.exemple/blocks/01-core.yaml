@@ -16,17 +16,17 @@ capture_trigger_mode: "line0"
 line0_trigger_activation: "RisingEdge"
 line0_line_inverter: false
 frame_timeout_ms: 15000
-# GigE-топология: 5 коммутаторов, на каждом 2 камеры (пары id: 0+1, 2+3, … 8+9).
+# GigE-топология: 5 коммутаторов × 2 камеры — фактические пары id: 0+3, 1+4, 2+8, 5+6, 7+9 (см. blocks/10-cameras.yaml).
 # gige_switch_buffer_kb — физический egress коммутатора (448 КБ). Должен совпадать с железом.
 gige_switch_count: 5
 gige_cameras_per_switch: 2
 gige_switch_buffer_kb: 448
 # GevSCPD (тики ~8 нс): при 448 КБ можно ниже, чем на 48 КБ. Для BGR8 трафик ~3× Mono8 — при resend поднять delay.
 # Если resend/потери — поднять до 15000–20000; если медленно — снизить до 8000.
-gige_inter_packet_delay: 10000
+gige_inter_packet_delay: 2000
 # 0 = авто (~13 мс слот GevSCFTD на 1224×1024 при 448 КБ); разнесение 2 камер на коммутаторе.
-gige_frame_transfer_delay_step: 0
-# 2 = две камеры на коммутатор; передача волнами 0,2,4,6,8 затем 1,3,5,7,9.
+gige_frame_transfer_delay_step: 6000000
+# 2 = две камеры на коммутатор; передача волнами 0,3,1,4,2,8,5,9,6,7 (slot 0/1).
 gige_ftd_cameras_per_link: 2
 
 orchestrator:
@@ -38,6 +38,8 @@ integration:
   reference_source: client
   # false: DI3/триггер не стартует цикл, пока нет client.reference_bundle.
   capture_without_reference: true
+  # phase 1 (группы 3 и 4 в UI) использует эталон phase 0 (группы 1 и 2) — те же камеры.
+  reference_share_across_phases: true
   # Автосъёмка для UI отключена — кадры только по внешнему триггеру (IoInputMonitor → inspection_trigger).
   live_preview:
     enabled: false
@@ -55,17 +57,21 @@ integration:
     # 1 волна: GevSCFTD разносит передачу 2 камер на коммутаторе; при сбое GevSCFTD — поставить 2.
     transfer_wait_waves: 1
     # Пауза между волнами wait_frame (только если transfer_wait_waves > 1). При 448 КБ достаточно ~15 мс.
-    transfer_wave_gap_ms: 15
+    transfer_wave_gap_ms: 0
     # true: экспозиция по DI3→DO5→Line0; Java только wait_frame.
     hardware_line_trigger: true
     # false: не слать trigger_only — кадр только от DO5/Line0.
     immediate_prefire: false
   geometry_pool_size: 10
   positioning_pool_size: 10
-  python_parallelism: 10
-  # Один процесс uvicorn; 10 HTTP-клиентов к :8000. Без этого — 10 uvicorn × модели ≈ ×10 RAM.
-  python_server_pool_size: 1
-  stage_queue_size: 20
+  # FIFO по одному кадру на процесс анализа: четыре процесса работают параллельно,
+  # а следующие кадры ждут в справедливой очереди своего процесса.
+  python_parallelism: 4
+  python_request_parallelism: 4
+  # Четыре uvicorn server URL (:8000..:8003); HTTP-клиенты распределяются по пулу.
+  python_server_pool_size: 4  # Safe intermediate step for the 16 GB production host.
+  inspection_cycle_parallelism: 20
+  stage_queue_size: 40
   # Таймаут RPC к camera-worker (health/capture/inspect). Для 10 камер увеличен, чтобы избежать ложных startup timeout.
   worker_command_timeout_ms: 30000
   # Пауза только между запуском процессов камер (health идёт параллельно). 0 = почти одновременно.
@@ -80,10 +86,22 @@ integration:
   light_server_startup_delay_ms: 0
   # Целевой SLA: 10 кадров параллельно ≤ 3.5 с (GigE stagger + downscale 0.5 + параллельный python).
   inspection_cycle_timeout_ms: 3500
-  # Агрегация: mode=ten_cameras → группы 0–4 и 5–9, все 10 камер в инспекции.
+  # Две фазы одного parent cycle; camera_ids можно повторять между фазами.
   inspection_bucket:
     enabled: true
-    mode: ten_cameras
+    phases:
+      - id: 0
+        groups:
+          - id: 0
+            camera_ids: [0, 1, 2, 3, 4]
+          - id: 1
+            camera_ids: [5, 6, 7, 8, 9]
+      - id: 1
+        groups:
+          - id: 2
+            camera_ids: [0, 1, 2, 3, 4]
+          - id: 3
+            camera_ids: [5, 6, 7, 8, 9]
     timeout_ms: 3500
     line_broadcast_interval_ms: 3500
   # Временная заглушка: цикл каждые N мс без внешнего триггера. Выключить при UDP-триггере с линии.
@@ -92,6 +110,10 @@ integration:
     interval_ms: 5000
   # Внешний триггер инспекции (когда dev_auto_trigger_stub и continuous_inspection выключены).
   inspection_trigger:
+    two_phase:
+      # Пока DI2=1: первый DI3↑ = phase0, второй = phase1, остальные игнорируются.
+      # DI2↓ завершает цикл и сбрасывает счётчик; интервал между двумя DI3 не используется.
+      enabled: true
     udp:
       enabled: true
       bind_host: "0.0.0.0"
@@ -148,7 +170,7 @@ integration:
   analis_surface_autostart:
     enabled: true
     # Потоков inspect в одном uvicorn (10 кадров с 10 камер параллельно).
-    inspect_workers: 10
+    inspect_workers: 4  # Global request concurrency is limited separately above.
     working_dir: "analisSurface/backend"
     startup_timeout_ms: 180000
     health_path: "/health"

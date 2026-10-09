@@ -2,59 +2,59 @@
   "version" : 1,
   "profiles" : {
     "bench-lan1" : {
-      "maxShiftMm" : 0.48,
       "jointSeamSegmentationEnabled" : true,
-      "jointSeamSegmentationSensitivity" : 0.5
+      "maxShiftMm" : 0.99,
+      "jointSeamSegmentationSensitivity" : 0.05
     },
     "__default__" : {
-      "maxShiftMm" : 0.48,
       "jointSeamSegmentationEnabled" : true,
-      "jointSeamSegmentationSensitivity" : 0.5
+      "maxShiftMm" : 0.99,
+      "jointSeamSegmentationSensitivity" : 0.05
     },
     "bench-lan2" : {
-      "maxShiftMm" : 0.48,
       "jointSeamSegmentationEnabled" : true,
-      "jointSeamSegmentationSensitivity" : 0.5
+      "maxShiftMm" : 0.99,
+      "jointSeamSegmentationSensitivity" : 0.05
     },
     "bench-lan3" : {
-      "maxShiftMm" : 0.48,
       "jointSeamSegmentationEnabled" : true,
-      "jointSeamSegmentationSensitivity" : 0.5
+      "maxShiftMm" : 0.99,
+      "jointSeamSegmentationSensitivity" : 0.05
     },
     "bench-lan4" : {
-      "maxShiftMm" : 0.48,
       "jointSeamSegmentationEnabled" : true,
-      "jointSeamSegmentationSensitivity" : 0.5
+      "maxShiftMm" : 0.99,
+      "jointSeamSegmentationSensitivity" : 0.05
     },
     "bench-lan5" : {
-      "maxShiftMm" : 0.48,
       "jointSeamSegmentationEnabled" : true,
-      "jointSeamSegmentationSensitivity" : 0.5
+      "maxShiftMm" : 0.99,
+      "jointSeamSegmentationSensitivity" : 0.05
     },
     "bench-lan6" : {
-      "maxShiftMm" : 0.48,
       "jointSeamSegmentationEnabled" : true,
-      "jointSeamSegmentationSensitivity" : 0.5
+      "maxShiftMm" : 0.99,
+      "jointSeamSegmentationSensitivity" : 0.05
     },
     "bench-lan7" : {
-      "maxShiftMm" : 0.48,
       "jointSeamSegmentationEnabled" : true,
-      "jointSeamSegmentationSensitivity" : 0.5
+      "maxShiftMm" : 0.99,
+      "jointSeamSegmentationSensitivity" : 0.05
     },
     "bench-lan9" : {
-      "maxShiftMm" : 0.48,
       "jointSeamSegmentationEnabled" : true,
-      "jointSeamSegmentationSensitivity" : 0.5
+      "maxShiftMm" : 0.99,
+      "jointSeamSegmentationSensitivity" : 0.05
     },
     "bench-lan10" : {
-      "maxShiftMm" : 0.48,
       "jointSeamSegmentationEnabled" : true,
-      "jointSeamSegmentationSensitivity" : 0.5
+      "maxShiftMm" : 0.99,
+      "jointSeamSegmentationSensitivity" : 0.05
     },
     "bench-lan8" : {
-      "maxShiftMm" : 0.48,
       "jointSeamSegmentationEnabled" : true,
-      "jointSeamSegmentationSensitivity" : 0.5
+      "maxShiftMm" : 0.99,
+      "jointSeamSegmentationSensitivity" : 0.05
     }
   }
 }

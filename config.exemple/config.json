@@ -3,11 +3,10 @@
   "frame": {
     "width": 1224,
     "height": 1024,
-    "format": "BGR8", 
+    "format": "BGR8",
     "binning_horizontal": 2,
     "binning_vertical": 2,
     "binning_mode": "Sum"
-    
   },
   "capture_source": "hik",
   "capture_trigger_mode": "line0",
@@ -17,7 +16,7 @@
   "gige_switch_count": 5,
   "gige_cameras_per_switch": 2,
   "gige_switch_buffer_kb": 448,
-  "gige_inter_packet_delay": 10000,
+  "gige_inter_packet_delay": 8000,
   "gige_frame_transfer_delay_step": 0,
   "gige_ftd_cameras_per_link": 2,
   "orchestrator": {
@@ -29,7 +28,7 @@
       "id": 0,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.222.4",
+      "ip": "169.254.81.219",
       "gige_transfer_slot": 1,
       "analysis_profile": "bench-lan1",
       "exposure_us": 3000,
@@ -42,7 +41,7 @@
       "id": 1,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.146.5",
+      "ip": "169.254.93.219",
       "gige_transfer_slot": 0,
       "analysis_profile": "bench-lan2",
       "exposure_us": 3000,
@@ -56,7 +55,7 @@
       "enabled": true,
       "inspection_enabled": true,
       "geometry_enabled": false,
-      "ip": "169.254.220.9",
+      "ip": "169.254.92.219",
       "gige_transfer_slot": 0,
       "analysis_profile": "bench-lan3",
       "exposure_us": 3000,
@@ -69,7 +68,7 @@
       "id": 3,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.222.3",
+      "ip": "169.254.89.219",
       "gige_transfer_slot": 0,
       "analysis_profile": "bench-lan4",
       "exposure_us": 3000,
@@ -82,7 +81,7 @@
       "id": 4,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.146.6",
+      "ip": "169.254.96.219",
       "gige_transfer_slot": 1,
       "analysis_profile": "bench-lan5",
       "exposure_us": 3000,
@@ -95,7 +94,7 @@
       "id": 5,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.6.7",
+      "ip": "169.254.57.219",
       "gige_transfer_slot": 1,
       "analysis_profile": "bench-lan6",
       "exposure_us": 3000,
@@ -108,7 +107,7 @@
       "id": 6,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.218.1",
+      "ip": "169.254.99.219",
       "gige_transfer_slot": 0,
       "analysis_profile": "bench-lan7",
       "exposure_us": 3000,
@@ -122,7 +121,7 @@
       "enabled": true,
       "inspection_enabled": true,
       "geometry_enabled": false,
-      "ip": "169.254.218.2",
+      "ip": "169.254.95.219",
       "gige_transfer_slot": 1,
       "analysis_profile": "bench-lan8",
       "exposure_us": 3000,
@@ -135,7 +134,7 @@
       "id": 8,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.220.10",
+      "ip": "169.254.101.219",
       "gige_transfer_slot": 1,
       "analysis_profile": "bench-lan9",
       "exposure_us": 3000,
@@ -148,7 +147,7 @@
       "id": 9,
       "enabled": true,
       "inspection_enabled": true,
-      "ip": "169.254.6.8",
+      "ip": "169.254.90.219",
       "gige_transfer_slot": 0,
       "analysis_profile": "bench-lan10",
       "exposure_us": 3000,
@@ -173,17 +172,48 @@
     "joint_max_width_mm": 1.6,
     "max_joint_parallelism_deg": 2.5,
     "max_joint_taper_mm": 0.8,
-    "max_joint_rim_skew_deg": 2.5,
-    "max_joint_gap_asymmetry_mm": 0.8,
     "joint_sibling_min_visibility": 0.25,
     "max_joint_parallelism_deg_strict": 2.5,
     "joint_min_width_mm_strict": 0.4,
     "joint_max_width_mm_strict": 1.5,
     "joint_seam_segmentation_enabled": true,
-    "max_wrinkles_score": 0.45
+    "max_wrinkles_score": 0.45,
+    "profiles": {
+      "bench-lan1": {
+        "max_joint_parallelism_deg": 5.0
+      },
+      "bench-lan2": {
+        "max_joint_parallelism_deg": 5.0
+      },
+      "bench-lan3": {
+        "max_joint_parallelism_deg": 5.0
+      },
+      "bench-lan4": {
+        "max_joint_parallelism_deg": 5.0
+      },
+      "bench-lan5": {
+        "max_joint_parallelism_deg": 5.0
+      },
+      "bench-lan6": {
+        "max_joint_parallelism_deg": 5.0
+      },
+      "bench-lan7": {
+        "max_joint_parallelism_deg": 5.0
+      },
+      "bench-lan8": {
+        "max_joint_parallelism_deg": 5.0
+      },
+      "bench-lan9": {
+        "max_joint_parallelism_deg": 5.0
+      },
+      "bench-lan10": {
+        "max_joint_parallelism_deg": 5.0
+      }
+    }
   },
   "python_detector": {
     "base_url": "http://127.0.0.1:8000",
+    "inspect_scale": 0.75,
     "rois": [
       {
         "name": "main",
@@ -215,7 +245,7 @@
       "host": "127.0.0.1",
       "port": 8088,
       "queue_size": 128,
-      "artificial_delay_ms": 1200
+      "artificial_delay_ms": 10
     }
   },
   "light_servers": {
@@ -242,11 +272,13 @@
     }
   },
   "integration": {
+    "reference_source": "client",
+    "capture_without_reference": true,
     "geometry_pool_size": 10,
-    "python_parallelism": 10,
-    "python_request_parallelism": 6,
-    "python_server_pool_size": 3,
-    "stage_queue_size": 20,
+    "python_parallelism": 4,
+    "python_request_parallelism": 4,
+    "python_server_pool_size": 4,
+    "stage_queue_size": 40,
     "worker_command_timeout_ms": 30000,
     "worker_startup_stagger_ms": 20,
     "service_command_timeout_ms": 15000,
@@ -275,7 +307,7 @@
     },
     "analis_surface_autostart": {
       "enabled": true,
-      "inspect_workers": 10,
+      "inspect_workers": 4,
       "working_dir": "analisSurface/backend",
       "startup_timeout_ms": 180000,
       "health_path": "/health"
@@ -311,4 +343,3 @@
     ]
   }
 }
-
