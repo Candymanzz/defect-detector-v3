@@ -1,4 +1,4 @@
-const { app, BrowserWindow, crashReporter, ipcMain } = require("electron");
+const { app, BrowserWindow, crashReporter, ipcMain, screen } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -32,11 +32,11 @@ process.on("unhandledRejection", (reason) => {
 });
 
 function createMainWindow() {
+  const kioskBounds = isKiosk ? screen.getPrimaryDisplay().bounds : null;
   const mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 960,
-    minHeight: 640,
+    ...(kioskBounds || { width: 1280, height: 800 }),
+    minWidth: isKiosk ? 0 : 960,
+    minHeight: isKiosk ? 0 : 640,
     title: "Defect Detector",
     backgroundColor: "#101317",
     kiosk: isKiosk,
@@ -51,6 +51,29 @@ function createMainWindow() {
 
   if (isKiosk) {
     mainWindow.setMenu(null);
+    // A bare Xorg session has no window manager to honour fullscreen requests.
+    // Set the actual monitor bounds as well as the kiosk flag.
+    const fitKioskToDisplay = () => {
+      if (mainWindow.isDestroyed()) return;
+      const display = screen.getPrimaryDisplay();
+      mainWindow.setBounds(display.bounds);
+      writeRuntimeLog("kiosk-display", {
+        displayId: display.id,
+        displayBounds: display.bounds,
+        scaleFactor: display.scaleFactor,
+        windowBounds: mainWindow.getBounds(),
+      });
+    };
+    const onDisplayMetricsChanged = () => fitKioskToDisplay();
+    mainWindow.once("ready-to-show", fitKioskToDisplay);
+    screen.on("display-metrics-changed", onDisplayMetricsChanged);
+    screen.on("display-added", onDisplayMetricsChanged);
+    screen.on("display-removed", onDisplayMetricsChanged);
+    mainWindow.once("closed", () => {
+      screen.removeListener("display-metrics-changed", onDisplayMetricsChanged);
+      screen.removeListener("display-added", onDisplayMetricsChanged);
+      screen.removeListener("display-removed", onDisplayMetricsChanged);
+    });
     mainWindow.on("close", (event) => {
       if (!app.isQuitting) event.preventDefault();
     });
