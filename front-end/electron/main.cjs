@@ -4,7 +4,8 @@ const path = require("node:path");
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL;
 const isDev = Boolean(rendererUrl);
-const runtimeLogPath = path.resolve(__dirname, "..", "..", "logs", "electron-runtime.log");
+const isKiosk = process.env.IML_KIOSK === "1";
+const runtimeLogPath = process.env.IML_ELECTRON_LOG_PATH || path.resolve(__dirname, "..", "..", "logs", "electron-runtime.log");
 const rendererRecoveryWindowMs = 60_000;
 const rendererRecoveryLimit = 3;
 const rendererRecoveryTimes = [];
@@ -38,12 +39,33 @@ function createMainWindow() {
     minHeight: 640,
     title: "Defect Detector",
     backgroundColor: "#101317",
+    kiosk: isKiosk,
+    frame: !isKiosk,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
+      devTools: !isKiosk,
     },
   });
+
+  if (isKiosk) {
+    mainWindow.setMenu(null);
+    mainWindow.on("close", (event) => {
+      if (!app.isQuitting) event.preventDefault();
+    });
+    mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+    mainWindow.webContents.on("will-navigate", (event) => event.preventDefault());
+    mainWindow.webContents.on("before-input-event", (event, input) => {
+      const key = input.key.toLowerCase();
+      if (["f11", "f12"].includes(key) ||
+          (input.alt && key === "f4") ||
+          ((input.control || input.meta) && ["q", "w", "r", "l", "n", "t"].includes(key)) ||
+          (input.control && input.shift && ["i", "j", "c"].includes(key))) {
+        event.preventDefault();
+      }
+    });
+  }
 
   mainWindow.on("unresponsive", () => writeRuntimeLog("window-unresponsive"));
   mainWindow.on("responsive", () => writeRuntimeLog("window-responsive"));

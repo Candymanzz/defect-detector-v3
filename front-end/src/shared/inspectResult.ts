@@ -2,12 +2,17 @@ import type { InspectResultPayload } from "./ws";
 
 export type InspectionVisualState = "pass" | "fail" | "capture";
 
+type InspectionResultStatus = Pick<
+  InspectResultPayload,
+  "overall_pass" | "action" | "python_status" | "geometry_status"
+>;
+
 /**
  * Цвет панелек: PASS только если годен и python, и geometry (через overall_pass/action),
  * либо оба stage-статуса PASS при отсутствии общего вердикта.
  */
 export function resolveInspectionResultState(
-  inspectResult?: InspectResultPayload,
+  inspectResult?: InspectionResultStatus,
 ): InspectionVisualState | undefined {
   if (isCaptureOnlyInspectResult(inspectResult)) {
     return "capture";
@@ -39,7 +44,7 @@ export function resolveInspectionResultState(
   return undefined;
 }
 
-export function isCaptureOnlyInspectResult(inspectResult?: InspectResultPayload): boolean {
+export function isCaptureOnlyInspectResult(inspectResult?: InspectionResultStatus): boolean {
   if (!inspectResult) {
     return false;
   }

@@ -2,16 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/front-end/src/components/MainOverview/MainOverview.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/src/components/MainOverview/MainOverview.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/front-end/src/components/ModalWrapper/ModalWrapper.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/src/components/ModalWrapper/ModalWrapper.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/front-end/src/components/ReferenceSetup/ReferenceSetup.css" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/src/components/ReferenceSetup/ReferenceSetup.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/front-end/src/components/ReferenceSetup/ReferenceSetup.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/src/components/ReferenceSetup/ReferenceSetup.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/front-end/src/components/SettingList/SettingController.ts" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/src/components/SettingList/SettingController.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/front-end/src/components/SettingList/SettingList.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/src/components/SettingList/SettingList.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/front-end/src/shared/api/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/src/shared/api/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/front-end/src/shared/api/orchestratorApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/src/shared/api/orchestratorApi.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/front-end/src/shared/api/types.ts" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/src/shared/api/types.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/front-end/src/shared/ws/types.ts" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/src/shared/ws/types.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/front-end/electron/main.cjs" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/electron/main.cjs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/front-end/src/components/ReferenceSetup/referenceBundle.test.ts" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/src/components/ReferenceSetup/referenceBundle.test.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/front-end/src/shared/inspectResult.ts" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/src/shared/inspectResult.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -19,11 +13,32 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="core-dev" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Nill222&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/Candymanzz/defect-detector-v3&quot;,
+    &quot;accountId&quot;: &quot;4dda0616-3bbc-4be5-b0d0-78ae27de6444&quot;
+  }
+}</component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 5,
+  &quot;fromUser&quot;: false
+}</component>
   <component name="ProjectId" id="3ECvBC7jAuiu6jjy4qTv41GMmN4" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -33,7 +48,12 @@
   "keyToString": {
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "WebServerToolWindowFactoryState": "false",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "git-widget-placeholder": "testlinux",
+    "kotlin-language-version-configured": "true",
     "last_opened_file_path": "D:/Native",
     "node.js.detected.package.eslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -42,6 +62,14 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-30f59d01ecdd-a203e0a19954-intellij.indexing.shared.core-IU-262.10968.63" />
+        <option value="bundled-js-predefined-d6986cc7102b-4abd2a77f808-JavaScript-IU-262.10968.63" />
+      </set>
+    </attachedChunks>
+  </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
@@ -67,5 +95,9 @@
         </entry>
       </map>
     </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="git" />
+    <option name="LAST_COMMIT_MESSAGE" value="git" />
   </component>
 </project>

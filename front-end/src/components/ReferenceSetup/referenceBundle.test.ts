@@ -9,7 +9,7 @@ function previewFrame(cameraId: number): PreviewFramePayload {
   return {
     camera_id: cameraId,
     frame_id: `frame-${cameraId}`,
-    session_state: "ready",
+    session_state: "READY",
     current: {
       camera_id: cameraId,
       frame_id: `frame-${cameraId}`,
