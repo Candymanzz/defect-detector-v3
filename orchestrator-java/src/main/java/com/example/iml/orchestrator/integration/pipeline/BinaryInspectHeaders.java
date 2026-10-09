@@ -161,7 +161,11 @@ public final class BinaryInspectHeaders {
         pHeader.put("maxRotationDeg", maxRot);
         pHeader.put("write_aligned", YamlScalars.toBool(positioningCfg == null ? null : positioningCfg.get("write_aligned"), true));
         // Фазы одной камеры идут подряд: у каждой свой выходной буфер, иначе фаза N+1 затирает кадр фазы N.
-        int phaseId = YamlScalars.toInt(capture.header().get("phase_id"), 0);
+        // На этом этапе в заголовке кадра фазы ещё нет (её проставляет withCycleIdentity позже) —
+        // берём из эталона, который уже выбран по фазе цикла (pHeader.phase_id).
+        int phaseId = YamlScalars.toInt(
+                capture.header().get("phase_id"),
+                YamlScalars.toInt(pHeader.get("phase_id"), 0));
         pHeader.put("output_shm_name", "iml_pos_cam_" + cameraId + ImlShmJanitor.phaseSuffix(phaseId));
         return pHeader;
     }

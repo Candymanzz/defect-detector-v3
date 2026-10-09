@@ -290,6 +290,20 @@ class BinaryInspectHeadersTest {
         };
         assertEquals("iml_pos_cam_1", outputFor.apply(0));
         assertEquals("iml_pos_cam_1_p1", outputFor.apply(1));
+
+        // В бою кадр приходит из capture без phase_id — фаза берётся из эталона своей фазы.
+        ReferenceSnapshot phase1Reference = new ReferenceSnapshot("product", Map.of(
+                "width", 2448, "height", 2048, "shm_name", "ref_shm", "shm_offset", 0, "stride", 7344,
+                "phase_id", 1, "group_id", 2));
+        Map<String, Object> bare = new java.util.HashMap<>(capture.header());
+        bare.remove("phase_id");
+        assertEquals("iml_pos_cam_1_p1", BinaryInspectHeaders.positioningHeader(
+                1,
+                new BinaryProtocol.Message(capture.type(), bare, capture.payload()),
+                phase1Reference,
+                Map.of(),
+                Map.of()
+        ).get("output_shm_name"));
     }
 
     @Test
