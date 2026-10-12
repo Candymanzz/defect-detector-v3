@@ -43,6 +43,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     handleCaptureNewReferenceFrames,
     handleRefreshReferenceFrame,
     handleCreateNewReference,
+    handleRefreshFramesKeepingRoi,
     handleToggleCameraReplacement,
     handleSendAllReferences,
     handleSelectCamera,
@@ -92,7 +93,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   const hasSetupError = /не получен|не задан|не отправлен|ошиб|отклон/i.test(message);
   const shouldStartNewReference = hasAnyStoredReferenceForActiveGroup && !isNewReferenceMode;
   const primaryReferenceLabel = shouldStartNewReference
-    ? "Задать новый эталон"
+    ? "Новый эталон с новым контуром"
     : isNewReferenceMode
       ? isFullReferenceReplacement
         ? "Подтвердить новый эталон →"
@@ -479,7 +480,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   role={hasSetupError ? "alert" : undefined}
                 >
                   {shouldStartNewReference
-                    ? "Откройте редактирование и выберите камеры, которые нужно изменить."
+                    ? "Выберите: сохранить прежний ROI или задать новый контур."
                     : message}
                 </p>
                 <div className="reference-setup__footer-actions">
@@ -502,6 +503,14 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   >
                     Отмена
                   </button>
+                  {shouldStartNewReference && (
+                    <Button
+                      className="reference-setup__button reference-setup__refresh"
+                      onClick={() => void handleRefreshFramesKeepingRoi()}
+                    >
+                      Новый эталон с прежним ROI
+                    </Button>
+                  )}
                   <Button
                     className="reference-setup__button reference-setup__save"
                     disabled={!shouldStartNewReference && !canSendAllReferences}
