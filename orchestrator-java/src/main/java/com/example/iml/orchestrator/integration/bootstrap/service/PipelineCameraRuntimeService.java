@@ -12,6 +12,7 @@ import com.example.iml.orchestrator.integration.health.CriticalServiceInspection
 import com.example.iml.orchestrator.integration.health.CriticalServiceWatchdog;
 import com.example.iml.orchestrator.integration.health.ServiceHealthGate;
 import com.example.iml.orchestrator.integration.logging.PipelineStagesLog;
+import com.example.iml.orchestrator.integration.logging.ServiceTraceSession;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionConfig;
 import com.example.iml.orchestrator.integration.preview.LivePreviewPublisher;
@@ -192,12 +193,16 @@ public final class PipelineCameraRuntimeService {
     private void startTimingStagesLog(IntegrationRuntimeContext ctx) {
         IntegrationFeatureConfig.TimingStagesLogConfig timingStagesLogCfg =
                 IntegrationFeatureConfig.parseTimingStagesLog(ctx.integration());
-        if (!timingStagesLogCfg.enabled()) {
+        Path traceDirectory = ServiceTraceSession.currentDirectory();
+        if (!timingStagesLogCfg.enabled() && traceDirectory == null) {
             return;
         }
         try {
-            Path timingPath = ctx.projectRoot().resolve(timingStagesLogCfg.relativePath());
-            ctx.setPipelineStagesLog(new PipelineStagesLog(timingPath));
+            Path tracePath = traceDirectory == null ? null : traceDirectory.resolve("pipeline-stages.jsonl");
+            Path timingPath = timingStagesLogCfg.enabled()
+                    ? ctx.projectRoot().resolve(timingStagesLogCfg.relativePath())
+                    : tracePath;
+            ctx.setPipelineStagesLog(new PipelineStagesLog(timingPath, tracePath));
             log.info("timing_stages_log enabled jsonl={} (рядом .txt с тем же базовым именем)", timingPath);
         } catch (Exception e) {
             log.warn("timing_stages_log init failed: {}", e.getMessage());

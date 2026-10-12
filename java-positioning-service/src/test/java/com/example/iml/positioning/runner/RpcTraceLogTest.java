@@ -1,0 +1,36 @@
+package com.example.iml.positioning.runner;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class RpcTraceLogTest {
+    @TempDir
+    Path tempDir;
+
+    @Test
+    void writesPairedRequestAndResponseWithElapsedTime() throws Exception {
+        Path file = tempDir.resolve("positioning/rpc-1.jsonl");
+        RpcTraceLog trace = new RpcTraceLog(file);
+        RpcTraceLog.Call call = trace.request(1, Map.of("op", "position_shm", "frame_id", "frame-7"), 0);
+        trace.response(call, 2, Map.of("status", "PASS", "overallPass", true), 0);
+
+        var lines = Files.readAllLines(file);
+        var mapper = new ObjectMapper();
+        var request = mapper.readTree(lines.get(0));
+        var response = mapper.readTree(lines.get(1));
+        assertEquals(2, lines.size());
+        assertEquals("position_shm", request.get("op").asText());
+        assertEquals("frame-7", request.get("frame_id").asText());
+        assertEquals(request.get("request_id").asText(), response.get("request_id").asText());
+        assertEquals("PASS", response.get("status").asText());
+        assertTrue(response.get("duration_ms").asDouble() >= 0.0);
+    }
+}

@@ -3,6 +3,7 @@ package com.example.iml.orchestrator.integration.services;
 import com.example.iml.orchestrator.integration.clientapi.AnalisSurfaceHttpBinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.python.AnalisSurfacePoolSupport;
+import com.example.iml.orchestrator.integration.logging.ServiceTraceSession;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
 
@@ -96,6 +97,7 @@ public final class ServicePoolLifecycle {
         boolean hasInitialHeap = false;
         boolean hasMaxHeap = false;
         boolean hasExitOnOom = false;
+        boolean hasLogDir = false;
         for (String arg : command) {
             if (arg == null) {
                 continue;
@@ -104,6 +106,7 @@ public final class ServicePoolLifecycle {
             hasInitialHeap |= arg.startsWith("-Xms");
             hasMaxHeap |= arg.startsWith("-Xmx");
             hasExitOnOom |= "-XX:+ExitOnOutOfMemoryError".equals(arg);
+            hasLogDir |= arg.startsWith("-Diml.log.dir=");
         }
         List<String> out = new ArrayList<>(command.size() + 4);
         out.add(command.get(0));
@@ -123,6 +126,16 @@ public final class ServicePoolLifecycle {
             Path tmp = base.resolve(sanitizeServiceName(serviceName));
             Files.createDirectories(tmp);
             out.add("-Djava.io.tmpdir=" + tmp.toAbsolutePath().normalize());
+        }
+        Path traceDirectory = ServiceTraceSession.currentDirectory();
+        if (!hasLogDir && traceDirectory != null) {
+            String service = serviceName.startsWith("java-positioning-") ? "java-positioning"
+                    : serviceName.startsWith("java-geometry-") ? "java-geometry" : null;
+            if (service != null) {
+                Path runtimeLogDir = traceDirectory.resolve(service).resolve(sanitizeServiceName(serviceName));
+                Files.createDirectories(runtimeLogDir);
+                out.add("-Diml.log.dir=" + runtimeLogDir);
+            }
         }
         out.addAll(command.subList(1, command.size()));
         return List.copyOf(out);

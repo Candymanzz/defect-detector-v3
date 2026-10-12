@@ -25,6 +25,7 @@ public final class StdioBinaryPositioningLoop {
     private final BucketPositioningService positioning;
     private final ShmMatReader shmReader = new ShmMatReader();
     private final ReferenceShmMatCache referenceCache = new ReferenceShmMatCache();
+    private final RpcTraceLog trace = new RpcTraceLog();
 
     public StdioBinaryPositioningLoop(
             DataInputStream in,
@@ -43,17 +44,26 @@ public final class StdioBinaryPositioningLoop {
             try {
                 msg = BinaryProtocol.read(in);
             } catch (Exception e) {
+                if (!"EOF".equals(e.getMessage())) {
+                    trace.protocolError(e);
+                }
                 return;
             }
 
+            RpcTraceLog.Call call = trace.request(msg.type(), msg.header(), msg.payload().length);
             if (msg.type() != BinaryProtocol.MSG_COMMAND) {
-                BinaryProtocol.write(out, BinaryProtocol.MSG_ERROR, Map.of("error", "unexpected message type"), new byte[0]);
+                try {
+                    writeReply(call, BinaryProtocol.MSG_ERROR, Map.of("error", "unexpected message type"), new byte[0]);
+                } catch (Exception writeError) {
+                    trace.failure(call, writeError);
+                    throw writeError;
+                }
                 continue;
             }
 
             String op = String.valueOf(msg.header().getOrDefault("op", ""));
             try {
-                dispatch(op, msg);
+                dispatch(op, msg, call);
             } catch (Exception e) {
                 String err = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
                 log.error("Positioning op failed: {} error={}", op, err, e);
@@ -63,23 +73,33 @@ public final class StdioBinaryPositioningLoop {
                 errHeader.put("op", op);
                 errHeader.put("status", "ERROR");
                 errHeader.put("overallPass", false);
-                BinaryProtocol.write(out, BinaryProtocol.MSG_ERROR, errHeader, new byte[0]);
+                try {
+                    writeReply(call, BinaryProtocol.MSG_ERROR, errHeader, new byte[0]);
+                } catch (Exception writeError) {
+                    trace.failure(call, writeError);
+                    throw writeError;
+                }
             }
         }
     }
 
-    private void dispatch(String op, BinaryProtocol.Message msg) throws Exception {
+    private void writeReply(RpcTraceLog.Call call, int type, Map<String, Object> header, byte[] payload) throws Exception {
+        BinaryProtocol.write(out, type, header, payload);
+        trace.response(call, type, header, payload == null ? 0 : payload.length);
+    }
+
+    private void dispatch(String op, BinaryProtocol.Message msg, RpcTraceLog.Call call) throws Exception {
         Map<String, Object> h = msg.header();
         switch (op) {
-            case "health" -> BinaryProtocol.write(
-                    out,
+            case "health" -> writeReply(
+                    call,
                     BinaryProtocol.MSG_RESPONSE,
                     Map.of("status", "ok", "service", "java-positioning-service"),
                     new byte[0]
             );
-            case "position_shm" -> handlePositionShm(h);
-            default -> BinaryProtocol.write(
-                    out,
+            case "position_shm" -> handlePositionShm(h, call);
+            default -> writeReply(
+                    call,
                     BinaryProtocol.MSG_ERROR,
                     Map.of("error", "unknown op", "op", op),
                     new byte[0]
@@ -87,7 +107,7 @@ public final class StdioBinaryPositioningLoop {
         }
     }
 
-    private void handlePositionShm(Map<String, Object> h) throws Exception {
+    private void handlePositionShm(Map<String, Object> h, RpcTraceLog.Call call) throws Exception {
         Mat current = null;
         Mat reference = null;
         boolean releaseReference = false;
@@ -109,7 +129,7 @@ public final class StdioBinaryPositioningLoop {
             Map<String, Object> header = new LinkedHashMap<>(PositioningHeaderMapper.toResponseHeader(response));
             header.put("camera_id", h.get("camera_id"));
             header.put("frame_id", h.get("frame_id"));
-            BinaryProtocol.write(out, BinaryProtocol.MSG_RESPONSE, header, new byte[0]);
+            writeReply(call, BinaryProtocol.MSG_RESPONSE, header, new byte[0]);
         } finally {
             if (current != null) {
                 current.release();

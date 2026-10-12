@@ -13,6 +13,7 @@ import org.opencv.core.Mat;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.Map;
 
 public final class StdioBinaryGeometryLoop {
@@ -24,6 +25,7 @@ public final class StdioBinaryGeometryLoop {
     private final OpenCvGeometryAnalysisService inspection;
     private final ShmMatReader shmReader = new ShmMatReader();
     private final ReferenceShmMatCache referenceCache = new ReferenceShmMatCache();
+    private final RpcTraceLog trace = new RpcTraceLog();
 
     public StdioBinaryGeometryLoop(DataInputStream in, DataOutputStream out, OpenCvGeometryAnalysisService inspection) {
         this.in = in;
@@ -37,40 +39,57 @@ public final class StdioBinaryGeometryLoop {
             try {
                 msg = BinaryProtocol.read(in);
             } catch (Exception e) {
+                if (!"EOF".equals(e.getMessage())) {
+                    trace.protocolError(e);
+                }
                 return;
             }
 
+            RpcTraceLog.Call call = trace.request(msg.type(), msg.header(), msg.payload().length);
             if (msg.type() != BinaryProtocol.MSG_COMMAND) {
-                BinaryProtocol.write(out, BinaryProtocol.MSG_ERROR, Map.of("error", "unexpected message type"), new byte[0]);
+                try {
+                    writeReply(call, BinaryProtocol.MSG_ERROR, Map.of("error", "unexpected message type"), new byte[0]);
+                } catch (Exception writeError) {
+                    trace.failure(call, writeError);
+                    throw writeError;
+                }
                 continue;
             }
 
             String op = String.valueOf(msg.header().getOrDefault("op", ""));
             try {
-                dispatch(op, msg);
+                dispatch(op, msg, call);
             } catch (Exception e) {
                 log.error("Geometry op failed: {}", op, e);
-                BinaryProtocol.write(
-                        out,
-                        BinaryProtocol.MSG_ERROR,
-                        Map.of("error", e.getMessage(), "op", op),
-                        new byte[0]
-                );
+                Map<String, Object> errorHeader = Map.of(
+                        "error", e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage(),
+                        "error_class", e.getClass().getName(), "op", op, "status", "ERROR");
+                try {
+                    writeReply(call, BinaryProtocol.MSG_ERROR, errorHeader, new byte[0]);
+                } catch (Exception writeError) {
+                    trace.failure(call, writeError);
+                    throw writeError;
+                }
             }
         }
     }
 
-    private void dispatch(String op, BinaryProtocol.Message msg) throws Exception {
+    private void writeReply(RpcTraceLog.Call call, int type, Map<String, Object> header, byte[] payload) throws Exception {
+        BinaryProtocol.write(out, type, header, payload);
+        trace.response(call, type, header, payload == null ? 0 : payload.length);
+    }
+
+    private void dispatch(String op, BinaryProtocol.Message msg, RpcTraceLog.Call call) throws Exception {
         Map<String, Object> h = msg.header();
         switch (op) {
-            case "health" -> BinaryProtocol.write(
-                    out,
+            case "health" -> writeReply(
+                    call,
                     BinaryProtocol.MSG_RESPONSE,
                     Map.of("status", "ok", "service", "java-geometry-service"),
                     new byte[0]
             );
-            case "inspect_stub" -> BinaryProtocol.write(
-                    out,
+            case "inspect_stub" -> writeReply(
+                    call,
                     BinaryProtocol.MSG_RESPONSE,
                     Map.of(
                             "camera_id", h.get("camera_id"),
@@ -85,29 +104,31 @@ public final class StdioBinaryGeometryLoop {
                 boolean includeDebug = InspectionHeaderMapper.bool(h.get("includeDebugImage"), false);
                 InspectionRequest request = InspectionHeaderMapper.fromInspectCommand(h);
                 var response = inspection.inspect(request, includeDebug);
-                BinaryProtocol.write(
-                        out,
+                writeReply(
+                        call,
                         BinaryProtocol.MSG_RESPONSE,
                         InspectionResponsePayloadBuilder.toResponseHeader(response, includeDebug, request),
                         new byte[0]
                 );
             }
-            case "inspect_shm" -> handleInspectShm(h);
+            case "inspect_shm" -> handleInspectShm(h, call);
             case "inject_exit" -> {
+                trace.failure(call, new IOException("inject_exit requested; no response"));
                 out.flush();
                 System.exit(42);
             }
             case "inject_timeout_ms" -> {
                 int timeoutMs = (int) InspectionHeaderMapper.num(h.get("timeout_ms"), 1000);
                 Thread.sleep(Math.max(0, timeoutMs));
-                BinaryProtocol.write(out, BinaryProtocol.MSG_RESPONSE, Map.of("status", "timeout_injected"), new byte[0]);
+                writeReply(call, BinaryProtocol.MSG_RESPONSE, Map.of("status", "timeout_injected"), new byte[0]);
             }
             case "inject_broken_response" -> {
                 out.write("BROKEN_RESPONSE".getBytes());
                 out.flush();
+                trace.failure(call, new IOException("inject_broken_response requested; invalid protocol response"));
             }
-            default -> BinaryProtocol.write(
-                    out,
+            default -> writeReply(
+                    call,
                     BinaryProtocol.MSG_ERROR,
                     Map.of("error", "unknown op", "op", op),
                     new byte[0]
@@ -115,7 +136,7 @@ public final class StdioBinaryGeometryLoop {
         }
     }
 
-    private void handleInspectShm(Map<String, Object> h) throws Exception {
+    private void handleInspectShm(Map<String, Object> h, RpcTraceLog.Call call) throws Exception {
         boolean includeDebug = InspectionHeaderMapper.bool(h.get("includeDebugImage"), false);
         Mat current = null;
         Mat reference = null;
@@ -136,8 +157,8 @@ public final class StdioBinaryGeometryLoop {
             );
             var response = inspection.inspectMats(
                     reference, current, request, includeDebug, referenceKey, poseLocked, logContext);
-            BinaryProtocol.write(
-                    out,
+            writeReply(
+                    call,
                     BinaryProtocol.MSG_RESPONSE,
                     InspectionResponsePayloadBuilder.toResponseHeader(response, includeDebug, request),
                     new byte[0]

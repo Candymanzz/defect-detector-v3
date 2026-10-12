@@ -9,11 +9,13 @@ import com.example.iml.orchestrator.integration.bootstrap.service.IntegrationPre
 import com.example.iml.orchestrator.integration.bootstrap.service.LightingBootstrapService;
 import com.example.iml.orchestrator.integration.bootstrap.service.PipelineCameraRuntimeService;
 import com.example.iml.orchestrator.integration.bootstrap.service.UiRuntimeBootstrapService;
+import com.example.iml.orchestrator.integration.logging.ServiceTraceSession;
 import com.example.iml.orchestrator.integration.services.ServicePoolLifecycle;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.nio.file.Path;
+import java.io.IOException;
 import java.util.Map;
 
 /**
@@ -31,6 +33,11 @@ public final class IntegrationBootstrap {
 
     public void start(Map<String, Object> root, Path projectRoot) {
         boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
+        try {
+            log.info("inspection service trace session: {}", ServiceTraceSession.start(projectRoot));
+        } catch (IOException e) {
+            log.warn("inspection service trace directory could not be created: {}", e.getMessage());
+        }
         IntegrationRuntimeContext ctx = new IntegrationRuntimeContext(log, root, projectRoot, isWindows);
         ServicePoolLifecycle servicePools = new ServicePoolLifecycle(log);
         ctx.setServicePools(servicePools);

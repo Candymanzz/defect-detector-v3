@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.camera;
 
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
+import com.example.iml.orchestrator.integration.logging.ServiceTraceSession;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -22,6 +23,7 @@ public final class BinaryProcessClient implements BinaryClient {
     public BinaryProcessClient(List<String> command, Path workingDir) throws IOException {
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.directory(workingDir.toFile());
+        ServiceTraceSession.addToChildEnvironment(pb.environment());
         pb.redirectError(ProcessBuilder.Redirect.INHERIT);
         this.process = pb.start();
         this.in = new DataInputStream(process.getInputStream());

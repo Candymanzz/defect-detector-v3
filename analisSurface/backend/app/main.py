@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+import uuid
 
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -12,6 +13,7 @@ from app.file_logging import (
     file_logging_enabled,
     init_file_logging,
     log_error,
+    log_http_exception,
     log_http_request,
     log_http_response,
 )
@@ -68,20 +70,25 @@ async def http_file_logging(request: Request, call_next) -> Response:
         return await call_next(request)
 
     started = time.perf_counter()
+    request_id = uuid.uuid4().hex
     method = request.method
     path = request.url.path
     if request.url.query:
         path = f"{path}?{request.url.query}"
     request_headers = dict(request.headers)
     request_body = await request.body()
-    log_http_request(method, path, request_headers, request_body)
+    log_http_request(method, path, request_headers, request_body, request_id)
 
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+        response_body = b""
+        async for chunk in response.body_iterator:
+            response_body += chunk
+    except Exception as exc:
+        log_http_exception(method, path, (time.perf_counter() - started) * 1000.0, exc, request_id)
+        raise
+
     duration_ms = (time.perf_counter() - started) * 1000.0
-
-    response_body = b""
-    async for chunk in response.body_iterator:
-        response_body += chunk
     response_headers = {
         key: value
         for key, value in response.headers.items()
@@ -94,6 +101,7 @@ async def http_file_logging(request: Request, call_next) -> Response:
         duration_ms,
         response_headers,
         response_body,
+        request_id,
     )
     return Response(
         content=response_body,

@@ -24,8 +24,13 @@ public final class PipelineStagesLog implements AutoCloseable {
 
     private final PrintWriter jsonl;
     private final PrintWriter text;
+    private final PrintWriter traceJsonl;
 
     public PipelineStagesLog(Path jsonlPath) throws java.io.IOException {
+        this(jsonlPath, null);
+    }
+
+    public PipelineStagesLog(Path jsonlPath, Path traceJsonlPath) throws java.io.IOException {
         Files.createDirectories(jsonlPath.getParent());
         this.jsonl = new PrintWriter(new BufferedWriter(new OutputStreamWriter(
                 Files.newOutputStream(jsonlPath, StandardOpenOption.CREATE, StandardOpenOption.APPEND),
@@ -33,6 +38,14 @@ public final class PipelineStagesLog implements AutoCloseable {
         this.text = new PrintWriter(new BufferedWriter(new OutputStreamWriter(
                 Files.newOutputStream(siblingTextPath(jsonlPath), StandardOpenOption.CREATE, StandardOpenOption.APPEND),
                 StandardCharsets.UTF_8)));
+        if (traceJsonlPath != null && !jsonlPath.toAbsolutePath().normalize().equals(traceJsonlPath.toAbsolutePath().normalize())) {
+            Files.createDirectories(traceJsonlPath.getParent());
+            this.traceJsonl = new PrintWriter(new BufferedWriter(new OutputStreamWriter(
+                    Files.newOutputStream(traceJsonlPath, StandardOpenOption.CREATE, StandardOpenOption.APPEND),
+                    StandardCharsets.UTF_8)));
+        } else {
+            this.traceJsonl = null;
+        }
     }
 
     private static Path siblingTextPath(Path jsonlPath) {
@@ -48,6 +61,10 @@ public final class PipelineStagesLog implements AutoCloseable {
             String json = MAPPER.writeValueAsString(row);
             jsonl.println(json);
             jsonl.flush();
+            if (traceJsonl != null) {
+                traceJsonl.println(json);
+                traceJsonl.flush();
+            }
             text.println(formatHumanLine(iso, row));
             text.flush();
         } catch (Exception e) {
@@ -105,6 +122,9 @@ public final class PipelineStagesLog implements AutoCloseable {
 
     @Override
     public void close() {
+        if (traceJsonl != null) {
+            traceJsonl.close();
+        }
         try {
             jsonl.close();
         } catch (Exception ignored) {

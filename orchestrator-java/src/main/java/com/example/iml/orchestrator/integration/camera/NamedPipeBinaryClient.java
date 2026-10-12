@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.camera;
 
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
+import com.example.iml.orchestrator.integration.logging.ServiceTraceSession;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -27,6 +28,7 @@ public final class NamedPipeBinaryClient implements BinaryClient {
     public NamedPipeBinaryClient(List<String> command, Path workingDir, String pipeBasePath, int connectTimeoutMs) throws IOException {
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.directory(workingDir.toFile());
+        ServiceTraceSession.addToChildEnvironment(pb.environment());
         pb.redirectError(ProcessBuilder.Redirect.INHERIT);
         this.process = pb.start();
         String cmdPath = pipeBasePath + ".cmd";
