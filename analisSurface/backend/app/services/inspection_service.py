@@ -1319,6 +1319,7 @@ class InspectionService:
                 extra={
                     "matched_cases": len(learned_filter.matched_case_ids),
                     "learned_score": round(float(learned_score), 4),
+                    **self._learned_rejection_log(learned_filter),
                 },
             )
         else:
@@ -1327,6 +1328,7 @@ class InspectionService:
                 "no accepted-normal matches",
                 product_type=product_type,
                 skipped=True,
+                extra=self._learned_rejection_log(learned_filter),
             )
 
         # 6. FP-зоны: дырка в основном score + отдельная проверка vs мини-эталон.
@@ -3607,6 +3609,21 @@ class InspectionService:
             if components[idx][0] < dominant_floor:
                 weights[idx] = float(settings.scatter_suppress_factor)
         return weights
+
+    @staticmethod
+    def _learned_rejection_log(learned_filter) -> dict[str, object]:
+        """Why saved normals did not explain the important candidates (for tuning)."""
+        extra: dict[str, object] = {
+            "saved_normals": learned_filter.usable_cases,
+            "other_reference_normals": learned_filter.foreign_reference_cases,
+        }
+        if learned_filter.usable_cases == 0 and learned_filter.foreign_reference_cases:
+            extra["reason"] = "saved normals belong to another reference"
+        for index, rejection in enumerate(learned_filter.rejections[:3], start=1):
+            extra[f"rejected_{index}"] = " ".join(
+                f"{key}={value}" for key, value in rejection.items()
+            )
+        return extra
 
     def _build_heatmap_gray(self, mask: np.ndarray, diff_map: Optional[np.ndarray] = None) -> np.ndarray:
         """Single-channel anomaly energy for gray_u8 SHM (orchestrator/UI apply JET).

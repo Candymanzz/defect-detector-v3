@@ -388,3 +388,37 @@ def test_legacy_stretched_template_recovers_saved_bbox_aspect() -> None:
     geometry = _mask_geometry(restored)
     assert geometry is not None
     assert geometry.aspect == pytest.approx(5.0, rel=0.1)
+
+
+def test_rejection_reason_is_reported_for_a_shifted_normal(tmp_path):
+    memory = AcceptedNormalMemory(tmp_path / "normals")
+    aligned = np.full((220, 220, 3), 60, np.uint8)
+    mask = np.zeros_like(aligned)
+    cv2.rectangle(mask, (25, 25), (95, 95), (255, 255, 255), 4)
+    aligned[mask[:, :, 0] > 0] = 180
+    diff = np.zeros_like(aligned)
+    diff[mask[:, :, 0] > 0] = 120
+    saved = extract_defect_candidates(aligned, diff, mask)[0]
+    memory.add_from_candidate(
+        product_type="part", reference_hash="reference", inspection_id="old",
+        candidate=saved, source_frame=aligned,
+    )
+    shifted = np.roll(np.roll(aligned, 40, axis=1), 40, axis=0)
+    shifted_mask = np.roll(np.roll(mask, 40, axis=1), 40, axis=0)
+    shifted_diff = np.roll(np.roll(diff, 40, axis=1), 40, axis=0)
+
+    result = memory.apply(
+        product_type="part", reference_hash="reference", aligned=shifted,
+        diff_map=shifted_diff, segmentation_mask=shifted_mask,
+    )
+
+    assert result.matched_candidates_count == 0
+    assert result.usable_cases == 1 and result.foreign_reference_cases == 0
+    assert result.rejections and result.rejections[0]["reason"] == "position"
+    assert result.rejections[0]["distance_px"] > result.rejections[0]["tolerance_px"]
+
+    other = memory.apply(
+        product_type="part", reference_hash="another", aligned=shifted,
+        diff_map=shifted_diff, segmentation_mask=shifted_mask,
+    )
+    assert other.usable_cases == 0 and other.foreign_reference_cases == 1
