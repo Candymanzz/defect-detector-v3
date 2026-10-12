@@ -47,4 +47,16 @@ class MvsTimerCommandTest {
         assertThrows(IllegalArgumentException.class, () -> MvsTimerCommand.trigger("Timer5", "Out6", fake));
         assertThrows(IllegalArgumentException.class, () -> MvsTimerCommand.trigger("Timer6", "Out5", fake));
     }
+    @Test void configureRoutesWithoutPulsingOrChangingCameraTimerAndRestoreSelectors() {
+        Fake fake = new Fake();
+        MvsTimerCommand.configure(Map.of("Timer2", new MvsIoConfig.Timer("Out2",
+                Map.of("TimerTriggerSource", "Software"), Map.of())), fake);
+        assertEquals("Timer2", fake.state.get("LineSource"));
+        assertEquals("Timer5", fake.state.get("TimerSelector"));
+        assertEquals("In3", fake.state.get("LineSelector"));
+        assertTrue(fake.commands.isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> MvsIoConfig.parse(Map.of(
+                "inspection_trigger", Map.of("mvs_io", Map.of("timers", Map.of(
+                        "Timer5", Map.of("line", "Out5")))))));
+    }
 }

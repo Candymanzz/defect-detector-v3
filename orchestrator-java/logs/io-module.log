@@ -63,3 +63,359 @@
 2026-10-12 14:21:12.015 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=0 hardware=true
 2026-10-12 14:21:12.017 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
 2026-10-12 14:21:12.017 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger stopped
+2026-10-12 15:58:09.588 INFO  [main] c.e.i.o.i.i.m.IoFaultPublisher - io event=fault_timer timer=Timer2 line=Out2
+2026-10-12 15:58:09.593 INFO  [main] c.e.i.o.i.i.m.IoFaultPublisher - io event=fault_timer timer=Timer2 line=Out2
+2026-10-12 15:58:09.604 WARN  [main] c.e.i.o.i.i.m.IoFaultPublisher - io event=fault_timer_failed timer=Timer2 line=Out2: disconnected
+2026-10-12 15:58:09.604 INFO  [main] c.e.i.o.i.i.m.IoFaultPublisher - io event=fault_timer timer=Timer2 line=Out2
+2026-10-12 15:58:09.605 WARN  [main] c.e.i.o.i.i.m.IoFaultPublisher - io event=fault_timer_failed timer=Timer2 line=Out2: disconnected
+2026-10-12 15:58:09.790 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 15:58:09.790 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger direction 0 -> 1
+2026-10-12 15:58:09.792 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 15:58:09.793 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 15:58:09.793 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 15:58:09.796 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=1
+2026-10-12 15:58:09.796 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=2 hardware=false
+2026-10-12 15:58:09.797 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 15:58:09.797 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 15:58:09.797 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 15:58:09.878 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 15:58:09.878 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 15:58:09.879 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=2
+2026-10-12 15:58:09.880 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=1 hardware=false
+2026-10-12 15:58:09.880 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 15:58:09.881 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 15:58:09.881 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger direction 1 -> 0
+2026-10-12 15:58:09.881 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 15:58:09.882 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 15:58:09.882 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 15:58:09.882 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 15:58:09.882 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 15:58:09.883 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 15:58:09.884 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger stopped
+2026-10-12 15:58:09.895 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io event=start backend=mv_camera mode=events library=/opt/MVS/lib/64/libMvCameraControl.so port= inputs={4=Input[line=In4, invert=false, risingEvent=, fallingEvent=, port=4, edge=both], 3=Input[line=In3, invert=false, risingEvent=, fallingEvent=, port=3, edge=both], 2=Input[line=In2, invert=false, risingEvent=, fallingEvent=, port=2, edge=both], 1=Input[line=In1, invert=false, risingEvent=, fallingEvent=, port=1, edge=both]} outputs={5=Out5} trigger_di=3 configure_inputs=true health_ms=1000 output_poll_ms=1000 reconnect_ms=1000 shutdown_ms=5000
+2026-10-12 15:58:09.896 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=connect_attempt session=1 backend=mv_camera port=
+2026-10-12 15:58:09.897 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=connected session=1 initial_di={4=false, 3=true, 2=true, 1=true} initial_do={5=true}
+2026-10-12 15:58:09.897 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=startup_trigger_suppressed session=1 di=3 observed_value=true seeded_value=0
+2026-10-12 15:58:09.897 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=1 session=1 source=session_reset change=null queue_wait_ms=0.041409 pending_events=0
+2026-10-12 15:58:09.898 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=1 session=1 success=true handler_ms=0.869097
+2026-10-12 15:58:09.898 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=2 session=1 source=initial_state change=IoInputDiChange[diPort=1, active=true] queue_wait_ms=1.088087 pending_events=3
+2026-10-12 15:58:09.899 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=2 session=1 success=true handler_ms=0.303139
+2026-10-12 15:58:09.899 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=subscribed session=1 inputs={4=Input[line=In4, invert=false, risingEvent=, fallingEvent=, port=4, edge=both], 3=Input[line=In3, invert=false, risingEvent=, fallingEvent=, port=3, edge=both], 2=Input[line=In2, invert=false, risingEvent=, fallingEvent=, port=2, edge=both], 1=Input[line=In1, invert=false, risingEvent=, fallingEvent=, port=1, edge=both]}
+2026-10-12 15:58:09.899 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=3 session=1 source=initial_state change=IoInputDiChange[diPort=2, active=true] queue_wait_ms=1.592505 pending_events=3
+2026-10-12 15:58:09.899 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=3 session=1 success=true handler_ms=0.452498
+2026-10-12 15:58:09.900 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=4 session=1 source=initial_state change=IoInputDiChange[diPort=4, active=false] queue_wait_ms=2.254452 pending_events=2
+2026-10-12 15:58:09.900 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=4 session=1 success=true handler_ms=0.265098
+2026-10-12 15:58:09.900 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=5 session=1 source=initial_state change=IoInputDiChange[diPort=3, active=false] queue_wait_ms=2.520443 pending_events=1
+2026-10-12 15:58:09.900 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=5 session=1 success=true handler_ms=0.245354
+2026-10-12 15:58:09.901 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=6 session=1 source=events change=IoInputDiChange[diPort=3, active=true] queue_wait_ms=1.913633 pending_events=0
+2026-10-12 15:58:09.901 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=6 session=1 success=true handler_ms=0.350221
+2026-10-12 15:58:09.901 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=7 session=1 source=events change=IoInputDiChange[diPort=3, active=false] queue_wait_ms=0.266688 pending_events=1
+2026-10-12 15:58:09.901 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=7 session=1 success=true handler_ms=0.261367
+2026-10-12 15:58:09.902 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=8 session=1 source=events change=IoInputDiChange[diPort=3, active=true] queue_wait_ms=0.790858 pending_events=0
+2026-10-12 15:58:09.902 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io event=stop_requested session=1 connected=true pending_events=0
+2026-10-12 15:58:09.902 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=8 session=1 success=true handler_ms=0.703432
+2026-10-12 15:58:09.902 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=disconnected session=1 stopping=true
+2026-10-12 15:58:09.903 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io event=stopped received=8 processed=8 discarded=0 handler_failures=0 cleared_pending=0
+2026-10-12 15:58:09.907 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=2 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 15:58:09.908 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 15:58:09.908 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 15:58:09.908 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3↑ capture — direction=reverse latched=0 source=di2
+2026-10-12 15:58:09.908 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger skip: hardware frame reception requires DI2=1
+2026-10-12 15:58:09.909 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 15:58:09.909 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 15:58:09.909 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 15:58:09.909 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 15:58:09.910 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger direction 0 -> 1
+2026-10-12 15:58:09.910 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 15:58:09.910 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 15:58:09.910 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 15:58:09.911 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=1
+2026-10-12 15:58:09.911 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=1 hardware=true
+2026-10-12 15:58:09.911 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 15:58:09.912 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger stopped
+2026-10-12 15:58:09.925 INFO  [io-reject-DO7] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_output group=0 sequence=1 do=7 active=true physical_high=false
+2026-10-12 15:58:09.929 INFO  [io-reject-DO7] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_output group=0 sequence=3 do=7 active=false physical_high=true
+2026-10-12 15:58:09.930 INFO  [main] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_output group=0 sequence=-1 do=7 active=false physical_high=true
+2026-10-12 15:58:09.935 INFO  [io-reject-DO6] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_output group=0 sequence=1 do=6 active=true physical_high=true
+2026-10-12 15:58:09.936 INFO  [io-reject-DO7] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_output group=1 sequence=1 do=7 active=true physical_high=true
+2026-10-12 15:58:10.016 INFO  [io-reject-DO6] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_output group=0 sequence=1 do=6 active=false physical_high=false
+2026-10-12 15:58:10.016 INFO  [io-reject-DO6] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_output group=0 sequence=2 do=6 active=true physical_high=true
+2026-10-12 15:58:10.017 INFO  [io-reject-DO7] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_output group=1 sequence=1 do=7 active=false physical_high=false
+2026-10-12 15:58:10.097 INFO  [io-reject-DO6] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_output group=0 sequence=2 do=6 active=false physical_high=false
+2026-10-12 15:58:10.098 INFO  [main] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_output group=1 sequence=-1 do=7 active=false physical_high=false
+2026-10-12 15:58:10.098 INFO  [main] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_output group=0 sequence=-1 do=6 active=false physical_high=false
+2026-10-12 15:58:10.101 ERROR [io-reject-DO6] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_timer_failed group=0 sequence=1 timer=Timer6
+java.lang.IllegalStateException: SDK failed
+	at com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisherTest.lambda$timerFailureIsReportedAndCameraTimerIsProtected$9(IoRejectPublisherTest.java:70) ~[test-classes/:?]
+	at com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher.lambda$publish$2(IoRejectPublisher.java:38) ~[classes/:?]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136) [?:?]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635) [?:?]
+	at java.base/java.lang.Thread.run(Thread.java:840) [?:?]
+2026-10-12 15:58:10.119 INFO  [io-reject-DO6] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_timer group=0 sequence=1 timer=Timer6 line=Out6 early=false
+2026-10-12 15:58:10.120 INFO  [io-reject-DO6] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_timer group=0 sequence=2 timer=Timer6 line=Out6 early=false
+2026-10-12 15:58:10.120 INFO  [io-reject-DO7] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_timer group=1 sequence=2 timer=Timer7 line=Out7 early=false
+2026-10-12 15:58:10.121 INFO  [io-reject-DO7] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_timer group=1 sequence=4 timer=Timer7 line=Out7 early=true
+2026-10-12 15:58:10.122 INFO  [io-reject-DO6] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_timer group=0 sequence=4 timer=Timer6 line=Out6 early=true
+2026-10-12 15:58:10.126 ERROR [io-reject-DO6] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_failed group=0 sequence=1 do=6
+java.lang.IllegalStateException: SDK is disconnected
+	at com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisherTest.lambda$missingConnectionAndSdkFailureAreReportedWithoutFallback$5(IoRejectPublisherTest.java:43) ~[test-classes/:?]
+	at com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher.set(IoRejectPublisher.java:70) ~[classes/:?]
+	at com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher.lambda$publish$2(IoRejectPublisher.java:51) ~[classes/:?]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136) [?:?]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635) [?:?]
+	at java.base/java.lang.Thread.run(Thread.java:840) [?:?]
+2026-10-12 15:58:10.127 ERROR [io-reject-DO6] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_idle_failed group=0 sequence=1 do=6
+java.lang.IllegalStateException: SDK is disconnected
+	at com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisherTest.lambda$missingConnectionAndSdkFailureAreReportedWithoutFallback$5(IoRejectPublisherTest.java:43) ~[test-classes/:?]
+	at com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher.set(IoRejectPublisher.java:70) ~[classes/:?]
+	at com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher.lambda$publish$2(IoRejectPublisher.java:59) ~[classes/:?]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136) [?:?]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635) [?:?]
+	at java.base/java.lang.Thread.run(Thread.java:840) [?:?]
+2026-10-12 15:58:10.127 ERROR [main] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_shutdown_idle_failed do=7
+java.lang.IllegalStateException: SDK is disconnected
+	at com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisherTest.lambda$missingConnectionAndSdkFailureAreReportedWithoutFallback$5(IoRejectPublisherTest.java:43) ~[test-classes/:?]
+	at com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher.set(IoRejectPublisher.java:70) ~[classes/:?]
+	at com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher.lambda$close$4(IoRejectPublisher.java:84) ~[classes/:?]
+	at java.base/java.util.Map.forEach(Map.java:713) ~[?:?]
+	at com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher.close(IoRejectPublisher.java:83) ~[classes/:?]
+	at com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisherTest.missingConnectionAndSdkFailureAreReportedWithoutFallback(IoRejectPublisherTest.java:45) ~[test-classes/:?]
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[?:?]
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77) ~[?:?]
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[?:?]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569) ~[?:?]
+	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:728) ~[junit-platform-commons-1.10.3.jar:1.10.3]
+	at org.junit.jupiter.engine.execution.MethodInvocation.proceed(MethodInvocation.java:60) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$ValidatingInvocation.proceed(InvocationInterceptorChain.java:131) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.extension.TimeoutExtension.intercept(TimeoutExtension.java:156) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestableMethod(TimeoutExtension.java:147) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestMethod(TimeoutExtension.java:86) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker$ReflectiveInterceptorCall.lambda$ofVoidMethod$0(InterceptingExecutableInvoker.java:103) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.lambda$invoke$0(InterceptingExecutableInvoker.java:93) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$InterceptedInvocation.proceed(InvocationInterceptorChain.java:106) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.proceed(InvocationInterceptorChain.java:64) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.chainAndInvoke(InvocationInterceptorChain.java:45) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.invoke(InvocationInterceptorChain.java:37) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:92) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:86) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$invokeTestMethod$7(TestMethodTestDescriptor.java:218) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.invokeTestMethod(TestMethodTestDescriptor.java:214) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:139) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:69) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:151) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511) ~[?:?]
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511) ~[?:?]
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:198) ~[junit-platform-launcher-1.10.3.jar:1.10.3]
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:169) ~[junit-platform-launcher-1.10.3.jar:1.10.3]
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:93) ~[junit-platform-launcher-1.10.3.jar:1.10.3]
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:58) ~[junit-platform-launcher-1.10.3.jar:1.10.3]
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:141) [junit-platform-launcher-1.10.3.jar:1.10.3]
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:57) [junit-platform-launcher-1.10.3.jar:1.10.3]
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:103) [junit-platform-launcher-1.10.3.jar:1.10.3]
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:85) [junit-platform-launcher-1.10.3.jar:1.10.3]
+	at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47) [junit-platform-launcher-1.10.3.jar:1.10.3]
+	at org.apache.maven.surefire.junitplatform.LazyLauncher.execute(LazyLauncher.java:56) [surefire-junit-platform-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.execute(JUnitPlatformProvider.java:184) [surefire-junit-platform-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invokeAllTests(JUnitPlatformProvider.java:148) [surefire-junit-platform-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invoke(JUnitPlatformProvider.java:122) [surefire-junit-platform-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385) [surefire-booter-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162) [surefire-booter-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507) [surefire-booter-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495) [surefire-booter-3.2.5.jar:3.2.5]
+2026-10-12 15:58:10.130 ERROR [main] c.e.i.o.i.i.m.IoRejectPublisher - io event=reject_shutdown_idle_failed do=6
+java.lang.IllegalStateException: SDK is disconnected
+	at com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisherTest.lambda$missingConnectionAndSdkFailureAreReportedWithoutFallback$5(IoRejectPublisherTest.java:43) ~[test-classes/:?]
+	at com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher.set(IoRejectPublisher.java:70) ~[classes/:?]
+	at com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher.lambda$close$4(IoRejectPublisher.java:84) ~[classes/:?]
+	at java.base/java.util.Map.forEach(Map.java:713) ~[?:?]
+	at com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher.close(IoRejectPublisher.java:83) ~[classes/:?]
+	at com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisherTest.missingConnectionAndSdkFailureAreReportedWithoutFallback(IoRejectPublisherTest.java:45) ~[test-classes/:?]
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[?:?]
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77) ~[?:?]
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[?:?]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569) ~[?:?]
+	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:728) ~[junit-platform-commons-1.10.3.jar:1.10.3]
+	at org.junit.jupiter.engine.execution.MethodInvocation.proceed(MethodInvocation.java:60) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$ValidatingInvocation.proceed(InvocationInterceptorChain.java:131) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.extension.TimeoutExtension.intercept(TimeoutExtension.java:156) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestableMethod(TimeoutExtension.java:147) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestMethod(TimeoutExtension.java:86) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker$ReflectiveInterceptorCall.lambda$ofVoidMethod$0(InterceptingExecutableInvoker.java:103) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.lambda$invoke$0(InterceptingExecutableInvoker.java:93) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$InterceptedInvocation.proceed(InvocationInterceptorChain.java:106) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.proceed(InvocationInterceptorChain.java:64) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.chainAndInvoke(InvocationInterceptorChain.java:45) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.invoke(InvocationInterceptorChain.java:37) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:92) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:86) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$invokeTestMethod$7(TestMethodTestDescriptor.java:218) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.invokeTestMethod(TestMethodTestDescriptor.java:214) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:139) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:69) ~[junit-jupiter-engine-5.10.3.jar:5.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:151) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511) ~[?:?]
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511) ~[?:?]
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54) ~[junit-platform-engine-1.10.3.jar:1.10.3]
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:198) ~[junit-platform-launcher-1.10.3.jar:1.10.3]
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:169) ~[junit-platform-launcher-1.10.3.jar:1.10.3]
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:93) ~[junit-platform-launcher-1.10.3.jar:1.10.3]
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:58) ~[junit-platform-launcher-1.10.3.jar:1.10.3]
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:141) [junit-platform-launcher-1.10.3.jar:1.10.3]
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:57) [junit-platform-launcher-1.10.3.jar:1.10.3]
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:103) [junit-platform-launcher-1.10.3.jar:1.10.3]
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:85) [junit-platform-launcher-1.10.3.jar:1.10.3]
+	at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47) [junit-platform-launcher-1.10.3.jar:1.10.3]
+	at org.apache.maven.surefire.junitplatform.LazyLauncher.execute(LazyLauncher.java:56) [surefire-junit-platform-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.execute(JUnitPlatformProvider.java:184) [surefire-junit-platform-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invokeAllTests(JUnitPlatformProvider.java:148) [surefire-junit-platform-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invoke(JUnitPlatformProvider.java:122) [surefire-junit-platform-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385) [surefire-booter-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162) [surefire-booter-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507) [surefire-booter-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495) [surefire-booter-3.2.5.jar:3.2.5]
+2026-10-12 16:04:08.729 INFO  [main] c.e.i.o.i.i.m.IoFaultPublisher - io event=fault_timer timer=Timer2 line=Out2
+2026-10-12 16:04:08.735 INFO  [main] c.e.i.o.i.i.m.IoFaultPublisher - io event=fault_timer timer=Timer2 line=Out2
+2026-10-12 16:04:08.749 WARN  [main] c.e.i.o.i.i.m.IoFaultPublisher - io event=fault_timer_failed timer=Timer2 line=Out2: disconnected
+2026-10-12 16:04:08.749 INFO  [main] c.e.i.o.i.i.m.IoFaultPublisher - io event=fault_timer timer=Timer2 line=Out2
+2026-10-12 16:04:08.750 WARN  [main] c.e.i.o.i.i.m.IoFaultPublisher - io event=fault_timer_failed timer=Timer2 line=Out2: disconnected
+2026-10-12 16:04:08.918 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 16:04:08.919 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger direction 0 -> 1
+2026-10-12 16:04:08.921 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 16:04:08.921 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 16:04:08.921 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 16:04:08.924 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=1
+2026-10-12 16:04:08.924 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=2 hardware=false
+2026-10-12 16:04:08.924 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 16:04:08.924 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 16:04:08.925 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 16:04:09.005 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 16:04:09.006 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 16:04:09.007 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=2
+2026-10-12 16:04:09.007 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=1 hardware=false
+2026-10-12 16:04:09.007 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 16:04:09.008 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 16:04:09.008 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger direction 1 -> 0
+2026-10-12 16:04:09.008 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 16:04:09.009 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 16:04:09.009 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 16:04:09.009 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 16:04:09.009 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 16:04:09.010 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 16:04:09.010 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger stopped
+2026-10-12 16:04:09.021 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io event=start backend=mv_camera mode=events library=/opt/MVS/lib/64/libMvCameraControl.so port= inputs={1=Input[line=In1, invert=false, risingEvent=, fallingEvent=, port=1, edge=both], 2=Input[line=In2, invert=false, risingEvent=, fallingEvent=, port=2, edge=both], 3=Input[line=In3, invert=false, risingEvent=, fallingEvent=, port=3, edge=both], 4=Input[line=In4, invert=false, risingEvent=, fallingEvent=, port=4, edge=both]} outputs={5=Out5} trigger_di=3 configure_inputs=true health_ms=1000 output_poll_ms=1000 reconnect_ms=1000 shutdown_ms=5000
+2026-10-12 16:04:09.023 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=connect_attempt session=1 backend=mv_camera port=
+2026-10-12 16:04:09.024 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=connected session=1 initial_di={1=true, 2=true, 3=true, 4=false} initial_do={5=true}
+2026-10-12 16:04:09.024 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=startup_trigger_suppressed session=1 di=3 observed_value=true seeded_value=0
+2026-10-12 16:04:09.024 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=1 session=1 source=session_reset change=null queue_wait_ms=0.0523 pending_events=0
+2026-10-12 16:04:09.026 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=subscribed session=1 inputs={1=Input[line=In1, invert=false, risingEvent=, fallingEvent=, port=1, edge=both], 2=Input[line=In2, invert=false, risingEvent=, fallingEvent=, port=2, edge=both], 3=Input[line=In3, invert=false, risingEvent=, fallingEvent=, port=3, edge=both], 4=Input[line=In4, invert=false, risingEvent=, fallingEvent=, port=4, edge=both]}
+2026-10-12 16:04:09.026 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=1 session=1 success=true handler_ms=1.372034
+2026-10-12 16:04:09.026 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=2 session=1 source=initial_state change=IoInputDiChange[diPort=1, active=true] queue_wait_ms=1.652805 pending_events=4
+2026-10-12 16:04:09.026 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=2 session=1 success=true handler_ms=0.2253
+2026-10-12 16:04:09.026 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=3 session=1 source=initial_state change=IoInputDiChange[diPort=2, active=true] queue_wait_ms=2.065612 pending_events=3
+2026-10-12 16:04:09.027 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=3 session=1 success=true handler_ms=0.254932
+2026-10-12 16:04:09.027 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=4 session=1 source=initial_state change=IoInputDiChange[diPort=4, active=false] queue_wait_ms=2.516069 pending_events=2
+2026-10-12 16:04:09.027 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=4 session=1 success=true handler_ms=0.237245
+2026-10-12 16:04:09.027 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=5 session=1 source=initial_state change=IoInputDiChange[diPort=3, active=false] queue_wait_ms=2.843088 pending_events=1
+2026-10-12 16:04:09.028 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=5 session=1 success=true handler_ms=0.369154
+2026-10-12 16:04:09.028 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=6 session=1 source=events change=IoInputDiChange[diPort=3, active=true] queue_wait_ms=2.090821 pending_events=0
+2026-10-12 16:04:09.028 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=6 session=1 success=true handler_ms=0.39423
+2026-10-12 16:04:09.029 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=7 session=1 source=events change=IoInputDiChange[diPort=3, active=false] queue_wait_ms=0.361911 pending_events=1
+2026-10-12 16:04:09.029 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=7 session=1 success=true handler_ms=0.294291
+2026-10-12 16:04:09.029 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=8 session=1 source=events change=IoInputDiChange[diPort=3, active=true] queue_wait_ms=0.861958 pending_events=0
+2026-10-12 16:04:09.030 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=8 session=1 success=true handler_ms=1.185699
+2026-10-12 16:04:09.031 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io event=stop_requested session=1 connected=true pending_events=0
+2026-10-12 16:04:09.031 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=disconnected session=1 stopping=true
+2026-10-12 16:04:09.032 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io event=stopped received=8 processed=8 discarded=0 handler_failures=0 cleared_pending=0
+2026-10-12 16:04:09.036 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=2 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 16:04:09.037 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 16:04:09.037 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 16:04:09.037 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3↑ capture — direction=reverse latched=0 source=di2
+2026-10-12 16:04:09.038 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger skip: hardware frame reception requires DI2=1
+2026-10-12 16:04:09.038 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 16:04:09.038 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 16:04:09.038 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 16:04:09.038 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 16:04:09.039 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger direction 0 -> 1
+2026-10-12 16:04:09.040 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 16:04:09.040 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 16:04:09.040 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 16:04:09.040 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=1
+2026-10-12 16:04:09.041 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=1 hardware=true
+2026-10-12 16:04:09.041 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 16:04:09.041 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger stopped
+2026-10-12 16:04:09.044 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io event=start backend=mv_camera mode=events library=/opt/MVS/lib/64/libMvCameraControl.so port= inputs={4=Input[line=In4, invert=false, risingEvent=, fallingEvent=, port=4, edge=both]} outputs={5=Out5} trigger_di=3 configure_inputs=true health_ms=1000 output_poll_ms=1000 reconnect_ms=1000 shutdown_ms=5000
+2026-10-12 16:04:09.045 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=connect_attempt session=1 backend=mv_camera port=
+2026-10-12 16:04:09.049 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=connected session=1 initial_di={4=true} initial_do={5=true}
+2026-10-12 16:04:09.050 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=startup_edge_suppressed di=4 observed_value=true
+2026-10-12 16:04:09.050 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=startup_trigger_suppressed session=1 di=3 observed_value=null seeded_value=0
+2026-10-12 16:04:09.050 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=subscribed session=1 inputs={4=Input[line=In4, invert=false, risingEvent=, fallingEvent=, port=4, edge=both]}
+2026-10-12 16:04:09.050 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=1 session=1 source=session_reset change=null queue_wait_ms=0.09206 pending_events=1
+2026-10-12 16:04:09.052 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=1 session=1 success=true handler_ms=2.661135
+2026-10-12 16:04:09.053 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=2 session=1 source=initial_state change=IoInputDiChange[diPort=4, active=false] queue_wait_ms=2.989352 pending_events=1
+2026-10-12 16:04:09.054 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=2 session=1 success=true handler_ms=1.729572
+2026-10-12 16:04:09.055 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=3 session=1 source=initial_state change=IoInputDiChange[diPort=3, active=false] queue_wait_ms=4.696759 pending_events=2
+2026-10-12 16:04:09.055 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=3 session=1 success=true handler_ms=0.226287
+2026-10-12 16:04:09.055 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=4 session=1 source=events change=IoInputDiChange[diPort=4, active=false] queue_wait_ms=0.989994 pending_events=1
+2026-10-12 16:04:09.055 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=4 session=1 success=true handler_ms=0.189597
+2026-10-12 16:04:09.055 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=5 session=1 source=events change=IoInputDiChange[diPort=4, active=true] queue_wait_ms=1.312291 pending_events=0
+2026-10-12 16:04:09.058 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io event=stop_requested session=1 connected=true pending_events=0
+2026-10-12 16:04:09.058 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=disconnected session=1 stopping=true
+2026-10-12 16:04:09.058 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=5 session=1 success=true handler_ms=2.591964
+2026-10-12 16:04:09.058 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io event=stopped received=5 processed=5 discarded=0 handler_failures=0 cleared_pending=0

@@ -193,12 +193,20 @@ public final class StackSupervisorMain {
                     cleanupOrphanPorts("pre-start");
                     child = startOrchestrator();
                     if (!awaitStackHealth(startupHealthTimeoutMs)) {
+                        if (!child.isAlive() && exitCodeQuiet(child) == 0) {
+                            log.info("stack supervisor orderly orchestrator exit during startup — no restart");
+                            return 0;
+                        }
                         log.error(
                                 "stack supervisor startup health timeout {}ms — services not healthy after restart",
                                 startupHealthTimeoutMs
                         );
                     } else {
                         MonitorResult result = monitorUntilUnhealthy(child, -1L, false);
+                        if (isOrderlyExit(result)) {
+                            log.info("stack supervisor orderly orchestrator exit — no restart");
+                            return 0;
+                        }
                         if (stopRequested.get()) {
                             log.info("stack supervisor stopping spawned orchestrator (user request)");
                             destroyProcessTree(child, false);
@@ -584,5 +592,8 @@ public final class StackSupervisorMain {
     }
 
     record MonitorResult(String reason, int exitCode, long stableHealthyMs) {
+    }
+    static boolean isOrderlyExit(MonitorResult result) {
+        return "process-exited".equals(result.reason()) && result.exitCode() == 0;
     }
 }

@@ -39,6 +39,8 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
 
     private final PlcFinsPublisher plcPublisher;
     private com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher ioReject;
+    private com.example.iml.orchestrator.integration.io.mvs.IoFaultPublisher ioFault;
+    private String faultSignalName = "vision_fault";
     private final ClientWebSocketServer clientWsServer;
     private final PerCameraInspectionGate inspectionGate;
     private final PlcRegisterMap registerMap;
@@ -81,6 +83,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         Map<String, Object> integration = root.get("integration") instanceof Map<?, ?> raw
                 ? (Map<String, Object>) raw : Map.of();
         var rejectCfg = com.example.iml.orchestrator.integration.io.mvs.IoRejectConfig.parse(integration);
+        var ioFault = com.example.iml.orchestrator.integration.io.mvs.IoFaultPublisher.fromConfig(integration);
         PlcFinsPublisher plcPublisher = null;
         PlcRegisterMap registerMap = null;
         PlcFinsConfig plcCfg = PlcFinsConfig.fromRoot(root, projectRoot);
@@ -88,9 +91,10 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
             try {
                 registerMap = PlcRegisterMapLoader.load(plcCfg.registerMapPath());
                 PlcRegisterMap finsMap = registerMap;
-                if (rejectCfg.enabled()) {
+                if (rejectCfg.enabled() || ioFault != null) {
                     Map<String, PlcSignalDefinition> remaining = new LinkedHashMap<>();
-                    registerMap.signals().stream().filter(signal -> signal.bucketGroupId() == null)
+                    registerMap.signals().stream().filter(signal -> (!rejectCfg.enabled() || signal.bucketGroupId() == null)
+                            && (ioFault == null || !signal.name().equals(plcCfg.visionFaultSignal())))
                             .forEach(signal -> remaining.put(signal.name(), signal));
                     finsMap = new PlcRegisterMap(remaining, registerMap.timeouts());
                 }
@@ -120,6 +124,8 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         }
         FanOutCoordinator coordinator =
                 new FanOutCoordinator(plcPublisher, clientWsServer, inspectionGate, registerMap);
+        coordinator.ioFault = ioFault;
+        coordinator.faultSignalName = plcCfg.visionFaultSignal();
         if (rejectCfg.enabled()) coordinator.ioReject = new com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher(rejectCfg);
         if (plcPublisher != null) {
             coordinator.syncHandleMaterialModeFromPlc();
@@ -129,6 +135,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
 
     public void bindIoRejectTimers(com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher.TimerWriter writer) {
         if (ioReject != null) ioReject.bindTimer(writer);
+        if (ioFault != null) ioFault.bind(writer);
     }
     public void bindIoRejectOutputs(com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher.Writer writer) {
         if (ioReject != null) ioReject.bind(writer);
@@ -253,6 +260,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     }
 
     public void signalVisionFault(boolean fault) {
+        if (ioFault != null) { ioFault.signal(fault); return; }
         if (plcPublisher == null) {
             return;
         }
@@ -307,6 +315,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         List<PlcSignalState> signals = new ArrayList<>();
         for (PlcSignalDefinition signal : registerMap.signals()) {
             if (ioReject != null && signal.bucketGroupId() != null) continue;
+            if (ioFault != null && signal.name().equals(faultSignalName)) continue;
             Boolean last = live.get(signal.name());
             if (last == null && plcPublisher != null) {
                 last = plcPublisher.lastSignalValue(signal.name());
@@ -344,6 +353,8 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
                 );
             }
             boolean value = Boolean.TRUE.equals(entry.getValue());
+            if (ioFault != null && name.equals(faultSignalName))
+                throw new IllegalArgumentException("Fault uses an IO timer; FINS fault writes are disabled");
             boolean pulse = Boolean.TRUE.equals(pulses.get(name));
             ensurePlc();
             plcPublisher.writeSignal(name, value, pulse);
@@ -491,7 +502,10 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         );
     }
 
-    public void closeIoRejectOutputs() { if (ioReject != null) ioReject.close(); }
+    public void closeIoRejectOutputs() {
+        if (ioFault != null) ioFault.close();
+        if (ioReject != null) ioReject.close();
+    }
 
     @Override
     public void close() {

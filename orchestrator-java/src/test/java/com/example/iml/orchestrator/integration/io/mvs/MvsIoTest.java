@@ -113,6 +113,31 @@ class MvsIoTest {
                 Map.of(3, new MvsIoConfig.Input("In3", false, "", "")), List.of("Line0RisingEdge", "Line0FallingEdge")));
     }
 
+    @Test void startupHighShutdownInputWaitsForRealEdge() throws Exception {
+        var cfg = MvsIoConfig.parse(Map.of("inspection_trigger", Map.of("mvs_io", Map.of(
+                "enabled", true, "input_mode", "events", "inputs", Map.of(4, Map.of("line", "In4")),
+                "startup_edge_only_inputs", List.of(4)))));
+        FakeDevice fake = new FakeDevice() {
+            @Override public Map<Integer, Boolean> readInputs() { return Map.of(4, true); }
+        };
+        CountDownLatch seeded = new CountDownLatch(1), rising = new CountDownLatch(1);
+        AtomicInteger shutdowns = new AtomicInteger();
+        try (var transport = new MvsIoTransport(cfg, 3, LOG, () -> fake, change -> {
+            if (change != null && change.diPort() == 4) {
+                if (change.active()) { shutdowns.incrementAndGet(); rising.countDown(); }
+                else seeded.countDown();
+            }
+        })) {
+            transport.start();
+            assertTrue(seeded.await(2, TimeUnit.SECONDS));
+            assertTrue(fake.subscribed.await(2, TimeUnit.SECONDS));
+            assertEquals(0, shutdowns.get());
+            fake.emit(4, false); fake.emit(4, true);
+            assertTrue(rising.await(2, TimeUnit.SECONDS));
+            assertEquals(1, shutdowns.get());
+        }
+    }
+
     private static class FakeDevice implements MvsIoDevice {
         final CountDownLatch subscribed = new CountDownLatch(1);
         volatile Consumer<IoInputDiChange> listener;

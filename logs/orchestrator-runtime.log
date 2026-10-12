@@ -31265,3 +31265,13 @@
 2026-10-12 15:16:49.099 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor port cleanup phase=pre-start
 2026-10-12 15:16:49.265 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor spawned orchestrator pid=2149
 2026-10-12 15:17:25.351 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor startup health OK
+2026-10-12 16:01:33.599 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor started jar=/home/o/Документы/core-dev/orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar config=/home/o/Документы/core-dev/config/config.yaml health_uris=[http://127.0.0.1:8099/health, http://127.0.0.1:8000/detector/health] interval_ms=5000 restart_delay_ms=5000 fail_threshold=6 max_restarts=unlimited attach_pid=none startup_health_timeout_ms=180000 stable_health_ms=120000 reboot_enabled=false reboot_after_failures=3 reboot_delay_sec=90
+2026-10-12 16:01:33.601 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor port cleanup phase=pre-start
+2026-10-12 16:01:34.366 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor spawned orchestrator pid=16459
+2026-10-12 16:02:10.706 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor startup health OK
+2026-10-12 16:02:19.788 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor orderly orchestrator exit — no restart
+2026-10-12 16:02:19.788 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor port cleanup phase=post-crash
+2026-10-12 16:04:32.475 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor started jar=/home/o/Документы/core-dev/orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar config=/home/o/Документы/core-dev/config/config.yaml health_uris=[http://127.0.0.1:8099/health, http://127.0.0.1:8000/detector/health] interval_ms=5000 restart_delay_ms=5000 fail_threshold=6 max_restarts=unlimited attach_pid=none startup_health_timeout_ms=180000 stable_health_ms=120000 reboot_enabled=false reboot_after_failures=3 reboot_delay_sec=90
+2026-10-12 16:04:32.476 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor port cleanup phase=pre-start
+2026-10-12 16:04:33.234 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor spawned orchestrator pid=19232
+2026-10-12 16:05:07.405 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor startup health OK

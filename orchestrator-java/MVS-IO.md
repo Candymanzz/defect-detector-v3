@@ -212,3 +212,44 @@ COM-скана. До аппаратного DI3 должно оставатьс�
 
 Регрессионные тесты: IoInputDirectionWindowTest и
 camera-worker/tests/test_capture_window.c (подмена SDK, без оборудования).
+
+## Авария, отбраковка и завершение по DI
+
+Маршруты задаются в `config/blocks/52-io.yaml`:
+
+* `integration.io_fault`: Timer2 → Out2 (DO2) → вход Omron. Один импульс
+  при переходе в аварию; повторные уведомления не дают новых импульсов.
+  После восстановления следующий эпизод снова даёт импульс. Если контроллер
+  недоступен, команда ожидает подключения и повторяется через `retry_ms`.
+  Сброс аварии на Omron остаётся в логике ПЛК; спад fault не запускает таймер.
+  При включённом `io_fault` бит `vision_fault` исключён из FINS publisher
+  и ручных FINS-записей. Готовность и DM-таймауты продолжают использовать FINS.
+* `integration.io_reject.groups`: группа 0 → Timer3/Out3, группа 1 → Timer4/Out4.
+* `integration.inspection_trigger.mvs_io.inputs`: список читаемых DI;
+  DI2 — окно получения кадров, DI4 — завершение приложения.
+* `integration.inspection_trigger.io_input.shutdown_port: 4`: DI4↑ выключает
+  вспышки, снимает готовность, сигнализирует аварию и вызывает обычное завершение
+  оркестратора и дочерних сервисов. Это завершение приложения, не питание ПК.
+  Список `mvs_io.startup_edge_only_inputs: [4]` исключает стартовый HIGH:
+  для DI4 требуется реальный переход 0→1 после подключения.
+  Супервизор после штатного выхода оркестратора (код 0) завершается без рестарта;
+  systemd с `Restart=on-failure` также оставляет сервис остановленным.
+
+Секция `mvs_io.timers` применяется при каждом подключении контроллера.
+Добавление таймера не требует Java-правок:
+
+```yaml
+timers:
+  Timer2:
+    line: Out2
+    enums: {TimerTriggerSource: Software}
+    # integers: {TimerDuration: 1000, TimerDelay: 0}
+```
+
+`enums` допускает SDK-узлы TimerTriggerSource, TimerTriggerActivation, TimerMode;
+`integers` — TimerDuration, TimerDelay. Числа передаются в сырых единицах SDK
+конкретного контроллера. Если `integers` отсутствует, существующее время
+импульса из MVS сохраняется. Timer5 и Out5 камер защищены. При конфигурации
+импульс не создаётся; при выдаче сигнала проверяются маршрут LineSource,
+источник Software и доступность TriggerSoftware. Для DI на Linux остаётся
+опрос SDK: включение DI4 добавляет ещё два последовательных чтения за скан.

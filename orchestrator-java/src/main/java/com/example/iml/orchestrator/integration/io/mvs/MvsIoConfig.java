@@ -8,7 +8,9 @@ public record MvsIoConfig(boolean enabled, String library, String port, String s
                           String inputMode, String backend,
                           int pollMs, int reconnectMs, Map<Integer, Input> inputs, Map<Integer, String> outputs,
                           int healthCheckMs, int outputPollMs, int shutdownTimeoutMs, int scanLogEvery,
-                          boolean configureInputs, List<String> dependencies, IoRejectConfig reject) {
+                          boolean configureInputs, List<String> dependencies, IoRejectConfig reject, Map<String, Timer> timers,
+                          Set<Integer> startupEdgeOnlyInputs) {
+    public record Timer(String line, Map<String, String> enums, Map<String, Long> integers) { }
     public record Input(String line, boolean invert, String risingEvent, String fallingEvent, int port, String edge) {
         public Input(String line, boolean invert, String risingEvent, String fallingEvent) {
             this(line, invert, risingEvent, fallingEvent, 0, "both");
@@ -71,12 +73,45 @@ public record MvsIoConfig(boolean enabled, String library, String port, String s
         IoRejectConfig reject = IoRejectConfig.parse(integration);
         if (reject.enabled() && (!enabled || !backend.equals(reject.mode().equals("timer") ? "mv_camera" : "mv_io")))
             throw new IllegalArgumentException("io_reject requires enabled mvs_io: timer mode uses mv_camera, level mode uses mv_io");
+        Map<String, Timer> timers = new LinkedHashMap<>();
+        if (cfg.get("timers") instanceof Map<?, ?> mapping) mapping.forEach((key, value) -> {
+            String name = key.toString();
+            if (!name.matches("Timer[1-8]") || name.equals("Timer5") || !(value instanceof Map<?, ?> spec))
+                throw new IllegalArgumentException("mvs_io.timers: Timer1..8 except camera Timer5");
+            String line = text(spec, "line", "");
+            if (!line.matches("Out[1-8]") || line.equals("Out5"))
+                throw new IllegalArgumentException("mvs_io.timers: non-camera Out1..8 required");
+            if (timers.values().stream().anyMatch(t -> t.line().equals(line)))
+                throw new IllegalArgumentException("mvs_io.timers: duplicate output");
+            Map<String, String> enums = new LinkedHashMap<>();
+            if (spec.get("enums") instanceof Map<?, ?> values) values.forEach((node, val) -> {
+                if (!Set.of("TimerTriggerSource", "TimerTriggerActivation", "TimerMode").contains(node.toString()))
+                    throw new IllegalArgumentException("mvs_io.timers: unsupported enum " + node);
+                enums.put(node.toString(), val.toString());
+            });
+            Map<String, Long> integers = new LinkedHashMap<>();
+            if (spec.get("integers") instanceof Map<?, ?> values) values.forEach((node, val) -> {
+                long number = Long.parseLong(val.toString());
+                if (!Set.of("TimerDuration", "TimerDelay").contains(node.toString()) || number < 0)
+                    throw new IllegalArgumentException("mvs_io.timers: unsupported integer or negative value " + node);
+                integers.put(node.toString(), number);
+            });
+            timers.put(name, new Timer(line, Map.copyOf(enums), Map.copyOf(integers)));
+        });
+        if (!timers.isEmpty() && !backend.equals("mv_camera"))
+            throw new IllegalArgumentException("mvs_io.timers requires mv_camera backend");
+        Set<Integer> startupEdgeOnlyInputs = new HashSet<>();
+        if (cfg.get("startup_edge_only_inputs") instanceof List<?> list) for (Object value : list) {
+            int di = Integer.parseInt(value.toString());
+            if (!inputs.containsKey(di)) throw new IllegalArgumentException("startup_edge_only_inputs must reference subscribed DI");
+            startupEdgeOnlyInputs.add(di);
+        }
         return new MvsIoConfig(enabled, library, port, text(cfg, "serial", ""), mode, backend,
                 positive(cfg, "poll_ms", 1),
                 positive(cfg, "reconnect_ms", 1000), Map.copyOf(inputs), Map.copyOf(outputs),
                 positive(cfg, "health_check_ms", 1000), positive(cfg, "output_poll_ms", 1000),
                 positive(cfg, "shutdown_timeout_ms", 5000), positive(cfg, "scan_log_every", 1000),
-                YamlScalars.toBool(cfg.get("configure_inputs"), true), dependencies, reject);
+                YamlScalars.toBool(cfg.get("configure_inputs"), true), dependencies, reject, Map.copyOf(timers), Set.copyOf(startupEdgeOnlyInputs));
     }
 
     private static int positive(Map<?, ?> cfg, String key, int fallback) {

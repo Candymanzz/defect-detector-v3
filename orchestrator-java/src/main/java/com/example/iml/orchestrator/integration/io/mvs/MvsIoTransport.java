@@ -54,7 +54,11 @@ public final class MvsIoTransport implements TriggerTransport {
                 enqueue(epoch, null, "session_reset");
                 // Seed work/direction/shutdown, but never synthesize DI3↑ on startup/reconnect.
                 for (var entry : new TreeMap<>(previous).entrySet()) {
-                    if (entry.getKey() != triggerPort) enqueue(epoch, new IoInputDiChange(entry.getKey(), entry.getValue()), "initial_state");
+                    if (entry.getKey() != triggerPort) {
+                        boolean edgeOnly = config.startupEdgeOnlyInputs().contains(entry.getKey());
+                        enqueue(epoch, new IoInputDiChange(entry.getKey(), !edgeOnly && entry.getValue()), "initial_state");
+                        if (edgeOnly) log.info("io event=startup_edge_suppressed di={} observed_value={}", entry.getKey(), entry.getValue());
+                    }
                 }
                 log.info("io event=startup_trigger_suppressed session={} di={} observed_value={} seeded_value=0", epoch, triggerPort, previous.get(triggerPort));
                 enqueue(epoch, new IoInputDiChange(triggerPort, false), "initial_state");

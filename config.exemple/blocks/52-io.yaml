@@ -1,8 +1,8 @@
 # DI/DO контроллера: SDK, подписки на входы, правила получения кадров и DI-подсветка.
 # Аппаратный маршрут In3 → Timer5 → DO5 → Line0 настраивается в MVS.
-# Java слушает DI и выдаёт брак через настроенные DO; таймер камер не трогает.
+# Java слушает DI и выдаёт брак через настроенные DO; Timer5/Out5 камер не трогает.
 
-# In3 → Timer5 → DO5 → Line0 настроено в MVS; Java только читает DI/DO и получает кадры.
+# In3 → Timer5 → DO5 → Line0 настроено в MVS; Java читает DI, получает кадры и настраивает только таймеры выходов из timers.
 capture_trigger_mode: "line0"
 line0_trigger_activation: "RisingEdge"
 line0_line_inverter: false
@@ -13,19 +13,24 @@ integration:
     hardware_line_trigger: true
     # false: не слать trigger_only — кадр только от DO5/Line0.
     immediate_prefire: false
+  io_fault:
+    enabled: true
+    timer: Timer2
+    line: Out2             # авария → DO2 → вход Omron; один импульс на эпизод аварии
+    retry_ms: 1000         # повтор только если SDK не принял команду
   io_reject:
     enabled: true
-    mode: timer           # TriggerSoftware → Timer6/7 → DO6/7
+    mode: timer           # TriggerSoftware → Timer3/4 → DO3/4
     pulse_ms: 80           # only for optional mode: level; timer duration is set in MVS
     ack_timeout_ms: 3000
     queue_size: 64
     shutdown_timeout_ms: 5000
     protected_outputs: [5]  # DO5 остаётся аппаратным триггером камер
     groups:
-      0: {port: 6, timer: Timer6, line: Out6}
-      1: {port: 7, timer: Timer7, line: Out7}
-    # В MVS: Timer6/7 TriggerSource=Software, режим с доступным TriggerSoftware;
-    # Out6 LineSource=Timer6, Out7 LineSource=Timer7; длительность/задержка задаются в MVS.
+      0: {port: 3, timer: Timer3, line: Out3}
+      1: {port: 4, timer: Timer4, line: Out4}
+    # В MVS: Timer3/4 TriggerSource=Software, режим с доступным TriggerSoftware;
+    # Out3 LineSource=Timer3, Out4 LineSource=Timer4; длительность/задержка задаются в MVS.
     # Ранний брак пластика тоже запускает один импульс, без удержания до PASS.
   # Внешний триггер инспекции (когда dev_auto_trigger_stub и continuous_inspection выключены).
   inspection_trigger:
@@ -48,8 +53,18 @@ integration:
       poll_ms: 1             # only for explicitly selected mv_camera/poll backend
       scan_log_every: 1000
       outputs: {}            # no extra serial reads of DO levels
+      # Применяется при подключении; Timer5/Out5 камер запрещены для изменения.
+      # enums: SDK-имена и значения; integers: сырые значения SDK (единицы контроллера).
+      # Добавьте integers: {TimerDuration: N, TimerDelay: N} для изменения времени.
+      # Пока длительности сохраняются из MVS.
+      timers:
+        Timer2: {line: Out2, enums: {TimerTriggerSource: Software}}
+        Timer3: {line: Out3, enums: {TimerTriggerSource: Software}}
+        Timer4: {line: Out4, enums: {TimerTriggerSource: Software}}
+      startup_edge_only_inputs: [4]  # DI4: стартовый HIGH не импульс; ждём реальный 0→1
       inputs:
         2: {line: In2, port: 2, edge: both, invert: false}
+        4: {line: In4, port: 4, edge: both, invert: false}
         3: {line: In3, port: 3, edge: rising, invert: false}
     udp:
       enabled: false
@@ -64,7 +79,7 @@ integration:
       direction_port: 2
       trigger_port: 3
       # DI4=1 → LightsShutdown + остановка оркестратора и всех сервисов. 0 = выкл.
-      shutdown_port: 0  # DI4 is not subscribed; add it to inputs before enabling shutdown
+      shutdown_port: 4
       direction_latch_on_work: false
       di3_only: true
       # Съёмка только при DI2=1: DI3↑ → wait_frame; без DI2 — skip.

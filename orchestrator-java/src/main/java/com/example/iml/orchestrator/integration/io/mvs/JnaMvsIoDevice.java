@@ -64,10 +64,18 @@ public final class JnaMvsIoDevice implements MvsIoDevice {
                 setEnum("LineSelector", output);
                 bool("LineStatus");
             }
+            if (validateInputs) configureTimers();
             setEnum("LineSelector", originalLine);
             log.info("MVS IO monitor connected inputs={} outputs={} input_mode={}",
                     config.inputs().keySet(), config.outputs(), config.inputMode());
         } catch (RuntimeException | LinkageError e) { close(); throw e; }
+    }
+
+    private void configureTimers() {
+        MvsTimerCommand.configure(config.timers(), timerNodes());
+        config.timers().forEach((timer, settings) -> log.info(
+                "io event=timer_configured timer={} line={} enums={} integers={}",
+                timer, settings.line(), settings.enums(), settings.integers()));
     }
 
     /** Enumeration only: never opens a device or executes an output command. */
@@ -121,7 +129,12 @@ public final class JnaMvsIoDevice implements MvsIoDevice {
 
     @Override public synchronized void triggerTimer(String timer, String line) {
         ensureOpen();
-        MvsTimerCommand.trigger(timer, line, new MvsTimerCommand.Nodes() {
+        MvsTimerCommand.trigger(timer, line, timerNodes());
+        log.info("io event=timer_trigger_accepted timer={} line={}", timer, line);
+    }
+
+    private MvsTimerCommand.Nodes timerNodes() {
+        return new MvsTimerCommand.Nodes() {
             public String get(String node) { return current(node); }
             public void select(String node, String value) { setEnum(node, value); }
             public int access(String node) {
@@ -129,9 +142,9 @@ public final class JnaMvsIoDevice implements MvsIoDevice {
                 call("MV_XML_GetNodeAccessMode", handle, node, access); return access.getValue();
             }
             public void command(String node) { call("MV_CC_SetCommandValue", handle, node); }
+            public void integer(String node, long value) { call("MV_CC_SetIntValueEx", handle, node, value); }
             public void restore(String node, String value) { cleanup(() -> setEnum(node, value)); }
-        });
-        log.info("io event=timer_trigger_accepted timer={} line={}", timer, line);
+        };
     }
 
     @Override public synchronized Map<Integer, Boolean> readOutputs() {

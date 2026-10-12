@@ -449,3 +449,46 @@
 2026-10-12 14:52:41.917 WARN  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_skipped trigger_sequence=1 source=io_input reason=services_unhealthy
 2026-10-12 14:52:41.917 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
 2026-10-12 14:52:41.918 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=2 stagger_ms=0 mode=simultaneous
+2026-10-12 15:58:09.794 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-10-12 15:58:09.795 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 15:58:09.879 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
+2026-10-12 15:58:09.879 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 15:58:09.910 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-10-12 15:58:09.911 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 15:58:10.147 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 15:58:10.147 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger direction 0 -> 1
+2026-10-12 15:58:10.148 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger DI2 rising: open fresh hardware frame window
+2026-10-12 15:58:10.148 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-10-12 15:58:10.148 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 15:58:10.148 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=1
+2026-10-12 15:58:10.149 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=1 hardware=true
+2026-10-12 15:58:10.149 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=true last_sequence=1
+2026-10-12 15:58:10.150 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_received di=2 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 15:58:10.151 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=true last_sequence=1
+2026-10-12 15:58:10.151 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 15:58:10.151 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=true last_sequence=1
+2026-10-12 15:58:10.152 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 15:58:10.152 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger direction 1 -> 0
+2026-10-12 15:58:10.152 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger DI2 falling: cancel hardware frame window
+2026-10-12 15:58:10.153 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=true last_sequence=1
+2026-10-12 15:58:10.153 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 15:58:10.153 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=true last_sequence=1
+2026-10-12 15:58:10.154 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 15:58:10.154 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger direction 0 -> 1
+2026-10-12 15:58:10.154 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger DI2 rising: open fresh hardware frame window
+2026-10-12 15:58:10.155 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
+2026-10-12 15:58:10.155 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 15:58:10.155 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=2
+2026-10-12 15:58:10.155 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=0 hardware=true
+2026-10-12 15:58:10.156 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=true last_sequence=2
+2026-10-12 15:58:10.156 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=session_reset work=false direction=true trigger=false
+2026-10-12 15:58:10.156 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger work stopped — session direction cleared (re-заведение required after restart/stop)
+2026-10-12 15:58:10.157 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=null work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 15:58:10.159 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger stopped
+2026-10-12 15:58:10.175 WARN  [main] c.e.i.o.i.t.DiShutdownControllerTest - DI4=1 — безопасное выключение: lights Off, vision_ready=0, vision_fault=1, stop orchestrator (di4_shutdown)
+2026-10-12 16:04:08.922 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-10-12 16:04:08.923 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 16:04:09.006 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
+2026-10-12 16:04:09.006 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 16:04:09.040 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-10-12 16:04:09.040 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=1 stagger_ms=0 mode=simultaneous
