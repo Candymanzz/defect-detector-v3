@@ -649,7 +649,7 @@ def test_detailed_settings_log_contains_slider_and_effective_values(
     inspection_service.apply_simple_settings(
         "logged-profile", expand_simple(0.3, 1.0), {"threshold": 0.3, "sensitivity": 1.0},
     )
-    strengths = {name: 75.0 for name in (
+    strengths = {name: 100.0 for name in (
         "noise_tolerance", "scratch_sensitivity", "edge_suppression", "text_handling", "preprocess_strength",
     )}
     strengths["noise_tolerance"] = 100.0
@@ -659,8 +659,8 @@ def test_detailed_settings_log_contains_slider_and_effective_values(
                  if stage == "analysis_settings" and message == "saved_detailed")
     assert saved["global_sensitivity_pct"] == 100.0
     assert json.loads(saved["group_sliders"])["noise_tolerance"] == 100.0
-    assert json.loads(saved["effective_groups"])["noise_tolerance"] == 150.0
-    assert json.loads(saved["expanded_settings"])["min_diff_signal"] == 2.5
+    assert json.loads(saved["effective_groups"])["noise_tolerance"] == 100.0
+    assert json.loads(saved["expanded_settings"])["min_diff_signal"] == 4.0
 
 
 def test_scoped_camera_inspection_uses_saved_profile_threshold_when_request_omits_it(

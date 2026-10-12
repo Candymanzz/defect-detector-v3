@@ -18,7 +18,7 @@
 | Вкладка | API | Поля |
 |---------|-----|------|
 | Быстрая | `GET/PUT .../simple` | `threshold`, `sensitivity` (0–1) |
-| Детальная | `GET/PUT .../strengths` | 5 сил (0–100, обычное 75), **без** threshold/sensitivity |
+| Детальная | `GET/PUT .../strengths` | 5 прямых множителей (0–100, обычное 100), **без** threshold/sensitivity |
 
 Чувствительность всегда одна — на вкладке «Быстрая».  
 Детальная вкладка только задаёт, **насколько сильно** каждая группа следует за ней.
@@ -108,7 +108,7 @@ await fetch(
 | `getProAnalysisSettings` | `GET .../strengths` |
 | `setProAnalysisSettings` | `PUT .../strengths` |
 | `ProAnalysisKnobs.threshold` | убрать — только в `SimpleAnalysisKnobs` |
-| значения 0–1 на pro-слайдерах | 0–100 (силы, обычное 75) |
+| значения 0–1 на pro-слайдерах | 0–100 (прямые множители, обычное 100) |
 
 Тип для фронта:
 

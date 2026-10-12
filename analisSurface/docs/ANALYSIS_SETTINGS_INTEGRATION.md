@@ -27,13 +27,13 @@
       "threshold": 0.25,
       "sensitivity": 0.5
     },
-    "strength_scale": "centered_minus50_150_v2",
+    "strength_scale": "direct_0_100_v3",
     "detailed_knobs": {
-      "noise_tolerance": 75,
+      "noise_tolerance": 100,
       "scratch_sensitivity": 80,
-      "edge_suppression": 75,
-      "text_handling": 75,
-      "preprocess_strength": 75
+      "edge_suppression": 100,
+      "text_handling": 100,
+      "preprocess_strength": 100
     }
   }
 ]
@@ -43,11 +43,11 @@
 |------|--------|
 | `overrides` | Развёрнутые поля алгоритма и признак включения инспекции (результат expand) |
 | `simple_knobs` | Порог + общая чувствительность (0–1) |
-| `detailed_knobs` | **Силы групп** (0–100, обычное 75), не вторая чувствительность |
+| `detailed_knobs` | **Прямые множители групп** (0–100, обычное 100), не вторая чувствительность |
 
-При первом `PUT /simple` без сохранённых сил в JSON пишутся defaults (`75` для всех групп).
+При первом `PUT /simple` без сохранённых сил в JSON пишутся defaults (`100` для всех групп).
 
-Старый ключ `pro_knobs` (0–1) и старые `detailed_knobs` 0–200 при загрузке переводятся в новую шкалу (`min(100, 25 + old / 2)`). Новые записи отмечаются `strength_scale`.
+Старый ключ `pro_knobs` (0–1), прежние `detailed_knobs` 0–200 и centered-шкала при загрузке переводятся в прямую шкалу 0–100. Новые записи отмечаются `strength_scale`.
 
 ---
 
@@ -101,11 +101,11 @@ GET/PUT /api/orchestrator/analysis-settings/camera/{cameraId}/strengths
   "analysis_profile": "bucket",
   "saved": true,
   "strengths": {
-    "noise_tolerance": 75,
+    "noise_tolerance": 100,
     "scratch_sensitivity": 80,
-    "edge_suppression": 75,
-    "text_handling": 75,
-    "preprocess_strength": 75
+    "edge_suppression": 100,
+    "text_handling": 100,
+    "preprocess_strength": 100
   }
 }
 ```
@@ -113,7 +113,7 @@ GET/PUT /api/orchestrator/analysis-settings/camera/{cameraId}/strengths
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `saved` | bool | `false` — в JSON ещё нет `detailed_knobs`, отданы defaults |
-| `strengths.*` | 0–100 | Обычное 75; при общей 100 внутренняя шкала −50…150 |
+| `strengths.*` | 0–100 | Прямой процент от общей чувствительности; обычное 100 |
 
 ### Тело `PUT /strengths`
 
@@ -121,11 +121,11 @@ GET/PUT /api/orchestrator/analysis-settings/camera/{cameraId}/strengths
 
 ```json
 {
-  "noise_tolerance": 75,
+  "noise_tolerance": 100,
   "scratch_sensitivity": 80,
-  "edge_suppression": 75,
-  "text_handling": 75,
-  "preprocess_strength": 75
+  "edge_suppression": 100,
+  "text_handling": 100,
+  "preprocess_strength": 100
 }
 ```
 
@@ -136,7 +136,7 @@ GET/PUT /api/orchestrator/analysis-settings/camera/{cameraId}/strengths
 | Было (pro) | Стало |
 |------------|--------|
 | `PUT .../pro` с 6–7 ручками включая threshold | `PUT .../simple` + `PUT .../strengths` |
-| `noise_tolerance` 0–1 | `noise_tolerance` 0–100 (обычное 75) |
+| `noise_tolerance` 0–1 | `noise_tolerance` 0–100 (обычное 100) |
 | Отдельная pro-чувствительность | **Нет** — только `sensitivity` в simple |
 
 Фронт пока может звать `/pro` через оркестратор — нужно перейти на `/strengths` и убрать threshold из pro-панели.
@@ -160,7 +160,7 @@ GET/PUT /api/orchestrator/analysis-settings/camera/{cameraId}/strengths
 }
 ```
 
-`simple` обязателен; `detailed` опционален (силы для preview, defaults 75).
+`simple` обязателен; `detailed` опционален (силы для preview, defaults 100).
 
 ---
 

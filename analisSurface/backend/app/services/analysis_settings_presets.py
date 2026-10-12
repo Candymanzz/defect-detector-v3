@@ -48,41 +48,6 @@ _SENSITIVE: dict[str, Any] = {
     "fp_trigger_diff_q90": 22.0,
 }
 
-# Дополнительный грубый край: отрицательное значение — позиция шкалы, а не
-# отрицательная чувствительность детектора.
-_EXTRA_COARSE: dict[str, Any] = {
-    "min_defect_area": 80,
-    "min_scratch_aspect": 7.0,
-    "min_diff_signal": 60.0,
-    "diff_percentile": 99.9,
-    "scratch_score_floor": 0.1,
-    "scratch_aspect_floor": 8.0,
-    "edge_suppress_factor": 0.01,
-    "text_min_contrast": 120,
-    "text_structure_threshold": 70,
-    "contrast_loss_boost": 1.05,
-    "contrast_loss_ref_grad": 80.0,
-    "contrast_loss_cur_grad": 35.0,
-    "clahe_clip_limit": 0.6,
-}
-
-# Верхний край 150% сохраняет примерно середину прежнего участка 100–200%.
-_EXTRA_SENSITIVE: dict[str, Any] = {
-    "min_defect_area": 2,
-    "min_scratch_aspect": 1.625,
-    "min_diff_signal": 2.5,
-    "diff_percentile": 92.5,
-    "scratch_score_floor": 0.625,
-    "scratch_aspect_floor": 2.25,
-    "edge_suppress_factor": 0.7,
-    "text_min_contrast": 20,
-    "text_structure_threshold": 10,
-    "contrast_loss_boost": 4.0,
-    "contrast_loss_ref_grad": 17.5,
-    "contrast_loss_cur_grad": 5.0,
-    "clahe_clip_limit": 2.5,
-}
-
 _NOISE_FIELDS = ("min_diff_signal", "min_defect_area", "diff_percentile")
 _SCRATCH_FIELDS = ("min_scratch_aspect", "scratch_score_floor", "scratch_aspect_floor")
 _EDGE_FIELDS = ("edge_suppress_factor",)
@@ -104,25 +69,33 @@ STRENGTH_FIELD_NAMES = (
     "preprocess_strength",
 )
 
-DEFAULT_STRENGTHS: dict[str, float] = {name: 75.0 for name in STRENGTH_FIELD_NAMES}
+DEFAULT_STRENGTHS: dict[str, float] = {name: 100.0 for name in STRENGTH_FIELD_NAMES}
 MAX_STRENGTH = 100.0
-MIN_EFFECTIVE_SENSITIVITY = -50.0
-MAX_EFFECTIVE_SENSITIVITY = 150.0
-STRENGTH_SCALE_VERSION = "centered_minus50_150_v2"
+MIN_EFFECTIVE_SENSITIVITY = 0.0
+MAX_EFFECTIVE_SENSITIVITY = 100.0
+STRENGTH_SCALE_VERSION = "direct_0_100_v3"
 
 
 def migrate_legacy_strengths(raw: dict[str, Any]) -> dict[str, float]:
-    """Прежняя шкала 0–200 → новая: 0→25, 100→75, 200→100 (с ограничением)."""
+    """Старая прямая шкала 0–200 → прямая 0–100 с ограничением сверху."""
     return normalize_strengths({
-        name: min(MAX_STRENGTH, 25.0 + float(raw.get(name, 100.0)) / 2.0)
+        name: min(MAX_STRENGTH, max(0.0, float(raw.get(name, 100.0))))
         for name in STRENGTH_FIELD_NAMES
     })
 
 
 def migrate_intermediate_centered_strengths(raw: dict[str, Any]) -> dict[str, float]:
-    """Переходный формат 0–100 предыдущей версии → текущая шкала."""
+    """Переходный centered_0_100 → эквивалентная прямая шкала 0–100."""
     return normalize_strengths({
-        name: min(MAX_STRENGTH, max(0.0, 2.0 * float(raw.get(name, 50.0)) - 25.0))
+        name: min(MAX_STRENGTH, max(0.0, 4.0 * float(raw.get(name, 50.0)) - 100.0))
+        for name in STRENGTH_FIELD_NAMES
+    })
+
+
+def migrate_centered_v2_strengths(raw: dict[str, Any]) -> dict[str, float]:
+    """centered_minus50_150_v2 → прямая шкала 0–100 с ограничением краёв."""
+    return normalize_strengths({
+        name: min(MAX_STRENGTH, max(0.0, 2.0 * float(raw.get(name, 75.0)) - 50.0))
         for name in STRENGTH_FIELD_NAMES
     })
 
@@ -161,21 +134,15 @@ def _lerp_numeric(a: float, b: float, t: float) -> float:
     return a + (b - a) * t
 
 
-def _stock_coeff(field: str, sensitivity_minus_50_to_150: float) -> float:
-    sensitivity = max(MIN_EFFECTIVE_SENSITIVITY, min(MAX_EFFECTIVE_SENSITIVITY, float(sensitivity_minus_50_to_150)))
+def _stock_coeff(field: str, sensitivity_0_to_100: float) -> float:
+    sensitivity = max(MIN_EFFECTIVE_SENSITIVITY, min(MAX_EFFECTIVE_SENSITIVITY, float(sensitivity_0_to_100)))
     stock = _STOCK[field]
     coarse_ratio = float(_COARSE[field]) / float(stock)
     sensitive_ratio = float(_SENSITIVE[field]) / float(stock)
-    if sensitivity < 0.0:
-        extra_coarse_ratio = float(_EXTRA_COARSE[field]) / float(stock)
-        return _lerp_numeric(extra_coarse_ratio, coarse_ratio, (sensitivity + 50.0) / 50.0)
     t = (sensitivity - 50.0) / 50.0
     if t <= 0.0:
         return _lerp_numeric(coarse_ratio, 1.0, t + 1.0)
-    if t <= 1.0:
-        return _lerp_numeric(1.0, sensitive_ratio, t)
-    extra_sensitive_ratio = float(_EXTRA_SENSITIVE[field]) / float(stock)
-    return _lerp_numeric(sensitive_ratio, extra_sensitive_ratio, (sensitivity - 100.0) / 50.0)
+    return _lerp_numeric(1.0, sensitive_ratio, t)
 
 
 def _apply_stock_value(field: str, effective_sensitivity: float) -> Any:
@@ -194,11 +161,11 @@ def _apply_stock_fields(fields: tuple[str, ...], effective_sensitivity: float, t
         target[field] = _apply_stock_value(field, effective_sensitivity)
 
 
-def effective_group_sensitivity(global_sensitivity_0_100: float, centered_strength_0_100: float) -> float:
-    """При общей 100%: группа 0→-50, 25→0, 75→100, 100→150%."""
+def effective_group_sensitivity(global_sensitivity_0_100: float, strength_0_100: float) -> float:
+    """Прямая шкала: итог группы = общая чувствительность × сила группы / 100."""
     global_s = max(0.0, min(100.0, float(global_sensitivity_0_100)))
-    strength = max(0.0, min(MAX_STRENGTH, float(centered_strength_0_100)))
-    return global_s * (2.0 * strength - 50.0) / 100.0
+    strength = max(0.0, min(MAX_STRENGTH, float(strength_0_100)))
+    return global_s * strength / 100.0
 
 
 def normalize_strengths(raw: dict[str, Any] | None) -> dict[str, float]:
@@ -214,17 +181,16 @@ def normalize_strengths(raw: dict[str, Any] | None) -> dict[str, float]:
 def expand_merged(
     threshold: float,
     sensitivity: float,
-    noise_tolerance: float = 75.0,
-    scratch_sensitivity: float = 75.0,
-    edge_suppression: float = 75.0,
-    text_handling: float = 75.0,
-    preprocess_strength: float = 75.0,
+    noise_tolerance: float = 100.0,
+    scratch_sensitivity: float = 100.0,
+    edge_suppression: float = 100.0,
+    text_handling: float = 100.0,
+    preprocess_strength: float = 100.0,
 ) -> dict[str, Any]:
     """Чувствительность (simple) + силы групп (detailed) → полный AnalysisSettings.
 
     sensitivity ∈ [0, 1] — общий множитель для всех групп.
-    Силы ∈ [0, 100]; 75 = нейтральный множитель. При sensitivity=1.0
-    внутренняя шкала простирается от -50 до 150.
+    Силы ∈ [0, 100] и напрямую умножаются на общую чувствительность.
     """
     threshold = _validate_threshold(threshold)
     sensitivity = _validate_unit_interval("sensitivity", sensitivity)
@@ -277,5 +243,5 @@ def expand_merged(
 
 
 def expand_simple(threshold: float, sensitivity: float) -> dict[str, Any]:
-    """Simple без сохранённых значений групп — все группы нейтральны (75%)."""
+    """Simple без сохранённых значений групп — все группы полностью следуют общей чувствительности."""
     return expand_merged(threshold, sensitivity)

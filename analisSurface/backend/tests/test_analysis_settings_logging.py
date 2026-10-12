@@ -34,6 +34,6 @@ def test_settings_log_is_written_as_json_lines(tmp_path, monkeypatch) -> None:
     assert record["source"] == "detailed_api"
     assert record["global_sensitivity_pct"] == 100.0
     assert record["group_sliders"]["noise_tolerance"] == 100.0
-    assert record["effective_groups"]["noise_tolerance"] == 150.0
-    assert record["expanded_settings"]["min_diff_signal"] == 2.5
+    assert record["effective_groups"]["noise_tolerance"] == 100.0
+    assert record["expanded_settings"]["min_diff_signal"] == 4.0
     assert "stage=analysis_settings" in (session_dir / "analysis.log").read_text(encoding="utf-8")

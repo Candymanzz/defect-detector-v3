@@ -25,6 +25,7 @@ from app.services.analysis_settings_presets import (
     STRENGTH_SCALE_VERSION,
     effective_group_sensitivity,
     expand_merged,
+    migrate_centered_v2_strengths,
     migrate_intermediate_centered_strengths,
     migrate_legacy_strengths,
     normalize_strengths,
@@ -1629,7 +1630,7 @@ class InspectionService:
                 migrated[key] = value * 100.0 if value <= 1.0 else value
             else:
                 migrated[key] = 100.0
-        return migrate_legacy_strengths(migrated)
+        return normalize_strengths(migrated)
 
     @staticmethod
     def _normalize_detailed_knobs(raw: dict[str, object]) -> dict[str, object]:
@@ -1666,9 +1667,12 @@ class InspectionService:
                     self._analysis_settings_simple_knobs[analysis_profile] = dict(simple_knobs)
                 detailed_knobs = entry.get("detailed_knobs")
                 if isinstance(detailed_knobs, dict) and detailed_knobs:
-                    if entry.get("strength_scale") == "centered_0_100":
+                    strength_scale = entry.get("strength_scale")
+                    if strength_scale == "centered_minus50_150_v2":
+                        detailed_knobs = migrate_centered_v2_strengths(detailed_knobs)
+                    elif strength_scale == "centered_0_100":
                         detailed_knobs = migrate_intermediate_centered_strengths(detailed_knobs)
-                    elif entry.get("strength_scale") != STRENGTH_SCALE_VERSION:
+                    elif strength_scale != STRENGTH_SCALE_VERSION:
                         detailed_knobs = migrate_legacy_strengths(detailed_knobs)
                     self._analysis_settings_detailed_knobs[analysis_profile] = self._normalize_detailed_knobs(
                         detailed_knobs

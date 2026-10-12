@@ -11,13 +11,13 @@ const FALLBACK_PROFILE = "reference-product";
 const DEFAULT_SIMPLE: SimpleAnalysisKnobs = { threshold: 0.25, sensitivity: 0.5 };
 const DEFAULT_PRO: ProAnalysisKnobs = {
   threshold: 0.25,
-  // Detailed/pro strength knobs use the centered 0–100 scale in the Python API.
+  // Detailed/pro strength knobs use a direct 0–100 scale in the Python API.
   // Threshold remains a unit interval value (0–1), just like in simple mode.
-  noise_tolerance: 75,
-  scratch_sensitivity: 75,
-  edge_suppression: 75,
-  text_handling: 75,
-  preprocess_strength: 75,
+  noise_tolerance: 100,
+  scratch_sensitivity: 100,
+  edge_suppression: 100,
+  text_handling: 100,
+  preprocess_strength: 100,
 };
 const MAX_PRO_STRENGTH = 100;
 
@@ -257,7 +257,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
         <span>
           {mode === "simple"
             ? "Основные параметры для быстрой калибровки."
-            : "75% — прежняя обычная настройка группы; ниже — слабее, выше — сильнее. Шкала 0–100%."}
+            : "Итог группы = общая чувствительность × значение группы. Шкала напрямую от 0 до 100%."}
         </span>
         {unlocked && (
           <button type="button" className="analysis-presets__lock-button" onClick={lockPro}>
@@ -270,7 +270,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
         {fields.map((field) => {
           const value = values[field.name as keyof typeof values];
           // Simple threshold/sensitivity are stored as 0–1, while detailed
-          // strength knobs returned by /pro use the centered 0–100 scale.
+          // strength knobs returned by /pro use the direct 0–100 scale.
           const isProStrength = mode === "pro" && field.name !== "threshold";
           const valueScale = isProStrength ? 1 : 100;
           const minValue = isProStrength ? 0 : field.name === "threshold" ? 0.01 : 0;
