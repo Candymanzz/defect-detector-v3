@@ -85,8 +85,7 @@ public final class JnaMvsIoDevice implements MvsIoDevice {
             byte[] port = config.port().getBytes(StandardCharsets.UTF_8);
             if (port.length >= 64) throw new IllegalArgumentException("MVS port name exceeds 63 bytes");
             // MV_CAML_SERIAL_PORT_LIST: count + 64*(char[64]+uint[4]) + uint[4].
-            try (Memory ports = new Memory(5140)) {
-                ports.clear(); ports.setInt(0, 1); ports.write(4, port, 0, port.length);
+            try (Memory ports = MvsSdkLease.serialPortList(config.port())) {
                 call("MV_CAML_SetEnumSerialPorts", ports);
             }
         }

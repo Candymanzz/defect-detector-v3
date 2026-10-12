@@ -82,6 +82,8 @@ typedef struct {
     FILE *metrics_log_file;
     char capture_source[32];
     int frame_timeout_ms;
+    char capture_window_path[512];
+    char capture_window_token[32];
     int exposure_us;
     float gain_db;
     float gamma;
@@ -1937,6 +1939,17 @@ static int fire_software_trigger_only(worker_state_t *st, char *err, size_t err_
 #endif
 }
 
+static int capture_window_open(worker_state_t *st) {
+    if (!st->capture_window_path[0]) return 1;
+    if (!st->capture_window_token[0] || strcmp(st->capture_window_token, "0") == 0) return 0;
+    FILE *f = fopen(st->capture_window_path, "r");
+    if (!f) return 0;
+    char token[32] = {0};
+    int ok = fgets(token, sizeof(token), f) != NULL && strcmp(token, st->capture_window_token) == 0;
+    fclose(f);
+    return ok;
+}
+
 static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t frame_id, int sync_capture, int wait_only,
                                char *err, size_t err_len) {
     if (strcmp(st->capture_source, "hik") == 0) {
@@ -1953,12 +1966,35 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
                 return -1;
             }
         } else if (wait_only) {
+            if (!capture_window_open(st)) {
+                snprintf(err, err_len, "capture_window_closed");
+                return -1;
+            }
             /* Hardware triggers also produce frames outside the DI2 inspection
              * window. Discard buffered frames before waiting for a fresh one. */
-            (void)hik_flush_image_buffer(st);
+            int clear_rc = MV_CC_ClearImageBuffer(st->hik_handle);
+            if (clear_rc != MV_OK) {
+                snprintf(err, err_len, "hik clear buffer failed: 0x%x", clear_rc);
+                return -1;
+            }
         }
-        nRet = MV_CC_GetOneFrameTimeout(st->hik_handle, st->hik_raw_frame, st->hik_raw_capacity, &info,
-                                        (unsigned int)st->frame_timeout_ms);
+        if (wait_only && st->capture_window_path[0]) {
+            uint64_t deadline = now_ns() + (uint64_t)st->frame_timeout_ms * 1000000ull;
+            do {
+                if (!capture_window_open(st)) {
+                    snprintf(err, err_len, "capture_window_closed");
+                    return -1;
+                }
+                nRet = MV_CC_GetOneFrameTimeout(st->hik_handle, st->hik_raw_frame, st->hik_raw_capacity, &info, 20);
+                if (!capture_window_open(st)) {
+                    snprintf(err, err_len, "capture_window_closed");
+                    return -1;
+                }
+            } while (nRet == MV_E_NODATA && now_ns() < deadline);
+        } else {
+            nRet = MV_CC_GetOneFrameTimeout(st->hik_handle, st->hik_raw_frame, st->hik_raw_capacity, &info,
+                                          (unsigned int)st->frame_timeout_ms);
+        }
         if (nRet != MV_OK) {
             snprintf(err, err_len, "hik timeout/error: 0x%x", nRet);
             return -1;
@@ -2611,6 +2647,9 @@ static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, 
             (void)json_find_bool(header_buf, (int)strlen(header_buf), "sync", &sync_capture);
             (void)json_find_bool(header_buf, (int)strlen(header_buf), "trigger_only", &trigger_only);
             (void)json_find_bool(header_buf, (int)strlen(header_buf), "wait_frame", &wait_frame);
+            st.capture_window_path[0] = st.capture_window_token[0] = '\0';
+            (void)json_find_string(header_buf, (int)strlen(header_buf), "capture_window_path", st.capture_window_path, sizeof(st.capture_window_path));
+            (void)json_find_string(header_buf, (int)strlen(header_buf), "capture_window_token", st.capture_window_token, sizeof(st.capture_window_token));
             stream_lock_enter(&st);
             int cap_rc;
             if (trigger_only) {

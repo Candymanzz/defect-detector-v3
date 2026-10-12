@@ -248,7 +248,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         if (activeWorkers.isEmpty()) {
             return;
         }
-        Round round = rounds.computeIfAbsent(triggerSequence, ignored -> new Round());
+        Round round = rounds.computeIfAbsent(triggerSequence, ignored -> new Round(triggerSequence));
         if (!round.triggerPrefired.compareAndSet(false, true)) {
             return;
         }
@@ -379,12 +379,12 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             Map<Integer, BinaryProtocol.Message> solo = new LinkedHashMap<>();
             for (Map.Entry<Integer, WorkerProcessSupervisor> entry : workersByCamera.entrySet()) {
                 solo.put(entry.getKey(), entry.getValue().command(hardwareLineTrigger
-                        ? Map.of("op", "capture", "wait_frame", true)
+                        ? DirectionCaptureWindow.command(DirectionCaptureWindow.token(triggerSequence))
                         : Map.of("op", "capture", "sync", true)));
             }
             return solo;
         }
-        Round round = new Round();
+        Round round = new Round(triggerSequence);
         List<Integer> sorted = workersByCamera.keySet().stream().sorted().toList();
         for (Integer cameraId : sorted) {
             WorkerProcessSupervisor worker = workersByCamera.get(cameraId);
@@ -426,12 +426,12 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
     ) throws Exception {
         if (!isEnabled() || triggerSequence <= 0L) {
             return worker.command(hardwareLineTrigger
-                    ? Map.of("op", "capture", "wait_frame", true)
+                    ? DirectionCaptureWindow.command(DirectionCaptureWindow.token(triggerSequence))
                     : Map.of("op", "capture", "sync", true));
         }
         Round round = rounds.get(triggerSequence);
         if (round == null) {
-            round = rounds.computeIfAbsent(triggerSequence, ignored -> new Round());
+            round = rounds.computeIfAbsent(triggerSequence, ignored -> new Round(triggerSequence));
         }
         if (round.triggerPrefired.get()) {
             if (!round.framesReady.await(FRAMES_READY_WAIT_MS, TimeUnit.MILLISECONDS)) {
@@ -670,7 +670,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             Map.Entry<Integer, WorkerProcessSupervisor> entry = entries.get(i);
             int camId = entry.getKey();
             WorkerProcessSupervisor worker = entry.getValue();
-            BinaryProtocol.Message msg = waitFrameWithRetry(worker, camId);
+            BinaryProtocol.Message msg = waitFrameWithRetry(worker, camId, round.windowToken);
             if (!isUsableCapture(msg)) {
                 if (lenient) {
                     LOG.warn("line capture cam={} skipped (lenient): {}", camId, describeCapture(msg));
@@ -713,7 +713,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         if (isUsableCapture(existing)) {
             return existing;
         }
-        BinaryProtocol.Message msg = waitFrameWithRetry(worker, cameraId);
+        BinaryProtocol.Message msg = waitFrameWithRetry(worker, cameraId, round.windowToken);
         if (!isUsableCapture(msg)) {
             throw new IllegalStateException(
                     "line capture unusable cam=" + cameraId + ": " + describeCapture(msg)
@@ -734,7 +734,7 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
             int camId = entry.getKey();
             WorkerProcessSupervisor worker = entry.getValue();
             waitTasks.add(() -> {
-                BinaryProtocol.Message msg = waitFrameWithRetry(worker, camId);
+                BinaryProtocol.Message msg = waitFrameWithRetry(worker, camId, round.windowToken);
                 if (!isUsableCapture(msg)) {
                     if (lenient) {
                         LOG.warn("line capture cam={} skipped (lenient): {}", camId, describeCapture(msg));
@@ -754,11 +754,11 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
         return okCount;
     }
 
-    private BinaryProtocol.Message waitFrameWithRetry(WorkerProcessSupervisor worker, int cameraId) throws Exception {
+    private BinaryProtocol.Message waitFrameWithRetry(WorkerProcessSupervisor worker, int cameraId, long windowToken) throws Exception {
         BinaryProtocol.Message last = null;
         int maxAttempts = hardwareLineTrigger ? WAIT_FRAME_MAX_ATTEMPTS : WAIT_FRAME_MAX_ATTEMPTS_SOFTWARE;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            last = worker.command(Map.of("op", "capture", "wait_frame", true));
+            last = worker.command(DirectionCaptureWindow.command(windowToken));
             if (isUsableCapture(last)) {
                 return last;
             }
@@ -867,6 +867,8 @@ public final class LineSynchronizedCaptureCoordinator implements AutoCloseable {
     }
 
     private final class Round {
+        final long windowToken;
+        Round(long sequence) { windowToken = DirectionCaptureWindow.token(sequence); }
         final ConcurrentHashMap<Integer, WorkerProcessSupervisor> participants = new ConcurrentHashMap<>();
         final ConcurrentHashMap<Integer, BinaryProtocol.Message> results = new ConcurrentHashMap<>();
         final AtomicBoolean fired = new AtomicBoolean(false);

@@ -1,0 +1,23 @@
+2026-10-12 14:21:12.225 INFO  [light-com] c.e.i.o.i.l.n.NativeLightBank - light event=ready device=com address=COM_Port#ttyUSB0
+2026-10-12 14:21:12.226 INFO  [light-eth] c.e.i.o.i.l.n.NativeLightBank - light event=ready device=eth address=169.254.1.1
+2026-10-12 14:21:12.247 INFO  [main] c.e.i.o.i.l.n.NativeLightBank - light event=bank_closed
+2026-10-12 14:21:12.255 INFO  [light-eth] c.e.i.o.i.l.n.NativeLightBank - light event=ready device=eth address=169.254.1.1
+2026-10-12 14:21:12.255 INFO  [light-com] c.e.i.o.i.l.n.NativeLightBank - light event=ready device=com address=COM_Port#ttyUSB0
+2026-10-12 14:21:12.263 INFO  [main] c.e.i.o.i.l.n.NativeLightBank - light event=bank_closed
+2026-10-12 14:21:12.268 INFO  [light-com] c.e.i.o.i.l.n.NativeLightBank - light event=ready device=com address=COM_Port#ttyUSB0
+2026-10-12 14:21:12.267 INFO  [light-eth] c.e.i.o.i.l.n.NativeLightBank - light event=ready device=eth address=169.254.1.1
+2026-10-12 14:21:12.273 INFO  [main] c.e.i.o.i.l.n.NativeLightBank - light event=bank_closed
+2026-10-12 14:21:12.276 INFO  [light-eth] c.e.i.o.i.l.n.NativeLightBank - light event=ready device=eth address=169.254.1.1
+2026-10-12 14:21:12.276 INFO  [light-com] c.e.i.o.i.l.n.NativeLightBank - light event=ready device=com address=COM_Port#ttyUSB0
+2026-10-12 14:21:12.282 INFO  [main] c.e.i.o.i.l.n.NativeLightBank - light event=bank_closed
+2026-10-12 14:21:12.286 INFO  [light-com] c.e.i.o.i.l.n.NativeLightBank - light event=ready device=com address=COM_Port#ttyUSB0
+2026-10-12 14:21:12.287 INFO  [light-eth] c.e.i.o.i.l.n.NativeLightBank - light event=ready device=eth address=169.254.1.1
+2026-10-12 14:21:12.292 INFO  [main] c.e.i.o.i.l.n.NativeLightBank - light event=bank_closed
+2026-10-12 14:21:12.295 INFO  [light-com] c.e.i.o.i.l.n.NativeLightBank - light event=ready device=com address=COM_Port#ttyUSB0
+2026-10-12 14:21:12.295 INFO  [light-eth] c.e.i.o.i.l.n.NativeLightBank - light event=ready device=eth address=169.254.1.1
+2026-10-12 14:21:12.567 INFO  [main] c.e.i.o.i.l.n.NativeLightBank - light event=bank_closed
+2026-10-12 14:21:12.570 INFO  [light-com] c.e.i.o.i.l.n.NativeLightBank - light event=ready device=com address=COM_Port#ttyUSB0
+2026-10-12 14:21:12.570 INFO  [light-eth] c.e.i.o.i.l.n.NativeLightBank - light event=ready device=eth address=169.254.1.1
+2026-10-12 14:21:12.576 ERROR [light-eth] c.e.i.o.i.l.n.NativeLightBank - light event=disconnected device=eth reason=unplugged
+2026-10-12 14:21:12.620 INFO  [light-eth] c.e.i.o.i.l.n.NativeLightBank - light event=ready device=eth address=169.254.1.1
+2026-10-12 14:21:12.622 INFO  [main] c.e.i.o.i.l.n.NativeLightBank - light event=bank_closed

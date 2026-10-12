@@ -62,6 +62,7 @@ public final class IoInputTriggerTransport implements TriggerTransport {
     private volatile long di3RiseEpochMs;
     private final ScheduledExecutorService captureDelayExecutor;
     private boolean hardwareObservationSource;
+    private boolean directionWindowCapture;
     private Thread listenerThread;
     private DatagramSocket socket;
 
@@ -266,6 +267,7 @@ public final class IoInputTriggerTransport implements TriggerTransport {
             directionWaiter.cancel("MVS reconnected");
             directionLatch.onTriggerRelease();
             workSessionDirection.onWorkStopped(log);
+            if (directionWindowCapture) com.example.iml.orchestrator.integration.capture.DirectionCaptureWindow.close();
             workActive = false;
             directionRawActive = directionActive = directionLatched = directionInitialized = false;
             triggerActive = captureFiredThisPulse = captureFiredThisDi2Window = false;
@@ -388,6 +390,18 @@ public final class IoInputTriggerTransport implements TriggerTransport {
                 }
             }
             directionActive = mapped;
+            if (directionWindowCapture && previousMapped != mapped) {
+                if (mapped) {
+                    com.example.iml.orchestrator.integration.capture.DirectionCaptureWindow.open();
+                    captureFiredThisPulse = false;
+                    log.info("io_input_trigger DI2 rising: open fresh hardware frame window");
+                    fireLineCapture();
+                } else {
+                    com.example.iml.orchestrator.integration.capture.DirectionCaptureWindow.close();
+                    log.info("io_input_trigger DI2 falling: cancel hardware frame window");
+                }
+                return;
+            }
             if (previousMapped != mapped) {
                 captureFiredThisDi2Window = false;
             }
@@ -417,6 +431,7 @@ public final class IoInputTriggerTransport implements TriggerTransport {
             return;
         }
         if (port == ioInputConfig.triggerPort()) {
+            if (directionWindowCapture) return;
             if (usesAutoDirection() && !directionAutoCapture.isDirectionArmed()) {
                 log.info("io_input_trigger phase1: DI3 ignored until DI2=1 arms direction");
                 return;
@@ -744,6 +759,13 @@ public final class IoInputTriggerTransport implements TriggerTransport {
     }
 
     /** Direct native source uses the same direction/work rules without opening UDP. */
+    public void setDirectionWindowCapture() {
+        if (!hardwareObservationSource || !ioInputConfig.externalHardwareCapture())
+            throw new IllegalArgumentException("direction_window_capture requires native hardware capture");
+        com.example.iml.orchestrator.integration.capture.DirectionCaptureWindow.enable();
+        directionWindowCapture = true;
+    }
+
     public void setHardwareObservationSource() {
         this.hardwareObservationSource = true;
     }
@@ -882,6 +904,7 @@ public final class IoInputTriggerTransport implements TriggerTransport {
 
     @Override
     public void close() {
+        if (directionWindowCapture) com.example.iml.orchestrator.integration.capture.DirectionCaptureWindow.disable();
         running.set(false);
         cancelDelayedCapture();
         directionWaiter.close();

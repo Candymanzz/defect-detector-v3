@@ -60,6 +60,14 @@ public final class LightTriggerClient {
             var nativeConfig = com.example.iml.orchestrator.integration.lighting.nativeio.NativeLightConfig.parse(root);
             for (var camera : cfg.cameras()) if (!nativeConfig.routes().containsKey(camera.cameraNumber()))
                 throw new IllegalArgumentException("Missing light_hardware.camera_routes for cameraNumber " + camera.cameraNumber());
+            var serialPorts = new java.util.ArrayList<String>();
+            nativeConfig.devices().stream().filter(d -> d.type().equals("com")).forEach(d -> serialPorts.add(d.address()));
+            if (root.get("integration") instanceof Map<?, ?> rawIntegration) {
+                @SuppressWarnings("unchecked") Map<String, Object> integration = (Map<String, Object>) rawIntegration;
+                var ioConfig = com.example.iml.orchestrator.integration.io.mvs.MvsIoConfig.parse(integration);
+                if (ioConfig.enabled() && ioConfig.backend().equals("mv_camera") && !ioConfig.port().isBlank()) serialPorts.add(ioConfig.port());
+            }
+            com.example.iml.orchestrator.integration.io.mvs.MvsSdkLease.registerSerialPorts(serialPorts);
             bank = new com.example.iml.orchestrator.integration.lighting.nativeio.NativeLightBank(nativeConfig);
         }
         return new LightTriggerClient(cfg, bank, runtime);

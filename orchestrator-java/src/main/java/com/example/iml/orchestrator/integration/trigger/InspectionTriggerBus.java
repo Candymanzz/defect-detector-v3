@@ -94,6 +94,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
 
     public long prefireLineBroadcast(String source, List<Integer> cameraIds) {
         long seq = sequence.incrementAndGet();
+        com.example.iml.orchestrator.integration.capture.DirectionCaptureWindow.bind(seq);
         Instant receivedAt = Instant.now();
         LineTriggerListener listener = lineTriggerListener;
         if (listener != null) {
@@ -127,6 +128,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
     /** Рассылка триггера инспекции без prefire (экспозиция уже на Line0 через Timer5→DO5). */
     public int dispatchLineBroadcastWithoutPrefire(String source, List<Integer> cameraIds) {
         long seq = sequence.incrementAndGet();
+        com.example.iml.orchestrator.integration.capture.DirectionCaptureWindow.bind(seq);
         Instant receivedAt = Instant.now();
         LOG.info(
                 "sync_diag channel=inspect event=line_dispatch_only trigger_sequence={} source={} cameras={}",

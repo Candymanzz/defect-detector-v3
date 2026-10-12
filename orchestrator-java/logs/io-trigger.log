@@ -12,3 +12,440 @@
 2026-09-22 09:29:20.545 WARN  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_skipped trigger_sequence=1 source=io_input reason=services_unhealthy
 2026-09-22 09:29:20.545 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
 2026-09-22 09:29:20.545 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=2 stagger_ms=0 mode=simultaneous
+2026-10-12 14:04:11.174 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:04:11.184 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:04:11.205 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:04:11.206 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:04:11.206 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:04:11.207 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:04:11.208 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 0 -> 1
+2026-10-12 14:04:11.208 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI2 pulse armed next DI3
+2026-10-12 14:04:11.209 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:04:11.209 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:04:11.210 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 1 -> 0
+2026-10-12 14:04:11.210 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:04:11.210 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:04:11.211 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 14:04:11.211 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-10-12 14:04:11.212 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:04:11.213 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=hardware_frame_request direction_di=2 direction=false work=false cameras=null published=1 sequence=1
+2026-10-12 14:04:11.213 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=2 hardware=true
+2026-10-12 14:04:11.213 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:04:11.214 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:04:11.214 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:04:11.214 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:04:11.215 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:04:11.215 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:04:11.215 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:04:11.216 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:04:11.216 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:04:11.216 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 0 -> 1
+2026-10-12 14:04:11.216 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI2 pulse armed next DI3
+2026-10-12 14:04:11.217 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:04:11.217 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:04:11.217 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 1 -> 0
+2026-10-12 14:04:11.218 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:04:11.218 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:04:11.218 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 14:04:11.218 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
+2026-10-12 14:04:11.218 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:04:11.219 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=hardware_frame_request direction_di=2 direction=false work=false cameras=null published=1 sequence=2
+2026-10-12 14:04:11.219 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=1 hardware=true
+2026-10-12 14:04:11.219 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:04:11.219 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:04:11.220 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:04:11.220 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:04:11.220 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 0 -> 1
+2026-10-12 14:04:11.220 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI2 pulse armed next DI3
+2026-10-12 14:04:11.220 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:04:11.221 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:04:11.221 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 14:04:11.221 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=3 source=io_input cameras=all
+2026-10-12 14:04:11.221 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=3 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:04:11.221 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=3
+2026-10-12 14:04:11.222 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=0 hardware=true
+2026-10-12 14:04:11.222 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:04:11.222 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:04:11.222 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:04:11.222 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:04:11.223 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:04:11.223 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:04:11.223 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:04:11.224 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:04:11.224 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=session_reset work=false direction=true trigger=false
+2026-10-12 14:04:11.224 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger work stopped — session direction cleared (re-заведение required after restart/stop)
+2026-10-12 14:04:11.225 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=null work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:04:11.225 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:04:11.225 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:04:11.226 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:04:11.226 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:04:11.226 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:04:11.226 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger stopped
+2026-10-12 14:13:35.322 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:13:35.324 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:13:35.335 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:13:35.335 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:13:35.335 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:13:35.336 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:13:35.336 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 0 -> 1
+2026-10-12 14:13:35.336 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:13:35.337 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:13:35.337 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 14:13:35.337 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-10-12 14:13:35.337 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:13:35.338 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=1
+2026-10-12 14:13:35.338 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=1 hardware=true
+2026-10-12 14:13:35.339 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:13:35.339 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:13:35.339 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:13:35.340 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:13:35.340 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 1 -> 0
+2026-10-12 14:13:35.340 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:13:35.341 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:13:35.342 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:13:35.342 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:13:35.342 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:13:35.343 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:13:35.343 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:13:35.345 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 0 -> 1
+2026-10-12 14:13:35.345 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:13:35.345 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:13:35.346 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 14:13:35.347 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
+2026-10-12 14:13:35.347 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:13:35.348 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=2
+2026-10-12 14:13:35.348 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=1 hardware=true
+2026-10-12 14:13:35.349 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:13:35.349 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:13:35.349 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:13:35.349 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:13:35.350 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 1 -> 0
+2026-10-12 14:13:35.350 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:13:35.351 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:13:35.351 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:13:35.351 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:13:35.352 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:13:35.352 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:13:35.352 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:13:35.352 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 0 -> 1
+2026-10-12 14:13:35.352 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:13:35.353 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:13:35.353 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 14:13:35.353 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=3 source=io_input cameras=all
+2026-10-12 14:13:35.353 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=3 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:13:35.353 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=3
+2026-10-12 14:13:35.354 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=1 hardware=true
+2026-10-12 14:13:35.354 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:13:35.355 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:13:35.355 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:13:35.355 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:13:35.355 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 1 -> 0
+2026-10-12 14:13:35.355 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:13:35.356 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:13:35.356 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:13:35.356 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:13:35.356 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:13:35.357 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:13:35.357 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=session_reset work=false direction=false trigger=false
+2026-10-12 14:13:35.357 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger work stopped — session direction cleared (re-заведение required after restart/stop)
+2026-10-12 14:13:35.358 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=null work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:13:35.358 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:13:35.358 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:13:35.358 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:13:35.359 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:13:35.360 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:13:35.360 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger stopped
+2026-10-12 14:21:11.877 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-10-12 14:21:11.878 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:21:11.964 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
+2026-10-12 14:21:11.964 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:21:12.015 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-10-12 14:21:12.015 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:21:12.032 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:12.032 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:21:12.033 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:21:12.033 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:12.033 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:21:12.034 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:12.035 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 0 -> 1
+2026-10-12 14:21:12.036 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:21:12.036 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:21:12.036 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 14:21:12.036 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-10-12 14:21:12.036 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:21:12.037 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=1
+2026-10-12 14:21:12.038 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=2 hardware=true
+2026-10-12 14:21:12.039 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:21:12.040 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:21:12.041 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:21:12.041 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:21:12.041 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 1 -> 0
+2026-10-12 14:21:12.041 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:21:12.042 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:12.043 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:21:12.044 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:21:12.045 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:12.045 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:21:12.045 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:12.045 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 0 -> 1
+2026-10-12 14:21:12.045 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:21:12.046 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:21:12.046 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 14:21:12.048 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
+2026-10-12 14:21:12.048 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:21:12.048 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=2
+2026-10-12 14:21:12.049 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=0 hardware=true
+2026-10-12 14:21:12.049 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:21:12.049 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:21:12.049 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:21:12.049 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:21:12.050 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 1 -> 0
+2026-10-12 14:21:12.050 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:21:12.050 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:12.050 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:21:12.050 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:21:12.051 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:12.051 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:21:12.051 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:12.051 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 0 -> 1
+2026-10-12 14:21:12.051 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:21:12.052 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:21:12.052 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 14:21:12.052 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=3 source=io_input cameras=all
+2026-10-12 14:21:12.053 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=3 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:21:12.053 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=3
+2026-10-12 14:21:12.053 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=1 hardware=true
+2026-10-12 14:21:12.054 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:21:12.054 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:21:12.054 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:21:12.058 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:21:12.058 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 1 -> 0
+2026-10-12 14:21:12.059 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:21:12.060 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:12.060 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:21:12.061 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:21:12.062 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:12.062 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:21:12.062 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=session_reset work=false direction=false trigger=false
+2026-10-12 14:21:12.063 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger work stopped — session direction cleared (re-заведение required after restart/stop)
+2026-10-12 14:21:12.064 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=null work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:21:12.064 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:12.066 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:21:12.067 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:21:12.067 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:12.067 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:21:12.067 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger stopped
+2026-10-12 14:47:52.169 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:47:52.172 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:47:52.183 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:47:52.183 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:47:52.184 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:47:52.184 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:47:52.185 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 0 -> 1
+2026-10-12 14:47:52.185 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:47:52.185 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:47:52.186 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 14:47:52.187 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-10-12 14:47:52.187 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:47:52.188 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=1
+2026-10-12 14:47:52.188 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=2 hardware=true
+2026-10-12 14:47:52.189 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:47:52.189 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:47:52.189 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:47:52.190 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:47:52.190 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 1 -> 0
+2026-10-12 14:47:52.190 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:47:52.191 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:47:52.191 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:47:52.191 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:47:52.191 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:47:52.192 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:47:52.192 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:47:52.192 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 0 -> 1
+2026-10-12 14:47:52.192 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:47:52.193 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:47:52.193 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 14:47:52.193 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
+2026-10-12 14:47:52.193 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:47:52.194 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=2
+2026-10-12 14:47:52.194 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=1 hardware=true
+2026-10-12 14:47:52.194 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:47:52.194 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:47:52.195 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:47:52.195 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:47:52.195 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 1 -> 0
+2026-10-12 14:47:52.195 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:47:52.196 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:47:52.196 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:47:52.196 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:47:52.197 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:47:52.197 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:47:52.197 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:47:52.198 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 0 -> 1
+2026-10-12 14:47:52.198 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:47:52.198 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:47:52.198 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 14:47:52.199 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=3 source=io_input cameras=all
+2026-10-12 14:47:52.200 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=3 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:47:52.200 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=3
+2026-10-12 14:47:52.200 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=1 hardware=true
+2026-10-12 14:47:52.200 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:47:52.201 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:47:52.201 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:47:52.201 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:47:52.204 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 1 -> 0
+2026-10-12 14:47:52.206 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:47:52.206 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:47:52.206 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:47:52.207 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:47:52.208 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:47:52.208 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:47:52.208 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=session_reset work=false direction=false trigger=false
+2026-10-12 14:47:52.210 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger work stopped — session direction cleared (re-заведение required after restart/stop)
+2026-10-12 14:47:52.210 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=null work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:47:52.211 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:47:52.211 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:47:52.211 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:47:52.211 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:47:52.212 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:47:52.212 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger stopped
+2026-10-12 14:49:50.830 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:49:50.833 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger direction 0 -> 1
+2026-10-12 14:49:50.833 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger DI2 rising: open fresh hardware frame window
+2026-10-12 14:49:50.834 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-10-12 14:49:50.834 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:49:50.835 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=1
+2026-10-12 14:49:50.835 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=1 hardware=true
+2026-10-12 14:49:50.845 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=true last_sequence=1
+2026-10-12 14:49:50.846 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_received di=2 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:49:50.846 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=true last_sequence=1
+2026-10-12 14:49:50.847 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:49:50.847 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=true last_sequence=1
+2026-10-12 14:49:50.847 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:49:50.848 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger direction 1 -> 0
+2026-10-12 14:49:50.848 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger DI2 falling: cancel hardware frame window
+2026-10-12 14:49:50.849 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=true last_sequence=1
+2026-10-12 14:49:50.849 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:49:50.850 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=true last_sequence=1
+2026-10-12 14:49:50.850 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:49:50.850 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger direction 0 -> 1
+2026-10-12 14:49:50.851 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger DI2 rising: open fresh hardware frame window
+2026-10-12 14:49:50.851 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
+2026-10-12 14:49:50.852 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:49:50.852 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=2
+2026-10-12 14:49:50.852 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=1 hardware=true
+2026-10-12 14:49:50.853 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=true last_sequence=2
+2026-10-12 14:49:50.854 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=session_reset work=false direction=true trigger=false
+2026-10-12 14:49:50.854 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger work stopped — session direction cleared (re-заведение required after restart/stop)
+2026-10-12 14:49:50.855 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=null work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:49:50.856 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger stopped
+2026-10-12 14:49:50.864 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:49:50.865 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:49:50.865 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:49:50.866 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:49:50.866 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:49:50.867 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:49:50.867 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 0 -> 1
+2026-10-12 14:49:50.867 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:49:50.868 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:49:50.868 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 14:49:50.868 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-10-12 14:49:50.868 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:49:50.869 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=1
+2026-10-12 14:49:50.869 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=1 hardware=true
+2026-10-12 14:49:50.869 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:49:50.869 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:49:50.870 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:49:50.870 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:49:50.870 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 1 -> 0
+2026-10-12 14:49:50.871 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:49:50.871 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:49:50.871 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:49:50.872 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:49:50.873 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:49:50.873 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:49:50.873 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:49:50.874 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 0 -> 1
+2026-10-12 14:49:50.874 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:49:50.874 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:49:50.875 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 14:49:50.875 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
+2026-10-12 14:49:50.877 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:49:50.877 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=2
+2026-10-12 14:49:50.877 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=2 hardware=true
+2026-10-12 14:49:50.877 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:49:50.877 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:49:50.878 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:49:50.878 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:49:50.880 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 1 -> 0
+2026-10-12 14:49:50.880 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:49:50.880 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:49:50.881 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:49:50.882 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:49:50.882 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:49:50.882 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:49:50.884 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:49:50.884 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 0 -> 1
+2026-10-12 14:49:50.884 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:49:50.884 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:49:50.885 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 14:49:50.888 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=3 source=io_input cameras=all
+2026-10-12 14:49:50.888 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=3 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:49:50.888 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=3
+2026-10-12 14:49:50.888 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=0 hardware=true
+2026-10-12 14:49:50.889 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:49:50.889 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:49:50.889 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:49:50.889 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:49:50.891 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger direction 1 -> 0
+2026-10-12 14:49:50.892 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:49:50.892 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:49:50.893 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:49:50.893 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:49:50.894 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:49:50.894 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:49:50.894 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=session_reset work=false direction=false trigger=false
+2026-10-12 14:49:50.894 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger work stopped — session direction cleared (re-заведение required after restart/stop)
+2026-10-12 14:49:50.895 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=null work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:49:50.895 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:49:50.895 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:49:50.895 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:49:50.895 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:49:50.896 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=3
+2026-10-12 14:49:50.896 INFO  [main] c.e.i.o.i.t.t.IoInputNextDi3Test - io_input_trigger stopped
+2026-10-12 14:52:41.856 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:52:41.859 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger direction 0 -> 1
+2026-10-12 14:52:41.860 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger DI2 rising: open fresh hardware frame window
+2026-10-12 14:52:41.860 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-10-12 14:52:41.860 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:52:41.861 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=1
+2026-10-12 14:52:41.861 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=1 hardware=true
+2026-10-12 14:52:41.872 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=true last_sequence=1
+2026-10-12 14:52:41.875 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_received di=2 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:52:41.875 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=true last_sequence=1
+2026-10-12 14:52:41.876 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:52:41.876 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=true last_sequence=1
+2026-10-12 14:52:41.876 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:52:41.877 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger direction 1 -> 0
+2026-10-12 14:52:41.877 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger DI2 falling: cancel hardware frame window
+2026-10-12 14:52:41.879 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=true last_sequence=1
+2026-10-12 14:52:41.879 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:52:41.880 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=true last_sequence=1
+2026-10-12 14:52:41.880 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:52:41.881 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger direction 0 -> 1
+2026-10-12 14:52:41.881 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger DI2 rising: open fresh hardware frame window
+2026-10-12 14:52:41.882 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
+2026-10-12 14:52:41.883 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:52:41.883 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=2
+2026-10-12 14:52:41.884 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=2 hardware=true
+2026-10-12 14:52:41.884 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=true last_sequence=2
+2026-10-12 14:52:41.885 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=session_reset work=false direction=true trigger=false
+2026-10-12 14:52:41.886 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger work stopped — session direction cleared (re-заведение required after restart/stop)
+2026-10-12 14:52:41.887 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger event=di_applied change=null work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:52:41.889 INFO  [main] c.e.i.o.i.t.t.IoInputDirectionWindowTest - io_input_trigger stopped
+2026-10-12 14:52:41.911 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-10-12 14:52:41.912 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=1 cameras=1 stagger_ms=0 mode=simultaneous
+2026-10-12 14:52:41.916 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=1 source=io_input cameras=all
+2026-10-12 14:52:41.917 WARN  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_skipped trigger_sequence=1 source=io_input reason=services_unhealthy
+2026-10-12 14:52:41.917 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch_only trigger_sequence=2 source=io_input cameras=all
+2026-10-12 14:52:41.918 INFO  [main] c.e.i.o.i.t.InspectionTriggerBus - sync_diag channel=inspect event=line_dispatch trigger_sequence=2 cameras=2 stagger_ms=0 mode=simultaneous

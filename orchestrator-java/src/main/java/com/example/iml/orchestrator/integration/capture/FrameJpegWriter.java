@@ -89,6 +89,14 @@ public final class FrameJpegWriter {
             return null;
         }
         Path direct = Path.of(shmName);
+        // POSIX shm_open names have a leading slash, but live in /dev/shm.
+        // Resolve the exact named buffer before falling back to the worker ring.
+        if (shmName.startsWith("/") && shmName.indexOf('/', 1) < 0) {
+            Path named = imlShmFilePath(shmName.substring(1));
+            if (Files.isRegularFile(named)) {
+                return named;
+            }
+        }
         if (direct.isAbsolute()) {
             if (Files.isRegularFile(direct)) {
                 return direct;

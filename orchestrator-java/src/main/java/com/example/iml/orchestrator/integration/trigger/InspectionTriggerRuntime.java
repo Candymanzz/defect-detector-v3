@@ -157,6 +157,11 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
                     () -> com.example.iml.orchestrator.integration.io.mvs.MvsIoDevices.create(nativeCfg, log),
                     ioInputTransport::applyDiChange);
             ioInputTransport.setHardwareObservationSource();
+            if (integration.get("inspection_trigger") instanceof Map<?, ?> trigger
+                    && trigger.get("io_input") instanceof Map<?, ?> io
+                    && Boolean.TRUE.equals(io.get("direction_window_capture"))) {
+                ioInputTransport.setDirectionWindowCapture();
+            }
             transports.add(runtime.nativeIo);
         }
         if (holder != null && holder.length > 0) {

@@ -1,0 +1,65 @@
+2026-10-12 14:21:11.867 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:11.871 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger direction 0 -> 1
+2026-10-12 14:21:11.874 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:21:11.875 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:21:11.876 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 14:21:11.879 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=1
+2026-10-12 14:21:11.880 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=3 hardware=false
+2026-10-12 14:21:11.880 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:21:11.881 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:21:11.882 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:21:11.962 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:21:11.963 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 14:21:11.965 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=2
+2026-10-12 14:21:11.965 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=1 hardware=false
+2026-10-12 14:21:11.966 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:21:11.967 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=2 value=0 work=false direction=true trigger=false listeners=0
+2026-10-12 14:21:11.968 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger direction 1 -> 0
+2026-10-12 14:21:11.968 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:21:11.969 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:11.969 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:21:11.969 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:11.970 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source=di2
+2026-10-12 14:21:11.970 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=2
+2026-10-12 14:21:11.971 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger stopped
+2026-10-12 14:21:11.991 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io event=start backend=mv_camera mode=events library=/opt/MVS/lib/64/libMvCameraControl.so port= inputs={1=Input[line=In1, invert=false, risingEvent=, fallingEvent=, port=1, edge=both], 2=Input[line=In2, invert=false, risingEvent=, fallingEvent=, port=2, edge=both], 3=Input[line=In3, invert=false, risingEvent=, fallingEvent=, port=3, edge=both], 4=Input[line=In4, invert=false, risingEvent=, fallingEvent=, port=4, edge=both]} outputs={5=Out5} trigger_di=3 configure_inputs=true health_ms=1000 output_poll_ms=1000 reconnect_ms=1000 shutdown_ms=5000
+2026-10-12 14:21:11.994 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=connect_attempt session=1 backend=mv_camera port=
+2026-10-12 14:21:11.995 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=connected session=1 initial_di={1=true, 2=true, 3=true, 4=false} initial_do={5=true}
+2026-10-12 14:21:11.995 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=startup_trigger_suppressed session=1 di=3 observed_value=true seeded_value=0
+2026-10-12 14:21:11.995 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=1 session=1 source=session_reset change=null queue_wait_ms=0.22047 pending_events=3
+2026-10-12 14:21:11.997 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=1 session=1 success=true handler_ms=1.231077
+2026-10-12 14:21:11.997 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=2 session=1 source=initial_state change=IoInputDiChange[diPort=1, active=true] queue_wait_ms=1.764924 pending_events=3
+2026-10-12 14:21:11.997 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=2 session=1 success=true handler_ms=0.40453
+2026-10-12 14:21:11.998 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=3 session=1 source=initial_state change=IoInputDiChange[diPort=2, active=true] queue_wait_ms=2.392943 pending_events=2
+2026-10-12 14:21:11.998 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=subscribed session=1 inputs={1=Input[line=In1, invert=false, risingEvent=, fallingEvent=, port=1, edge=both], 2=Input[line=In2, invert=false, risingEvent=, fallingEvent=, port=2, edge=both], 3=Input[line=In3, invert=false, risingEvent=, fallingEvent=, port=3, edge=both], 4=Input[line=In4, invert=false, risingEvent=, fallingEvent=, port=4, edge=both]}
+2026-10-12 14:21:11.998 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=3 session=1 success=true handler_ms=0.263786
+2026-10-12 14:21:11.999 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=4 session=1 source=initial_state change=IoInputDiChange[diPort=4, active=false] queue_wait_ms=3.40215 pending_events=2
+2026-10-12 14:21:11.999 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=4 session=1 success=true handler_ms=0.331571
+2026-10-12 14:21:11.999 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=5 session=1 source=initial_state change=IoInputDiChange[diPort=3, active=false] queue_wait_ms=3.656481 pending_events=1
+2026-10-12 14:21:12.000 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=5 session=1 success=true handler_ms=0.440151
+2026-10-12 14:21:12.000 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=6 session=1 source=events change=IoInputDiChange[diPort=3, active=true] queue_wait_ms=1.462962 pending_events=0
+2026-10-12 14:21:12.000 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=6 session=1 success=true handler_ms=0.455956
+2026-10-12 14:21:12.001 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=7 session=1 source=events change=IoInputDiChange[diPort=3, active=false] queue_wait_ms=0.301272 pending_events=1
+2026-10-12 14:21:12.001 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=7 session=1 success=true handler_ms=0.497325
+2026-10-12 14:21:12.001 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch event_id=8 session=1 source=events change=IoInputDiChange[diPort=3, active=true] queue_wait_ms=1.148149 pending_events=0
+2026-10-12 14:21:12.002 INFO  [mvs-io-events] c.e.i.o.i.i.m.MvsIoTest - io event=dispatch_complete event_id=8 session=1 success=true handler_ms=0.269462
+2026-10-12 14:21:12.002 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io event=stop_requested session=1 connected=true pending_events=0
+2026-10-12 14:21:12.003 INFO  [mvs-io-acquisition] c.e.i.o.i.i.m.MvsIoTest - io event=disconnected session=1 stopping=true
+2026-10-12 14:21:12.003 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io event=stopped received=8 processed=8 discarded=0 handler_failures=0 cleared_pending=0
+2026-10-12 14:21:12.011 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=2 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:12.011 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:21:12.011 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:12.012 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3↑ capture — direction=reverse latched=0 source=di2
+2026-10-12 14:21:12.012 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger skip: hardware frame reception requires DI2=1
+2026-10-12 14:21:12.012 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:21:12.012 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=0 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:12.013 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=false] work=false direction_raw=false direction=false direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:21:12.013 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=2 value=1 work=false direction=false trigger=false listeners=0
+2026-10-12 14:21:12.013 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger direction 0 -> 1
+2026-10-12 14:21:12.013 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=2, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=0
+2026-10-12 14:21:12.014 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_received di=3 value=1 work=false direction=true trigger=false listeners=0
+2026-10-12 14:21:12.014 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3↑ capture — direction=forward latched=0 source=di2
+2026-10-12 14:21:12.015 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=hardware_frame_request direction_di=2 direction=true work=false cameras=null published=1 sequence=1
+2026-10-12 14:21:12.015 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger DI3 capture direction=forward source=di2 cameras=1 target=all dispatch_ms=0 hardware=true
+2026-10-12 14:21:12.017 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger event=di_applied change=IoInputDiChange[diPort=3, active=true] work=false direction_raw=true direction=true direction_latched=false trigger=false capture_fired=false last_sequence=1
+2026-10-12 14:21:12.017 INFO  [main] c.e.i.o.i.i.m.MvsIoTest - io_input_trigger stopped

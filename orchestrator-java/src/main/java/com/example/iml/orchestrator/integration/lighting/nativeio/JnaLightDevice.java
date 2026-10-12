@@ -42,8 +42,7 @@ public final class JnaLightDevice implements LightDevice {
                 if (target.type().equals("com")) {
                     byte[] port = target.address().getBytes(StandardCharsets.UTF_8);
                     if (port.length >= 64) throw new IllegalArgumentException("SDK serial port name exceeds 63 bytes");
-                    try (Memory ports = new Memory(5140)) {
-                        ports.clear(); ports.setInt(0, 1); ports.write(4, port, 0, port.length);
+                    try (Memory ports = MvsSdkLease.serialPortList(target.address())) {
                         call("MV_CAML_SetEnumSerialPorts", ports);
                     }
                 }
