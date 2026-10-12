@@ -59,6 +59,12 @@ _FP_CROP_MIN = 64
 # layout. FP mini-etalons share explicit perspective weights when available.
 _VERTICAL_COMPENSATION_MAX_GAIN = 1.20
 _VERTICAL_COMPENSATION_ACTIVE_HEIGHT = 0.75
+# Scatter guard: a component is "thin" (contour-like) below this mean width in px;
+# thin components must cover enough of a 4x4 grid and not be much stronger than
+# their median to be treated as misalignment.
+_SCATTER_THIN_THICKNESS_PX = 5.0
+_SCATTER_GRID = 4
+_SCATTER_DOMINANCE_RATIO = 2.5
 _FAR_EDGE_ACTIVE_ROI_HEIGHT = 0.35
 _FAR_TIP_EXTRA_GAIN_LIMIT = 0.50
 _SURFACE_GEOMETRY_CACHE_LIMIT = 16
@@ -3399,8 +3405,9 @@ class InspectionService:
         num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(cleaned, connectivity=8)
         filtered = np.zeros_like(cleaned)
         min_area = settings.min_defect_area
-        scratch_floor = 0.0
-        max_object_score = 0.0
+        # (score, scratch_floor, thin, bbox, mask) of every kept component; the
+        # scatter guard below decides afterwards how much each one counts.
+        kept_components: list[tuple[float, float, bool, tuple[int, int, int, int], np.ndarray]] = []
         # Approximate text-like zones on diff map by strong local gradients.
         grad_x = cv2.Sobel(gray_blur, cv2.CV_32F, 1, 0, ksize=3)
         grad_y = cv2.Sobel(gray_blur, cv2.CV_32F, 0, 1, ksize=3)
@@ -3454,10 +3461,11 @@ class InspectionService:
                         (min(aspect / 15.0, 1.0) + min(area / 500.0, 1.0)) * signal_strength
                         + ((component_q90 / 255.0) * 0.25)
                     )
-                    if aspect > settings.scratch_aspect_floor:
-                        scratch_floor = max(
-                            scratch_floor, settings.scratch_score_floor * signal_strength,
-                        )
+                    component_scratch_floor = (
+                        settings.scratch_score_floor * signal_strength
+                        if aspect > settings.scratch_aspect_floor
+                        else 0.0
+                    )
                     # Aspect is useful for scratches, but compact dents, holes
                     # and stains can be strong defects too. Reward a component
                     # only when both its supported area and signal are present;
@@ -3479,17 +3487,57 @@ class InspectionService:
                     if ref_object_grad > (cur_object_grad + 12.0):
                         local_score += 0.4
 
-                max_object_score = max(max_object_score, local_score)
+                    mean_thickness = area / max(1.0, float(np.hypot(w, h)))
+                    kept_components.append(
+                        (
+                            local_score,
+                            component_scratch_floor,
+                            mean_thickness <= _SCATTER_THIN_THICKNESS_PX,
+                            (x, y, w, h),
+                            component_mask,
+                        )
+                    )
+
+        # Scattered thin deviations over the whole frame are the signature of a
+        # residual shift/rotation (every contour is doubled), not of defects.
+        weights = self._scatter_component_weights(kept_components, settings)
+        scratch_floor = 0.0
+        max_object_score = 0.0
+        scored_filtered = np.zeros_like(filtered)
+        for (comp_score, comp_floor, _thin, (x, y, w, h), comp_mask), weight in zip(
+            kept_components, weights
+        ):
+            max_object_score = max(max_object_score, comp_score * weight)
+            scratch_floor = max(scratch_floor, comp_floor * weight)
+            if weight >= 1.0:
+                scored_filtered[y : y + h, x : x + w][comp_mask] = 255
+        scatter_suppressed = sum(1 for weight in weights if weight < 1.0)
+        if scatter_suppressed:
+            log_analysis_stage(
+                "scatter_guard",
+                "scattered thin deviations down-weighted as probable misalignment",
+                extra={
+                    "components": len(kept_components),
+                    "suppressed": scatter_suppressed,
+                    "factor": settings.scatter_suppress_factor,
+                },
+            )
 
         filtered = cv2.dilate(filtered, np.ones((3, 3), dtype=np.uint8), iterations=1)
 
         # Brightest tail statistics should be computed only on detected anomaly pixels.
         # Using the full frame can saturate score to 1.0 even on visually stable images.
-        anomaly_pixels = filtered > 0
+        # Down-weighted scattered components contribute only at their reduced weight.
+        scored_filtered = cv2.dilate(scored_filtered, np.ones((3, 3), dtype=np.uint8), iterations=1)
+        anomaly_pixels = scored_filtered > 0
+        if not np.any(anomaly_pixels) and scatter_suppressed:
+            anomaly_pixels = filtered > 0
         if np.any(anomaly_pixels):
             active_values = gray_blur[anomaly_pixels]
             k = max(1, int(active_values.size * 0.02))  # top 2% inside anomaly regions
             top_mean = float(np.mean(np.partition(active_values, -k)[-k:])) / 255.0
+            if scatter_suppressed and not np.any(scored_filtered):
+                top_mean *= float(settings.scatter_suppress_factor)
         else:
             top_mean = 0.0
 
@@ -3520,6 +3568,45 @@ class InspectionService:
                 pass
 
         return heuristic_score, heuristic_mask
+
+    @staticmethod
+    def _scatter_component_weights(
+        components: list[tuple[float, float, bool, tuple[int, int, int, int], np.ndarray]],
+        settings: AnalysisSettings,
+    ) -> list[float]:
+        """Per-component weight (1.0 = counts fully) for the misalignment guard.
+
+        Fires only when many thin components are spread over the frame. Thick
+        blobs and a thin component that clearly dominates the others always
+        keep full weight, so a real scratch among them is not hidden.
+        """
+        weights = [1.0] * len(components)
+        if not settings.scatter_guard_enabled:
+            return weights
+        thin = [idx for idx, comp in enumerate(components) if comp[2]]
+        if len(thin) < settings.scatter_min_components:
+            return weights
+
+        centers = np.array(
+            [[components[i][3][0] + components[i][3][2] / 2.0, components[i][3][1] + components[i][3][3] / 2.0] for i in thin],
+            dtype=np.float32,
+        )
+        span = np.maximum(centers.max(axis=0) - centers.min(axis=0), 1.0)
+        cells = np.minimum(
+            ((centers - centers.min(axis=0)) / span * _SCATTER_GRID).astype(np.int32),
+            _SCATTER_GRID - 1,
+        )
+        covered_cells = len({(int(cx), int(cy)) for cx, cy in cells})
+        # A tight cluster of thin components is a local defect, not a global shift.
+        if covered_cells < settings.scatter_min_cells:
+            return weights
+
+        thin_scores = np.array([components[i][0] for i in thin], dtype=np.float32)
+        dominant_floor = _SCATTER_DOMINANCE_RATIO * float(np.median(thin_scores))
+        for idx in thin:
+            if components[idx][0] < dominant_floor:
+                weights[idx] = float(settings.scatter_suppress_factor)
+        return weights
 
     def _build_heatmap_gray(self, mask: np.ndarray, diff_map: Optional[np.ndarray] = None) -> np.ndarray:
         """Single-channel anomaly energy for gray_u8 SHM (orchestrator/UI apply JET).

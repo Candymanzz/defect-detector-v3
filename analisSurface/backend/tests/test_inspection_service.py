@@ -2111,3 +2111,46 @@ def test_accept_all_builds_padded_fp_mini_etalon(
         alignment_h_ref_to_cur=identity,
     )
     assert passed.status == "ГОДЕН"
+
+
+def _scattered_thin_lines(count: int = 8) -> np.ndarray:
+    """Short diagonal-free horizontal traces spread over the whole frame."""
+    diff = np.zeros((400, 400, 3), dtype=np.uint8)
+    positions = [(40, 40), (40, 300), (120, 160), (200, 40), (200, 300), (280, 160), (340, 40), (340, 300)]
+    for x, y in positions[:count]:
+        diff[y : y + 3, x : x + 50] = 90
+    return diff
+
+
+def test_scatter_guard_downweights_widely_spread_thin_deviations(
+    inspection_service: InspectionService,
+) -> None:
+    diff = _scattered_thin_lines()
+    base = {"use_patchcore": False, "min_diff_signal": 12.0, "min_defect_area": 6}
+    guarded, _ = inspection_service._run_anomaly_model(diff, AnalysisSettings.from_overrides(base))
+    unguarded, _ = inspection_service._run_anomaly_model(
+        diff, AnalysisSettings.from_overrides({**base, "scatter_guard_enabled": False})
+    )
+
+    assert guarded < unguarded
+
+
+def test_scatter_guard_keeps_local_cluster_and_thick_blob(
+    inspection_service: InspectionService,
+) -> None:
+    base = {"use_patchcore": False, "min_diff_signal": 12.0, "min_defect_area": 6}
+    off = AnalysisSettings.from_overrides({**base, "scatter_guard_enabled": False})
+    on = AnalysisSettings.from_overrides(base)
+
+    cluster = np.zeros((400, 400, 3), dtype=np.uint8)
+    for row in range(8):
+        cluster[100 + row * 6 : 103 + row * 6, 100:150] = 90
+    assert inspection_service._run_anomaly_model(cluster, on)[0] == pytest.approx(
+        inspection_service._run_anomaly_model(cluster, off)[0]
+    )
+
+    blob_plus_scatter = _scattered_thin_lines()
+    blob_plus_scatter[180:230, 20:70] = 200
+    assert inspection_service._run_anomaly_model(blob_plus_scatter, on)[0] == pytest.approx(
+        inspection_service._run_anomaly_model(blob_plus_scatter, off)[0]
+    )

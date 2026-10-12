@@ -27,6 +27,11 @@ class AnalysisSettings:
     # Дальний край изделия (линия перспективы / верх кадра по умолчанию).
     far_edge_max_gain: float = 1.35
     far_edge_edge_suppress_factor: float = 0.35
+    # Защита от рассинхрона: много тонких отклонений по всему кадру — это сдвиг/поворот, не дефекты.
+    scatter_guard_enabled: bool = True
+    scatter_min_components: int = 6
+    scatter_min_cells: int = 5
+    scatter_suppress_factor: float = 0.4
 
     @classmethod
     def defaults(cls) -> "AnalysisSettings":
@@ -90,6 +95,12 @@ class AnalysisSettings:
             raise ValueError("far_edge_max_gain must be in [1, 4]")
         if not 0.0 <= self.far_edge_edge_suppress_factor <= 1.0:
             raise ValueError("far_edge_edge_suppress_factor must be in [0, 1]")
+        if self.scatter_min_components < 2:
+            raise ValueError("scatter_min_components must be >= 2")
+        if not 1 <= self.scatter_min_cells <= 16:
+            raise ValueError("scatter_min_cells must be in [1, 16]")
+        if not 0.0 <= self.scatter_suppress_factor <= 1.0:
+            raise ValueError("scatter_suppress_factor must be in [0, 1]")
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

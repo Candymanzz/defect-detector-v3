@@ -59,7 +59,15 @@ _TEXT_FIELDS = (
     "contrast_loss_cur_grad",
 )
 _PREPROCESS_FIELDS = ("enable_clahe", "clahe_clip_limit")
-_FIXED_FIELDS = ("use_patchcore", "fp_recheck_enabled", "fp_trigger_diff_q90")
+_FIXED_FIELDS = (
+    "use_patchcore",
+    "fp_recheck_enabled",
+    "fp_trigger_diff_q90",
+    "scatter_guard_enabled",
+    "scatter_min_components",
+    "scatter_min_cells",
+    "scatter_suppress_factor",
+)
 
 STRENGTH_FIELD_NAMES = (
     "noise_tolerance",

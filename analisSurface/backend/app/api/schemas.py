@@ -105,6 +105,10 @@ class AnalysisSettingsValues(BaseModel):
     fp_trigger_diff_q90: float = 22.0
     far_edge_max_gain: float = 1.35
     far_edge_edge_suppress_factor: float = 0.35
+    scatter_guard_enabled: bool = True
+    scatter_min_components: int = 6
+    scatter_min_cells: int = 5
+    scatter_suppress_factor: float = 0.4
     enable_internal_alignment: bool = False
 
 
@@ -129,6 +133,10 @@ class AnalysisSettingsUpdateRequest(BaseModel):
     fp_trigger_diff_q90: Optional[float] = None
     far_edge_max_gain: Optional[float] = None
     far_edge_edge_suppress_factor: Optional[float] = None
+    scatter_guard_enabled: Optional[bool] = None
+    scatter_min_components: Optional[int] = None
+    scatter_min_cells: Optional[int] = None
+    scatter_suppress_factor: Optional[float] = None
     enable_internal_alignment: Optional[bool] = None
 
 
