@@ -8,14 +8,19 @@ public record InspectionTriggerEvent(
         long sequence,
         Instant receivedAt,
         String source,
-        boolean broadcast
+        boolean broadcast,
+        long receivedNanos
 ) {
+    public InspectionTriggerEvent(int cameraId, long sequence, Instant receivedAt, String source, boolean broadcast) {
+        this(cameraId, sequence, receivedAt, source, broadcast, System.nanoTime());
+    }
+
     public static InspectionTriggerEvent forCamera(int cameraId, String source) {
-        return new InspectionTriggerEvent(cameraId, 0L, Instant.now(), source, false);
+        return new InspectionTriggerEvent(cameraId, 0L, Instant.now(), source, false, System.nanoTime());
     }
 
     public static InspectionTriggerEvent lineBroadcast(String source) {
-        return new InspectionTriggerEvent(-1, 0L, Instant.now(), source, true);
+        return new InspectionTriggerEvent(-1, 0L, Instant.now(), source, true, System.nanoTime());
     }
 
     public static InspectionTriggerEvent of(int cameraId, String source) {

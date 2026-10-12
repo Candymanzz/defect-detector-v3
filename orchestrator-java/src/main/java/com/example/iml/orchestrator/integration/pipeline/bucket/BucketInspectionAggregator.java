@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.pipeline.bucket;
 
 import com.example.iml.orchestrator.integration.fanout.BucketFanOutResult;
 import com.example.iml.orchestrator.integration.fanout.BucketFanOutSink;
+import com.example.iml.orchestrator.integration.logging.TriggerVerdictLog;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import org.apache.logging.log4j.Logger;
@@ -43,6 +44,7 @@ public final class BucketInspectionAggregator implements AutoCloseable {
     /** Барьер: ждать все groupId одного triggerSequence перед fanOut. */
     private final ConcurrentHashMap<Long, SequenceBarrier> sequenceBarriers = new ConcurrentHashMap<>();
     private volatile BucketFanOutSink lastFanOut;
+    private volatile TriggerVerdictLog verdictLog;
 
     public BucketInspectionAggregator(Logger log, BucketInspectionConfig config) {
         this(log, config, JointSeamPolicy.defaults(), null);
@@ -80,6 +82,10 @@ public final class BucketInspectionAggregator implements AutoCloseable {
 
     public List<BucketGroup> groups() {
         return groups;
+    }
+
+    public void setTriggerVerdictLog(TriggerVerdictLog verdictLog) {
+        this.verdictLog = verdictLog;
     }
 
     public List<Integer> allCameraIds() {
@@ -380,6 +386,12 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 seamStrict
         );
 
+        TriggerVerdictLog trace = verdictLog;
+        if (trace != null) {
+            trace.bucketVerdict(state.triggerSequence, state.groupId, bucketPass, timedOut,
+                    snapshot.size(), expectedCameraIds.size(), rejectCameraIds(snapshot));
+        }
+
         List<Runnable> pendingUi = new ArrayList<>(state.pendingUiByCamera.values());
         state.pendingUiByCamera.clear();
 
@@ -410,6 +422,10 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             return;
         }
         if (groups.size() <= 1) {
+            TriggerVerdictLog trace = verdictLog;
+            if (trace != null) {
+                trace.verdictReady(result.triggerSequence(), List.of(result));
+            }
             fanOut.publishBucket(result);
             runPendingUi(pendingUi);
             return;
@@ -517,6 +533,10 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 results.stream().map(BucketFanOutResult::groupId).toList(),
                 results.stream().map(BucketFanOutResult::overallPass).toList()
         );
+        TriggerVerdictLog trace = verdictLog;
+        if (trace != null) {
+            trace.verdictReady(results.get(0).triggerSequence(), results);
+        }
         // Сначала все линии на ПЛК (publishBucket ждёт фронт), потом UI.
         for (BucketFanOutResult result : results) {
             fanOut.publishBucket(result);

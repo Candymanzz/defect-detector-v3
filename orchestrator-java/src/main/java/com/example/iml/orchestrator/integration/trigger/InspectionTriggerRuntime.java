@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.trigger;
 
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
+import com.example.iml.orchestrator.integration.logging.TriggerVerdictLog;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketGroup;
 import com.example.iml.orchestrator.integration.trigger.config.InspectionTriggerConfig;
 import com.example.iml.orchestrator.integration.trigger.config.UdpTriggerConfig;
@@ -119,7 +120,23 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
             List<BucketGroup> bucketGroups,
             ManualLineDirectionService manualLineDirection
     ) {
-        InspectionTriggerBus bus = new InspectionTriggerBus(cameraIds, captureTriggerStaggerMs);
+        return start(log, integration, cameraIds, mode, captureTriggerStaggerMs, onLineWorkChanged,
+                holder, bucketGroups, manualLineDirection, null);
+    }
+
+    public static InspectionTriggerRuntime start(
+            Logger log,
+            Map<String, Object> integration,
+            Collection<Integer> cameraIds,
+            IntegrationFeatureConfig.InspectionTriggerMode mode,
+            int captureTriggerStaggerMs,
+            Runnable onLineWorkChanged,
+            InspectionTriggerRuntime[] holder,
+            List<BucketGroup> bucketGroups,
+            ManualLineDirectionService manualLineDirection,
+            TriggerVerdictLog verdictLog
+    ) {
+        InspectionTriggerBus bus = new InspectionTriggerBus(cameraIds, captureTriggerStaggerMs, verdictLog);
         if (captureTriggerStaggerMs > 0) {
             log.info("inspection trigger stagger enabled delay_ms={} cameras={}", captureTriggerStaggerMs, cameraIds.size());
         }

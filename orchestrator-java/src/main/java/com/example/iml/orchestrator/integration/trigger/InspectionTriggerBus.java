@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.trigger;
 
+import com.example.iml.orchestrator.integration.logging.TriggerVerdictLog;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -30,6 +31,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
     private final AtomicLong lastDispatchedSequence = new AtomicLong(0);
     private final int captureTriggerStaggerMs;
     private final ScheduledExecutorService staggerScheduler;
+    private final TriggerVerdictLog verdictLog;
     private volatile LineTriggerListener lineTriggerListener;
     private volatile BooleanSupplier dispatchAllowed = () -> true;
 
@@ -38,7 +40,13 @@ public final class InspectionTriggerBus implements AutoCloseable {
     }
 
     public InspectionTriggerBus(Collection<Integer> cameraIds, int captureTriggerStaggerMs) {
+        this(cameraIds, captureTriggerStaggerMs, null);
+    }
+
+    public InspectionTriggerBus(Collection<Integer> cameraIds, int captureTriggerStaggerMs,
+                                TriggerVerdictLog verdictLog) {
         this.captureTriggerStaggerMs = Math.max(0, captureTriggerStaggerMs);
+        this.verdictLog = verdictLog;
         this.staggerScheduler = this.captureTriggerStaggerMs > 0
                 ? Executors.newSingleThreadScheduledExecutor(r -> {
                     Thread t = new Thread(r, "inspection-trigger-stagger");
@@ -85,7 +93,15 @@ public final class InspectionTriggerBus implements AutoCloseable {
         if (raw.broadcast()) {
             return publishBroadcast(raw) > 0;
         }
-        return offerToCamera(raw.cameraId(), raw.receivedAt(), raw.source(), sequence.incrementAndGet());
+        long seq = sequence.incrementAndGet();
+        if (verdictLog != null) {
+            verdictLog.triggerReceived(seq, raw.receivedAt(), raw.receivedNanos(), raw.source(), List.of(raw.cameraId()));
+        }
+        boolean accepted = offerToCamera(raw.cameraId(), raw.receivedAt(), raw.source(), seq);
+        if (!accepted && verdictLog != null) {
+            verdictLog.triggerSkipped(seq, "camera_queue_unavailable_or_full");
+        }
+        return accepted;
     }
 
     public long prefireLineBroadcast(String source) {
@@ -93,11 +109,19 @@ public final class InspectionTriggerBus implements AutoCloseable {
     }
 
     public long prefireLineBroadcast(String source, List<Integer> cameraIds) {
+        return prefireLineBroadcast(source, cameraIds, Instant.now(), System.nanoTime());
+    }
+
+    public long prefireLineBroadcast(String source, List<Integer> cameraIds,
+                                    Instant receivedAt, long receivedNanos) {
         long seq = sequence.incrementAndGet();
-        Instant receivedAt = Instant.now();
+        Instant acceptedAt = receivedAt == null ? Instant.now() : receivedAt;
+        if (verdictLog != null) {
+            verdictLog.triggerReceived(seq, acceptedAt, receivedNanos, source, resolveTargetCameras(cameraIds));
+        }
         LineTriggerListener listener = lineTriggerListener;
         if (listener != null) {
-            listener.onLineTrigger(seq, receivedAt, cameraIds);
+            listener.onLineTrigger(seq, acceptedAt, cameraIds);
         }
         LOG.info(
                 "sync_diag channel=inspect event=line_prefire_reserved trigger_sequence={} source={} cameras={}",
@@ -126,15 +150,23 @@ public final class InspectionTriggerBus implements AutoCloseable {
 
     /** Рассылка триггера инспекции без prefire (экспозиция уже на Line0 через IoInputMonitor→DO0). */
     public int dispatchLineBroadcastWithoutPrefire(String source, List<Integer> cameraIds) {
+        return dispatchLineBroadcastWithoutPrefire(source, cameraIds, Instant.now(), System.nanoTime());
+    }
+
+    public int dispatchLineBroadcastWithoutPrefire(String source, List<Integer> cameraIds,
+                                                   Instant receivedAt, long receivedNanos) {
         long seq = sequence.incrementAndGet();
-        Instant receivedAt = Instant.now();
+        Instant acceptedAt = receivedAt == null ? Instant.now() : receivedAt;
+        if (verdictLog != null) {
+            verdictLog.triggerReceived(seq, acceptedAt, receivedNanos, source, resolveTargetCameras(cameraIds));
+        }
         LOG.info(
                 "sync_diag channel=inspect event=line_dispatch_only trigger_sequence={} source={} cameras={}",
                 seq,
                 source,
                 cameraIds == null || cameraIds.isEmpty() ? "all" : cameraIds.size()
         );
-        return dispatchLineBroadcast(source, seq, receivedAt, cameraIds);
+        return dispatchLineBroadcast(source, seq, acceptedAt, cameraIds);
     }
 
     /** Рассылка одного триггера на все активные камеры (prefire + dispatch в одном шаге). */
@@ -143,8 +175,8 @@ public final class InspectionTriggerBus implements AutoCloseable {
     }
 
     public int publishBroadcast(InspectionTriggerEvent raw, List<Integer> cameraIds) {
-        long seq = prefireLineBroadcast(raw.source(), cameraIds);
         Instant receivedAt = raw.receivedAt() == null ? Instant.now() : raw.receivedAt();
+        long seq = prefireLineBroadcast(raw.source(), cameraIds, receivedAt, raw.receivedNanos());
         return dispatchLineBroadcast(raw.source(), seq, receivedAt, cameraIds);
     }
 
@@ -185,9 +217,18 @@ public final class InspectionTriggerBus implements AutoCloseable {
                     seq,
                     source
             );
+            if (verdictLog != null) {
+                verdictLog.triggerSkipped(seq, "services_unhealthy");
+            }
             return 0;
         }
         List<Integer> targets = resolveTargetCameras(cameraIds);
+        if (targets.isEmpty()) {
+            if (verdictLog != null) {
+                verdictLog.triggerSkipped(seq, "no_target_cameras");
+            }
+            return 0;
+        }
         lastDispatchedSequence.set(seq);
         if (captureTriggerStaggerMs <= 0 || staggerScheduler == null) {
             LOG.info(
@@ -200,6 +241,9 @@ public final class InspectionTriggerBus implements AutoCloseable {
                 if (offerToCamera(cameraId, receivedAt, source, seq)) {
                     published++;
                 }
+            }
+            if (published == 0 && verdictLog != null) {
+                verdictLog.triggerSkipped(seq, "all_camera_queues_full");
             }
             return published;
         }

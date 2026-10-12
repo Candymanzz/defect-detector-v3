@@ -16,6 +16,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
@@ -60,6 +61,8 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     private volatile boolean captureFiredThisDi2Window;
     private volatile ScheduledFuture<?> delayedCaptureTask;
     private volatile long di3RiseEpochMs;
+    private record SignalStamp(Instant receivedAt, long receivedNanos) { }
+    private volatile SignalStamp triggerSignal;
     private final ScheduledExecutorService captureDelayExecutor;
     private long lastFireMs;
     private Thread listenerThread;
@@ -213,13 +216,21 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     }
 
     private void handlePacket(DatagramPacket packet) {
+        SignalStamp packetReceived = new SignalStamp(Instant.now(), System.nanoTime());
         InetSocketAddress remote = new InetSocketAddress(packet.getAddress(), packet.getPort());
         if (!isRemoteAllowed(remote.getAddress().getHostAddress())) {
             log.debug("io_input_trigger ignored sender {}", remote);
             return;
         }
         IoInputDiChangeParser.parse(packet.getData(), packet.getLength(), ioInputConfig.payloadFormat())
-                .ifPresent(this::applyDiChange);
+                .ifPresent(change -> {
+                    if (change.diPort() == ioInputConfig.triggerPort()
+                            && (ioInputConfig.triggerEdge() == TriggerEdgeMode.RISING && change.active()
+                            || ioInputConfig.triggerEdge() == TriggerEdgeMode.FALLING && !change.active())) {
+                        triggerSignal = packetReceived;
+                    }
+                    applyDiChange(change);
+                });
     }
 
     private boolean isRemoteAllowed(String host) {
@@ -736,11 +747,21 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     }
 
     private int publishLineCapture(List<Integer> targetCameras) {
+        InspectionTriggerEvent signal = takeTriggerSignal();
         if (ioInputConfig.externalHardwareCapture()) {
-            return bus.dispatchLineBroadcastWithoutPrefire("io_input", targetCameras);
+            return bus.dispatchLineBroadcastWithoutPrefire("io_input", targetCameras,
+                    signal.receivedAt(), signal.receivedNanos());
         }
-        long seq = bus.prefireLineBroadcast("io_input", targetCameras);
+        long seq = bus.prefireLineBroadcast("io_input", targetCameras,
+                signal.receivedAt(), signal.receivedNanos());
         return bus.dispatchLineBroadcast("io_input", seq, targetCameras);
+    }
+
+    private InspectionTriggerEvent takeTriggerSignal() {
+        SignalStamp stamp = triggerSignal;
+        triggerSignal = null;
+        return stamp == null ? InspectionTriggerEvent.lineBroadcast("io_input")
+                : new InspectionTriggerEvent(-1, 0L, stamp.receivedAt(), "io_input", true, stamp.receivedNanos());
     }
 
     /** UI direction and physical DI2 direction must agree before capture. */
@@ -817,7 +838,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             lastFireMs = now;
         }
         long triggerReceivedMs = System.currentTimeMillis();
-        int published = bus.publishBroadcast(InspectionTriggerEvent.lineBroadcast("io_input"));
+        int published = bus.publishBroadcast(takeTriggerSignal());
         if (published > 0) {
             captureFiredThisPulse = true;
             long dispatchMs = System.currentTimeMillis() - triggerReceivedMs;
@@ -869,7 +890,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             }
             lastFireMs = now;
         }
-        int published = bus.publishBroadcast(InspectionTriggerEvent.lineBroadcast("io_input"));
+        int published = bus.publishBroadcast(takeTriggerSignal());
         if (published > 0) {
             long dispatchMs = System.currentTimeMillis() - triggerReceivedMs;
             log.info("io_input_trigger line broadcast cameras={} dispatch_ms={}", published, dispatchMs);

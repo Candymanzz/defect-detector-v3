@@ -7,6 +7,8 @@ import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.lighting.IntervalFlashConfig;
 import com.example.iml.orchestrator.integration.lighting.IntervalFlashController;
 import com.example.iml.orchestrator.integration.lighting.LightsShutdown;
+import com.example.iml.orchestrator.integration.logging.ServiceTraceSession;
+import com.example.iml.orchestrator.integration.logging.TriggerVerdictLog;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
 import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionConfig;
 import com.example.iml.orchestrator.integration.pipeline.bucket.JointSeamPolicy;
@@ -72,6 +74,8 @@ public final class TriggerRuntimeBootstrapService {
 
         BucketInspectionConfig bucketInspectionConfig =
                 BucketInspectionConfig.parse(ctx.integration(), ctx.workersByCamera().keySet());
+        TriggerVerdictLog verdictLog = bucketInspectionConfig.enabled()
+                ? new TriggerVerdictLog(ServiceTraceSession.currentDirectory()) : null;
         List<Integer> inspectionCameraIds = bucketInspectionConfig.enabled()
                 ? bucketInspectionConfig.allCameraIds()
                 : ctx.workersByCamera().keySet().stream().sorted().toList();
@@ -82,6 +86,7 @@ public final class TriggerRuntimeBootstrapService {
                     JointSeamPolicy.fromGeometryYaml(ctx.geometryCfg()),
                     ctx.inspectionGate()
             );
+            bucketInspectionAggregator.setTriggerVerdictLog(verdictLog);
             ctx.setBucketInspectionAggregator(bucketInspectionAggregator);
             ctx.inspectionGate().setInspectionEnabledOnlyFor(inspectionCameraIds);
             log.info(
@@ -111,7 +116,8 @@ public final class TriggerRuntimeBootstrapService {
                 refreshVisionReady,
                 triggerRuntimeHolder,
                 bucketInspectionConfig.enabled() ? bucketInspectionConfig.groups() : List.of(),
-                ctx.manualLineDirection()
+                ctx.manualLineDirection(),
+                verdictLog
         );
         ctx.setTriggerRuntime(triggerRuntime);
 

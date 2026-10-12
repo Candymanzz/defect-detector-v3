@@ -6,6 +6,7 @@
 logs/service-traces/ГГГГ-ММ-ДД_ЧЧ-ММ-СС_мс/
 ├─ session.txt
 ├─ pipeline-stages.jsonl
+├─ trigger-verdict.jsonl
 ├─ java-positioning/
 │  ├─ rpc-<pid>.jsonl
 │  └─ java-positioning-<номер>/positioning-runtime.log
@@ -29,3 +30,15 @@ logs/service-traces/ГГГГ-ММ-ДД_ЧЧ-ММ-СС_мс/
 Для проверки производительности нужен запуск **собранных заново** JAR-файлов оркестратора, `java-positioning-service` и `java-geometry-service`, а также актуального Python backend. Скрипт `rebuild-and-run.ps1` собирает все три Java-модуля. При запуске другой копии проекта каталог появится в `logs/service-traces` именно той копии.
 
 Для анализа передайте целиком одну папку сеанса с указанным временем. Сравнение `duration_ms` показывает время внутри сервиса; `pipeline-stages.jsonl` дополнительно показывает ожидание в очереди, захват кадра, решение и общее время цикла. Логи могут содержать пути к файлам и параметры производства — передавайте их только доверенному получателю.
+
+`trigger-verdict.jsonl` создаётся при включённой групповой инспекции. Записи `trigger_received`, `bucket_verdict` и `verdict_ready` связываются полем `trigger_sequence`. В `verdict_ready` поле `duration_ms` — время от получения триггера оркестратором до готовности общего логического вердикта по всем группам камер; оно измеряется монотонными часами. `GOOD` означает «ГОДЕН», `REJECT` — «НЕ ГОДЕН». `CAPTURE_ONLY` (съёмка без эталона), `NO_INSPECTION` (все камеры отключены), `trigger_skipped` и записи со `start_missing=true` не следует включать в статистику времени обычной инспекции. Поля `groups[].timed_out` и `groups[].synthetic_missing_group` показывают неполные результаты. Для измерений станка отфильтруйте `source=io_input` в записях `verdict_ready`.
+
+Пример просмотра проходов станка в PowerShell (подставьте папку нужного сеанса):
+
+```powershell
+Get-Content 'logs/service-traces/<сеанс>/trigger-verdict.jsonl' | ConvertFrom-Json |
+    Where-Object { $_.event -eq 'verdict_ready' -and $_.source -eq 'io_input' -and $_.verdict -in @('GOOD', 'REJECT') -and -not $_.start_missing } |
+    Select-Object timestamp, trigger_sequence, verdict_ru, duration_ms
+```
+
+Для DI3 начало отсчёта — приём UDP-пакета оркестратором, а не физический фронт на входе контроллера: задержка IoInputMonitor и сети сюда не входит. Конец — готовность решения **перед** отправкой в ПЛК и UI; подтверждение записи ПЛК и фактическая реакция исполнительного механизма этим временем не измеряются. Чтобы получить новый журнал, нужно пересобрать и перезапустить оркестратор; старые логи задним числом не дополняются.

@@ -51,6 +51,7 @@ public final class ServiceTraceSession {
                         + "java_rpc=java-positioning/rpc-<pid>.jsonl,java-geometry/rpc-<pid>.jsonl" + System.lineSeparator()
                         + "python_http=analisSurface/worker-<pid>-<time>/http.jsonl" + System.lineSeparator()
                         + "pipeline_timing=pipeline-stages.jsonl" + System.lineSeparator()
+                        + "trigger_to_verdict=trigger-verdict.jsonl (bucket inspection only)" + System.lineSeparator()
                         + "binary_payloads=omitted; payload_bytes is recorded" + System.lineSeparator(),
                 StandardCharsets.UTF_8
         );
