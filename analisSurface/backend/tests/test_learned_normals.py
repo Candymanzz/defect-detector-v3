@@ -422,3 +422,46 @@ def test_rejection_reason_is_reported_for_a_shifted_normal(tmp_path):
         diff_map=shifted_diff, segmentation_mask=shifted_mask,
     )
     assert other.usable_cases == 0 and other.foreign_reference_cases == 1
+
+
+def _filled_blob_frame(size, blob_size, shift):
+    height, width = size
+    aligned = np.full((height, width, 3), 60, np.uint8)
+    mask = np.zeros_like(aligned)
+    x0, y0 = 120 + shift[0], 100 + shift[1]
+    cv2.rectangle(mask, (x0, y0), (x0 + blob_size[0], y0 + blob_size[1]), (255, 255, 255), -1)
+    aligned[mask[:, :, 0] > 0] = 180
+    diff = np.zeros_like(aligned)
+    diff[mask[:, :, 0] > 0] = 90
+    return aligned, diff, mask
+
+
+def _apply_shifted(memory, size, blob_size, shift):
+    aligned, diff, mask = _filled_blob_frame(size, blob_size, (0, 0))
+    saved = extract_defect_candidates(aligned, diff, mask)[0]
+    memory.add_from_candidate(
+        product_type="part", reference_hash="reference", inspection_id="old",
+        candidate=saved, source_frame=aligned,
+    )
+    aligned, diff, mask = _filled_blob_frame(size, blob_size, shift)
+    return memory.apply(
+        product_type="part", reference_hash="reference", aligned=aligned,
+        diff_map=diff, segmentation_mask=mask,
+    )
+
+
+def test_large_recurring_normal_tolerates_proportional_position_shift(tmp_path):
+    result = _apply_shifted(
+        AcceptedNormalMemory(tmp_path / "normals"), (500, 700), (300, 160), (14, 9),
+    )
+
+    assert result.matched_candidates_count == 1, str(result.rejections)
+
+
+def test_small_normal_keeps_strict_position_tolerance(tmp_path):
+    result = _apply_shifted(
+        AcceptedNormalMemory(tmp_path / "normals"), (500, 700), (24, 24), (14, 9),
+    )
+
+    assert result.matched_candidates_count == 0
+    assert result.rejections and result.rejections[0]["reason"] == "position"

@@ -39,6 +39,12 @@ TEMPLATE_VERSION = 3
 # made the same exception drift by tens of pixels on production images.
 POSITION_TOLERANCE_PX = 6.0
 POSITION_JITTER_FLOOR_PX = 4.0
+# A large recurring defect (a glare/stain tens of percent of the frame wide) moves
+# by far more than 6 px between frames while still being the same place, so its
+# allowance grows with the saved geometry up to this cap. It never gets tighter
+# than the small-normal allowance above.
+POSITION_TOLERANCE_LARGE_FRACTION = 0.06
+POSITION_TOLERANCE_LARGE_MAX_PX = 25.0
 POLYGON_GAP_FLOOR_PX = 3.0
 THIN_TRACE_MIN_SIMILARITY = 0.68
 SCALED_SHAPE_MIN_SIMILARITY = 0.76
@@ -1859,9 +1865,15 @@ def candidate_similarity(
     sample_width_px = sw * frame_width
     sample_height_px = sh * frame_height
     sample_diagonal = math.hypot(sample_width_px, sample_height_px)
-    position_tolerance = min(
-        POSITION_TOLERANCE_PX,
-        max(POSITION_JITTER_FLOOR_PX, sample_diagonal * 0.12),
+    position_tolerance = max(
+        min(
+            POSITION_TOLERANCE_PX,
+            max(POSITION_JITTER_FLOOR_PX, sample_diagonal * 0.12),
+        ),
+        min(
+            POSITION_TOLERANCE_LARGE_MAX_PX,
+            sample_diagonal * POSITION_TOLERANCE_LARGE_FRACTION,
+        ),
     )
     # Проверка выполняется до дорогого сравнения шаблонов. Координаты нормированы,
     # поэтому допуск одинаков по смыслу при полном кадре и inspect_scale=0.5.
@@ -1875,9 +1887,15 @@ def candidate_similarity(
         displacement = candidate_center - sample_center
         transverse_distance = abs(float(np.dot(displacement, sample_spatial[2])))
         minor_extent = min(sample_width_px, sample_height_px)
+        # Thin traces keep the strict 3-5 px; a wide elongated blob may shift
+        # across its own axis in proportion to its width.
         transverse_tolerance = min(
             position_tolerance,
-            max(POLYGON_GAP_FLOOR_PX, min(5.0, minor_extent * 0.35)),
+            max(
+                POLYGON_GAP_FLOOR_PX,
+                min(5.0, minor_extent * 0.35),
+                minor_extent * POSITION_TOLERANCE_LARGE_FRACTION * 2.0,
+            ),
         )
         if transverse_distance > transverse_tolerance:
             return _reject("transverse_position", distance_px=transverse_distance, tolerance_px=transverse_tolerance)
