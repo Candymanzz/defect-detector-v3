@@ -65,6 +65,8 @@ integration:
   python_parallelism: 10
   # Один процесс uvicorn; 10 HTTP-клиентов к :8000. Без этого — 10 uvicorn × модели ≈ ×10 RAM.
   python_server_pool_size: 1
+  # HTTP-запросы параллельны внутри одного uvicorn, независимо от числа процессов.
+  python_request_parallelism: 4
   stage_queue_size: 20
   # Таймаут RPC к camera-worker (health/capture/inspect). Для 10 камер увеличен, чтобы избежать ложных startup timeout.
   worker_command_timeout_ms: 30000

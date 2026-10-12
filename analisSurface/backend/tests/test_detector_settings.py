@@ -67,5 +67,8 @@ def test_defaults_to_enabled_without_config(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.delenv("ANALIS_SURFACE_FILE_LOGGING", raising=False)
     monkeypatch.delenv("ANALIS_SURFACE_DISABLE_FILE_LOG", raising=False)
     monkeypatch.setenv("ANALIS_SURFACE_CONFIG", str(Path("/nonexistent/config")))
+    # Missing explicit paths still permit repository fallback. Isolate the
+    # no-config case from the operator's actual file_logging setting.
+    monkeypatch.setattr(detector_settings, "_find_config_yaml", lambda: None)
 
     assert is_file_logging_enabled() is True

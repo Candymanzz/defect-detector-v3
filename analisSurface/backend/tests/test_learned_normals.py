@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 import pytest
 
@@ -7,8 +8,84 @@ from app.services.learned_normals import (
     _convert_legacy_template,
     _fit_template,
     _mask_geometry,
+    extract_defect_candidates,
     filter_review_candidates,
 )
+
+
+def test_normal_bbox_does_not_overwrite_an_unmatched_component(tmp_path):
+    memory = AcceptedNormalMemory(tmp_path / "normals")
+    aligned = np.full((220, 220, 3), 60, np.uint8)
+    mask = np.zeros_like(aligned)
+    cv2.rectangle(mask, (25, 25), (195, 195), (255, 255, 255), 4)
+    aligned[mask[:, :, 0] > 0] = 180
+    diff = np.zeros_like(aligned)
+    diff[mask[:, :, 0] > 0] = 120
+    saved = extract_defect_candidates(aligned, diff, mask)[0]
+    memory.add_from_candidate(
+        product_type="part", reference_hash="reference", inspection_id="old",
+        candidate=saved, source_frame=aligned,
+    )
+    current = aligned.copy()
+    current[95:105, 95:105] = 80
+    diff[95:105, 95:105] = 32
+    mask[95:105, 95:105] = 255
+    result = memory.apply(
+        product_type="part", reference_hash="reference", aligned=current,
+        diff_map=diff, segmentation_mask=mask,
+    )
+    assert result.matched_candidates_count == 1
+    assert len(result.candidates) == 2
+    np.testing.assert_array_equal(result.filtered_diff_map[95:105, 95:105], diff[95:105, 95:105])
+    np.testing.assert_array_equal(result.filtered_mask[95:105, 95:105], mask[95:105, 95:105])
+
+
+def test_overlapping_matched_normals_keep_each_others_cut_residual(tmp_path, monkeypatch):
+    from app.services import learned_normals
+    from app.services.analysis_settings import AnalysisSettings
+    from app.services.inspection_service import InspectionService
+
+    memory = AcceptedNormalMemory(tmp_path / "normals", session_wipe=False)
+    normal = np.full((240, 240, 3), 60, np.uint8)
+    mask = np.zeros_like(normal)
+    # Separate L-shaped components with overlapping bounding rectangles.
+    for start, end in [
+        ((20, 20), (180, 20)), ((180, 20), (180, 180)),
+        ((50, 50), (50, 210)), ((50, 210), (210, 210)),
+    ]:
+        cv2.line(mask, start, end, (255, 255, 255), 4)
+    normal[mask[:, :, 0] > 0] = 180
+    diff = np.zeros_like(normal)
+    diff[mask[:, :, 0] > 0] = 120
+    saved_candidates = extract_defect_candidates(normal, diff, mask)
+    memory.add_from_candidate(
+        product_type="part", reference_hash="reference", inspection_id="first",
+        candidate=saved_candidates[0], source_frame=normal,
+    )
+    current = normal.copy()
+    current[80:140, 178:183] = 20
+    candidates = extract_defect_candidates(current, diff, mask)
+    # The second normal was accepted on a later frame: its rectangle contains
+    # the cut, although the operator accepted only the other L-shaped region.
+    memory.add_from_candidate(
+        product_type="part", reference_hash="reference", inspection_id="second",
+        candidate=candidates[1], source_frame=current,
+    )
+    detector = InspectionService.__new__(InspectionService)
+    detector._anomaly_engine = None
+    settings = AnalysisSettings.from_overrides({"use_patchcore": False})
+    results = []
+    for order in (candidates, candidates[::-1]):
+        monkeypatch.setattr(learned_normals, "extract_defect_candidates", lambda *args, order=order: order)
+        result = memory.apply(
+            product_type="part", reference_hash="reference", aligned=current,
+            diff_map=diff, segmentation_mask=mask,
+        )
+        assert result.matched_candidates_count == 2
+        assert np.max(result.filtered_diff_map[80:140, 178:183]) == 148
+        assert detector._run_anomaly_model(result.filtered_diff_map, settings)[0] >= .387
+        results.append(result.filtered_diff_map)
+    np.testing.assert_array_equal(results[0], results[1])
 
 
 def test_accepted_normals_are_refreshed_between_server_processes(tmp_path) -> None:

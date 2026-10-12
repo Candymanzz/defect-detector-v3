@@ -442,9 +442,9 @@ function useGeometrySnapshot(
     const normalizedStatus = geometryStatus?.trim().toUpperCase();
     if (normalizedStatus === "SKIPPED" || normalizedStatus === "SKIP") {
       setState({
-        geometry: null,
+        geometry: { ...embeddedGeometry, status: "SKIPPED" },
         loading: false,
-        error: "Геометрия пропущена для этого кадра",
+        error: null,
       });
       return;
     }

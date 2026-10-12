@@ -7,6 +7,8 @@ import queue
 import threading
 import time
 import uuid
+from collections import OrderedDict
+from contextlib import ExitStack, contextmanager
 from datetime import datetime, timezone
 from functools import lru_cache
 from io import BytesIO
@@ -20,15 +22,20 @@ from PIL import Image
 from app.runtime import get_application_id
 from app.file_logging import log_analysis_stage
 from app.services.analysis_settings import AnalysisSettings
+from app.services.inspection_evidence import compact_residual_evidence, pre_normalization_compact_signal
+from app.services.inspection_curvature import (
+    CurvatureModel, GeometryWeights, SurfaceWeights, crop_weights, estimate_curvature, pad_weights, with_curvature,
+)
 from app.services.analysis_settings_presets import DEFAULT_STRENGTHS, expand_merged, normalize_strengths
 from app.services.inspection_geometry import (
     PerspectiveLine,
     combine_region_masks,
-    perspective_far_weights,
+    far_tip_weights,
     mask_to_polygon,
     polygon_area,
     polygon_bbox_from_norm_points,
     polygon_mask_from_norm_points,
+    perspective_roi_far_weights,
     padded_bbox_polygon,
     validate_polygon_inside_parent,
     validate_perspective_line,
@@ -49,11 +56,12 @@ logger = logging.getLogger(__name__)
 
 _FP_CROP_MIN = 64
 # Conservative perspective compensation for the fixed, inverted-bucket camera
-# layout.  It is deliberately kept local to the full-frame difference map: FP
-# mini-etalon crops must retain their original score semantics.
+# layout. FP mini-etalons share explicit perspective weights when available.
 _VERTICAL_COMPENSATION_MAX_GAIN = 1.20
 _VERTICAL_COMPENSATION_ACTIVE_HEIGHT = 0.75
 _FAR_EDGE_ACTIVE_ROI_HEIGHT = 0.35
+_FAR_TIP_EXTRA_GAIN_LIMIT = 0.50
+_SURFACE_GEOMETRY_CACHE_LIMIT = 16
 
 # Smooth illumination changes keep local texture and gradients, unlike a real
 # scratch/tear. Suppress them conservatively before structural defect boosts.
@@ -69,6 +77,8 @@ _ILLUMINATION_BROAD_MAX_SUPPRESSION = 0.75
 _LOCAL_ENVELOPE_KERNEL = np.ones((5, 5), dtype=np.uint8)
 _THIN_DEFECT_KERNEL = np.ones((15, 15), dtype=np.uint8)
 _EDGE_ZONE_KERNEL = np.ones((3, 3), dtype=np.uint8)
+_DEFECT_GAP_CLOSE_KERNEL_X = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 1))
+_DEFECT_GAP_CLOSE_KERNEL_Y = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 7))
 
 
 @lru_cache(maxsize=8)
@@ -170,6 +180,7 @@ class InspectionService:
     ) -> None:
         self.references: Dict[str, np.ndarray] = {}
         self._reference_hashes: Dict[str, str] = {}
+        self._surface_geometry_cache: OrderedDict[str, tuple[tuple, GeometryWeights]] = OrderedDict()
         self._ref_orb_cache: Dict[str, Tuple[list, Optional[np.ndarray]]] = {}
         self.roi_polygons: Dict[str, list[Tuple[float, float]]] = {}
         self.perspective_lines: Dict[str, PerspectiveLine] = {}
@@ -179,11 +190,13 @@ class InspectionService:
         self._analysis_settings_overrides: Dict[str, dict[str, object]] = {}
         self._analysis_settings_simple_knobs: Dict[str, dict[str, object]] = {}
         self._analysis_settings_detailed_knobs: Dict[str, dict[str, object]] = {}
-        self._analysis_settings_lock = threading.Lock()
+        self._analysis_settings_lock = threading.RLock()
         self._product_locks_guard = threading.Lock()
         self._product_locks: Dict[str, threading.RLock] = {}
+        self._learning_lock = threading.RLock()
         self._feature_lock = threading.Lock()
         self._analysis_settings_mtime_ns = -1
+        self._analysis_settings_signature = None
         self._orb = cv2.ORB_create(nfeatures=1800)
         self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
         self._fp_zones_file = Path(__file__).resolve().parent.parent / "data" / "fp_zones.json"
@@ -229,6 +242,7 @@ class InspectionService:
         with self._product_lock(product_type):
             self.references[product_type] = image
             self._reference_hashes[product_type] = reference_fingerprint(image)
+            self._invalidate_surface_geometry(product_type)
             self._update_ref_orb_cache(product_type, image)
 
     def set_reference_frame(self, product_type: str, frame: np.ndarray) -> None:
@@ -236,6 +250,7 @@ class InspectionService:
         with self._product_lock(product_type):
             self.references[product_type] = image
             self._reference_hashes[product_type] = reference_fingerprint(image)
+            self._invalidate_surface_geometry(product_type)
             self._update_ref_orb_cache(product_type, image)
 
     def _product_lock(self, product_type: str) -> threading.RLock:
@@ -255,6 +270,8 @@ class InspectionService:
         }
         self.references.clear()
         self._reference_hashes.clear()
+        with self._product_locks_guard:
+            self._surface_geometry_cache.clear()
         self._ref_orb_cache.clear()
         self.roi_polygons.clear()
         self.perspective_lines.clear()
@@ -292,24 +309,53 @@ class InspectionService:
         return self._accepted_normals.image(case_id)
 
     def delete_accepted_normal_case(self, case_id: str) -> bool:
+        with self._learning_lock:
+            case = self._accepted_normals.get(case_id)
+            if case is None:
+                return False
+            with self._product_lock(case.product_type):
+                return self._delete_accepted_normal_case_unlocked(case_id)
+
+    def _delete_accepted_normal_case_unlocked(self, case_id: str) -> bool:
         case = self._accepted_normals.get(case_id)
         deleted = self._accepted_normals.delete(case_id)
         if deleted:
-            self._learning_reviews.unmark_case(case_id)
             if case is not None:
                 self._delete_fp_zones_for_source(
                     source_defect_id=case.source_defect_id,
                     source_inspection_id=case.source_inspection_id,
                 )
+            self._learning_reviews.unmark_case(case_id)
         return deleted
 
     def delete_all_accepted_normal_cases(self) -> int:
-        deleted_count = self._accepted_normals.clear()
-        self._learning_reviews.unmark_all_cases()
-        self._delete_auto_fp_zones()
-        return deleted_count
+        with self._learning_lock:
+            products = {case["product_type"] for case in self._accepted_normals.list()}
+            with self._fp_zones_lock:
+                self._refresh_fp_zones_if_changed()
+                products.update(self.fp_zones)
+            with ExitStack() as locks:
+                for product_type in sorted(products):
+                    locks.enter_context(self._product_lock(product_type))
+                deleted_count = self._accepted_normals.clear()
+                self._delete_auto_fp_zones()
+                self._learning_reviews.unmark_all_cases()
+                return deleted_count
 
     def accept_review_defect_as_normal(
+        self,
+        inspection_id: str,
+        defect_id: str,
+        note: str = "",
+    ) -> dict:
+        with self._learning_lock:
+            review = self._learning_reviews.get(inspection_id)
+            if review is None:
+                raise KeyError("inspection")
+            with self._product_lock(review.product_type):
+                return self._accept_review_defect_as_normal_unlocked(inspection_id, defect_id, note)
+
+    def _accept_review_defect_as_normal_unlocked(
         self,
         inspection_id: str,
         defect_id: str,
@@ -339,9 +385,12 @@ class InspectionService:
         candidate.matched_case_id = accepted_case.id
         candidate.similarity = 1.0
         review.accepted_defect_ids.add(defect_id)
-        self._learning_reviews.put(review)
-
-        fp_zones = self._add_fp_zones_from_candidates(review, [candidate], note)
+        try:
+            fp_zones = self._add_fp_zones_from_candidates(review, [candidate], note)
+            self._learning_reviews.put(review)
+        except Exception:
+            self._rollback_review_learning(review, [candidate], [accepted_case])
+            raise
         counterfactual_score, counterfactual_status = self._review_counterfactual(review)
         return {
             "saved": True,
@@ -359,6 +408,18 @@ class InspectionService:
         }
 
     def accept_all_review_defects_as_normal(
+        self,
+        inspection_id: str,
+        note: str = "",
+    ) -> dict:
+        with self._learning_lock:
+            review = self._learning_reviews.get(inspection_id)
+            if review is None:
+                raise KeyError("inspection")
+            with self._product_lock(review.product_type):
+                return self._accept_all_review_defects_as_normal_unlocked(inspection_id, note)
+
+    def _accept_all_review_defects_as_normal_unlocked(
         self,
         inspection_id: str,
         note: str = "",
@@ -393,16 +454,11 @@ class InspectionService:
                 candidate.similarity = 1.0
                 review.accepted_defect_ids.add(candidate.id)
                 accepted_cases.append(accepted_case)
+            fp_zones = self._add_fp_zones_from_candidates(review, candidates, note)
+            self._learning_reviews.put(review)
         except Exception:
-            for candidate, accepted_case in zip(candidates, accepted_cases):
-                self._accepted_normals.delete(accepted_case.id)
-                candidate.matched_case_id = None
-                candidate.similarity = None
-                review.accepted_defect_ids.discard(candidate.id)
+            self._rollback_review_learning(review, candidates, accepted_cases)
             raise
-
-        self._learning_reviews.put(review)
-        fp_zones = self._add_fp_zones_from_candidates(review, candidates, note)
         counterfactual_score, counterfactual_status = self._review_counterfactual(review)
         return {
             "saved": True,
@@ -423,6 +479,21 @@ class InspectionService:
     def accept_review_all_as_normal(self, inspection_id: str, note: str = "") -> dict:
         return self.accept_all_review_defects_as_normal(inspection_id, note)
 
+    def _rollback_review_learning(self, review, candidates, accepted_cases) -> None:
+        """An unsuccessful request must not leave active learned exceptions."""
+        for candidate, accepted_case in zip(candidates, accepted_cases):
+            try:
+                self._accepted_normals.delete(accepted_case.id)
+            except Exception:
+                logger.exception("failed to roll back accepted normal case_id=%s", accepted_case.id)
+            try:
+                self._delete_fp_zones_for_source(candidate.id, review.inspection_id)
+            except Exception:
+                logger.exception("failed to roll back auto FP zone defect_id=%s", candidate.id)
+            candidate.matched_case_id = None
+            candidate.similarity = None
+            review.accepted_defect_ids.discard(candidate.id)
+
     def _review_counterfactual(self, review) -> Tuple[Optional[float], Optional[str]]:
         """Ознакомительный пересчёт не публикуется в оркестратор/PLC."""
         counterfactual_score: Optional[float] = None
@@ -431,9 +502,36 @@ class InspectionService:
             aligned, diff_map, raw_mask = decode_review_arrays(review)
             settings = self.get_analysis_settings(review.product_type)
             reference = self.get_reference(review.product_type)
-            polygon = self.get_roi_polygon(review.product_type)
+            current_hash = self._reference_hashes.get(review.product_type)
+            if current_hash and current_hash != review.reference_hash:
+                reference = None
+            if review.geometry_context is not None:
+                polygon = review.geometry_context.get("roi_polygon")
+                line = review.geometry_context.get("perspective_line")
+                height, width = aligned.shape[:2]
+                perspective_weights = perspective_roi_far_weights(
+                    width, height, tuple(tuple(p) for p in line), tuple(tuple(p) for p in polygon),
+                    (0, 0, width, height), _FAR_EDGE_ACTIVE_ROI_HEIGHT,
+                ) if polygon and line else None
+                # Freeze the metric with the inspection, including a rejected
+                # fit (None). Never re-estimate it from a newer reference/ROI.
+                model = CurvatureModel.restore(review.geometry_context.get("curvature_model"))
+                perspective_weights = with_curvature(perspective_weights, model, width, height, polygon)
+            else:
+                polygon = self.get_roi_polygon(review.product_type) if reference is not None else None
+                line = self.get_perspective_line(review.product_type)
+                height, width = aligned.shape[:2]
+                perspective_weights = perspective_roi_far_weights(
+                    width, height, tuple(map(tuple, line)), tuple(map(tuple, polygon)),
+                    (0, 0, width, height), _FAR_EDGE_ACTIVE_ROI_HEIGHT,
+                ) if polygon and line else None
             if reference is not None:
                 reference = reference.copy()
+                if reference.shape[:2] != aligned.shape[:2]:
+                    reference = cv2.resize(
+                        reference, (aligned.shape[1], aligned.shape[0]),
+                        interpolation=cv2.INTER_LINEAR,
+                    )
                 if polygon is not None:
                     aligned, reference = mask_to_polygon(aligned, reference, polygon)
             learned_filter = self._accepted_normals.apply(
@@ -446,6 +544,8 @@ class InspectionService:
             learned_score, learned_mask = self._run_anomaly_model(
                 learned_filter.filtered_diff_map,
                 settings,
+                decision_threshold=review.threshold,
+                perspective_weights=perspective_weights,
             )
             fp_recheck = self._recheck_fp_zones(
                 review.product_type,
@@ -457,6 +557,7 @@ class InspectionService:
                 settings,
                 review.reference_hash,
                 review.threshold,
+                perspective_weights=perspective_weights,
             )
             _, _, counterfactual_score, counterfactual_status = self._score_inspection_regions(
                 filtered_diff_map=fp_recheck["filtered_diff_map"],
@@ -465,6 +566,7 @@ class InspectionService:
                 settings=settings,
                 polygon=polygon,
                 sub_zones=self.get_roi_sub_zones(review.product_type),
+                perspective_weights=perspective_weights,
             )
             review.counterfactual_score = counterfactual_score
             review.counterfactual_status = counterfactual_status
@@ -479,6 +581,7 @@ class InspectionService:
     def set_roi_polygon(self, product_type: str, points: list[Tuple[float, float]]) -> None:
         with self._product_lock(product_type):
             self.roi_polygons[product_type] = validate_polygon_points(points, "ROI polygon")
+            self._invalidate_surface_geometry(product_type)
 
     def get_roi_polygon(self, product_type: str) -> Optional[list[Tuple[float, float]]]:
         return self.roi_polygons.get(product_type)
@@ -494,6 +597,7 @@ class InspectionService:
                 self.perspective_lines.pop(product_type, None)
             else:
                 self.perspective_lines[product_type] = validate_perspective_line(points)
+            self._invalidate_surface_geometry(product_type)
 
     def get_perspective_line(self, product_type: str) -> Optional[PerspectiveLine]:
         return self.perspective_lines.get(product_type)
@@ -565,13 +669,15 @@ class InspectionService:
         return False
 
     def get_analysis_settings(self, analysis_profile: str) -> AnalysisSettings:
-        self._reload_analysis_settings_if_stale()
-        overrides = self._resolve_analysis_settings_overrides(analysis_profile)
-        return AnalysisSettings.from_overrides(overrides)
+        with self._analysis_settings_lock:
+            self._reload_analysis_settings_if_stale()
+            overrides = self._resolve_analysis_settings_overrides(analysis_profile)
+            return AnalysisSettings.from_overrides(overrides)
 
     def get_analysis_settings_overrides(self, analysis_profile: str) -> dict[str, object]:
-        self._reload_analysis_settings_if_stale()
-        return dict(self._resolve_analysis_settings_overrides(analysis_profile))
+        with self._analysis_settings_lock:
+            self._reload_analysis_settings_if_stale()
+            return dict(self._resolve_analysis_settings_overrides(analysis_profile))
 
     def _resolve_analysis_settings_overrides(self, analysis_profile: str) -> dict[str, object]:
         """UI пишет overrides в analysis_profile (bench-lan1), inspect — в product#cam=N.
@@ -590,34 +696,36 @@ class InspectionService:
         return {}
 
     def update_analysis_settings(self, analysis_profile: str, partial: dict[str, object]) -> dict[str, object]:
-        current = dict(self._analysis_settings_overrides.get(analysis_profile, {}))
-        allowed = AnalysisSettings.field_names()
-        for key, value in partial.items():
-            if key not in allowed:
-                raise ValueError(f"Unknown analysis setting: {key}")
-            current[key] = value
-        AnalysisSettings.from_overrides(current)
-        self._analysis_settings_overrides[analysis_profile] = current
-        # Полный API сбивает abstract-режим: knobs больше не соответствуют overrides.
-        self._analysis_settings_simple_knobs.pop(analysis_profile, None)
-        self._analysis_settings_detailed_knobs.pop(analysis_profile, None)
-        self._save_analysis_settings()
-        return dict(current)
+        with self._analysis_settings_update():
+            current = dict(self._analysis_settings_overrides.get(analysis_profile, {}))
+            allowed = AnalysisSettings.field_names()
+            for key, value in partial.items():
+                if key not in allowed:
+                    raise ValueError(f"Unknown analysis setting: {key}")
+                current[key] = value
+            AnalysisSettings.from_overrides(current)
+            self._analysis_settings_overrides[analysis_profile] = current
+            # Полный API сбивает abstract-режим: knobs больше не соответствуют overrides.
+            self._analysis_settings_simple_knobs.pop(analysis_profile, None)
+            self._analysis_settings_detailed_knobs.pop(analysis_profile, None)
+            return dict(current)
 
     def reset_analysis_settings(self, analysis_profile: str) -> dict[str, object]:
-        self._analysis_settings_overrides.pop(analysis_profile, None)
-        self._analysis_settings_simple_knobs.pop(analysis_profile, None)
-        self._analysis_settings_detailed_knobs.pop(analysis_profile, None)
-        self._save_analysis_settings()
-        return {}
+        with self._analysis_settings_update():
+            self._analysis_settings_overrides.pop(analysis_profile, None)
+            self._analysis_settings_simple_knobs.pop(analysis_profile, None)
+            self._analysis_settings_detailed_knobs.pop(analysis_profile, None)
+            return {}
 
     def get_simple_knobs(self, analysis_profile: str) -> dict[str, object] | None:
-        self._reload_analysis_settings_if_stale()
-        return self._resolve_analysis_settings_knobs(self._analysis_settings_simple_knobs, analysis_profile)
+        with self._analysis_settings_lock:
+            self._reload_analysis_settings_if_stale()
+            return self._resolve_analysis_settings_knobs(self._analysis_settings_simple_knobs, analysis_profile)
 
     def get_detailed_knobs(self, analysis_profile: str) -> dict[str, object] | None:
-        self._reload_analysis_settings_if_stale()
-        return self._resolve_analysis_settings_knobs(self._analysis_settings_detailed_knobs, analysis_profile)
+        with self._analysis_settings_lock:
+            self._reload_analysis_settings_if_stale()
+            return self._resolve_analysis_settings_knobs(self._analysis_settings_detailed_knobs, analysis_profile)
 
     def _resolve_analysis_settings_knobs(
         self,
@@ -647,11 +755,12 @@ class InspectionService:
         threshold: float | None = None,
         sensitivity: float | None = None,
     ) -> dict[str, object]:
-        simple = self.get_simple_knobs(analysis_profile)
-        thr = float(threshold if threshold is not None else (simple or {}).get("threshold", 0.25))
-        sens = float(sensitivity if sensitivity is not None else (simple or {}).get("sensitivity", 0.5))
-        strengths = self.get_strengths_for_profile(analysis_profile)
-        return expand_merged(thr, sens, **strengths)
+        with self._analysis_settings_lock:
+            simple = self.get_simple_knobs(analysis_profile)
+            thr = float(threshold if threshold is not None else (simple or {}).get("threshold", 0.25))
+            sens = float(sensitivity if sensitivity is not None else (simple or {}).get("sensitivity", 0.5))
+            strengths = self.get_strengths_for_profile(analysis_profile)
+            return expand_merged(thr, sens, **strengths)
 
     def apply_simple_settings(
         self,
@@ -660,13 +769,13 @@ class InspectionService:
         knobs: dict[str, object],
     ) -> dict[str, object]:
         """Сохранить simple-knobs и пересчитать overrides (силы detailed сохраняются)."""
-        AnalysisSettings.from_overrides(overrides)
-        self._analysis_settings_overrides[analysis_profile] = dict(overrides)
-        self._analysis_settings_simple_knobs[analysis_profile] = dict(knobs)
-        if analysis_profile not in self._analysis_settings_detailed_knobs:
-            self._analysis_settings_detailed_knobs[analysis_profile] = dict(DEFAULT_STRENGTHS)
-        self._save_analysis_settings()
-        return dict(overrides)
+        with self._analysis_settings_update():
+            AnalysisSettings.from_overrides(overrides)
+            self._analysis_settings_overrides[analysis_profile] = dict(overrides)
+            self._analysis_settings_simple_knobs[analysis_profile] = dict(knobs)
+            if analysis_profile not in self._analysis_settings_detailed_knobs:
+                self._analysis_settings_detailed_knobs[analysis_profile] = dict(DEFAULT_STRENGTHS)
+            return dict(overrides)
 
     def apply_detailed_settings(
         self,
@@ -674,13 +783,38 @@ class InspectionService:
         strength_knobs: dict[str, object],
     ) -> dict[str, object]:
         """Сохранить силы групп и пересчитать overrides с текущей simple-чувствительностью."""
-        normalized = self._normalize_detailed_knobs(strength_knobs)
-        self._analysis_settings_detailed_knobs[analysis_profile] = normalized
-        expanded = self.expand_settings_for_profile(analysis_profile)
-        AnalysisSettings.from_overrides(expanded)
-        self._analysis_settings_overrides[analysis_profile] = dict(expanded)
-        self._save_analysis_settings()
-        return dict(expanded)
+        with self._analysis_settings_update():
+            normalized = self._normalize_detailed_knobs(strength_knobs)
+            self._analysis_settings_detailed_knobs[analysis_profile] = normalized
+            expanded = self.expand_settings_for_profile(analysis_profile)
+            AnalysisSettings.from_overrides(expanded)
+            self._analysis_settings_overrides[analysis_profile] = dict(expanded)
+            return dict(expanded)
+
+    @contextmanager
+    def _analysis_settings_update(self):
+        """Publish one settings update, or restore the previous runtime snapshot."""
+        with self._analysis_settings_lock:
+            self._reload_analysis_settings_if_stale()
+            previous = (
+                copy.deepcopy(self._analysis_settings_overrides),
+                copy.deepcopy(self._analysis_settings_simple_knobs),
+                copy.deepcopy(self._analysis_settings_detailed_knobs),
+                self._analysis_settings_mtime_ns,
+                getattr(self, "_analysis_settings_signature", None),
+            )
+            try:
+                yield
+                self._save_analysis_settings()
+            except Exception:
+                (
+                    self._analysis_settings_overrides,
+                    self._analysis_settings_simple_knobs,
+                    self._analysis_settings_detailed_knobs,
+                    self._analysis_settings_mtime_ns,
+                    self._analysis_settings_signature,
+                ) = previous
+                raise
 
     def add_fp_zone(
         self,
@@ -735,16 +869,16 @@ class InspectionService:
 
     def _add_fp_zones_from_candidates(self, review, candidates, note: str = "") -> list[FPZone]:
         """По контурам review построить FP-зоны с отступом и мини-эталоном."""
-        aligned = self._last_aligned.get(review.product_type)
-        if aligned is None:
-            try:
-                aligned, _, _ = decode_review_arrays(review)
-            except Exception:
-                logger.exception(
-                    "cannot decode review aligned frame for FP zones inspection_id=%s",
-                    review.inspection_id,
-                )
-                return []
+        # The operator may review an older inspection after newer frames arrive.
+        # Its mini-etalon must describe the image that was actually accepted.
+        try:
+            aligned, _, _ = decode_review_arrays(review)
+        except Exception:
+            logger.exception(
+                "cannot decode review aligned frame for FP zones inspection_id=%s",
+                review.inspection_id,
+            )
+            return []
         height, width = aligned.shape[:2]
         zones: list[FPZone] = []
         for candidate in candidates:
@@ -942,6 +1076,10 @@ class InspectionService:
                 product_type=product_type,
             )
 
+        # Retain real neighborhood pixels for illumination and blur. Setting
+        # them to black first creates artificial structure along the ROI edge.
+        difference_aligned = aligned
+        difference_reference = reference
         # 2. Ограничить анализ ROI-полигоном (вне полигона — нули).
         polygon = self.get_roi_polygon(product_type)
         if polygon is not None:
@@ -967,8 +1105,8 @@ class InspectionService:
 
         # 3. Карта отличий эталон vs выровненный кадр.
         illumination_diagnostics: dict[str, object] = {}
-        diff_source_aligned = aligned
-        diff_source_reference = reference
+        diff_source_aligned = difference_aligned
+        diff_source_reference = difference_reference
         diff_bbox: Optional[tuple[int, int, int, int]] = None
         roi_vertical_bounds: Optional[tuple[int, int]] = None
         if polygon is not None:
@@ -981,8 +1119,8 @@ class InspectionService:
             )
             if roi_height > 0:
                 roi_vertical_bounds = (roi_y, roi_y + roi_height)
-            # Keep enough context for the widest local illumination kernel
-            # (up to 81 px) so defects near the ROI edge are not weakened.
+            # Keep real context for local structure and light filtering, so
+            # defects near the ROI edge do not see an artificial black border.
             diff_bbox = polygon_bbox_from_norm_points(
                 frame_width,
                 frame_height,
@@ -991,11 +1129,11 @@ class InspectionService:
             )
             crop_x, crop_y, crop_width, crop_height = diff_bbox
             if crop_width > 0 and crop_height > 0:
-                diff_source_aligned = aligned[
+                diff_source_aligned = difference_aligned[
                     crop_y : crop_y + crop_height,
                     crop_x : crop_x + crop_width,
                 ]
-                diff_source_reference = reference[
+                diff_source_reference = difference_reference[
                     crop_y : crop_y + crop_height,
                     crop_x : crop_x + crop_width,
                 ]
@@ -1007,6 +1145,7 @@ class InspectionService:
             reference.shape,
             diff_bbox,
             diff_source_aligned.shape,
+            polygon,
         )
         diff_crop = self._compute_advanced_difference(
             diff_source_aligned,
@@ -1036,6 +1175,11 @@ class InspectionService:
             )
         else:
             diff_map = diff_crop
+        if polygon is not None:
+            roi_diff_mask = polygon_mask_from_norm_points(
+                reference.shape[1], reference.shape[0], polygon,
+            )
+            diff_map[roi_diff_mask == 0] = 0
         log_analysis_stage(
             "illumination",
             "shadow/glare guard applied",
@@ -1051,10 +1195,16 @@ class InspectionService:
         )
 
         # 4. Бинарная маска дефектов + глобальный score по diff.
+        perspective_detection_weights = perspective_weights
+        if perspective_weights is not None and diff_bbox is not None:
+            perspective_detection_weights = self._perspective_weights_for(
+                product_type, reference.shape, None, reference.shape, polygon,
+            )
         anomaly_score, segmentation_mask = self._run_anomaly_model(
             diff_map,
             settings,
             decision_threshold=inspection_threshold,
+            perspective_weights=perspective_detection_weights,
         )
         anomaly_finished = time.perf_counter()
         log_analysis_stage(
@@ -1110,6 +1260,7 @@ class InspectionService:
                 learned_diff_map,
                 settings,
                 decision_threshold=inspection_threshold,
+                perspective_weights=perspective_detection_weights,
             )
             if learned_filter.all_important_candidates_matched:
                 residual_candidates = extract_defect_candidates(
@@ -1135,10 +1286,26 @@ class InspectionService:
                         and candidate.diff_q90 >= settings.min_diff_signal
                     )
                 ]
-                if not significant_residuals and not guarded_residuals:
-                    learned_diff_map = np.zeros_like(learned_diff_map)
-                    segmentation_mask = np.zeros_like(segmentation_mask)
-                    learned_score = 0.0
+                if (
+                    not significant_residuals
+                    and not guarded_residuals
+                    and learned_score < inspection_threshold
+                ):
+                    # A sub-zone can reject below the camera's global threshold.
+                    # Relative review importance must never override that verdict.
+                    _, _, _, residual_status = self._score_inspection_regions(
+                        filtered_diff_map=learned_diff_map,
+                        segmentation_mask=segmentation_mask,
+                        inspection_threshold=inspection_threshold,
+                        settings=settings,
+                        polygon=polygon,
+                        sub_zones=self.get_roi_sub_zones(product_type),
+                        perspective_weights=perspective_detection_weights,
+                    )
+                    if residual_status == "ГОДЕН":
+                        learned_diff_map = np.zeros_like(learned_diff_map)
+                        segmentation_mask = np.zeros_like(segmentation_mask)
+                        learned_score = 0.0
             log_analysis_stage(
                 "learned_normals",
                 "accepted normals matched and score recalculated",
@@ -1167,6 +1334,7 @@ class InspectionService:
             settings,
             ref_hash,
             inspection_threshold,
+            perspective_weights=perspective_detection_weights,
         )
         fp_recheck_finished = time.perf_counter()
         filtered_diff_map = fp_recheck["filtered_diff_map"]
@@ -1208,6 +1376,7 @@ class InspectionService:
             polygon=polygon,
             sub_zones=sub_zones,
             precomputed_main_score=precomputed_main_score,
+            perspective_weights=perspective_detection_weights,
         )
         log_analysis_stage(
             "regional_scoring",
@@ -1230,12 +1399,6 @@ class InspectionService:
         # Сохраняем в review только значимые области: они и отображаются, и
         # принимаются групповой кнопкой как допустимая норма.
         review_candidates = filter_review_candidates(candidate_source)
-        display_mask = np.zeros_like(segmentation_mask)
-        for candidate in review_candidates:
-            x, y, box_width, box_height = candidate.bbox
-            local_mask = candidate.mask.astype(bool)
-            display_region = display_mask[y : y + box_height, x : x + box_width]
-            display_region[local_mask] = 255
 
         excluded_normal_zones = []
         for candidate in learned_filter.candidates:
@@ -1296,7 +1459,9 @@ class InspectionService:
         # 8. Визуализации (heatmap_u8 — gray для SHM/UI, heatmap — цветной JET для base64).
         # Только энергия дефекта: сырой min-max по всему ROI заливает полигон зелёным.
         heatmap_started = time.perf_counter()
-        heatmap_mask = display_mask if int(np.count_nonzero(display_mask)) > 0 else segmentation_mask
+        # Every component used by the verdict must remain visible, including
+        # components omitted by the review's relative importance filter.
+        heatmap_mask = segmentation_mask
         heatmap_u8 = None
         if include_visuals:
             heatmap_u8 = self._build_heatmap_gray(heatmap_mask, filtered_diff_map)
@@ -1310,15 +1475,13 @@ class InspectionService:
             except Exception:
                 logger.exception("UI heatmap generation failed after inspection completed")
 
-        # The difference pipeline intentionally uses local blur/morphology and
-        # therefore can leave a small halo just outside the ROI boundary. Keep
-        # that numerical tolerance for scoring, but never expose it in the UI
-        # heatmap. This is applied to both the regular and pre-learning paths.
-        heatmap_visual_mask = raw_segmentation_mask
+        # Mask dilation and the visual halo can extend outside the ROI; clip
+        # the displayed heatmap back to the configured inspection region.
+        heatmap_visual_mask = segmentation_mask
         if polygon is not None and heatmap_u8 is not None:
             roi_mask = polygon_mask_from_norm_points(heatmap_u8.shape[1], heatmap_u8.shape[0], polygon) > 0
             heatmap_u8 = np.where(roi_mask, heatmap_u8, 0).astype(np.uint8)
-            heatmap_visual_mask = raw_segmentation_mask.copy()
+            heatmap_visual_mask = segmentation_mask.copy()
             heatmap_visual_mask[~roi_mask] = 0
         if include_visuals and pre_learning_heatmap:
             heatmap = self._colorize_heatmap_29c9cfa(heatmap_u8)
@@ -1366,6 +1529,15 @@ class InspectionService:
                 "diff_map": diff_map.copy() if defer_learning_review else diff_map,
                 "raw_mask": raw_segmentation_mask.copy() if defer_learning_review else raw_segmentation_mask,
                 "candidates": copy.deepcopy(review_candidates) if defer_learning_review else review_candidates,
+                "geometry_context": {
+                    "roi_polygon": copy.deepcopy(polygon),
+                    "perspective_line": copy.deepcopy(self.get_perspective_line(product_type)),
+                    "curvature_model": (
+                        perspective_detection_weights.model.snapshot()
+                        if isinstance(perspective_detection_weights, SurfaceWeights) else None
+                    ),
+                    "evidence_revision": "compact-structure-v4-curvature",
+                },
             }
             if defer_learning_review:
                 if self._deferred_learning_reviews.submit(review_task):
@@ -1467,6 +1639,7 @@ class InspectionService:
         polygon: Optional[list[Tuple[float, float]]],
         sub_zones: list[RoiSubZone],
         precomputed_main_score: Optional[float] = None,
+        perspective_weights: Optional[GeometryWeights] = None,
     ) -> tuple[float, list[RoiSubZoneScore], float, str]:
         """Единый расчёт вердикта для live-inspect и ознакомительного review."""
         h, w = filtered_diff_map.shape[:2]
@@ -1481,6 +1654,7 @@ class InspectionService:
                 main_region_mask,
                 settings,
                 inspection_threshold,
+                perspective_weights=perspective_weights,
             )
         )
         sub_zone_scores: list[RoiSubZoneScore] = []
@@ -1493,6 +1667,7 @@ class InspectionService:
                 zone_mask,
                 settings,
                 zone_threshold,
+                perspective_weights=perspective_weights,
             )
             sub_zone_scores.append(
                 RoiSubZoneScore(
@@ -1535,15 +1710,20 @@ class InspectionService:
         normalized = normalize_strengths(raw)
         return {key: int(round(value)) for key, value in normalized.items()}
 
-    def _load_analysis_settings(self) -> None:
-        self._analysis_settings_overrides = {}
-        self._analysis_settings_simple_knobs = {}
-        self._analysis_settings_detailed_knobs = {}
+    def _load_analysis_settings(self) -> bool:
+        overrides_by_profile = {}
+        simple_by_profile = {}
+        detailed_by_profile = {}
         if not self._analysis_settings_file.exists():
-            return
+            self._analysis_settings_overrides = overrides_by_profile
+            self._analysis_settings_simple_knobs = simple_by_profile
+            self._analysis_settings_detailed_knobs = detailed_by_profile
+            return True
         try:
             raw_payload = json.loads(self._analysis_settings_file.read_text(encoding="utf-8"))
-            entries = raw_payload if isinstance(raw_payload, list) else []
+            if not isinstance(raw_payload, list):
+                raise ValueError("Analysis settings must contain a list of profiles")
+            entries = raw_payload
             for entry in entries:
                 analysis_profile = str(
                     entry.get("analysis_profile", entry.get("product_type", ""))
@@ -1559,48 +1739,67 @@ class InspectionService:
                     if key in AnalysisSettings.field_names()
                 }
                 if filtered:
-                    self._analysis_settings_overrides[analysis_profile] = filtered
+                    AnalysisSettings.from_overrides(filtered)
+                    overrides_by_profile[analysis_profile] = filtered
                 simple_knobs = entry.get("simple_knobs")
                 if isinstance(simple_knobs, dict) and simple_knobs:
-                    self._analysis_settings_simple_knobs[analysis_profile] = dict(simple_knobs)
+                    simple_by_profile[analysis_profile] = dict(simple_knobs)
                 detailed_knobs = entry.get("detailed_knobs")
                 if isinstance(detailed_knobs, dict) and detailed_knobs:
-                    self._analysis_settings_detailed_knobs[analysis_profile] = self._normalize_detailed_knobs(
+                    detailed_by_profile[analysis_profile] = self._normalize_detailed_knobs(
                         detailed_knobs
                     )
                 else:
                     pro_knobs = entry.get("pro_knobs")
                     if isinstance(pro_knobs, dict) and pro_knobs:
-                        self._analysis_settings_detailed_knobs[analysis_profile] = self._migrate_legacy_pro_knobs(
+                        detailed_by_profile[analysis_profile] = self._migrate_legacy_pro_knobs(
                             pro_knobs
                         )
         except Exception:
-            self._analysis_settings_overrides = {}
-            self._analysis_settings_simple_knobs = {}
-            self._analysis_settings_detailed_knobs = {}
+            logger.exception("cannot reload analysis settings; keeping previous settings")
+            return False
+        self._analysis_settings_overrides = overrides_by_profile
+        self._analysis_settings_simple_knobs = simple_by_profile
+        self._analysis_settings_detailed_knobs = detailed_by_profile
+        return True
 
-    def _analysis_settings_file_mtime_ns(self) -> int:
+    def _analysis_settings_file_signature(self) -> Optional[tuple[int, int, int, int]]:
+        """Detect atomic replacements even when Windows timestamps coincide."""
         try:
-            if not self._analysis_settings_file.exists():
-                return 0
-            return int(self._analysis_settings_file.stat().st_mtime_ns)
+            stat = self._analysis_settings_file.stat()
+            return (stat.st_mtime_ns, stat.st_ctime_ns, stat.st_size, stat.st_ino)
         except OSError:
-            return 0
+            return None
 
     def _stamp_analysis_settings_mtime(self) -> None:
-        self._analysis_settings_mtime_ns = self._analysis_settings_file_mtime_ns()
+        self._analysis_settings_signature = self._analysis_settings_file_signature()
+        self._analysis_settings_mtime_ns = (
+            self._analysis_settings_signature[0] if self._analysis_settings_signature else 0
+        )
 
     def _reload_analysis_settings_if_stale(self) -> None:
-        mtime_ns = self._analysis_settings_file_mtime_ns()
-        if mtime_ns == self._analysis_settings_mtime_ns:
+        signature = self._analysis_settings_file_signature()
+        if (
+            signature == getattr(self, "_analysis_settings_signature", None)
+            and self._analysis_settings_mtime_ns != -1
+        ):
             return
         with self._analysis_settings_lock:
-            if mtime_ns == self._analysis_settings_mtime_ns:
+            signature = self._analysis_settings_file_signature()
+            if (
+                signature == getattr(self, "_analysis_settings_signature", None)
+                and self._analysis_settings_mtime_ns != -1
+            ):
                 return
-            self._load_analysis_settings()
-            self._analysis_settings_mtime_ns = mtime_ns
+            if self._load_analysis_settings():
+                self._analysis_settings_signature = signature
+                self._analysis_settings_mtime_ns = signature[0] if signature else 0
 
     def _save_analysis_settings(self) -> None:
+        with self._analysis_settings_lock:
+            self._save_analysis_settings_unlocked()
+
+    def _save_analysis_settings_unlocked(self) -> None:
         self._analysis_settings_file.parent.mkdir(parents=True, exist_ok=True)
         profiles = set(self._analysis_settings_overrides) | set(self._analysis_settings_simple_knobs) | set(
             self._analysis_settings_detailed_knobs
@@ -1620,7 +1819,15 @@ class InspectionService:
                     key: int(round(float(value))) for key, value in detailed_knobs.items()
                 }
             entries.append(entry)
-        self._analysis_settings_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")
+        payload = json.dumps(entries, ensure_ascii=True, indent=2)
+        temporary = self._analysis_settings_file.with_name(
+            f"{self._analysis_settings_file.name}.{uuid.uuid4().hex}.tmp"
+        )
+        try:
+            temporary.write_text(payload, encoding="utf-8")
+            temporary.replace(self._analysis_settings_file)
+        finally:
+            temporary.unlink(missing_ok=True)
         self._stamp_analysis_settings_mtime()
 
     def _load_roi_sub_zones(self) -> None:
@@ -1857,6 +2064,8 @@ class InspectionService:
         region_mask: np.ndarray,
         settings: AnalysisSettings,
         decision_threshold: Optional[float] = None,
+        *,
+        perspective_weights: Optional[GeometryWeights] = None,
     ) -> float:
         """Score одной области: повторный прогон детектора на маске + метрики активности."""
         if not np.any(region_mask):
@@ -1866,6 +2075,7 @@ class InspectionService:
         score, _ = self._run_anomaly_model(
             masked_diff,
             settings,
+            perspective_weights=perspective_weights,
             decision_threshold=(
                 settings.default_threshold
                 if decision_threshold is None
@@ -1902,8 +2112,9 @@ class InspectionService:
             zone_mask = polygon_mask_from_norm_points(width, height, zone.points_norm_ref)
             if not np.any(zone_mask):
                 continue
-            suppress = cv2.dilate(zone_mask, np.ones((5, 5), dtype=np.uint8), iterations=1) > 0
-            hole |= suppress
+            # Only the polygon is compared against the mini-etalon. Its outer
+            # halo is unverified and may contain a real cut beside the zone.
+            hole |= zone_mask > 0
         return hole
 
     @staticmethod
@@ -1934,6 +2145,9 @@ class InspectionService:
         settings: AnalysisSettings,
         *,
         expected_is_full_frame: bool,
+        perspective_weights: Optional[GeometryWeights] = None,
+        decision_threshold: Optional[float] = None,
+        verified_context_bbox: Optional[tuple[int, int, int, int]] = None,
     ) -> Optional[dict]:
         height, width = current_full.shape[:2]
         x0, y0, crop_w, crop_h = polygon_bbox_from_norm_points(width, height, points, padding=2)
@@ -1951,12 +2165,40 @@ class InspectionService:
             if expected_crop.shape[:2] != current_crop.shape[:2]:
                 expected_crop = cv2.resize(expected_crop, (crop_w, crop_h), interpolation=cv2.INTER_LINEAR)
         local_mask = polygon_mask_from_norm_points(width, height, points)[y0 : y0 + crop_h, x0 : x0 + crop_w]
+        verified_halo_mask = np.zeros_like(local_mask, dtype=bool)
+        if (
+            not expected_is_full_frame
+            and verified_context_bbox == (x0, y0, crop_w, crop_h)
+            and expected.shape[:2] == current_crop.shape[:2]
+        ):
+            # The crop includes two pixels of real context. Suppress a
+            # numerical halo only when that entire band still matches it.
+            # A new cut in the band keeps the full-frame response.
+            halo = (cv2.dilate(local_mask, np.ones((5, 5), np.uint8)) > 0) & (local_mask == 0)
+            context_delta = np.max(cv2.absdiff(current_crop, expected_crop), axis=2)
+            if np.any(halo) and np.all(context_delta[halo] <= 3):
+                verified_halo_mask = halo
         current_p, expected_p, _, box = self._pad_fp_crops(current_crop, expected_crop, local_mask)
-        diff_p = self._compute_advanced_difference(current_p, expected_p, settings)
         left, top, orig_w, orig_h = box
+        local_weights = None
+        padded_weights = None
+        if perspective_weights is not None:
+            local_weights = crop_weights(perspective_weights, (x0, y0, crop_w, crop_h))
+            padding = ((top, current_p.shape[0] - top - orig_h),
+                       (left, current_p.shape[1] - left - orig_w))
+            padded_weights = pad_weights(local_weights, padding)
+        diff_p = self._compute_advanced_difference(
+            current_p, expected_p, settings,
+            vertical_compensation=padded_weights is not None,
+            perspective_weights=padded_weights,
+            illumination_compensation=True,
+        )
         diff = diff_p[top : top + orig_h, left : left + orig_w]
         diff[local_mask == 0] = 0
-        score, seg = self._run_anomaly_model(diff, settings)
+        score, seg = self._run_anomaly_model(
+            diff, settings, perspective_weights=local_weights,
+            decision_threshold=decision_threshold,
+        )
         activity = self._measure_zone_activity_mask(diff, seg, local_mask > 0)
         return {
             "bbox": (x0, y0, crop_w, crop_h),
@@ -1964,6 +2206,7 @@ class InspectionService:
             "local_mask": local_mask,
             "score": float(max(score, activity["score"])),
             "activity": activity,
+            "verified_halo_mask": verified_halo_mask,
         }
 
     def _fp_zone_triggered(self, region: dict, settings: AnalysisSettings) -> bool:
@@ -1985,6 +2228,8 @@ class InspectionService:
         settings: AnalysisSettings,
         reference_hash: str = "",
         inspection_threshold: float = 0.25,
+        *,
+        perspective_weights: Optional[GeometryWeights] = None,
     ) -> dict:
         """Сегментация FP-зон: дырка в score + мини-эталон, если зона сработала vs основной эталон."""
         empty = {
@@ -2002,6 +2247,8 @@ class InspectionService:
         rechecked_zone_ids: list[str] = []
         fp_zone_scores: list[FPZoneScore] = []
         pending_residuals: list[tuple[FPZone, list]] = []
+        suppression_zones: list[FPZone] = []
+        checked_residuals: list[tuple[FPZone, dict]] = []
 
         for zone in zones:
             points = zone.points_norm_ref
@@ -2039,6 +2286,19 @@ class InspectionService:
                 or activity["score"] >= 0.08
             )
             if not triggered:
+                zone_mask = polygon_mask_from_norm_points(
+                    diff_map.shape[1], diff_map.shape[0], points,
+                ) > 0
+                # A compact weak defect can be significant yet occupy much
+                # less than 1% of a large FP zone. Check its local evidence
+                # before calling the zone quiet and cutting a blind hole.
+                if np.any(segmentation_mask[zone_mask]):
+                    triggered = self._score_region(
+                        diff_map, segmentation_mask, zone_mask, settings,
+                        inspection_threshold, perspective_weights=perspective_weights,
+                    ) >= 0.08
+            if not triggered:
+                suppression_zones.append(zone)
                 fp_zone_scores.append(
                     FPZoneScore(
                         zone_id=zone.id,
@@ -2052,10 +2312,6 @@ class InspectionService:
                 continue
             pending_residuals.append((zone, points))
 
-        hole_mask = self._fp_zone_hole_mask(diff_map.shape[1], diff_map.shape[0], zones)
-        if np.any(hole_mask):
-            filtered_diff_map[hole_mask] = 0
-
         for zone, points in pending_residuals:
             vs_fp = self._polygon_region_difference(
                 aligned,
@@ -2063,14 +2319,49 @@ class InspectionService:
                 points,
                 settings,
                 expected_is_full_frame=False,
+                perspective_weights=perspective_weights,
+                decision_threshold=inspection_threshold,
+                verified_context_bbox=(
+                    zone.crop_bbox
+                    if (zone.heatmap_w, zone.heatmap_h) == (aligned.shape[1], aligned.shape[0])
+                    else None
+                ),
             )
-            residual_score = 0.0 if vs_fp is None else float(vs_fp["score"])
-            keep_residual = vs_fp is not None and self._fp_zone_triggered(vs_fp, settings)
-            if keep_residual and vs_fp is not None:
+            if vs_fp is None:
+                fp_zone_scores.append(
+                    FPZoneScore(
+                        zone_id=zone.id,
+                        triggered_vs_reference=True,
+                        applied_fp_etalon=False,
+                        residual_score=0.0,
+                        status="SKIPPED",
+                        note="mini-etalon comparison unavailable",
+                    )
+                )
+                continue
+            suppression_zones.append(zone)
+            checked_residuals.append((zone, vs_fp))
+
+        # A stale or unchecked mini-etalon must never create a blind spot.
+        hole_mask = self._fp_zone_hole_mask(
+            diff_map.shape[1], diff_map.shape[0], suppression_zones,
+        )
+        for _, residual in checked_residuals:
+            x0, y0, crop_w, crop_h = residual["bbox"]
+            hole_mask[y0:y0 + crop_h, x0:x0 + crop_w] |= residual["verified_halo_mask"]
+        if np.any(hole_mask):
+            filtered_diff_map[hole_mask] = 0
+
+        for zone, vs_fp in checked_residuals:
+            residual_score = float(vs_fp["score"])
+            keep_residual = self._fp_zone_triggered(vs_fp, settings)
+            if keep_residual:
                 x0, y0, crop_w, crop_h = vs_fp["bbox"]
                 local = vs_fp["local_mask"] > 0
                 region = filtered_diff_map[y0 : y0 + crop_h, x0 : x0 + crop_w]
-                region[local] = vs_fp["diff"][local]
+                # Overlapping mini-etalons must not erase each other's evidence.
+                # Merge residual energy independently of zone insertion order.
+                region[local] = np.maximum(region[local], vs_fp["diff"][local])
                 status = "БРАК" if residual_score >= inspection_threshold else "ГОДЕН"
                 note = "residual defect over FP etalon"
             else:
@@ -2092,6 +2383,7 @@ class InspectionService:
             filtered_diff_map,
             settings,
             decision_threshold=inspection_threshold,
+            perspective_weights=perspective_weights,
         )
         return {
             "final_score": float(remaining_score),
@@ -2501,7 +2793,8 @@ class InspectionService:
         illumination_diagnostics: Optional[dict[str, object]] = None,
         vertical_compensation_frame: Optional[tuple[int, int]] = None,
         roi_vertical_bounds: Optional[tuple[int, int]] = None,
-        perspective_weights: Optional[tuple[np.ndarray, np.ndarray]] = None,
+        perspective_weights: Optional[GeometryWeights] = None,
+        illumination_compensation: Optional[bool] = None,
     ) -> np.ndarray:
         """Построить карту отличий (BGR), устойчивую к микросдвигу и тексту эталона."""
         if aligned.shape[:2] != reference.shape[:2]:
@@ -2514,8 +2807,29 @@ class InspectionService:
         cur_gray = cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY)
         # Classify illumination on the original gray signal. CLAHE is useful
         # for defects but can turn a smooth shadow/glare into artificial texture.
-        illumination_ref_gray = ref_gray.copy()
-        illumination_cur_gray = cur_gray.copy()
+        illumination_confidence = None
+        compensate_light = vertical_compensation if illumination_compensation is None else illumination_compensation
+        compact_raw = (
+            pre_normalization_compact_signal(ref_gray, cur_gray, settings, perspective_weights)
+            if compensate_light else None
+        )
+        if illumination_diagnostics is not None and isinstance(perspective_weights, SurfaceWeights):
+            model = perspective_weights.model
+            illumination_diagnostics.update(
+                curvature_source=model.source, curvature_confidence=round(model.confidence, 3),
+                curvature_reference_cap_radius_px=round(model.cap_radii[0], 2),
+                curvature_max_stretch=round(float(np.max(perspective_weights.curvature)), 3),
+            )
+        if compensate_light:
+            # Remove the smooth photometric field before CLAHE can turn its
+            # slope into texture. Keep pixels containing changed fine detail.
+            normalized_current = np.empty_like(cur_gray)
+            _, illumination_confidence = self._suppress_smooth_illumination(
+                cv2.absdiff(cur_gray, ref_gray), ref_gray, cur_gray,
+                diagnostics=illumination_diagnostics,
+                normalized_current=normalized_current,
+            )
+            cur_gray = normalized_current
 
         # CLAHE can over-amplify texture noise on smooth frames. clipLimit≈1.0 is a
         # near no-op — treat it as off so sensitivity can ramp continuously via
@@ -2531,6 +2845,18 @@ class InspectionService:
 
         # Light pre-smoothing suppresses matrix/sensor micro-noise so it does not
         # turn into false positives in robust difference map.
+        detail_gray = None
+        if vertical_compensation and perspective_weights is not None:
+            # Less blur preserves small far-side defects. Keep the same 2px
+            # displacement allowance as the main branch: a tighter envelope
+            # turned normal rim/print jitter into amplified far-side scratches.
+            detail_ref = cv2.GaussianBlur(ref_gray, (3, 3), 0)
+            detail_cur = cv2.GaussianBlur(cur_gray, (3, 3), 0)
+            detail_gray = cv2.max(
+                cv2.subtract(detail_cur, cv2.dilate(detail_ref, _LOCAL_ENVELOPE_KERNEL)),
+                cv2.subtract(cv2.erode(detail_ref, _LOCAL_ENVELOPE_KERNEL), detail_cur),
+            ).astype(np.float32)
+
         ref_gray = cv2.GaussianBlur(ref_gray, (5, 5), 0)
         cur_gray = cv2.GaussianBlur(cur_gray, (5, 5), 0)
 
@@ -2563,14 +2889,11 @@ class InspectionService:
         robust_gray = cv2.addWeighted(robust_gray, 0.6, blackhat, 0.2, 0.0)
         robust_gray = cv2.addWeighted(robust_gray, 1.0, tophat, 0.2, 0.0)
 
-        illumination_confidence = None
-        if vertical_compensation:
-            robust_gray, illumination_confidence = self._suppress_smooth_illumination(
-                robust_gray,
-                illumination_ref_gray,
-                illumination_cur_gray,
-                diagnostics=illumination_diagnostics,
-            )
+        if detail_gray is not None:
+            far_weight, _ = perspective_weights
+            base_response = robust_gray.astype(np.float32)
+            detail_response = np.maximum(base_response, detail_gray * 0.6)
+            robust_gray = (base_response + far_weight * (detail_response - base_response)).clip(0, 255).astype(np.uint8)
 
         # The bucket is inverted in the camera view, so the upper part of the
         # image is farther from the camera and its defects are weaker. Apply a
@@ -2578,19 +2901,20 @@ class InspectionService:
         # avoid turning texture/noise into defects; static reference edges are
         # still suppressed immediately below.
         far_edge_weight: Optional[np.ndarray] = None
+        applied_gain: Optional[np.ndarray] = None
         if vertical_compensation and perspective_weights is not None:
             # The user drew a near→far line: gain follows the real direction
             # of the perspective instead of the "top of frame is far" default.
-            smooth_weight, far_edge_weight = perspective_weights
-            if smooth_weight.shape != robust_gray.shape[:2]:
+            far_edge_weight, width_scale = perspective_weights
+            if far_edge_weight.shape != robust_gray.shape[:2]:
                 raise ValueError("Perspective weights do not match the diff crop")
-            extra_gain = self._far_edge_extra_gain(settings)
-            row_gain = (
-                1.0 + (_VERTICAL_COMPENSATION_MAX_GAIN - 1.0) * smooth_weight
-            ) * (1.0 + (extra_gain - 1.0) * far_edge_weight)
-            robust_float = robust_gray.astype(np.float32)
-            robust_float *= row_gain
-            robust_gray = np.clip(robust_float, 0.0, 255.0).astype(np.uint8)
+            # Keep the first 65% of the ROI neutral. In the final 35%, use the
+            # measured ROI taper as an automatic perspective scale and apply
+            # far_edge_max_gain as the operator-controlled multiplier.
+            manual_gain = max(1.0, float(settings.far_edge_max_gain))
+            target_gain = (manual_gain * width_scale).clip(1.0, 4.0)
+            row_gain = 1.0 + (target_gain - 1.0) * far_edge_weight
+            applied_gain = row_gain
         elif vertical_compensation:
             if vertical_compensation_frame is None:
                 row_gain = self._vertical_compensation_gain(robust_gray.shape[0])
@@ -2609,8 +2933,51 @@ class InspectionService:
                 )
                 extra_gain = self._far_edge_extra_gain(settings)
                 row_gain = row_gain * (1.0 + (extra_gain - 1.0) * far_edge_weight)
+            applied_gain = row_gain[:, np.newaxis]
+
+        if applied_gain is not None and far_edge_weight is not None:
+            # Add a smooth, bounded increment only in the final 10% of the
+            # same axis. Raising gain over the entire far zone would amplify
+            # normal print/rim jitter. The existing light guard and stable-edge
+            # cancellation below still act on the complete gain.
+            extra = min(
+                _FAR_TIP_EXTRA_GAIN_LIMIT,
+                max(0.0, float(settings.far_edge_max_gain) - 1.0) * 0.5,
+            )
+            if extra > 0.0:
+                tip = far_tip_weights(far_edge_weight, _FAR_EDGE_ACTIVE_ROI_HEIGHT)
+                if tip.ndim == 1:
+                    tip = tip[:, np.newaxis]
+                # A moving specular band can have sharp detail and confidence
+                # zero in the light guard. Confirm localized shape and local
+                # noise before adding gain, rather than amplifying every edge.
+                # Small islands may qualify for sensitivity, but the detector's
+                # normal area/noise rules still decide their final score.
+                _, tip_support = compact_residual_evidence(
+                    robust_gray, cv2.GaussianBlur(robust_gray, (3, 3), 0), settings,
+                    perspective_weights,
+                    minimum_source_support=max(6, settings.min_defect_area),
+                    perspective_area=False,
+                )
+                tip = tip * (tip_support > 0)
+                applied_gain = np.minimum(applied_gain * (1.0 + extra * tip), 4.0)
+                if illumination_diagnostics is not None:
+                    illumination_diagnostics.update(
+                        far_tip_extra_gain=round(1.0 + extra, 4),
+                        far_tip_fraction=0.10,
+                    )
+
+        if applied_gain is not None:
+            if illumination_confidence is not None:
+                # Photometric normalization precedes perspective compensation.
+                # Do not amplify its remaining smooth light signal into a defect:
+                # confident illumination cancels the gain, while protected changes
+                # in detail and saturated pixels (confidence == 0) keep full gain.
+                applied_gain = applied_gain / (
+                    1.0 + (applied_gain - 1.0) * illumination_confidence
+                )
             robust_float = robust_gray.astype(np.float32)
-            robust_float *= row_gain[:, np.newaxis]
+            robust_float *= applied_gain
             robust_gray = np.clip(robust_float, 0.0, 255.0).astype(np.uint8)
 
         # Compute gradients once and reuse them for stable-edge suppression,
@@ -2637,11 +3004,24 @@ class InspectionService:
                 float(settings.edge_suppress_factor),
                 float(settings.far_edge_edge_suppress_factor),
             )
-            edge_factors = settings.edge_suppress_factor + (
+            target_edge_response = settings.edge_suppress_factor + (
                 far_edge_factor - settings.edge_suppress_factor
             ) * far_edge_weight
-            if edge_factors.ndim == 1:
-                edge_factors = edge_factors[:, np.newaxis]
+            if target_edge_response.ndim == 1:
+                target_edge_response = target_edge_response[:, np.newaxis]
+            # The perspective gain has already been applied above. Treat the
+            # edge setting as the desired final response relative to the raw
+            # signal, otherwise a stable reference edge is multiplied twice
+            # (gain * weaker suppression) and becomes a false defect.
+            gain_map = (
+                np.broadcast_to(applied_gain, robust_gray.shape)
+                if applied_gain is not None
+                else np.ones(robust_gray.shape, dtype=np.float32)
+            )
+            edge_factors = np.broadcast_to(
+                target_edge_response,
+                robust_gray.shape,
+            ) / np.maximum(gain_map, 1.0)
             robust_gray[edge_mask] *= np.broadcast_to(
                 edge_factors,
                 robust_gray.shape,
@@ -2677,6 +3057,20 @@ class InspectionService:
                 text_vals,
                 0,
             ).astype(np.uint8)
+        if compact_raw is not None:
+            # Merge after light/text/edge suppression: otherwise the verified
+            # raw island would be erased a second time. Persist this same map
+            # for learning reviews and use it in mini-etalon comparisons too.
+            raw_response = cv2.GaussianBlur(compact_raw, (5, 5), 0).astype(np.float32)
+            if vertical_compensation and perspective_weights is not None:
+                raw_detail = cv2.GaussianBlur(compact_raw, (3, 3), 0).astype(np.float32)
+                raw_response += perspective_weights[0] * (np.maximum(raw_response, raw_detail) - raw_response)
+            if applied_gain is not None:
+                raw_response *= applied_gain
+            # The support remains the verified source island. Blur is only a
+            # response estimate and must not create an unverified outer halo.
+            raw_response[compact_raw == 0] = 0
+            robust_gray = cv2.max(robust_gray, np.clip(raw_response, 0, 255).astype(np.uint8))
         return cv2.cvtColor(robust_gray, cv2.COLOR_GRAY2BGR)
 
     @staticmethod
@@ -2686,6 +3080,7 @@ class InspectionService:
         current_gray: np.ndarray,
         *,
         diagnostics: Optional[dict[str, object]] = None,
+        normalized_current: Optional[np.ndarray] = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Suppress broad shadow/glare while retaining local structural changes."""
         height, width = robust_gray.shape[:2]
@@ -2704,8 +3099,11 @@ class InspectionService:
         if height == 0 or width == 0:
             return robust_gray, np.zeros_like(robust_gray, dtype=np.float32)
 
-        kernel_size = int(round(min(height, width) * 0.08))
-        kernel_size = min(81, max(7, kernel_size | 1))
+        # Use a pixel scale, not a fraction of the ROI/crop size. A moving
+        # specular band must not become "structure" just because the surface
+        # is large, or receive a different correction in a small mini-etalon.
+        # Fine detail and clipped highlights remain protected below.
+        kernel_size = 9
         ref_float = reference_gray.astype(np.float32)
         cur_float = current_gray.astype(np.float32)
         low_ref = cv2.GaussianBlur(ref_float, (kernel_size, kernel_size), 0)
@@ -2726,10 +3124,14 @@ class InspectionService:
         # only pixels preserving both are eligible for illumination suppression.
         detail_delta = np.abs((cur_float - low_cur) - (ref_float - low_ref))
         detail_confidence = _gaussian_similarity(detail_delta, _ILLUMINATION_DETAIL_SCALE)
-        ref_gx = cv2.Sobel(ref_float, cv2.CV_32F, 1, 0, ksize=3)
-        ref_gy = cv2.Sobel(ref_float, cv2.CV_32F, 0, 1, ksize=3)
-        cur_gx = cv2.Sobel(cur_float, cv2.CV_32F, 1, 0, ksize=3)
-        cur_gy = cv2.Sobel(cur_float, cv2.CV_32F, 0, 1, ksize=3)
+        # A smooth light field has gradients too. Compare the remaining
+        # detail, otherwise the slope of a glare protects the glare itself.
+        ref_detail = ref_float - low_ref
+        cur_detail = cur_float - low_cur
+        ref_gx = cv2.Sobel(ref_detail, cv2.CV_32F, 1, 0, ksize=3)
+        ref_gy = cv2.Sobel(ref_detail, cv2.CV_32F, 0, 1, ksize=3)
+        cur_gx = cv2.Sobel(cur_detail, cv2.CV_32F, 1, 0, ksize=3)
+        cur_gy = cv2.Sobel(cur_detail, cv2.CV_32F, 0, 1, ksize=3)
         gradient_delta = cv2.magnitude(cur_gx - ref_gx, cur_gy - ref_gy)
         gradient_confidence = _gaussian_similarity(gradient_delta, _ILLUMINATION_GRADIENT_SCALE)
 
@@ -2749,6 +3151,13 @@ class InspectionService:
         saturated_mask = (current_gray >= 250) & (reference_gray < 245)
         protected_mask = structural_mask | saturated_mask
         confidence[protected_mask] = 0.0
+        if normalized_current is not None:
+            structure_confidence = detail_confidence * gradient_confidence
+            structure_confidence[protected_mask] = 0.0
+            normalized_current[:] = np.clip(
+                cur_float - (low_cur - low_ref) * structure_confidence,
+                0.0, 255.0,
+            ).astype(np.uint8)
 
         detected = confidence >= 0.20
         detected_ratio = float(np.count_nonzero(detected)) / max(1, height * width)
@@ -2762,8 +3171,9 @@ class InspectionService:
 
         raw_float = robust_gray.astype(np.float32)
         corrected = raw_float * (1.0 - suppression * confidence)
-        if broad:
-            corrected[confidence >= 0.55] = 0.0
+        # Preserved local detail is evidence of illumination even when a
+        # glare does not span most of the image width.
+        corrected[confidence >= 0.55] = 0.0
         corrected[protected_mask] = np.maximum(corrected[protected_mask], raw_float[protected_mask])
 
         if diagnostics is not None:
@@ -2772,7 +3182,10 @@ class InspectionService:
             glare_mask = detected & (signed_shift >= _ILLUMINATION_MIN_SHIFT)
             pixels = max(1, height * width)
             raw_energy = float(np.sum(raw_float))
-            corrected_energy = float(np.sum(corrected))
+            corrected_energy = float(np.sum(
+                corrected if normalized_current is None
+                else cv2.absdiff(normalized_current, reference_gray)
+            ))
             diagnostics.update(
                 shadow_percent=round(100.0 * np.count_nonzero(shadow_mask) / pixels, 3),
                 glare_percent=round(100.0 * np.count_nonzero(glare_mask) / pixels, 3),
@@ -2794,27 +3207,49 @@ class InspectionService:
         total = max(float(settings.far_edge_max_gain), _VERTICAL_COMPENSATION_MAX_GAIN)
         return total / _VERTICAL_COMPENSATION_MAX_GAIN
 
+    def _invalidate_surface_geometry(self, product_type: str) -> None:
+        with self._product_locks_guard:
+            self._surface_geometry_cache.pop(product_type, None)
+
     def _perspective_weights_for(
         self,
         product_type: str,
         frame_shape: tuple[int, ...],
         diff_bbox: Optional[tuple[int, int, int, int]],
         crop_shape: tuple[int, ...],
-    ) -> Optional[tuple[np.ndarray, np.ndarray]]:
+        polygon: Optional[list[Tuple[float, float]]],
+    ) -> Optional[GeometryWeights]:
         line = self.get_perspective_line(product_type)
-        if line is None:
+        if line is None or polygon is None:
             return None
         frame_height, frame_width = frame_shape[:2]
         bbox = diff_bbox or (0, 0, frame_width, frame_height)
         if (bbox[3], bbox[2]) != tuple(crop_shape[:2]):
             return None
-        return perspective_far_weights(
-            frame_width,
-            frame_height,
-            line,
-            bbox,
-            _FAR_EDGE_ACTIVE_ROI_HEIGHT,
-        )
+        # Called under the product lock in inspection. Keep one entry per
+        # camera, including failed fits, and key it by every geometry input.
+        reference = self.get_reference(product_type)
+        key = (self._reference_hashes.get(product_type), tuple(map(tuple, polygon)),
+               tuple(map(tuple, line)), frame_width, frame_height)
+        with self._product_locks_guard:
+            cached = self._surface_geometry_cache.get(product_type)
+            if cached is not None:
+                self._surface_geometry_cache.move_to_end(product_type)
+        if cached is None or cached[0] != key:
+            weights = perspective_roi_far_weights(
+                frame_width, frame_height, line, tuple(map(tuple, polygon)),
+                (0, 0, frame_width, frame_height), _FAR_EDGE_ACTIVE_ROI_HEIGHT,
+            )
+            model = estimate_curvature(reference, polygon, line)
+            weights = with_curvature(weights, model, frame_width, frame_height, polygon)
+            with self._product_locks_guard:
+                self._surface_geometry_cache[product_type] = (key, weights)
+                self._surface_geometry_cache.move_to_end(product_type)
+                while len(self._surface_geometry_cache) > _SURFACE_GEOMETRY_CACHE_LIMIT:
+                    self._surface_geometry_cache.popitem(last=False)
+        else:
+            weights = cached[1]
+        return crop_weights(weights, bbox)
 
     @staticmethod
     def _vertical_compensation_gain(height: int) -> np.ndarray:
@@ -2902,6 +3337,7 @@ class InspectionService:
         settings: AnalysisSettings,
         *,
         decision_threshold: Optional[float] = None,
+        perspective_weights: Optional[GeometryWeights] = None,
     ) -> Tuple[float, np.ndarray]:
         """Вернуть (score 0..1, маска дефектов BGR).
 
@@ -2913,9 +3349,11 @@ class InspectionService:
         # broad low-contrast texture/background changes.
         gray = cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
         gray_blur = cv2.GaussianBlur(gray, (3, 3), 0)
+        compact_score, compact_mask = compact_residual_evidence(
+            gray, gray_blur, settings, perspective_weights,
+        )
         if float(np.max(gray_blur)) < settings.min_diff_signal:
-            zero = np.zeros_like(gray_blur, dtype=np.uint8)
-            return 0.0, cv2.cvtColor(zero, cv2.COLOR_GRAY2BGR)
+            return compact_score, cv2.cvtColor(compact_mask, cv2.COLOR_GRAY2BGR)
         threshold_value = float(
             max(
                 settings.min_diff_signal,
@@ -2926,24 +3364,42 @@ class InspectionService:
 
         # Suppress speckle noise but keep thin structures (scratches).
         cleaned = cv2.medianBlur(binary, 3)
+        if perspective_weights is not None:
+            far_weight, _ = perspective_weights
+            # Keep connected thin traces in the far zone; isolated sensor
+            # pixels still disappear and component area filtering stays active.
+            # Count original signal pixels: blur can turn one hot pixel into
+            # a cluster, which is not evidence of a connected thin defect.
+            count = cv2.filter2D((gray > threshold_value).astype(np.float32), -1, np.ones((3, 3), np.float32))
+            preserve = (far_weight >= 0.5) & (binary > 0) & (count >= 3)
+            cleaned[preserve] = 255
         cleaned = cv2.morphologyEx(
             cleaned,
             cv2.MORPH_CLOSE,
             np.ones((3, 3), dtype=np.uint8),
             iterations=1,
         )
-        kernel_long = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 1))
-        cleaned = cv2.morphologyEx(
+        # Bridge only small breaks in a real trace. A 20 px horizontal close
+        # joined unrelated amplified speckles into one very elongated object,
+        # which then received the unconditional scratch reject floor.
+        closed_x = cv2.morphologyEx(
             cleaned,
             cv2.MORPH_CLOSE,
-            kernel_long,
+            _DEFECT_GAP_CLOSE_KERNEL_X,
             iterations=1,
         )
+        closed_y = cv2.morphologyEx(
+            cleaned,
+            cv2.MORPH_CLOSE,
+            _DEFECT_GAP_CLOSE_KERNEL_Y,
+            iterations=1,
+        )
+        cleaned = cv2.bitwise_or(closed_x, closed_y)
 
         num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(cleaned, connectivity=8)
         filtered = np.zeros_like(cleaned)
         min_area = settings.min_defect_area
-        max_aspect = 0.0
+        scratch_floor = 0.0
         max_object_score = 0.0
         # Approximate text-like zones on diff map by strong local gradients.
         grad_x = cv2.Sobel(gray_blur, cv2.CV_32F, 1, 0, ksize=3)
@@ -2961,6 +3417,19 @@ class InspectionService:
             h = max(1, int(stats[label_idx, cv2.CC_STAT_HEIGHT]))
             aspect = max(w / h, h / w)
             object_min_area = 5 if aspect > 6.0 else min_area
+            if perspective_weights is not None:
+                far_weight, width_scale = perspective_weights
+                component = labels[y : y + h, x : x + w] == label_idx
+                local_far = float(np.mean(far_weight[y : y + h, x : x + w][component]))
+                local_scale = float(np.mean(width_scale[y : y + h, x : x + w][component]))
+                # Width is only a proxy for surface scale: use a conservative
+                # linear correction and retain a three-pixel noise floor.
+                effective_scale = 1.0 + local_far * (local_scale - 1.0)
+                source_support = np.count_nonzero(
+                    (gray[y : y + h, x : x + w] > threshold_value) & component
+                )
+                if source_support >= 3:
+                    object_min_area = max(3, int(np.ceil(object_min_area / effective_scale)))
 
             # Keep tiny but clearly elongated components (scratch-like traces).
             if area >= object_min_area or (area > 3 and aspect > settings.min_scratch_aspect):
@@ -2976,14 +3445,28 @@ class InspectionService:
                 ):
                     filtered_region = filtered[y : y + h, x : x + w]
                     filtered_region[component_mask] = 255
-                    max_aspect = max(max_aspect, float(aspect))
                     component_values = gray_blur[y : y + h, x : x + w][component_mask]
                     component_q90 = float(np.percentile(component_values, 90)) if component_values.size else 0.0
+                    signal_strength = min(
+                        1.0, component_q90 / max(24.0, settings.min_diff_signal * 3.0),
+                    )
                     local_score = float(
-                        (aspect / 15.0)
-                        + (area / 500.0)
+                        (min(aspect / 15.0, 1.0) + min(area / 500.0, 1.0)) * signal_strength
                         + ((component_q90 / 255.0) * 0.25)
                     )
+                    if aspect > settings.scratch_aspect_floor:
+                        scratch_floor = max(
+                            scratch_floor, settings.scratch_score_floor * signal_strength,
+                        )
+                    # Aspect is useful for scratches, but compact dents, holes
+                    # and stains can be strong defects too. Reward a component
+                    # only when both its supported area and signal are present;
+                    # isolated amplified pixels remain weak.
+                    compact_support = min(
+                        1.0,
+                        area / max(16.0, float(object_min_area) * 4.0),
+                    )
+                    local_score += compact_support * (component_q90 / 255.0) * 0.8
                     if text_overlap > 0.2:
                         local_score *= 1.3
 
@@ -3014,13 +3497,11 @@ class InspectionService:
         # elongated blobs + bright top-tail appeared, so a small sensitivity nudge
         # often jumped displayed anomaly from ~80% to 100%.
         heuristic_score = float(np.clip((max_object_score * 0.55) + (top_mean * 0.40), 0.0, 1.0))
-        if max_aspect > settings.scratch_aspect_floor:
-            # A positively identified scratch must not remain just below the
-            # active verdict threshold. Keep a small margin to avoid equality
-            # and floating-point rounding differences between regional passes.
-            threshold = settings.default_threshold if decision_threshold is None else decision_threshold
-            reject_floor = min(1.0, float(threshold) + 0.01)
-            heuristic_score = max(heuristic_score, settings.scratch_score_floor, reject_floor)
+        # Shape alone cannot prove a scratch. The score must be independent
+        # of the operator's decision threshold and backed by signal strength.
+        heuristic_score = max(heuristic_score, scratch_floor)
+        heuristic_score = max(heuristic_score, compact_score)
+        filtered = cv2.bitwise_or(filtered, compact_mask)
         heuristic_mask = cv2.cvtColor(filtered, cv2.COLOR_GRAY2BGR)
 
         if settings.use_patchcore and self._anomaly_engine is not None:

@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import copy
 import logging
 import math
 import os
@@ -360,6 +361,11 @@ class InspectionReview:
     accepted_defect_ids: set[str] = field(default_factory=set, repr=False)
     counterfactual_score: Optional[float] = None
     counterfactual_status: Optional[str] = None
+    # JPEG is a display artifact; learning and FP crops need original pixels.
+    aligned_png: bytes = field(default=b"", repr=False)
+    # Geometry is part of the frame's analysis coordinates, not mutable
+    # editor state. None keeps legacy reviews readable.
+    geometry_context: Optional[dict] = field(default=None, repr=False)
 
     def summary(self) -> dict:
         return {
@@ -448,6 +454,7 @@ class InspectionReviewStore:
         diff_map: np.ndarray,
         raw_mask: np.ndarray,
         candidates: list[DefectCandidate],
+        geometry_context: Optional[dict] = None,
     ) -> InspectionReview:
         mask_gray = _gray(raw_mask)
         diff_gray = _gray(diff_map)
@@ -479,10 +486,12 @@ class InspectionReviewStore:
             original_score=float(score),
             threshold=float(threshold),
             aligned_jpeg=_encode(aligned, ".jpg", [cv2.IMWRITE_JPEG_QUALITY, 85]),
+            aligned_png=_encode(aligned, ".png"),
             diff_png=_encode(diff_map, ".png"),
             raw_mask_png=_encode(raw_mask, ".png"),
             heatmap_jpeg=_encode(heatmap, ".jpg", [cv2.IMWRITE_JPEG_QUALITY, 88]),
             defects=review_candidates,
+            geometry_context=copy.deepcopy(geometry_context),
         )
         with self._lock:
             if self.storage_dir is not None:
@@ -544,8 +553,10 @@ class InspectionReviewStore:
                 self._write_review(review)
             elif review.inspection_id not in self._order:
                 raise KeyError(review.inspection_id)
-            self._order[review.inspection_id] = review.summary()
-            self._order.move_to_end(review.inspection_id)
+            # Editing an archived result must not turn it into a new frame or
+            # bypass the recent-history limit loaded at startup.
+            if review.inspection_id in self._order:
+                self._order[review.inspection_id] = review.summary()
 
     def mark_accepted(
         self,
@@ -583,7 +594,13 @@ class InspectionReviewStore:
 
     def _unmark_reviews(self, should_unmark) -> None:
         with self._lock:
-            for inspection_id in list(self._order):
+            inspection_ids = set(self._order)
+            if self.storage_dir is not None:
+                inspection_ids.update(
+                    folder.name for folder in self.storage_dir.iterdir()
+                    if folder.is_dir() and (folder / "meta.json").is_file()
+                )
+            for inspection_id in inspection_ids:
                 review = self.get(inspection_id)
                 if review is None:
                     continue
@@ -603,7 +620,8 @@ class InspectionReviewStore:
                 review.counterfactual_status = None
                 if self.storage_dir is not None:
                     self._write_review(review)
-                self._order[inspection_id] = review.summary()
+                if inspection_id in self._order:
+                    self._order[inspection_id] = review.summary()
 
     def _delete_review_dir(self, inspection_id: str) -> None:
         if self.storage_dir is None:
@@ -615,10 +633,17 @@ class InspectionReviewStore:
     def _write_review(self, review: InspectionReview) -> None:
         folder = self._review_dir(review.inspection_id)
         folder.mkdir(parents=True, exist_ok=True)
-        (folder / "aligned.jpg").write_bytes(review.aligned_jpeg)
-        (folder / "diff.png").write_bytes(review.diff_png)
-        (folder / "mask.png").write_bytes(review.raw_mask_png)
-        (folder / "heatmap.jpg").write_bytes(review.heatmap_jpeg)
+        # Frame images are immutable once metadata publishes the review.
+        # Learning edits only its annotations; never reopen those images for
+        # writing, which could truncate the existing frame on a disk error.
+        image_payloads = [] if (folder / "meta.json").exists() else [
+            ("aligned.jpg", review.aligned_jpeg),
+            ("diff.png", review.diff_png),
+            ("mask.png", review.raw_mask_png),
+            ("heatmap.jpg", review.heatmap_jpeg),
+        ]
+        if image_payloads and review.aligned_png:
+            image_payloads.append(("aligned.png", review.aligned_png))
         defects_payload = []
         npz_arrays: dict[str, np.ndarray] = {}
         for candidate in review.defects:
@@ -651,10 +676,35 @@ class InspectionReviewStore:
             "counterfactual_score": review.counterfactual_score,
             "counterfactual_status": review.counterfactual_status,
             "defects": defects_payload,
+            "geometry_context": review.geometry_context,
         }
-        (folder / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-        if npz_arrays:
-            np.savez_compressed(folder / "defects.npz", **npz_arrays)
+        # Publish metadata last: failed array writes must not claim that a
+        # review was learned or damage the templates of its previous version.
+        revision = uuid.uuid4().hex
+        temporary_arrays = folder / f"defects.{revision}.npz.tmp"
+        temporary_meta = folder / f"meta.{revision}.json.tmp"
+        temporary_images = [
+            (folder / f"{name}.{revision}.tmp", folder / name, payload)
+            for name, payload in image_payloads
+        ]
+        try:
+            for temporary_image, _, payload in temporary_images:
+                temporary_image.write_bytes(payload)
+            if npz_arrays:
+                with temporary_arrays.open("wb") as output:
+                    np.savez_compressed(output, **npz_arrays)
+                temporary_arrays.replace(folder / "defects.npz")
+            temporary_meta.write_text(
+                json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8",
+            )
+            for temporary_image, destination, _ in temporary_images:
+                temporary_image.replace(destination)
+            temporary_meta.replace(folder / "meta.json")
+        finally:
+            for temporary_image, _, _ in temporary_images:
+                temporary_image.unlink(missing_ok=True)
+            temporary_arrays.unlink(missing_ok=True)
+            temporary_meta.unlink(missing_ok=True)
 
     def _read_review(self, inspection_id: str) -> Optional[InspectionReview]:
         folder = self._review_dir(inspection_id)
@@ -709,6 +759,7 @@ class InspectionReviewStore:
                 )
             return InspectionReview(
                 inspection_id=str(meta["inspection_id"]),
+                geometry_context=meta.get("geometry_context"),
                 product_type=str(meta["product_type"]),
                 reference_hash=str(meta.get("reference_hash", "")),
                 created_at=str(meta.get("created_at", "")),
@@ -716,6 +767,7 @@ class InspectionReviewStore:
                 original_score=float(meta.get("original_score", 0.0)),
                 threshold=float(meta.get("threshold", 0.0)),
                 aligned_jpeg=(folder / "aligned.jpg").read_bytes(),
+                aligned_png=(folder / "aligned.png").read_bytes() if (folder / "aligned.png").exists() else b"",
                 diff_png=(folder / "diff.png").read_bytes(),
                 raw_mask_png=(folder / "mask.png").read_bytes(),
                 heatmap_jpeg=(folder / "heatmap.jpg").read_bytes(),
@@ -917,6 +969,13 @@ class AcceptedNormalMemory:
                 self._publish_storage_generation()
             except Exception:
                 self._cases.pop(case.id, None)
+                # A failed generation write can happen after both artifacts
+                # were installed. Do not resurrect this failed add on reload.
+                for suffix in (".json", ".npz", ".json.tmp", ".npz.tmp"):
+                    try:
+                        (self.storage_dir / f"{case.id}{suffix}").unlink(missing_ok=True)
+                    except OSError:
+                        logger.exception("failed to roll back accepted-normal artifact case_id=%s", case.id)
                 raise
         return case
 
@@ -985,6 +1044,7 @@ class AcceptedNormalMemory:
         filtered_mask = segmentation_mask.copy()
         matched_case_ids: list[str] = []
         suppressed_candidates: list[DefectCandidate] = []
+        color_residuals: list[tuple[tuple[int, int, int, int], np.ndarray]] = []
         for candidate in candidates:
             best_case, best_similarity = self._best_matching_case(candidate, cases)
             if best_case is None:
@@ -1001,11 +1061,36 @@ class AcceptedNormalMemory:
             )
             if fully_suppressed:
                 suppressed_candidates.append(candidate)
+            else:
+                x, y, width, height = candidate.bbox
+                color_residuals.append((
+                    candidate.bbox,
+                    filtered_diff[y:y + height, x:x + width].copy(),
+                ))
             matched_case_ids.append(best_case.id)
 
         # Never suppress an unmatched component merely because every other
         # important component matched. Its spatial gate has already said that
         # the saved normal does not explain it; it must remain score-bearing.
+        # Crop rectangles can overlap even when component masks are disjoint.
+        # Restore unmatched pixels after all cascades, including color residuals.
+        for candidate in candidates:
+            if candidate.id in matched_candidate_ids:
+                continue
+            x, y, width, height = candidate.bbox
+            component = candidate.mask.astype(bool)
+            diff_region = filtered_diff[y:y + height, x:x + width]
+            mask_region = filtered_mask[y:y + height, x:x + width]
+            diff_region[component] = diff_map[y:y + height, x:x + width][component]
+            mask_region[component] = segmentation_mask[y:y + height, x:x + width][component]
+
+        # Every mini-etalon comparison is independent. A later matched crop
+        # can overlap an earlier one and even contain a cut outside its own
+        # component. Preserve all positive residuals after every suppression
+        # and after restoring unmatched components from the original signal.
+        for (x, y, width, height), residual in color_residuals:
+            region = filtered_diff[y:y + height, x:x + width]
+            np.maximum(region, residual, out=region)
 
         return LearnedFilterResult(
             filtered_diff_map=filtered_diff,
@@ -2021,7 +2106,7 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
 
 def decode_review_arrays(review: InspectionReview) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return (
-        _decode(review.aligned_jpeg, cv2.IMREAD_COLOR),
+        _decode(review.aligned_png or review.aligned_jpeg, cv2.IMREAD_COLOR),
         _decode(review.diff_png, cv2.IMREAD_COLOR),
         _decode(review.raw_mask_png, cv2.IMREAD_COLOR),
     )

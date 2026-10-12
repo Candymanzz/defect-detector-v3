@@ -50,11 +50,11 @@ public final class BucketPositioningService {
     private static final Logger log = LogManager.getLogger(BucketPositioningService.class);
 
     /**
-     * Fast path for ≤150 ms/cam: ORB + warp + write only.
-     * Coarse FFT / residual polish / ECC were under 10% applied and ate 80–300 ms when they ran.
+     * Fast path: ORB + warp + bounded interior-print translation + write.
+     * Broad FFT/ECC refinements remain disabled; they used 80–300 ms.
      */
     private static final boolean ENABLE_COARSE = false;
-    private static final boolean ENABLE_RESIDUAL_POLISH = false;
+    private static final boolean ENABLE_RESIDUAL_POLISH = true;
     private static final boolean ENABLE_ECC = false;
     private static final boolean ENABLE_POST_ECC_POLISH = false;
 
@@ -401,7 +401,7 @@ public final class BucketPositioningService {
                     ? qOrbHold
                     : measureQuality(reference, working, qualityRoi, request.mainRoiPolygonNorm());
 
-            // --- 2b) Residual polish (disabled on fast path) ---
+            // --- 2b) Small translation confirmed by independent stable print patches ---
             long tPolish0 = System.nanoTime();
             boolean residualPolishUsed = false;
             if (ENABLE_RESIDUAL_POLISH) {
@@ -1232,17 +1232,20 @@ public final class BucketPositioningService {
             Rect qualityRoi,
             List<NormPoint> polygon
     ) {
-        QualityScore before = measureQuality(reference, working, qualityRoi, polygon);
-        double dx = before.residualShiftX();
-        double dy = before.residualShiftY();
+        StablePrintTranslation.Estimate estimate = StablePrintTranslation.estimate(reference, working, qualityRoi, polygon);
+        if (estimate == null) return ResidualPolish.none();
+        double dx = estimate.dx();
+        double dy = estimate.dy();
         double mag = Math.hypot(dx, dy);
-        if (!Double.isFinite(mag) || mag < RESIDUAL_POLISH_MIN_PX || mag > RESIDUAL_POLISH_MAX_PX) {
+        if (!Double.isFinite(mag) || mag < 0.35 || mag > 4.0) {
             return ResidualPolish.none();
         }
+        QualityScore before = measureQuality(reference, working, qualityRoi, polygon);
 
-        // Prefer the conventional phaseCorrelate sign first; only try the opposite if needed.
+        // The patch matcher defines the sign. Do not try the opposite direction
+        // or follow the frame-wide phase estimate, which may follow the defect.
         ResidualCandidate best = null;
-        double[] signs = {1.0, -1.0};
+        double[] signs = {1.0};
         for (double sign : signs) {
             double sx = dx * sign;
             double sy = dy * sign;
@@ -1252,9 +1255,9 @@ public final class BucketPositioningService {
             boolean residualCollapsed = afterRes <= mag * 0.55 || afterRes + 2.0 < mag;
             boolean absOk = Double.isFinite(after.meanAbsDiff())
                     && after.meanAbsDiff() <= before.meanAbsDiff() + 1.0;
-            boolean qualityOk = isQualityImproved(before, after)
-                    || isOrbResidualAcceptable(before, after)
-                    || (residualCollapsed && absOk);
+            boolean qualityOk = absOk && Double.isFinite(after.ncc())
+                    && after.ncc() >= before.ncc() - 0.005
+                    && after.meanAbsDiff() + 0.15 < before.meanAbsDiff();
             if (!qualityOk) {
                 candidate.release();
                 continue;

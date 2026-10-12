@@ -86,6 +86,27 @@ class OpenCvGeometryAnalysisServiceTest {
         );
     }
 
+    @Test
+    void positionedFrameRejectsBrokenSeamAndNextFrameDoesNotInheritBreak() {
+        Mat reference = new Mat(100,240,org.opencv.core.CvType.CV_8UC3,new Scalar(30,30,30));
+        Imgproc.rectangle(reference,new Point(10,40),new Point(230,60),new Scalar(220,220,220),-1);
+        Mat broken=reference.clone();
+        Imgproc.rectangle(broken,new Point(106,35),new Point(128,65),new Scalar(30,30,30),-1);
+        var service=new OpenCvGeometryAnalysisService(new OpenCvImageCodec(),new CalibrationService(),false,true);
+        var request=new InspectionRequest("","",new RoiRect(0,0,240,100),null,
+                new RoiRect(0,0,240,100),null,null,.02,100,10,10000,.3,1,"full",.25,3,8,1,true,.5,2.5,.8);
+        try {
+            var failed=service.inspectMats(reference,broken,request,false,"seam-ref",true);
+            assertTrue(!failed.jointPass());
+            assertTrue(!failed.overallPass());
+            assertTrue(Boolean.TRUE.equals(failed.diagnostics().get("joint_continuity_ran")));
+            assertTrue(Boolean.FALSE.equals(failed.diagnostics().get("joint_continuity_pass")));
+            var next=service.inspectMats(reference,reference,request,false,"seam-ref",true);
+            assertTrue(next.jointPass());
+            assertTrue(Boolean.TRUE.equals(next.diagnostics().get("joint_continuity_pass")));
+        } finally { reference.release();broken.release(); }
+    }
+
     private static Mat createTexturedFrame() {
         Mat frame = new Mat(HEIGHT, WIDTH, org.opencv.core.CvType.CV_8UC3, new Scalar(40, 40, 40));
         for (int y = 0; y < HEIGHT; y += 64) {

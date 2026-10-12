@@ -245,6 +245,41 @@ class LabelSeamAnalyzerTest {
     }
 
     @Test
+    void sustainedInteriorBreakIsNotHiddenByFittedStraightEdgesOrFallback() {
+        Mat roi = new Mat(100, 240, CvType.CV_8UC3, new Scalar(30,30,30));
+        try {
+            Imgproc.rectangle(roi,new Point(10,40),new Point(230,60),new Scalar(220,220,220),-1);
+            Imgproc.rectangle(roi,new Point(106,35),new Point(128,65),new Scalar(30,30,30),-1);
+            LabelSeamAnalyzer.Result result = LabelSeamAnalyzer.analyze(roi,null,.02,.25,3.0,0.0,true);
+            assertTrue(result.found());
+            assertTrue(!result.continuityPass(), "interior break must fail independently of average width");
+            assertTrue(result.missingRunMm() > .25);
+        } finally { roi.release(); }
+    }
+
+    @Test
+    void onePixelDropoutDoesNotRejectContinuousBand() {
+        Mat roi = new Mat(100,240,CvType.CV_8UC3,new Scalar(30,30,30));
+        try {
+            Imgproc.rectangle(roi,new Point(10,40),new Point(230,60),new Scalar(220,220,220),-1);
+            Imgproc.line(roi,new Point(120,40),new Point(120,60),new Scalar(30,30,30),1);
+            var result=LabelSeamAnalyzer.analyze(roi,null,.02,.25,3.,0.,true);
+            assertTrue(result.found()); assertTrue(result.continuityPass());
+        } finally { roi.release(); }
+    }
+
+    @Test
+    void shortLocalOpeningBelowTenPercentOfLengthIsStillMeasured() {
+        Mat roi = new Mat(100,400,CvType.CV_8UC3,new Scalar(30,30,30));
+        try {
+            Imgproc.rectangle(roi,new Point(10,40),new Point(390,60),new Scalar(220,220,220),-1);
+            Imgproc.rectangle(roi,new Point(184,15),new Point(216,85),new Scalar(220,220,220),-1);
+            var result=LabelSeamAnalyzer.analyze(roi,null,.02,.25,1.0,0.,true);
+            assertTrue(result.found()); assertTrue(result.widthMm() > 1.0);
+        } finally { roi.release(); }
+    }
+
+    @Test
     void smallestAngleDiffHandlesWrapAround() {
         assertEquals(2.0, LabelSeamAnalyzer.smallestAngleDiffDeg(1.0, 179.0), 1e-9);
         assertEquals(10.0, LabelSeamAnalyzer.smallestAngleDiffDeg(5.0, 15.0), 1e-9);

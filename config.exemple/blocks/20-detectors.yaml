@@ -65,7 +65,7 @@ java_positioning:
 python_detector:
   # FastAPI analisSurface — оркестратор поднимает uvicorn сам (integration.analis_surface_*).
   base_url: "http://127.0.0.1:8000"
-  # Downscale кадров перед inspect_shm (0.5 ≈ в 2.5× меньше пикселей, чем 0.8).
+  # Масштаб анализа после выравнивания: 0.75 по каждой оси (56.25% пикселей).
   inspect_scale: 0.75
   rois:
     - name: main

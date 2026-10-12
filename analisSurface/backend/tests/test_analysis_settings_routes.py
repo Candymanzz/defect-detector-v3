@@ -1,9 +1,11 @@
 from fastapi.testclient import TestClient
+import pytest
 
 from app.main import app
 
 
 client = TestClient(app)
+pytestmark = pytest.mark.usefixtures("isolated_analysis_settings_api")
 
 
 def test_analysis_settings_defaults() -> None:

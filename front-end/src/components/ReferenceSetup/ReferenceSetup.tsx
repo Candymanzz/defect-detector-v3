@@ -36,10 +36,12 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     replacementCameraIds,
     isFullReferenceReplacement,
     isRoiOnlyEditMode,
+    isRefreshingReferenceFrame,
     referenceName,
     setReferenceName,
     referenceSubmission,
     handleCaptureNewReferenceFrames,
+    handleRefreshReferenceFrame,
     handleCreateNewReference,
     handleToggleCameraReplacement,
     handleSendAllReferences,
@@ -261,10 +263,14 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 })}
               </div>
 
-              {!isRoiOnlyEditMode && (
                 <Button
                   className="reference-setup__button reference-setup__refresh"
+                  disabled={isRefreshingReferenceFrame || referenceSubmission?.state === "pending"}
                   onClick={() => {
+                    if (isRoiOnlyEditMode) {
+                      void handleRefreshReferenceFrame();
+                      return;
+                    }
                     if (isNewReferenceMode && hasAnyStoredReferenceForActiveGroup) {
                       if (isFullReferenceReplacement) {
                         void handleCreateNewReference();
@@ -276,7 +282,11 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     void handleCaptureNewReferenceFrames();
                   }}
                 >
-                  {isNewReferenceMode && hasAnyStoredReferenceForActiveGroup
+                  {isRefreshingReferenceFrame
+                    ? "Получение кадра..."
+                    : isRoiOnlyEditMode
+                    ? `↻ Обновить кадр камеры ${selectedCameraId}`
+                    : isNewReferenceMode && hasAnyStoredReferenceForActiveGroup
                     ? isFullReferenceReplacement
                       ? "Обновить все кадры ещё раз"
                       : replacementCameraIds.includes(selectedCameraId)
@@ -286,7 +296,6 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                       ? "Редактировать текущий эталон"
                       : "↻ Обновить кадры"}
                 </Button>
-              )}
               <div className="reference-setup__legend">
                 <span>
                   <i data-state="missing" /> Кадр не получен
@@ -361,7 +370,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                       ? isFullReferenceReplacement
                         ? "Создаётся полностью новый эталон. Кадры анализа предыдущего эталона не переносятся."
                         : isRoiOnlyEditMode
-                          ? "Редактирование ROI текущих кадров. После изменений нажмите «Подтвердить изменения»."
+                          ? "Редактирование эталона. Можно обновить кадр, сохранив ROI и линию перспективы. После изменений нажмите «Подтвердить изменения»."
                         : replacementCameraIds.length > 0
                         ? `Изменяются камеры: ${replacementCameraIds.join(", ")}. Остальные останутся прежними.`
                         : "Выберите камеры для изменения. Текущие кадры уже отображаются."
@@ -444,7 +453,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 </header>
                 <div className="reference-setup__object-row">
                   <i data-kind="joint" /> Камера {jointCameraId}
-                  <span>{hasJointRoi ? "ROI задан" : "не настроен"}</span>
+                  <span>{hasJointRoi ? "ROI задан" : "шов не проверяется: ROI не задан"}</span>
                 </div>
               </section>
               <p className="reference-setup__hint">
