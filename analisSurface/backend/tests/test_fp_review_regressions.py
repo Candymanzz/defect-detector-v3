@@ -81,6 +81,43 @@ def test_overlapping_fp_zones_preserve_defect_regardless_of_order(inspection_ser
     assert results[0]["final_score"] == pytest.approx(results[1]["final_score"])
 
 
+@pytest.mark.parametrize("new_scratch", [False, True])
+def test_matching_accepted_fp_variant_is_not_rejected_by_another_variant(
+    inspection_service, monkeypatch, new_scratch,
+):
+    service = inspection_service
+    reference = np.full((160, 200, 3), 120, np.uint8)
+    first_normal = reference.copy()
+    first_normal[65:95, 80:83] = 20
+    second_normal = reference.copy()
+    second_normal[65:95, 105:108] = 20
+    points = [(0.3, 0.3), (0.7, 0.3), (0.7, 0.7), (0.3, 0.7)]
+    zones = [service.add_fp_zone("variants", points, 200, 160, aligned=frame)
+             for frame in (first_normal, second_normal)]
+    current = second_normal.copy()
+    if new_scratch:
+        current[65:95, 125:128] = 0
+    settings = AnalysisSettings.from_overrides({"use_patchcore": False, "enable_clahe": False})
+    diff = service._compute_advanced_difference(current, reference, settings, vertical_compensation=True)
+    raw_score, mask = service._run_anomaly_model(diff, settings)
+    assert raw_score > .327
+    results = []
+    for order in (zones, zones[::-1]):
+        monkeypatch.setattr(service, "get_fp_zones", lambda product, order=order: order)
+        result = service._recheck_fp_zones(
+            "variants", current, reference, diff, mask, raw_score, settings,
+            inspection_threshold=.327,
+        )
+        if new_scratch:
+            assert result["final_score"] > .327
+            assert np.any(result["filtered_mask"][65:95, 125:128])
+        else:
+            assert result["final_score"] == 0
+            assert not np.any(result["filtered_mask"])
+        results.append(result)
+    np.testing.assert_array_equal(results[0]["filtered_diff_map"], results[1]["filtered_diff_map"])
+
+
 @pytest.mark.parametrize("level", [0, 20, 40])
 def test_fp_border_does_not_suppress_cut_outside_polygon(inspection_service, level):
     service = inspection_service

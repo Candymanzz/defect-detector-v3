@@ -2154,3 +2154,32 @@ def test_scatter_guard_keeps_local_cluster_and_thick_blob(
     assert inspection_service._run_anomaly_model(blob_plus_scatter, on)[0] == pytest.approx(
         inspection_service._run_anomaly_model(blob_plus_scatter, off)[0]
     )
+
+
+@pytest.mark.parametrize("transpose", [False, True])
+def test_scatter_guard_keeps_two_dimensional_local_scratch_cluster(
+    inspection_service: InspectionService, transpose: bool,
+) -> None:
+    # The cluster spans two axes but occupies a small part of the frame.
+    # Normalizing its own bounding box to a 4x4 grid incorrectly classified
+    # it as frame-wide misalignment and reduced its score below threshold.
+    diff = np.zeros((400, 400, 3), dtype=np.uint8)
+    positions = [(40, 40), (40, 300), (120, 160), (200, 40),
+                 (200, 300), (280, 160), (340, 40), (340, 300)]
+    for x, y in positions:
+        x, y = 130 + x // 4, 130 + y // 4
+        diff[y:y + 3, x:x + 20] = 55
+    if transpose:
+        diff = diff.transpose(1, 0, 2).copy()
+    settings = AnalysisSettings.from_overrides({
+        "use_patchcore": False, "min_diff_signal": 10.58496,
+        "min_defect_area": 5, "diff_percentile": 97.46936,
+        "min_scratch_aspect": 2.14776, "scratch_score_floor": 0.477836,
+        "scratch_aspect_floor": 3.22164,
+    })
+    guarded, _ = inspection_service._run_anomaly_model(diff, settings)
+    unguarded, _ = inspection_service._run_anomaly_model(
+        diff, AnalysisSettings.from_overrides({**settings.to_dict(), "scatter_guard_enabled": False}),
+    )
+    assert unguarded > .327
+    assert guarded == pytest.approx(unguarded)

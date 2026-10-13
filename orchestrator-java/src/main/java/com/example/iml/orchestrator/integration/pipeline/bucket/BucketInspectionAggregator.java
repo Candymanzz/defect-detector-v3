@@ -225,7 +225,12 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             if (afterPlcUi != null) {
                 state.pendingUiByCamera.put(cameraId, afterPlcUi);
             }
-            if (!decision.overallPass() && fanOut != null) {
+            // Preview-only frames have overallPass=false but carry no inspection verdict.
+            // Only a reject from an enabled camera may reject both plastic-handle lines.
+            if (isCameraRequired(cameraId)
+                    && "REJECT".equals(decision.action())
+                    && !decision.overallPass()
+                    && fanOut != null) {
                 fanOut.publishEarlyPlasticHandleReject(triggerSequence, cameraId);
             }
             scheduleTimeoutIfNeeded(state, fanOut);

@@ -146,6 +146,78 @@ class BucketInspectionAggregatorTest {
     }
 
     @Test
+    void captureOnlyGroupDoesNotOfferEarlyPlasticHandleReject() {
+        aggregator = new BucketInspectionAggregator(
+                LogManager.getLogger(BucketInspectionAggregatorTest.class),
+                new BucketInspectionConfig(
+                        true,
+                        List.of(new BucketGroup(0, List.of(0)), new BucketGroup(1, List.of(1, 2))),
+                        1000L,
+                        1000L
+                )
+        );
+        AtomicInteger earlyRejects = new AtomicInteger();
+        List<BucketFanOutResult> published = new ArrayList<>();
+        BucketFanOutSink fanOut = new BucketFanOutSink() {
+            @Override
+            public void publishBucket(BucketFanOutResult result) {
+                published.add(result);
+            }
+
+            @Override
+            public boolean publishEarlyPlasticHandleReject(long triggerSequence, int cameraId) {
+                earlyRejects.incrementAndGet();
+                return true;
+            }
+        };
+
+        aggregator.recordFrameResult(22L, 1, InspectionDecision.captureOnly(1, 320L), fanOut);
+        aggregator.recordFrameResult(22L, 2, InspectionDecision.captureOnly(2, 321L), fanOut);
+        assertEquals(0, earlyRejects.get());
+        assertEquals(0, published.size(), "capture-only group waits for the inspected group");
+
+        aggregator.recordFrameResult(22L, 0, decision(0, 322L, true), fanOut);
+        assertEquals(0, earlyRejects.get());
+        assertEquals(2, published.size());
+        assertTrue(published.stream().allMatch(BucketFanOutResult::overallPass));
+    }
+
+    @Test
+    void disabledCameraRejectDoesNotOfferEarlyPlasticHandleReject() {
+        PerCameraInspectionGate gate = PerCameraInspectionGate.fromCameras(List.of(
+                Map.of("id", 0), Map.of("id", 1), Map.of("id", 2)
+        ));
+        gate.setInspectionEnabled(1, false);
+        aggregator = new BucketInspectionAggregator(
+                LogManager.getLogger(BucketInspectionAggregatorTest.class),
+                new BucketInspectionConfig(true, List.of(new BucketGroup(0, List.of(0, 1, 2))), 1000L, 1000L),
+                JointSeamPolicy.defaults(),
+                gate
+        );
+        AtomicInteger earlyRejects = new AtomicInteger();
+        AtomicReference<BucketFanOutResult> published = new AtomicReference<>();
+        BucketFanOutSink fanOut = new BucketFanOutSink() {
+            @Override
+            public void publishBucket(BucketFanOutResult result) {
+                published.set(result);
+            }
+
+            @Override
+            public boolean publishEarlyPlasticHandleReject(long triggerSequence, int cameraId) {
+                earlyRejects.incrementAndGet();
+                return true;
+            }
+        };
+
+        aggregator.recordFrameResult(23L, 1, decision(1, 330L, false), fanOut);
+        assertEquals(0, earlyRejects.get());
+        aggregator.recordFrameResult(23L, 0, decision(0, 331L, true), fanOut);
+        aggregator.recordFrameResult(23L, 2, decision(2, 332L, true), fanOut);
+        assertEquals(0, earlyRejects.get());
+        assertTrue(published.get().overallPass());
+    }
+
+    @Test
     void jointPassIgnoresLowSiblingVisibilityStrictGate() {
         JointSeamPolicy policy = new JointSeamPolicy(0.25, 1.5, 0.8, 2.5);
         aggregator = new BucketInspectionAggregator(

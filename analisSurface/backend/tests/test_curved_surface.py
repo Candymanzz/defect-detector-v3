@@ -48,6 +48,23 @@ def scene_weights(reference, polygon, line):
     return legacy, with_curvature(legacy, model, width, height, polygon)
 
 
+def test_light_guard_preserves_curvature_diagnostics():
+    reference, polygon, line = bucket_scene()
+    _, geometry = scene_weights(reference, polygon, line)
+    service = InspectionService.__new__(InspectionService)
+    service._anomaly_engine = None
+    diagnostics = {}
+    diff = service._compute_advanced_difference(
+        reference, reference, SETTINGS, vertical_compensation=True,
+        perspective_weights=geometry, illumination_diagnostics=diagnostics,
+    )
+    assert not np.any(diff)
+    assert diagnostics["curvature_source"] == geometry.model.source
+    assert diagnostics["curvature_reference_cap_radius_px"] == pytest.approx(geometry.model.cap_radii[0], abs=.01)
+    assert diagnostics["curvature_max_stretch"] > 1
+    assert "suppression_percent" in diagnostics
+
+
 @pytest.mark.parametrize("angle", [0, 35, -35, 90])
 def test_constrained_arc_fit_handles_camera_rotation_and_resolution(angle):
     reference, polygon, line = bucket_scene(angle)

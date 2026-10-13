@@ -283,7 +283,7 @@ export function MainOverview({
                   key={camera.cameraId}
                   cameraId={camera.cameraId}
                   objectName={camera.objectName}
-                  imageUrl={inspectImageUrl ?? camera.imageUrl}
+                  imageUrl={inspectImageUrl}
                   currentFrameId={controller.previewFrameIdsByCameraId[camera.cameraId]}
                   inspectionFrameId={inspectResult?.frame_id}
                   isSelected={selectedSettingsCameraId === camera.cameraId}
