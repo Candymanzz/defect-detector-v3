@@ -662,6 +662,23 @@
   cursor: default;
 }
 
+.analysis-presets__percent-input:has(input:disabled) {
+  border-color: rgba(156, 163, 175, 0.3);
+  color: #9ca3af;
+  background: rgba(156, 163, 175, 0.08);
+}
+
+.analysis-presets__percent-input:has(input:disabled) .analysis-presets__percent-steppers {
+  border-left-color: rgba(156, 163, 175, 0.2);
+}
+
+.analysis-presets__percent-input:has(input:disabled) .analysis-presets__percent-steppers button {
+  color: #9ca3af;
+  background: rgba(156, 163, 175, 0.08);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .analysis-presets__percent-input input:disabled {
   cursor: not-allowed;
   opacity: 0.6;

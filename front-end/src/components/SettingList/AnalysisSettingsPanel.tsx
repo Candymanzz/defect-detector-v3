@@ -348,7 +348,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
                     step="0.1"
                     inputMode="decimal"
                     value={(Number(value) * valueScale).toFixed(1)}
-                    disabled={busy}
+                    disabled={sliderDisabled}
                     onChange={(event: ChangeEvent<HTMLInputElement>) => {
                       const percent = event.target.valueAsNumber;
                       if (!Number.isFinite(percent)) return;
@@ -360,7 +360,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
                     <button
                       type="button"
                       aria-label={`Увеличить ${field.label} на одну десятую процента`}
-                      disabled={busy || Number(value) >= maxValue}
+                      disabled={sliderDisabled || Number(value) >= maxValue}
                       onClick={() => updatePercent(Number(value) * valueScale + 0.1)}
                     >
                       ▲
@@ -368,7 +368,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
                     <button
                       type="button"
                       aria-label={`Уменьшить ${field.label} на одну десятую процента`}
-                      disabled={busy || Number(value) * valueScale <= minimumPercent}
+                      disabled={sliderDisabled || Number(value) * valueScale <= minimumPercent}
                       onClick={() => updatePercent(Number(value) * valueScale - 0.1)}
                     >
                       ▼
