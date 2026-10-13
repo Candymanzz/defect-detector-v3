@@ -712,8 +712,10 @@ class InspectionService:
             AnalysisSettings.from_overrides(current)
             self._analysis_settings_overrides[analysis_profile] = current
             # Полный API сбивает abstract-режим: knobs больше не соответствуют overrides.
-            self._analysis_settings_simple_knobs.pop(analysis_profile, None)
-            self._analysis_settings_detailed_knobs.pop(analysis_profile, None)
+            # Переключатели-флаги на knobs не влияют.
+            if not set(partial) <= set(self._PRESERVED_FLAG_KEYS):
+                self._analysis_settings_simple_knobs.pop(analysis_profile, None)
+                self._analysis_settings_detailed_knobs.pop(analysis_profile, None)
             return dict(current)
 
     def reset_analysis_settings(self, analysis_profile: str) -> dict[str, object]:
@@ -776,6 +778,7 @@ class InspectionService:
     ) -> dict[str, object]:
         """Сохранить simple-knobs и пересчитать overrides (силы detailed сохраняются)."""
         with self._analysis_settings_update():
+            overrides = self._with_preserved_flags(analysis_profile, overrides)
             AnalysisSettings.from_overrides(overrides)
             self._analysis_settings_overrides[analysis_profile] = dict(overrides)
             self._analysis_settings_simple_knobs[analysis_profile] = dict(knobs)
@@ -792,10 +795,25 @@ class InspectionService:
         with self._analysis_settings_update():
             normalized = self._normalize_detailed_knobs(strength_knobs)
             self._analysis_settings_detailed_knobs[analysis_profile] = normalized
-            expanded = self.expand_settings_for_profile(analysis_profile)
+            expanded = self._with_preserved_flags(
+                analysis_profile, self.expand_settings_for_profile(analysis_profile)
+            )
             AnalysisSettings.from_overrides(expanded)
             self._analysis_settings_overrides[analysis_profile] = dict(expanded)
             return dict(expanded)
+
+    # Булевы переключатели, не входящие в simple/strengths: переживают пересчёт overrides.
+    _PRESERVED_FLAG_KEYS = ("enable_edge_suppression",)
+
+    def _with_preserved_flags(
+        self, analysis_profile: str, overrides: dict[str, object]
+    ) -> dict[str, object]:
+        result = dict(overrides)
+        current = self._analysis_settings_overrides.get(analysis_profile, {})
+        for key in self._PRESERVED_FLAG_KEYS:
+            if key not in result and key in current:
+                result[key] = current[key]
+        return result
 
     @contextmanager
     def _analysis_settings_update(self):
@@ -3005,7 +3023,9 @@ class InspectionService:
         current_edge_zone = cv2.dilate(edges_cur, _EDGE_ZONE_KERNEL, iterations=2)
         edge_mask = (edges_zone > 0) & (current_edge_zone > 0)
         robust_gray = robust_gray.astype(np.float32)
-        if far_edge_weight is None:
+        if not settings.enable_edge_suppression:
+            pass
+        elif far_edge_weight is None:
             robust_gray[edge_mask] *= settings.edge_suppress_factor
         else:
             far_edge_factor = max(

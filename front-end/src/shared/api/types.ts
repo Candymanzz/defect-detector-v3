@@ -327,6 +327,8 @@ export type AnalysisSettings = {
   diff_percentile: number;
   scratch_score_floor: number;
   scratch_aspect_floor: number;
+  /** false — не гасить отклик на стабильных краях детали. */
+  enable_edge_suppression: boolean;
   edge_suppress_factor: number;
   text_min_contrast: number;
   text_structure_threshold: number;
