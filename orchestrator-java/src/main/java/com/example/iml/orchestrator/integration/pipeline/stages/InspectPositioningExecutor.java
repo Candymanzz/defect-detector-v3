@@ -44,7 +44,7 @@ public final class InspectPositioningExecutor {
         this.positioningSlots = positioningSlots;
         this.positioningRoundRobin = positioningRoundRobin == null ? new AtomicInteger() : positioningRoundRobin;
         this.positioningCfg = positioningCfg == null ? Map.of() : Map.copyOf(positioningCfg);
-        this.enabled = YamlScalars.toBool(this.positioningCfg.get("enabled"), !this.positioningPool.isEmpty())
+        this.enabled = YamlScalars.toBool(this.positioningCfg.get("enabled"), false)
                 && !this.positioningPool.isEmpty();
         // Large pose discrepancy is expected; hard-fail only when alignment itself failed.
         this.failOnReject = YamlScalars.toBool(this.positioningCfg.get("fail_on_reject"), true);

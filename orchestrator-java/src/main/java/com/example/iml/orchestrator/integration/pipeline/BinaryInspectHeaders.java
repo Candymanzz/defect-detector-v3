@@ -422,8 +422,8 @@ public final class BinaryInspectHeaders {
         pyHeader.put("width", capture.header().get("width"));
         pyHeader.put("height", capture.header().get("height"));
         pyHeader.put("stride", capture.header().get("stride"));
-        // Positioning belongs to java-positioning. Python receives its aligned
-        // SHM and must not apply geometry H or perform another warp.
+        // Python aligns the raw capture to its reference before surface analysis.
+        // Geometry's homography is independent and is not applied a second time.
         return pyHeader;
     }
 

@@ -202,7 +202,7 @@ public final class ChildProcessStartupService {
         Map<String, Object> positioningCfgEarly = (Map<String, Object>) ctx.root().get("java_positioning");
         boolean positioningEnabled = YamlScalars.toBool(
                 positioningCfgEarly == null ? null : positioningCfgEarly.get("enabled"),
-                true
+                false
         );
         Map<String, Object> positioningCfg = positioningCfgEarly != null
                 ? positioningCfgEarly

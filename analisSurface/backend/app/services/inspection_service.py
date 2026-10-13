@@ -2,6 +2,7 @@ import base64
 import copy
 import json
 import logging
+import math
 import os
 import queue
 import threading
@@ -43,6 +44,7 @@ from app.services.learned_normals import (
     filter_review_candidates,
     reference_fingerprint,
 )
+from app.services.translation_alignment import TranslationAligner
 
 
 logger = logging.getLogger(__name__)
@@ -171,6 +173,7 @@ class InspectionService:
         self.references: Dict[str, np.ndarray] = {}
         self._reference_hashes: Dict[str, str] = {}
         self._ref_orb_cache: Dict[str, Tuple[list, Optional[np.ndarray]]] = {}
+        self._translation_aligner = TranslationAligner()
         self.roi_polygons: Dict[str, list[Tuple[float, float]]] = {}
         self.perspective_lines: Dict[str, PerspectiveLine] = {}
         self.roi_sub_zones: Dict[str, list[RoiSubZone]] = {}
@@ -230,6 +233,7 @@ class InspectionService:
             self.references[product_type] = image
             self._reference_hashes[product_type] = reference_fingerprint(image)
             self._update_ref_orb_cache(product_type, image)
+            self._translation_aligner.invalidate(product_type)
 
     def set_reference_frame(self, product_type: str, frame: np.ndarray) -> None:
         image = frame.copy()
@@ -237,6 +241,7 @@ class InspectionService:
             self.references[product_type] = image
             self._reference_hashes[product_type] = reference_fingerprint(image)
             self._update_ref_orb_cache(product_type, image)
+            self._translation_aligner.invalidate(product_type)
 
     def _product_lock(self, product_type: str) -> threading.RLock:
         with self._product_locks_guard:
@@ -256,6 +261,7 @@ class InspectionService:
         self.references.clear()
         self._reference_hashes.clear()
         self._ref_orb_cache.clear()
+        self._translation_aligner.clear()
         self.roi_polygons.clear()
         self.perspective_lines.clear()
         self.roi_sub_zones.clear()
@@ -478,7 +484,10 @@ class InspectionService:
 
     def set_roi_polygon(self, product_type: str, points: list[Tuple[float, float]]) -> None:
         with self._product_lock(product_type):
-            self.roi_polygons[product_type] = validate_polygon_points(points, "ROI polygon")
+            validated = validate_polygon_points(points, "ROI polygon")
+            if self.roi_polygons.get(product_type) != validated:
+                self.roi_polygons[product_type] = validated
+                self._translation_aligner.invalidate(product_type)
 
     def get_roi_polygon(self, product_type: str) -> Optional[list[Tuple[float, float]]]:
         return self.roi_polygons.get(product_type)
@@ -919,16 +928,27 @@ class InspectionService:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
         reference = reference.copy()
 
-        # Positioning is owned exclusively by java-positioning. Python receives
-        # a frame that is already in reference coordinates and must never run a
-        # second ORB/ECC/warp pass over it.
-        aligned = self._use_fixed_frame(frame, reference)
+        polygon = self.get_roi_polygon(product_type)
+        positioning = self._translation_aligner.align(
+            frame,
+            reference,
+            product_type=product_type,
+            reference_token=self._reference_hashes.get(product_type) or reference_fingerprint(reference),
+            roi_polygon=polygon,
+        )
+        aligned = positioning.image
         log_analysis_stage(
             "alignment",
-            "frame accepted from positioning service",
+            "Python bucket translation alignment",
             product_type=product_type,
             extra={
-                "method": "positioning_service",
+                "method": positioning.method,
+                "dx_px": round(positioning.dx, 3),
+                "dy_px": round(positioning.dy, 3),
+                "orb_matches": positioning.matches,
+                "orb_inliers": positioning.inliers,
+                "edge_before": round(positioning.edge_before, 4) if math.isfinite(positioning.edge_before) else None,
+                "edge_after": round(positioning.edge_after, 4) if math.isfinite(positioning.edge_after) else None,
                 "resized": frame.shape[:2] != reference.shape[:2],
             },
         )
@@ -943,7 +963,6 @@ class InspectionService:
             )
 
         # 2. Ограничить анализ ROI-полигоном (вне полигона — нули).
-        polygon = self.get_roi_polygon(product_type)
         if polygon is not None:
             aligned, reference = mask_to_polygon(aligned, reference, polygon)
             log_analysis_stage(

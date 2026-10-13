@@ -729,16 +729,9 @@ public final class LivePreviewPublisher implements AutoCloseable {
     }
 
     private static boolean isJavaPositioningEnabled(Map<String, Object> rootYaml) {
-        if (rootYaml == null) {
-            return false;
-        }
-        Object raw = rootYaml.get("java_positioning");
-        if (!(raw instanceof Map<?, ?> positioning)) {
-            return false;
-        }
-        @SuppressWarnings("unchecked")
-        Map<String, Object> map = (Map<String, Object>) positioning;
-        return YamlScalars.toBool(map.get("enabled"), false);
+        // The production factory no longer starts java-positioning. Do not wait
+        // for a positioned preview frame that will never be produced.
+        return false;
     }
 
     @Override

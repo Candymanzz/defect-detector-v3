@@ -58,20 +58,18 @@ java_geometry:
     bench-lan10:
       max_joint_parallelism_deg: 5.0
 
-# Нормализация позы изделия к эталону перед geometry / analisSurface.
-# Позиционирование выравнивает кадр; неудачное выравнивание останавливает Python-анализ.
-# measured shift/rotation по java_geometry.max_shift_mm / max_rotation_deg.
-# При неудачном align raw-кадр используется только для UI и диагностики.
+# Коррекция небольшого сдвига ведра выполняется в analisSurface перед анализом дефектов.
+# Java-позиционирование выключено; java_geometry выполняет собственную проверку геометрии.
 java_positioning:
-  enabled: true
-  # Never run defect analysis on an unaligned raw frame: it produces false anomaly=1.0.
+  enabled: false
+  # Параметры ниже сохранены только для совместимости старых конфигов.
   fail_on_reject: true
   write_aligned: true
   pixels_to_mm: 0.02
   # Мягкие метрики в ответе (не гейтят PASS); QC допусков — у java_geometry после выравнивания.
   max_shift_mm: 9999.0
   max_rotation_deg: 9999.0
-  # Верхняя группа (камеры 0–4, bench-lan1..5): жёстче выравнивание — меньше размытия diff/heatmap.
+  # Не используются, пока Java-позиционирование отключено.
   profiles:
     bench-lan1:
       align_fail_absdiff: 7.0

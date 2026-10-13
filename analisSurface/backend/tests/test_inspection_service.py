@@ -688,7 +688,7 @@ def test_identity_homography_skips_realign(inspection_service: InspectionService
     assert np.array_equal(aligned, gray_frame)
 
 
-def test_inspection_never_runs_python_positioning(
+def test_inspection_does_not_apply_geometry_homography_after_python_translation(
     inspection_service: InspectionService,
     gray_frame: np.ndarray,
     monkeypatch: pytest.MonkeyPatch,
@@ -696,7 +696,7 @@ def test_inspection_never_runs_python_positioning(
     inspection_service.set_reference_frame("positioned-upstream", gray_frame)
 
     def fail_if_called(*args, **kwargs):
-        raise AssertionError("Python positioning must not run")
+        raise AssertionError("Legacy ORB homography must not run")
 
     monkeypatch.setattr(inspection_service, "_align_to_reference", fail_if_called)
     result = inspection_service.inspect_frame(

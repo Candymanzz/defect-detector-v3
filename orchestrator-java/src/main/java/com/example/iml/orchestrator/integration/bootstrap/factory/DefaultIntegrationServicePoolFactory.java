@@ -2,7 +2,6 @@ package com.example.iml.orchestrator.integration.bootstrap.factory;
 
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.bootstrap.config.IntegrationBootConfig;
-import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.services.ServicePoolLifecycle;
 import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
 import org.apache.logging.log4j.Logger;
@@ -57,7 +56,6 @@ public final class DefaultIntegrationServicePoolFactory implements IntegrationSe
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public List<ServiceProcessSupervisor> createPositioningPool(
             Map<String, Object> root,
             Map<String, Object> integration,
@@ -65,31 +63,10 @@ public final class DefaultIntegrationServicePoolFactory implements IntegrationSe
             Path projectRoot,
             IntegrationBootConfig cfg
     ) {
-        Map<String, Object> positioningCfg = root == null ? null : (Map<String, Object>) root.get("java_positioning");
-        boolean positioningEnabled = YamlScalars.toBool(
-                positioningCfg == null ? null : positioningCfg.get("enabled"),
-                true
-        );
-        if (!positioningEnabled) {
-            return List.of();
-        }
-        int positioningPoolSize = Math.max(
-                1,
-                YamlScalars.toInt(integration == null ? null : integration.get("positioning_pool_size"), cfg.geometryPoolSize())
-        );
-        List<ServiceProcessSupervisor> pool = servicePools.startOptionalPool(
-                positioningCommand,
-                projectRoot,
-                "java-positioning",
-                cfg.serviceCommandTimeoutMs(),
-                positioningPoolSize
-        );
-        if (pool.isEmpty()) {
-            log.warn("java-positioning enabled but pool is empty — positioning stage will be skipped");
-        } else {
-            log.info("positioning pool size={} command={}", pool.size(), positioningCommand);
-        }
-        return pool;
+        // Translation alignment now runs in analisSurface. Never start the old
+        // positioning pool, including when an older local config says enabled=true.
+        log.info("java-positioning disabled; bucket translation is aligned in analisSurface");
+        return List.of();
     }
 
     @Override
