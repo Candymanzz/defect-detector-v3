@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { MouseEvent, PointerEvent } from "react";
 import type { FpZoneNorm, InterestPointNorm } from "../../shared/ws";
+import { LoupeControls, MagnifierLoupe, useLoupeSettings } from "../MagnifierLoupe";
 import "./FpZoneEditor.css";
 
 type DrawMode = "polygon" | "radius";
@@ -30,6 +31,7 @@ export function FpZoneEditor({ imageUrl, roiPoints = [], zones, disabled = false
   const selectedZone = safeSelectedIndex >= 0 ? zones[safeSelectedIndex] : undefined;
   const selectedEdgeHandles = selectedZone ? createEdgeHandles(selectedZone.points_norm_heatmap) : [];
   const roiSvgPoints = roiPoints.map(toSvgPoint).join(" ");
+  const loupe = useLoupeSettings();
 
   const updateZone = (zoneIndex: number, update: Partial<FpZoneNorm>) => {
     onChange(zones.map((zone, index) => (index === zoneIndex ? { ...zone, ...update } : zone)));
@@ -130,6 +132,69 @@ export function FpZoneEditor({ imageUrl, roiPoints = [], zones, disabled = false
     setDrawMode((current) => (current === "radius" ? "polygon" : "radius"));
   };
 
+  const overlayShapes = (
+    <>
+      {roiPoints.length >= 3 && (
+        <polygon
+          className="fp-zone-editor__roi"
+          points={roiSvgPoints}
+        />
+      )}
+
+      {zones.map((zone, zoneIndex) => {
+        const points = zone.points_norm_heatmap.map(toSvgPoint).join(" ");
+        const isSelected = zoneIndex === safeSelectedIndex;
+
+        return (
+          <g
+            key={zone.id ?? zoneIndex}
+            className={isSelected ? "fp-zone-editor__zone fp-zone-editor__zone--selected" : "fp-zone-editor__zone"}
+          >
+            {zone.points_norm_heatmap.length >= 3 && <polygon points={points} />}
+            {zone.points_norm_heatmap.length >= 2 && <polyline points={points} />}
+            {zone.points_norm_heatmap.map((point, pointIndex) => (
+              <circle
+                key={`${zone.id ?? zoneIndex}-${pointIndex}`}
+                cx={point.x}
+                cy={point.y}
+                r="0.012"
+              />
+            ))}
+          </g>
+        );
+      })}
+
+      {drawMode === "radius" &&
+        selectedZone &&
+        selectedEdgeHandles.map((handle) => (
+          <circle
+            key={`edge-${safeSelectedIndex}-${handle.insertIndex}`}
+            className="fp-zone-editor__edge-handle"
+            cx={handle.point.x}
+            cy={handle.point.y}
+            r="0.015"
+            onPointerDown={(event) => {
+              const nextPoints = [...selectedZone.points_norm_heatmap];
+              nextPoints.splice(handle.insertIndex, 0, handle.point);
+              beginDrag(event, safeSelectedIndex, handle.insertIndex, nextPoints);
+            }}
+          />
+        ))}
+
+      {drawMode === "radius" &&
+        selectedZone?.points_norm_heatmap.map((point, pointIndex) => (
+          <circle
+            key={`drag-${selectedZone.id ?? safeSelectedIndex}-${pointIndex}`}
+            className="fp-zone-editor__vertex-handle"
+            cx={point.x}
+            cy={point.y}
+            r="0.012"
+            onPointerDown={(event) => beginDrag(event, safeSelectedIndex, pointIndex)}
+          />
+        ))}
+    </>
+  );
+
   return (
     <div className="fp-zone-editor">
       <div
@@ -152,36 +217,7 @@ export function FpZoneEditor({ imageUrl, roiPoints = [], zones, disabled = false
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
         >
-          {roiPoints.length >= 3 && (
-            <polygon
-              className="fp-zone-editor__roi"
-              points={roiSvgPoints}
-            />
-          )}
-
-          {zones.map((zone, zoneIndex) => {
-            const points = zone.points_norm_heatmap.map(toSvgPoint).join(" ");
-            const isSelected = zoneIndex === safeSelectedIndex;
-
-            return (
-              <g
-                key={zone.id ?? zoneIndex}
-                className={isSelected ? "fp-zone-editor__zone fp-zone-editor__zone--selected" : "fp-zone-editor__zone"}
-              >
-                {zone.points_norm_heatmap.length >= 3 && <polygon points={points} />}
-                {zone.points_norm_heatmap.length >= 2 && <polyline points={points} />}
-                {zone.points_norm_heatmap.map((point, pointIndex) => (
-                  <circle
-                    key={`${zone.id ?? zoneIndex}-${pointIndex}`}
-                    cx={point.x}
-                    cy={point.y}
-                    r="0.012"
-                  />
-                ))}
-              </g>
-            );
-          })}
-
+          {overlayShapes}
           {!disabled && cursorPoint && (
             <g className="fp-zone-editor__cursor">
               <line
@@ -199,36 +235,20 @@ export function FpZoneEditor({ imageUrl, roiPoints = [], zones, disabled = false
             </g>
           )}
 
-          {drawMode === "radius" &&
-            selectedZone &&
-            selectedEdgeHandles.map((handle) => (
-              <circle
-                key={`edge-${safeSelectedIndex}-${handle.insertIndex}`}
-                className="fp-zone-editor__edge-handle"
-                cx={handle.point.x}
-                cy={handle.point.y}
-                r="0.015"
-                onPointerDown={(event) => {
-                  const nextPoints = [...selectedZone.points_norm_heatmap];
-                  nextPoints.splice(handle.insertIndex, 0, handle.point);
-                  beginDrag(event, safeSelectedIndex, handle.insertIndex, nextPoints);
-                }}
-              />
-            ))}
-
-          {drawMode === "radius" &&
-            selectedZone?.points_norm_heatmap.map((point, pointIndex) => (
-              <circle
-                key={`drag-${selectedZone.id ?? safeSelectedIndex}-${pointIndex}`}
-                className="fp-zone-editor__vertex-handle"
-                cx={point.x}
-                cy={point.y}
-                r="0.012"
-                onPointerDown={(event) => beginDrag(event, safeSelectedIndex, pointIndex)}
-              />
-            ))}
         </svg>
+        {loupe.enabled && !disabled && (
+          <MagnifierLoupe
+            imageUrl={imageUrl}
+            cursor={cursorPoint}
+            zoom={loupe.zoom}
+            svgClassName="fp-zone-editor__overlay"
+          >
+            {overlayShapes}
+          </MagnifierLoupe>
+        )}
       </div>
+
+      <LoupeControls settings={loupe} />
 
       <div className="fp-zone-editor__actions">
         <button

@@ -1,0 +1,71 @@
+.magnifier-loupe {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.magnifier-loupe__window {
+  position: absolute;
+  overflow: hidden;
+  border: 2px solid #f2f5f7;
+  border-radius: 8px;
+  background: #05070a;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
+}
+
+.magnifier-loupe__window svg {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.magnifier-loupe__cross {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 2px #000000;
+}
+
+.magnifier-loupe__cross--h {
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+.magnifier-loupe__cross--v {
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.magnifier-loupe__badge {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #f2f5f7;
+  font-size: 11px;
+}
+
+.magnifier-loupe-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  color: #d1d5db;
+}
+
+.magnifier-loupe-controls__toggle,
+.magnifier-loupe-controls__zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.magnifier-loupe-controls__zoom input {
+  width: 120px;
+}

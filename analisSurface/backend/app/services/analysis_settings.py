@@ -14,6 +14,8 @@ class AnalysisSettings:
     diff_percentile: float = 98.0
     scratch_score_floor: float = 0.35
     scratch_aspect_floor: float = 4.5
+    # False — не гасить отклик на стабильных краях (тонкие царапины у кромки).
+    enable_edge_suppression: bool = True
     edge_suppress_factor: float = 0.2
     text_min_contrast: int = 55
     text_structure_threshold: int = 30

@@ -30,6 +30,7 @@ const DEFAULT_ANALYSIS_SETTINGS: AnalysisSettings = {
   diff_percentile: 98,
   scratch_score_floor: 0.35,
   scratch_aspect_floor: 4.5,
+  enable_edge_suppression: true,
   edge_suppress_factor: 0.2,
   text_min_contrast: 55,
   text_structure_threshold: 30,
@@ -335,6 +336,10 @@ function normalizeAnalysisSettings(settings: AnalysisSettings): AnalysisSettings
     scratch_aspect_floor: Math.max(
       1,
       toFiniteNumber(settings.scratch_aspect_floor, DEFAULT_ANALYSIS_SETTINGS.scratch_aspect_floor),
+    ),
+    enable_edge_suppression: toBoolean(
+      settings.enable_edge_suppression,
+      DEFAULT_ANALYSIS_SETTINGS.enable_edge_suppression,
     ),
     edge_suppress_factor: clampNumber(
       toFiniteNumber(settings.edge_suppress_factor, DEFAULT_ANALYSIS_SETTINGS.edge_suppress_factor),

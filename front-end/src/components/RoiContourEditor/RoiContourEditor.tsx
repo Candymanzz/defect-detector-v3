@@ -6,6 +6,7 @@ import {
   createOrientedRectFromAxis,
   halfWidthFromPoint,
 } from "./orientedRectRoi";
+import { LoupeControls, MagnifierLoupe, useLoupeSettings } from "../MagnifierLoupe";
 import "./RoiContourEditor.css";
 
 export type { NormPoint };
@@ -62,6 +63,7 @@ export function RoiContourEditor({
   const [cursorPoint, setCursorPoint] = useState<NormPoint | null>(null);
   const [orientedDraft, setOrientedDraft] = useState<OrientedDraft>({ phase: "idle" });
   const [widthInputText, setWidthInputText] = useState(() => formatStripWidthPct(DEFAULT_HALF_WIDTH * 2));
+  const loupe = useLoupeSettings();
   const isOriented = shapeMode === "oriented-rect";
   const canEditPerspective = !isOriented && Boolean(onPerspectiveLineChange);
   const perspectiveActive = canEditPerspective && perspectiveMode;
@@ -328,6 +330,79 @@ export function RoiContourEditor({
       ? "Потяните маркер на линии, чтобы добавить точку и скруглить контур"
       : "Кликайте по изображению, чтобы добавить вершины контура";
 
+  const overlayShapes = (
+    <>
+      {points.length >= 3 && <polygon points={svgPoints} />}
+      {orientedPreview?.rect && orientedPreview.rect.length >= 3 && (
+        <polygon className="roi-editor__oriented-preview" points={orientedPreview.rect.map(toSvgPoint).join(" ")} />
+      )}
+      {orientedPreview?.axis && (
+        <line
+          className="roi-editor__oriented-axis"
+          x1={orientedPreview.axis.a.x}
+          y1={orientedPreview.axis.a.y}
+          x2={orientedPreview.axis.b.x}
+          y2={orientedPreview.axis.b.y}
+        />
+      )}
+      {exclusionZones.map((zone, index) =>
+        zone.points_norm_heatmap.length >= 3 ? (
+          <polygon
+            key={zone.id ?? index}
+            className="roi-editor__exclusion-zone"
+            points={zone.points_norm_heatmap.map(toSvgPoint).join(" ")}
+          />
+        ) : null,
+      )}
+      {!isOriented && points.length >= 2 && <polyline points={svgPoints} />}
+      {perspectiveLine.length === 2 && (
+        <line
+          className="roi-editor__perspective-line"
+          x1={perspectiveLine[0].x}
+          y1={perspectiveLine[0].y}
+          x2={perspectiveLine[1].x}
+          y2={perspectiveLine[1].y}
+        />
+      )}
+      {perspectiveLine.map((point, index) => (
+        <circle
+          key={`perspective-${index}`}
+          className={index === 0 ? "roi-editor__perspective-near" : "roi-editor__perspective-far"}
+          cx={point.x}
+          cy={point.y}
+          r="0.014"
+        />
+      ))}
+      {!isOriented &&
+        effectiveDrawMode === "radius" &&
+        edgeHandles.map((handle) => (
+          <circle
+            key={`edge-${handle.insertIndex}`}
+            className="roi-editor__edge-handle"
+            cx={handle.point.x}
+            cy={handle.point.y}
+            r="0.015"
+            onPointerDown={(event) => {
+              const nextPoints = [...points];
+              nextPoints.splice(handle.insertIndex, 0, handle.point);
+              beginDrag(event, handle.insertIndex, nextPoints);
+            }}
+          />
+        ))}
+      {!isOriented &&
+        points.map((point, index) => (
+          <circle
+            key={`${point.x}-${point.y}-${index}`}
+            className={`roi-editor__vertex-handle${effectiveDrawMode === "radius" ? " roi-editor__vertex-handle--draggable" : ""}`}
+            cx={point.x}
+            cy={point.y}
+            r="0.012"
+            onPointerDown={(event) => beginDrag(event, index)}
+          />
+        ))}
+    </>
+  );
+
   return (
     <div className="roi-editor">
       <div
@@ -357,82 +432,27 @@ export function RoiContourEditor({
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
         >
-          {points.length >= 3 && <polygon points={svgPoints} />}
-          {orientedPreview?.rect && orientedPreview.rect.length >= 3 && (
-            <polygon className="roi-editor__oriented-preview" points={orientedPreview.rect.map(toSvgPoint).join(" ")} />
-          )}
-          {orientedPreview?.axis && (
-            <line
-              className="roi-editor__oriented-axis"
-              x1={orientedPreview.axis.a.x}
-              y1={orientedPreview.axis.a.y}
-              x2={orientedPreview.axis.b.x}
-              y2={orientedPreview.axis.b.y}
-            />
-          )}
-          {exclusionZones.map((zone, index) =>
-            zone.points_norm_heatmap.length >= 3 ? (
-              <polygon
-                key={zone.id ?? index}
-                className="roi-editor__exclusion-zone"
-                points={zone.points_norm_heatmap.map(toSvgPoint).join(" ")}
-              />
-            ) : null,
-          )}
-          {!isOriented && points.length >= 2 && <polyline points={svgPoints} />}
-          {perspectiveLine.length === 2 && (
-            <line
-              className="roi-editor__perspective-line"
-              x1={perspectiveLine[0].x}
-              y1={perspectiveLine[0].y}
-              x2={perspectiveLine[1].x}
-              y2={perspectiveLine[1].y}
-            />
-          )}
-          {perspectiveLine.map((point, index) => (
-            <circle
-              key={`perspective-${index}`}
-              className={index === 0 ? "roi-editor__perspective-near" : "roi-editor__perspective-far"}
-              cx={point.x}
-              cy={point.y}
-              r="0.014"
-            />
-          ))}
+          {overlayShapes}
           {!disabled && cursorPoint && (
             <g className="roi-editor__cursor">
               <line x1={cursorPoint.x - 0.02} y1={cursorPoint.y} x2={cursorPoint.x + 0.02} y2={cursorPoint.y} />
               <line x1={cursorPoint.x} y1={cursorPoint.y - 0.02} x2={cursorPoint.x} y2={cursorPoint.y + 0.02} />
             </g>
           )}
-          {!isOriented &&
-            effectiveDrawMode === "radius" &&
-            edgeHandles.map((handle) => (
-              <circle
-                key={`edge-${handle.insertIndex}`}
-                className="roi-editor__edge-handle"
-                cx={handle.point.x}
-                cy={handle.point.y}
-                r="0.015"
-                onPointerDown={(event) => {
-                  const nextPoints = [...points];
-                  nextPoints.splice(handle.insertIndex, 0, handle.point);
-                  beginDrag(event, handle.insertIndex, nextPoints);
-                }}
-              />
-            ))}
-          {!isOriented &&
-            points.map((point, index) => (
-              <circle
-                key={`${point.x}-${point.y}-${index}`}
-                className={`roi-editor__vertex-handle${effectiveDrawMode === "radius" ? " roi-editor__vertex-handle--draggable" : ""}`}
-                cx={point.x}
-                cy={point.y}
-                r="0.012"
-                onPointerDown={(event) => beginDrag(event, index)}
-              />
-            ))}
         </svg>
+        {loupe.enabled && !disabled && (
+          <MagnifierLoupe
+            imageUrl={imageUrl}
+            cursor={cursorPoint}
+            zoom={loupe.zoom}
+            svgClassName="roi-editor__overlay"
+          >
+            {overlayShapes}
+          </MagnifierLoupe>
+        )}
       </div>
+
+      <LoupeControls settings={loupe} />
 
       <p className="roi-editor__hint">{hint}</p>
 

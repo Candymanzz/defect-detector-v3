@@ -172,6 +172,7 @@ curl -s -X PUT "http://127.0.0.1:8000/analysis-settings/your-product" \
 | `scatter_min_components` | int | `>= 2` | `6` | Минимум тонких компонент, чтобы защита сработала. |
 | `scatter_min_cells` | int | `[1, 16]` | `5` | Минимум занятых ячеек сетки 4×4 (по bbox тонких компонент) — отличает разброс от локального скопления. |
 | `scatter_suppress_factor` | float | `[0, 1]` | `0.4` | Множитель веса «разбросанных» тонких компонент. Событие пишется в лог `stage=scatter_guard`. |
+| `enable_edge_suppression` | bool | — | `true` | `false` полностью отключает подавление отклика у стабильных краёв (`edge_suppress_factor` и `far_edge_edge_suppress_factor` игнорируются). Нужно для тонких царапин у кромки. Не входит в simple/strengths и сохраняется при их пересчёте; меняется через `PUT /analysis-settings/{profile}` с `{"enable_edge_suppression": false}` (simple/strengths knobs при этом не сбрасываются). |
 | `edge_suppress_factor` | float | `[0, 1]` | `0.2` | Множитель diff у статических границ эталона (Canny по ref). **Ниже** → сильнее глушится реакция на кромки/рамку. |
 | `text_structure_threshold` | int | `[0, 255]` | `30` | Порог Sobel на эталоне: зона «похожа на текст/структуру». | 
 | `text_min_contrast` | int | `[0, 255]` | `55` | В текстовых зонах оставлять только пиксели diff **не ниже** порога; слабый отклик обнуляется. **Выше** → меньше ложных срабатываний на тексте. |
