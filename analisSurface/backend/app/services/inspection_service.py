@@ -2173,6 +2173,14 @@ class InspectionService:
             if expected_crop.shape[:2] != current_crop.shape[:2]:
                 expected_crop = cv2.resize(expected_crop, (crop_w, crop_h), interpolation=cv2.INTER_LINEAR)
         local_mask = polygon_mask_from_norm_points(width, height, points)[y0 : y0 + crop_h, x0 : x0 + crop_w]
+        verified_normal_mask = np.zeros_like(local_mask, dtype=bool)
+        if not expected_is_full_frame and np.any(local_mask):
+            # A saved normal is an alternative acceptable appearance, not an
+            # additional required pattern. Certify the complete polygon using
+            # unnormalized pixels so light compensation cannot hide a new cut.
+            pixel_delta = np.max(cv2.absdiff(current_crop, expected_crop), axis=2)
+            if np.all(pixel_delta[local_mask > 0] <= 3):
+                verified_normal_mask = local_mask > 0
         verified_halo_mask = np.zeros_like(local_mask, dtype=bool)
         if (
             not expected_is_full_frame
@@ -2215,6 +2223,7 @@ class InspectionService:
             "score": float(max(score, activity["score"])),
             "activity": activity,
             "verified_halo_mask": verified_halo_mask,
+            "verified_normal_mask": verified_normal_mask,
         }
 
     def _fp_zone_triggered(self, region: dict, settings: AnalysisSettings) -> bool:
@@ -2354,13 +2363,33 @@ class InspectionService:
         hole_mask = self._fp_zone_hole_mask(
             diff_map.shape[1], diff_map.shape[0], suppression_zones,
         )
+        verified_normal_mask = np.zeros(diff_map.shape[:2], dtype=bool)
         for _, residual in checked_residuals:
             x0, y0, crop_w, crop_h = residual["bbox"]
             hole_mask[y0:y0 + crop_h, x0:x0 + crop_w] |= residual["verified_halo_mask"]
+            verified = residual.get("verified_normal_mask")
+            if verified is not None:
+                verified_normal_mask[y0:y0 + crop_h, x0:x0 + crop_w] |= verified
         if np.any(hole_mask):
             filtered_diff_map[hole_mask] = 0
 
         for zone, vs_fp in checked_residuals:
+            x0, y0, crop_w, crop_h = vs_fp["bbox"]
+            verified = verified_normal_mask[y0:y0 + crop_h, x0:x0 + crop_w]
+            if np.any(verified & (vs_fp["local_mask"] > 0)):
+                # Another mini-etalon may contain a different accepted print
+                # or glare. It cannot reintroduce differences where this frame
+                # already matches a saved normal pixel for pixel. Outside that
+                # certified polygon retain the usual conservative residual merge.
+                diff = vs_fp["diff"].copy()
+                diff[verified] = 0
+                local_weights = crop_weights(perspective_weights, vs_fp["bbox"])
+                score, seg = self._run_anomaly_model(
+                    diff, settings, decision_threshold=inspection_threshold,
+                    perspective_weights=local_weights,
+                )
+                activity = self._measure_zone_activity_mask(diff, seg, vs_fp["local_mask"] > 0)
+                vs_fp = {**vs_fp, "diff": diff, "activity": activity, "score": max(score, activity["score"])}
             residual_score = float(vs_fp["score"])
             keep_residual = self._fp_zone_triggered(vs_fp, settings)
             if keep_residual:
@@ -2821,13 +2850,6 @@ class InspectionService:
             pre_normalization_compact_signal(ref_gray, cur_gray, settings, perspective_weights)
             if compensate_light else None
         )
-        if illumination_diagnostics is not None and isinstance(perspective_weights, SurfaceWeights):
-            model = perspective_weights.model
-            illumination_diagnostics.update(
-                curvature_source=model.source, curvature_confidence=round(model.confidence, 3),
-                curvature_reference_cap_radius_px=round(model.cap_radii[0], 2),
-                curvature_max_stretch=round(float(np.max(perspective_weights.curvature)), 3),
-            )
         if compensate_light:
             # Remove the smooth photometric field before CLAHE can turn its
             # slope into texture. Keep pixels containing changed fine detail.
@@ -2838,6 +2860,16 @@ class InspectionService:
                 normalized_current=normalized_current,
             )
             cur_gray = normalized_current
+
+        # The light guard resets its diagnostics; append surface geometry after
+        # that reset so the production log retains the radius correction.
+        if illumination_diagnostics is not None and isinstance(perspective_weights, SurfaceWeights):
+            model = perspective_weights.model
+            illumination_diagnostics.update(
+                curvature_source=model.source, curvature_confidence=round(model.confidence, 3),
+                curvature_reference_cap_radius_px=round(model.cap_radii[0], 2),
+                curvature_max_stretch=round(float(np.max(perspective_weights.curvature)), 3),
+            )
 
         # CLAHE can over-amplify texture noise on smooth frames. clipLimit≈1.0 is a
         # near no-op — treat it as off so sensitivity can ramp continuously via
@@ -3502,7 +3534,7 @@ class InspectionService:
 
         # Scattered thin deviations over the whole frame are the signature of a
         # residual shift/rotation (every contour is doubled), not of defects.
-        weights = self._scatter_component_weights(kept_components, settings)
+        weights = self._scatter_component_weights(kept_components, settings, gray.shape)
         scratch_floor = 0.0
         max_object_score = 0.0
         scored_filtered = np.zeros_like(filtered)
@@ -3575,6 +3607,7 @@ class InspectionService:
     def _scatter_component_weights(
         components: list[tuple[float, float, bool, tuple[int, int, int, int], np.ndarray]],
         settings: AnalysisSettings,
+        frame_shape: tuple[int, int],
     ) -> list[float]:
         """Per-component weight (1.0 = counts fully) for the misalignment guard.
 
@@ -3593,10 +3626,13 @@ class InspectionService:
             [[components[i][3][0] + components[i][3][2] / 2.0, components[i][3][1] + components[i][3][3] / 2.0] for i in thin],
             dtype=np.float32,
         )
-        span = np.maximum(centers.max(axis=0) - centers.min(axis=0), 1.0)
-        cells = np.minimum(
-            ((centers - centers.min(axis=0)) / span * _SCATTER_GRID).astype(np.int32),
-            _SCATTER_GRID - 1,
+        height, width = frame_shape
+        # The grid belongs to the inspected image, not to the detected cluster.
+        # Stretching every cluster's bounding box to the whole grid makes a
+        # small group of real scratches look like frame-wide misalignment.
+        cells = np.clip(
+            (centers / np.array([max(1, width), max(1, height)]) * _SCATTER_GRID).astype(np.int32),
+            0, _SCATTER_GRID - 1,
         )
         covered_cells = len({(int(cx), int(cy)) for cx, cy in cells})
         # A tight cluster of thin components is a local defect, not a global shift.
