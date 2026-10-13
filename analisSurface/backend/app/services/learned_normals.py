@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import copy
 import logging
 import math
 import os
@@ -38,6 +39,12 @@ TEMPLATE_VERSION = 3
 # made the same exception drift by tens of pixels on production images.
 POSITION_TOLERANCE_PX = 6.0
 POSITION_JITTER_FLOOR_PX = 4.0
+# A large recurring defect (a glare/stain tens of percent of the frame wide) moves
+# by far more than 6 px between frames while still being the same place, so its
+# allowance grows with the saved geometry up to this cap. It never gets tighter
+# than the small-normal allowance above.
+POSITION_TOLERANCE_LARGE_FRACTION = 0.06
+POSITION_TOLERANCE_LARGE_MAX_PX = 25.0
 POLYGON_GAP_FLOOR_PX = 3.0
 THIN_TRACE_MIN_SIMILARITY = 0.68
 SCALED_SHAPE_MIN_SIMILARITY = 0.76
@@ -341,6 +348,11 @@ class LearnedFilterResult:
     matched_candidates_count: int = 0
     all_important_candidates_matched: bool = False
     original_max_candidate_impact: float = 0.0
+    # Why the closest saved normal did not explain each important candidate.
+    rejections: list[dict] = field(default_factory=list)
+    # Saved normals of this product: usable (same reference) and foreign (other reference).
+    usable_cases: int = 0
+    foreign_reference_cases: int = 0
 
 
 @dataclass
@@ -360,6 +372,11 @@ class InspectionReview:
     accepted_defect_ids: set[str] = field(default_factory=set, repr=False)
     counterfactual_score: Optional[float] = None
     counterfactual_status: Optional[str] = None
+    # JPEG is a display artifact; learning and FP crops need original pixels.
+    aligned_png: bytes = field(default=b"", repr=False)
+    # Geometry is part of the frame's analysis coordinates, not mutable
+    # editor state. None keeps legacy reviews readable.
+    geometry_context: Optional[dict] = field(default=None, repr=False)
 
     def summary(self) -> dict:
         return {
@@ -448,6 +465,7 @@ class InspectionReviewStore:
         diff_map: np.ndarray,
         raw_mask: np.ndarray,
         candidates: list[DefectCandidate],
+        geometry_context: Optional[dict] = None,
     ) -> InspectionReview:
         mask_gray = _gray(raw_mask)
         diff_gray = _gray(diff_map)
@@ -479,10 +497,12 @@ class InspectionReviewStore:
             original_score=float(score),
             threshold=float(threshold),
             aligned_jpeg=_encode(aligned, ".jpg", [cv2.IMWRITE_JPEG_QUALITY, 85]),
+            aligned_png=_encode(aligned, ".png"),
             diff_png=_encode(diff_map, ".png"),
             raw_mask_png=_encode(raw_mask, ".png"),
             heatmap_jpeg=_encode(heatmap, ".jpg", [cv2.IMWRITE_JPEG_QUALITY, 88]),
             defects=review_candidates,
+            geometry_context=copy.deepcopy(geometry_context),
         )
         with self._lock:
             if self.storage_dir is not None:
@@ -544,8 +564,10 @@ class InspectionReviewStore:
                 self._write_review(review)
             elif review.inspection_id not in self._order:
                 raise KeyError(review.inspection_id)
-            self._order[review.inspection_id] = review.summary()
-            self._order.move_to_end(review.inspection_id)
+            # Editing an archived result must not turn it into a new frame or
+            # bypass the recent-history limit loaded at startup.
+            if review.inspection_id in self._order:
+                self._order[review.inspection_id] = review.summary()
 
     def mark_accepted(
         self,
@@ -583,7 +605,13 @@ class InspectionReviewStore:
 
     def _unmark_reviews(self, should_unmark) -> None:
         with self._lock:
-            for inspection_id in list(self._order):
+            inspection_ids = set(self._order)
+            if self.storage_dir is not None:
+                inspection_ids.update(
+                    folder.name for folder in self.storage_dir.iterdir()
+                    if folder.is_dir() and (folder / "meta.json").is_file()
+                )
+            for inspection_id in inspection_ids:
                 review = self.get(inspection_id)
                 if review is None:
                     continue
@@ -603,7 +631,8 @@ class InspectionReviewStore:
                 review.counterfactual_status = None
                 if self.storage_dir is not None:
                     self._write_review(review)
-                self._order[inspection_id] = review.summary()
+                if inspection_id in self._order:
+                    self._order[inspection_id] = review.summary()
 
     def _delete_review_dir(self, inspection_id: str) -> None:
         if self.storage_dir is None:
@@ -615,10 +644,17 @@ class InspectionReviewStore:
     def _write_review(self, review: InspectionReview) -> None:
         folder = self._review_dir(review.inspection_id)
         folder.mkdir(parents=True, exist_ok=True)
-        (folder / "aligned.jpg").write_bytes(review.aligned_jpeg)
-        (folder / "diff.png").write_bytes(review.diff_png)
-        (folder / "mask.png").write_bytes(review.raw_mask_png)
-        (folder / "heatmap.jpg").write_bytes(review.heatmap_jpeg)
+        # Frame images are immutable once metadata publishes the review.
+        # Learning edits only its annotations; never reopen those images for
+        # writing, which could truncate the existing frame on a disk error.
+        image_payloads = [] if (folder / "meta.json").exists() else [
+            ("aligned.jpg", review.aligned_jpeg),
+            ("diff.png", review.diff_png),
+            ("mask.png", review.raw_mask_png),
+            ("heatmap.jpg", review.heatmap_jpeg),
+        ]
+        if image_payloads and review.aligned_png:
+            image_payloads.append(("aligned.png", review.aligned_png))
         defects_payload = []
         npz_arrays: dict[str, np.ndarray] = {}
         for candidate in review.defects:
@@ -651,10 +687,35 @@ class InspectionReviewStore:
             "counterfactual_score": review.counterfactual_score,
             "counterfactual_status": review.counterfactual_status,
             "defects": defects_payload,
+            "geometry_context": review.geometry_context,
         }
-        (folder / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-        if npz_arrays:
-            np.savez_compressed(folder / "defects.npz", **npz_arrays)
+        # Publish metadata last: failed array writes must not claim that a
+        # review was learned or damage the templates of its previous version.
+        revision = uuid.uuid4().hex
+        temporary_arrays = folder / f"defects.{revision}.npz.tmp"
+        temporary_meta = folder / f"meta.{revision}.json.tmp"
+        temporary_images = [
+            (folder / f"{name}.{revision}.tmp", folder / name, payload)
+            for name, payload in image_payloads
+        ]
+        try:
+            for temporary_image, _, payload in temporary_images:
+                temporary_image.write_bytes(payload)
+            if npz_arrays:
+                with temporary_arrays.open("wb") as output:
+                    np.savez_compressed(output, **npz_arrays)
+                temporary_arrays.replace(folder / "defects.npz")
+            temporary_meta.write_text(
+                json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8",
+            )
+            for temporary_image, destination, _ in temporary_images:
+                temporary_image.replace(destination)
+            temporary_meta.replace(folder / "meta.json")
+        finally:
+            for temporary_image, _, _ in temporary_images:
+                temporary_image.unlink(missing_ok=True)
+            temporary_arrays.unlink(missing_ok=True)
+            temporary_meta.unlink(missing_ok=True)
 
     def _read_review(self, inspection_id: str) -> Optional[InspectionReview]:
         folder = self._review_dir(inspection_id)
@@ -709,6 +770,7 @@ class InspectionReviewStore:
                 )
             return InspectionReview(
                 inspection_id=str(meta["inspection_id"]),
+                geometry_context=meta.get("geometry_context"),
                 product_type=str(meta["product_type"]),
                 reference_hash=str(meta.get("reference_hash", "")),
                 created_at=str(meta.get("created_at", "")),
@@ -716,6 +778,7 @@ class InspectionReviewStore:
                 original_score=float(meta.get("original_score", 0.0)),
                 threshold=float(meta.get("threshold", 0.0)),
                 aligned_jpeg=(folder / "aligned.jpg").read_bytes(),
+                aligned_png=(folder / "aligned.png").read_bytes() if (folder / "aligned.png").exists() else b"",
                 diff_png=(folder / "diff.png").read_bytes(),
                 raw_mask_png=(folder / "mask.png").read_bytes(),
                 heatmap_jpeg=(folder / "heatmap.jpg").read_bytes(),
@@ -917,6 +980,13 @@ class AcceptedNormalMemory:
                 self._publish_storage_generation()
             except Exception:
                 self._cases.pop(case.id, None)
+                # A failed generation write can happen after both artifacts
+                # were installed. Do not resurrect this failed add on reload.
+                for suffix in (".json", ".npz", ".json.tmp", ".npz.tmp"):
+                    try:
+                        (self.storage_dir / f"{case.id}{suffix}").unlink(missing_ok=True)
+                    except OSError:
+                        logger.exception("failed to roll back accepted-normal artifact case_id=%s", case.id)
                 raise
         return case
 
@@ -965,13 +1035,12 @@ class AcceptedNormalMemory:
         candidates = extract_defect_candidates(aligned, diff_map, segmentation_mask)
         with self._lock:
             self._refresh_from_disk_if_changed()
-            cases = [
+            product_cases = [
                 case
                 for case in self._cases.values()
-                if case.enabled
-                and case.product_type == product_type
-                and case.reference_hash == reference_hash
+                if case.enabled and case.product_type == product_type
             ]
+            cases = [case for case in product_cases if case.reference_hash == reference_hash]
 
         important_candidate_ids = {
             candidate.id for candidate in filter_review_candidates(candidates)
@@ -985,9 +1054,13 @@ class AcceptedNormalMemory:
         filtered_mask = segmentation_mask.copy()
         matched_case_ids: list[str] = []
         suppressed_candidates: list[DefectCandidate] = []
+        color_residuals: list[tuple[tuple[int, int, int, int], np.ndarray]] = []
+        rejections: list[dict] = []
         for candidate in candidates:
-            best_case, best_similarity = self._best_matching_case(candidate, cases)
+            best_case, best_similarity, best_rejection = self._best_matching_case(candidate, cases)
             if best_case is None:
+                if best_rejection is not None and candidate.id in important_candidate_ids:
+                    rejections.append(_describe_rejection(candidate, best_rejection))
                 continue
             candidate.matched_case_id = best_case.id
             candidate.similarity = best_similarity
@@ -1001,11 +1074,36 @@ class AcceptedNormalMemory:
             )
             if fully_suppressed:
                 suppressed_candidates.append(candidate)
+            else:
+                x, y, width, height = candidate.bbox
+                color_residuals.append((
+                    candidate.bbox,
+                    filtered_diff[y:y + height, x:x + width].copy(),
+                ))
             matched_case_ids.append(best_case.id)
 
         # Never suppress an unmatched component merely because every other
         # important component matched. Its spatial gate has already said that
         # the saved normal does not explain it; it must remain score-bearing.
+        # Crop rectangles can overlap even when component masks are disjoint.
+        # Restore unmatched pixels after all cascades, including color residuals.
+        for candidate in candidates:
+            if candidate.id in matched_candidate_ids:
+                continue
+            x, y, width, height = candidate.bbox
+            component = candidate.mask.astype(bool)
+            diff_region = filtered_diff[y:y + height, x:x + width]
+            mask_region = filtered_mask[y:y + height, x:x + width]
+            diff_region[component] = diff_map[y:y + height, x:x + width][component]
+            mask_region[component] = segmentation_mask[y:y + height, x:x + width][component]
+
+        # Every mini-etalon comparison is independent. A later matched crop
+        # can overlap an earlier one and even contain a cut outside its own
+        # component. Preserve all positive residuals after every suppression
+        # and after restoring unmatched components from the original signal.
+        for (x, y, width, height), residual in color_residuals:
+            region = filtered_diff[y:y + height, x:x + width]
+            np.maximum(region, residual, out=region)
 
         return LearnedFilterResult(
             filtered_diff_map=filtered_diff,
@@ -1017,21 +1115,31 @@ class AcceptedNormalMemory:
             all_important_candidates_matched=bool(important_candidate_ids)
             and important_candidate_ids.issubset(matched_candidate_ids),
             original_max_candidate_impact=original_max_candidate_impact,
+            rejections=rejections,
+            usable_cases=len(cases),
+            foreign_reference_cases=len(product_cases) - len(cases),
         )
 
     @staticmethod
     def _best_matching_case(
         candidate: DefectCandidate,
         cases: list[AcceptedNormalCase],
-    ) -> tuple[Optional[AcceptedNormalCase], float]:
+    ) -> tuple[Optional[AcceptedNormalCase], float, Optional[dict]]:
+        """Best case, its similarity and, if nothing matched, the closest rejection."""
         best_case: Optional[AcceptedNormalCase] = None
         best_similarity = 0.0
+        closest: Optional[dict] = None
         for case in cases:
-            similarity = candidate_similarity(candidate, case)
-            if similarity is not None and similarity > best_similarity:
-                best_similarity = similarity
-                best_case = case
-        return best_case, best_similarity
+            diag: dict = {}
+            similarity = candidate_similarity(candidate, case, diag)
+            if similarity is not None:
+                if similarity > best_similarity:
+                    best_similarity = similarity
+                    best_case = case
+            elif _rejection_is_closer(diag, closest):
+                diag["case_id"] = case.id
+                closest = diag
+        return best_case, best_similarity, (None if best_case is not None else closest)
 
     @staticmethod
     def _apply_crop_cascade(
@@ -1268,6 +1376,44 @@ class AcceptedNormalMemory:
             except Exception:
                 logger.exception("failed to load accepted-normal case metadata=%s", json_path)
         self._storage_generation = self._read_storage_generation()
+
+
+# Rejection reasons in the order candidate_similarity checks them: the later the
+# reason, the closer the saved normal was to explaining the candidate.
+_REJECTION_ORDER = (
+    "position", "transverse_position", "polygon_gap", "area_growth",
+    "diff_q90_too_high", "diff_max_too_high", "geometry_unavailable", "angle",
+    "elongated_vs_compact", "aspect", "fill", "compactness_solidity",
+    "empty_comparison_region", "shape_overlap", "diff_appearance",
+    "filled_compact_shape", "contour_distance", "contour_vertices",
+    "geometry_similarity", "partial_trace", "below_min_similarity",
+)
+
+
+def _rejection_rank(diag: dict) -> int:
+    reason = diag.get("reason")
+    return _REJECTION_ORDER.index(reason) if reason in _REJECTION_ORDER else -1
+
+
+def _rejection_is_closer(diag: dict, current: Optional[dict]) -> bool:
+    if current is None:
+        return True
+    rank, current_rank = _rejection_rank(diag), _rejection_rank(current)
+    if rank != current_rank:
+        return rank > current_rank
+    # Same stage: for position rejections prefer the spatially nearest normal.
+    return diag.get("distance_px", 0.0) < current.get("distance_px", 0.0)
+
+
+def _describe_rejection(candidate: DefectCandidate, diag: dict) -> dict:
+    x, y, width, height = candidate.bbox
+    return {
+        "bbox": f"{x},{y},{width}x{height}",
+        "area": int(candidate.area),
+        "q90": round(float(candidate.diff_q90), 1),
+        "max": round(float(candidate.diff_max), 1),
+        **diag,
+    }
 
 
 def extract_defect_candidates(
@@ -1658,8 +1804,23 @@ def _diff_core_mask(diff_template: np.ndarray, mask: np.ndarray) -> np.ndarray:
     ) > 0
 
 
-def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -> Optional[float]:
-    """Сопоставить форму и размер только рядом с местом сохранённой нормы."""
+def candidate_similarity(
+    candidate: DefectCandidate,
+    case: AcceptedNormalCase,
+    diag: Optional[dict] = None,
+) -> Optional[float]:
+    """Сопоставить форму и размер только рядом с местом сохранённой нормы.
+
+    Если передан diag, при отказе в него пишется причина (`reason`) и значения
+    проверки: проверки идут по порядку, поэтому причина — первая не пройденная.
+    """
+
+    def _reject(reason: str, **values: float) -> None:
+        if diag is not None:
+            diag["reason"] = reason
+            diag.update({key: round(float(value), 3) for key, value in values.items()})
+        return None
+
     cx, cy, cw, ch = candidate.bbox_norm
     sx, sy, sw, sh = case.bbox_norm
 
@@ -1704,14 +1865,20 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     sample_width_px = sw * frame_width
     sample_height_px = sh * frame_height
     sample_diagonal = math.hypot(sample_width_px, sample_height_px)
-    position_tolerance = min(
-        POSITION_TOLERANCE_PX,
-        max(POSITION_JITTER_FLOOR_PX, sample_diagonal * 0.12),
+    position_tolerance = max(
+        min(
+            POSITION_TOLERANCE_PX,
+            max(POSITION_JITTER_FLOOR_PX, sample_diagonal * 0.12),
+        ),
+        min(
+            POSITION_TOLERANCE_LARGE_MAX_PX,
+            sample_diagonal * POSITION_TOLERANCE_LARGE_FRACTION,
+        ),
     )
     # Проверка выполняется до дорогого сравнения шаблонов. Координаты нормированы,
     # поэтому допуск одинаков по смыслу при полном кадре и inspect_scale=0.5.
     if position_distance > position_tolerance:
-        return None
+        return _reject("position", distance_px=position_distance, tolerance_px=position_tolerance)
 
     # A long scratch may have a large bbox diagonal while being only a few
     # pixels wide.  Its learned exception may follow small alignment jitter
@@ -1720,12 +1887,18 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         displacement = candidate_center - sample_center
         transverse_distance = abs(float(np.dot(displacement, sample_spatial[2])))
         minor_extent = min(sample_width_px, sample_height_px)
+        # Thin traces keep the strict 3-5 px; a wide elongated blob may shift
+        # across its own axis in proportion to its width.
         transverse_tolerance = min(
             position_tolerance,
-            max(POLYGON_GAP_FLOOR_PX, min(5.0, minor_extent * 0.35)),
+            max(
+                POLYGON_GAP_FLOOR_PX,
+                min(5.0, minor_extent * 0.35),
+                minor_extent * POSITION_TOLERANCE_LARGE_FRACTION * 2.0,
+            ),
         )
         if transverse_distance > transverse_tolerance:
-            return None
+            return _reject("transverse_position", distance_px=transverse_distance, tolerance_px=transverse_tolerance)
 
     candidate_polygon_px = [
         (x * frame_width, y * frame_height) for x, y in candidate.polygon_norm
@@ -1743,7 +1916,7 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         min(6.0, min(sample_width_px, sample_height_px) * 0.35),
     )
     if geometry_gap > polygon_gap_tolerance:
-        return None
+        return _reject("polygon_gap", gap_px=geometry_gap, tolerance_px=polygon_gap_tolerance)
 
     inner_tolerance = position_tolerance * 0.40
     if position_distance <= inner_tolerance:
@@ -1764,17 +1937,17 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     # совпасть. Увеличение ограничено, чтобы большая аномалия не наследовала
     # исключение от маленького примера.
     if bbox_area_ratio >= 1.55:
-        return None
+        return _reject("area_growth", area_ratio=bbox_area_ratio, limit=1.55)
 
     if candidate.diff_q90 > max(case.diff_q90 * 1.60, case.diff_q90 + 12.0):
-        return None
+        return _reject("diff_q90_too_high", candidate=candidate.diff_q90, case=case.diff_q90)
     maximum_diff_max = (
         max(case.diff_max * 1.75, case.diff_max + 35.0)
         if bbox_area_ratio <= 1.0
         else max(case.diff_max * 1.50, case.diff_max + 20.0)
     )
     if candidate.diff_max > maximum_diff_max:
-        return None
+        return _reject("diff_max_too_high", candidate=candidate.diff_max, case=case.diff_max, limit=maximum_diff_max)
 
     candidate_mask = candidate.mask_template > 0
     candidate_diff_template = candidate.diff_template
@@ -1789,7 +1962,7 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         sample_geometry = _mask_geometry(sample_mask)
         case._geometry_cache = sample_geometry
     if candidate_geometry is None or sample_geometry is None:
-        return None
+        return _reject("geometry_unavailable")
 
     sample_is_thin_trace = (
         sample_geometry.fill_ratio <= 0.35
@@ -1849,25 +2022,25 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     if min(candidate_geometry.elongation, sample_geometry.elongation) >= 1.8:
         maximum_angle_distance = 45.0 if sample_is_bent_trace else 30.0
         if _angle_distance(candidate_geometry.angle_degrees, sample_geometry.angle_degrees) > maximum_angle_distance:
-            return None
+            return _reject("angle")
     one_is_elongated = max(candidate_geometry.elongation, sample_geometry.elongation) >= 2.5
     other_is_compact = min(candidate_geometry.elongation, sample_geometry.elongation) <= 1.45
     if one_is_elongated and other_is_compact:
-        return None
+        return _reject("elongated_vs_compact")
 
     # Эти проверки масштабонезависимы: абсолютная площадь не участвует. Положение
     # уже проверено выше по нормированному расстоянию между центрами.
     if aspect_similarity < 0.40:
-        return None
+        return _reject("aspect", similarity=aspect_similarity)
     minimum_fill_similarity = 0.30 if sample_is_thin_trace else 0.38
     if fill_similarity < minimum_fill_similarity:
-        return None
+        return _reject("fill", similarity=fill_similarity)
     minimum_compactness_similarity = 0.28 if sample_is_thin_trace else 0.33
     if (
         compactness_similarity < minimum_compactness_similarity
         or solidity_similarity < 0.42
     ) and not scaled_core_geometry_candidate:
-        return None
+        return _reject("compactness_solidity", compactness=compactness_similarity, solidity=solidity_similarity)
 
     comparison_region = cv2.dilate(
         np.where(candidate_mask | sample_mask, 255, 0).astype(np.uint8),
@@ -1875,7 +2048,7 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         iterations=1,
     ) > 0
     if not np.any(comparison_region):
-        return None
+        return _reject("empty_comparison_region")
     diff_similarity = 1.0 - float(
         np.mean(
             np.abs(
@@ -1925,7 +2098,7 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
             + diff_similarity * 0.25
             + appearance_similarity * 0.10
         ) * position_quality
-        return float(partial_similarity) if partial_similarity >= 0.66 else None
+        return float(partial_similarity) if partial_similarity >= 0.66 else _reject("partial_trace", similarity=partial_similarity, minimum=0.66)
 
     stable_thin_trace_candidate = (
         sample_is_thin_trace
@@ -1945,9 +2118,9 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
         and not stable_scaled_shape_candidate
         and (tolerant_shape_similarity < 0.72 or dice_similarity < 0.32)
     ):
-        return None
+        return _reject("shape_overlap", tolerant=tolerant_shape_similarity, dice=dice_similarity)
     if diff_similarity < 0.70 or appearance_similarity < 0.45:
-        return None
+        return _reject("diff_appearance", diff=diff_similarity, appearance=appearance_similarity)
 
     geometry_similarity = (
         tolerant_shape_similarity * 0.35
@@ -1964,21 +2137,21 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     )
     if both_filled_compact and not stable_scaled_shape_candidate:
         if dice_similarity < 0.83 or aspect_similarity < 0.78:
-            return None
+            return _reject("filled_compact_shape", dice=dice_similarity, aspect=aspect_similarity)
         contour_distance = _contour_match_distance(candidate_geometry, sample_geometry)
         if contour_distance > 0.25:
-            return None
+            return _reject("contour_distance", distance=contour_distance)
         vertex_difference = abs(
             candidate_geometry.contour_vertices - sample_geometry.contour_vertices
         )
         if vertex_difference > 2 or (vertex_difference >= 2 and contour_distance > 0.20):
-            return None
+            return _reject("contour_vertices", difference=vertex_difference)
     if (
         geometry_similarity < 0.72
         and not stable_thin_trace_candidate
         and not stable_scaled_shape_candidate
     ):
-        return None
+        return _reject("geometry_similarity", value=geometry_similarity)
 
     # Уменьшенная версия одного и того же следа может немного не добрать общий
     # порог из-за иного соотношения длины его плеч. Это особенно заметно у
@@ -2015,13 +2188,13 @@ def candidate_similarity(candidate: DefectCandidate, case: AcceptedNormalCase) -
     else:
         minimum_similarity = GENERAL_MIN_SIMILARITY
     if similarity < minimum_similarity:
-        return None
+        return _reject("below_min_similarity", similarity=similarity, minimum=minimum_similarity)
     return float(similarity)
 
 
 def decode_review_arrays(review: InspectionReview) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return (
-        _decode(review.aligned_jpeg, cv2.IMREAD_COLOR),
+        _decode(review.aligned_png or review.aligned_jpeg, cv2.IMREAD_COLOR),
         _decode(review.diff_png, cv2.IMREAD_COLOR),
         _decode(review.raw_mask_png, cv2.IMREAD_COLOR),
     )

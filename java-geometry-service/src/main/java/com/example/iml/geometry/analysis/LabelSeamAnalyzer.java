@@ -46,8 +46,15 @@ public final class LabelSeamAnalyzer {
             double widthBottomMm,
             double taperMm,
             double visibility,
-            double defectMm
+            double defectMm,
+            boolean continuityPass,
+            double missingRunMm,
+            boolean continuityMeasured
     ) {
+        public Result(boolean found, double parallelismDeg, double widthMm, double widthTopMm,
+                      double widthBottomMm, double taperMm, double visibility, double defectMm) {
+            this(found, parallelismDeg, widthMm, widthTopMm, widthBottomMm, taperMm, visibility, defectMm, true, 0.0, false);
+        }
         public static Result empty(double visibility) {
             return new Result(false, 180.0, 0.0, 0.0, 0.0, 0.0, clamp01(visibility), 9999.0);
         }

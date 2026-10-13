@@ -196,18 +196,17 @@ def _sync_request_roi(
     stale orchestrator cache or a Python restart from silently enabling
     full-frame analysis for one camera.
     """
-    if raw_polygon is None:
-        return
-    points: list[tuple[float, float]] = []
-    for point in raw_polygon:
-        try:
-            points.append((float(point["x"]), float(point["y"])))
-        except (KeyError, TypeError, ValueError):
-            raise ValueError("roi_polygon_norm points must contain numeric x and y")
-    if len(points) < 3:
-        raise ValueError("roi_polygon_norm must contain at least 3 points")
-    inspection_service.set_roi_polygon(product_type=product_type, points=points)
-    if raw_perspective_line:
+    if raw_polygon is not None:
+        points: list[tuple[float, float]] = []
+        for point in raw_polygon:
+            try:
+                points.append((float(point["x"]), float(point["y"])))
+            except (KeyError, TypeError, ValueError):
+                raise ValueError("roi_polygon_norm points must contain numeric x and y")
+        if len(points) < 3:
+            raise ValueError("roi_polygon_norm must contain at least 3 points")
+        inspection_service.set_roi_polygon(product_type=product_type, points=points)
+    if raw_perspective_line is not None:
         line: list[tuple[float, float]] = []
         for point in raw_perspective_line:
             try:
@@ -215,6 +214,8 @@ def _sync_request_roi(
             except (KeyError, TypeError, ValueError):
                 raise ValueError("perspective_line_norm points must contain numeric x and y")
         inspection_service.set_perspective_line(product_type, line)
+    else:
+        inspection_service.set_perspective_line(product_type, None)
 
 
 def _inspect_shm_sync(

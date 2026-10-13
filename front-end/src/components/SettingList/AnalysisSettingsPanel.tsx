@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { Fragment, forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { orchestratorApi } from "../../shared/api";
 import type { ProAnalysisKnobs, SimpleAnalysisKnobs, StrengthKnobs } from "../../shared/api";
@@ -65,6 +65,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
   const [mode, setMode] = useState<Mode>("simple");
   const [simple, setSimple] = useState(DEFAULT_SIMPLE);
   const [pro, setPro] = useState(DEFAULT_PRO);
+  const [edgeSuppressionEnabled, setEdgeSuppressionEnabled] = useState(true);
   const [unlocked, setUnlocked] = useState(false);
   const [showUnlock, setShowUnlock] = useState(false);
   const [password, setPassword] = useState("");
@@ -104,6 +105,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
           ...DEFAULT_PRO,
           threshold: proResponse.settings.default_threshold,
         });
+        setEdgeSuppressionEnabled(proResponse.settings.enable_edge_suppression !== false);
         hydratedRef.current = true;
         setStatus({
           kind: "success",
@@ -178,6 +180,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
     loadPro(selectedCameraId, profile)
       .then((response) => {
         setPro(response.knobs ?? { ...DEFAULT_PRO, threshold: response.settings.default_threshold });
+        setEdgeSuppressionEnabled(response.settings.enable_edge_suppression !== false);
         setStatus({ kind: "success", text: "Расширенные настройки загружены" });
       })
       .catch((error) => setStatus({ kind: "error", text: errorMessage(error) }));
@@ -247,6 +250,23 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
     setStatus({ kind: "success", text: "Расширенные настройки заблокированы" });
   };
 
+  const toggleEdgeSuppression = (enabled: boolean) => {
+    const previous = edgeSuppressionEnabled;
+    const preview = selectedCameraId !== null && Boolean(testFrameId) && Boolean(testPinId);
+    setEdgeSuppressionEnabled(enabled);
+    setStatus({ kind: "saving", text: "Сохранение…" });
+    void saveEdgeSuppression(selectedCameraId, enabled)
+      .then(() => (preview ? orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testPinId!, testFrameId!) : undefined))
+      .then(() => setStatus({
+        kind: "success",
+        text: `Подавление краёв ${enabled ? "включено" : "выключено"}${preview ? `, кадр ${testFrameId} пересчитан` : ""}`,
+      }))
+      .catch((error) => {
+        setEdgeSuppressionEnabled(previous);
+        setStatus({ kind: "error", text: errorMessage(error) });
+      });
+  };
+
   const busy = status.kind === "loading" || status.kind === "saving";
   const fields = mode === "simple" ? SIMPLE_FIELDS : PRO_FIELDS;
   const values = mode === "simple" ? simple : pro;
@@ -295,8 +315,28 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
               Math.min(maximumPercent, Math.max(minimumPercent, percent)) / valueScale,
             );
           };
+          const showEdgeToggle = mode === "pro" && field.name === "edge_suppression";
+          const sliderDisabled = busy || (showEdgeToggle && !edgeSuppressionEnabled);
           return (
-            <label className="analysis-presets__field" key={field.name}>
+            <Fragment key={field.name}>
+            {showEdgeToggle && (
+              <label className="analysis-presets__field">
+                <span>
+                  <strong>Подавлять отклик на краях</strong>
+                  <input
+                    type="checkbox"
+                    checked={edgeSuppressionEnabled}
+                    disabled={busy}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => toggleEdgeSuppression(event.target.checked)}
+                  />
+                </span>
+                <small>
+                  Выключите, чтобы тонкие царапины у кромки и границы этикетки не гасились. Может добавить ложные
+                  срабатывания от дрожания контура.
+                </small>
+              </label>
+            )}
+            <label className="analysis-presets__field">
               <span>
                 <strong>{field.label}</strong>
                 <span className="analysis-presets__percent-input">
@@ -308,7 +348,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
                     step="0.1"
                     inputMode="decimal"
                     value={(Number(value) * valueScale).toFixed(1)}
-                    disabled={busy}
+                    disabled={sliderDisabled}
                     onChange={(event: ChangeEvent<HTMLInputElement>) => {
                       const percent = event.target.valueAsNumber;
                       if (!Number.isFinite(percent)) return;
@@ -320,7 +360,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
                     <button
                       type="button"
                       aria-label={`Увеличить ${field.label} на одну десятую процента`}
-                      disabled={busy || Number(value) >= maxValue}
+                      disabled={sliderDisabled || Number(value) >= maxValue}
                       onClick={() => updatePercent(Number(value) * valueScale + 0.1)}
                     >
                       ▲
@@ -328,7 +368,7 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
                     <button
                       type="button"
                       aria-label={`Уменьшить ${field.label} на одну десятую процента`}
-                      disabled={busy || Number(value) * valueScale <= minimumPercent}
+                      disabled={sliderDisabled || Number(value) * valueScale <= minimumPercent}
                       onClick={() => updatePercent(Number(value) * valueScale - 0.1)}
                     >
                       ▼
@@ -338,11 +378,12 @@ export const AnalysisSettingsPanel = forwardRef<AnalysisSettingsPanelHandle, Pro
               </span>
               <input
                 type="range" min={minValue} max={maxValue} step={sliderStep}
-                value={value} disabled={busy}
+                value={value} disabled={sliderDisabled}
                 onChange={(event: ChangeEvent<HTMLInputElement>) => updateValue(Number(event.target.value))}
               />
               <small>{field.hint}</small>
             </label>
+            </Fragment>
           );
         })}
       </div>
@@ -390,6 +431,15 @@ function loadPro(cameraId: number | null, profile: string) {
 }
 function savePro(cameraId: number | null, knobs: ProAnalysisKnobs) {
   return cameraId === null ? saveAllCamerasPro(knobs) : orchestratorApi.setCameraProAnalysisSettings(cameraId, knobs);
+}
+async function saveEdgeSuppression(cameraId: number | null, enabled: boolean) {
+  const update = { enable_edge_suppression: enabled };
+  if (cameraId !== null) return orchestratorApi.setCameraAnalysisSettings(cameraId, update);
+  const cameras = (await orchestratorApi.listCameras()).cameras;
+  if (cameras.length === 0) {
+    throw new Error("Список камер пуст — настройки не сохранены");
+  }
+  await Promise.all(cameras.map((id) => orchestratorApi.setCameraAnalysisSettings(id, update)));
 }
 function saveStrengths(cameraId: number | null, knobs: StrengthKnobs) {
   return cameraId === null

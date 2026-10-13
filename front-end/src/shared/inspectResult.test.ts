@@ -1,9 +1,22 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  isCaptureOnlyInspectResult,
-  resolveInspectionResultState,
+  isCaptureOnlyInspectResult as fullIsCaptureOnly,
+  resolveInspectionResultState as fullResolveState,
 } from "./inspectResult";
+import type { InspectResultPayload } from "./ws";
+
+function payload(fields: Partial<InspectResultPayload>): InspectResultPayload {
+  return {
+    camera_id: 0, frame_id: "1", session_state: "READY",
+    current: {camera_id:0,frame_id:"1",shm_name:"/test",width:10,height:10,stride:30,
+      shm_offset:0,pixel_format:"bgr_u8",channels:3},
+    heatmap: null, fp_zones: [], active_reference_view_index: 0, detector: {}, server_ts_ms: 1,
+    ...fields,
+  };
+}
+const resolveInspectionResultState = (fields: Partial<InspectResultPayload>) => fullResolveState(payload(fields));
+const isCaptureOnlyInspectResult = (fields?: Partial<InspectResultPayload>) => fullIsCaptureOnly(fields ? payload(fields) : undefined);
 
 describe("resolveInspectionResultState", () => {
   it("returns capture for CAPTURE action", () => {

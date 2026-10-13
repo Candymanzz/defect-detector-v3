@@ -49,7 +49,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         }
     }
 
-    private record FrozenFrame(Path path, String shmName, boolean deleteWhenDone) {
+    record FrozenFrame(Path path, String shmName, boolean deleteWhenDone) {
     }
 
     private record UiPublishTask(int cameraId, Runnable delegate, Runnable cleanup) implements Runnable {
@@ -990,32 +990,23 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             throw new IOException("source SHM is missing");
         }
 
-        String base = shmName.startsWith("/") ? shmName.substring(1) : shmName;
-        base = base.replace('/', '_');
-        // Line-pin files are per-cycle; always copy into a stable UI buffer so the pin can be deleted
-        // immediately after freeze without racing the async JPEG publisher.
-        boolean ephemeralPin = YamlScalars.toBool(captureHeader.get("line_pinned"), false)
-                || ImlShmJanitor.isEphemeralLinePin(base);
         boolean testAnalyze = YamlScalars.toBool(captureHeader.get("test_analyze"), false);
-        if (!testAnalyze && sourceOffset == 0L && !ephemeralPin && ImlShmJanitor.isDedicatedOrchestratorBuffer(base)) {
-            return new FrozenFrame(source, "/" + base, false);
-        }
+        String prefix = "iml_ui_" + (testAnalyze ? "test" : "inspect") + "_cam_" + cameraId + "_f" + frameId + "_";
+        // Both positioned SHM and the old per-camera UI slot can be overwritten by
+        // another inspection while the queued JPEG/archive task is still reading.
+        return snapshotInspectionFrame(source, sourceOffset, frameBytes, ImlShmJanitor.imlShmDirectory(), prefix);
+    }
 
-        // Production reuses one slot per camera. TEST must use a unique owned buffer so a
-        // still-finishing production publish cannot overwrite the pinned JPEG mid-encode.
-        String frozenName;
-        if (testAnalyze) {
-            String job = String.valueOf(captureHeader.getOrDefault("test_analyze_job_id", Long.toString(frameId)));
-            String suffix = job.replace("-", "");
-            if (suffix.length() > 12) {
-                suffix = suffix.substring(0, 12);
-            }
-            frozenName = "iml_ui_test_cam_" + cameraId + "_" + suffix;
-        } else {
-            frozenName = "iml_ui_inspect_cam_" + cameraId;
-        }
-        Path target = FrameJpegWriter.imlShmFilePath(frozenName);
-        Files.createDirectories(target.getParent());
+    static FrozenFrame snapshotInspectionFrame(
+            Path source,
+            long sourceOffset,
+            long frameBytes,
+            Path directory,
+            String prefix
+    ) throws IOException {
+        Files.createDirectories(directory);
+        boolean windows = System.getProperty("os.name", "").toLowerCase().contains("win");
+        Path target = Files.createTempFile(directory, prefix, windows ? ".bin" : "");
         try (FileChannel input = FileChannel.open(source, StandardOpenOption.READ);
              FileChannel output = FileChannel.open(
                      target,
@@ -1038,7 +1029,9 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             Files.deleteIfExists(target);
             throw e;
         }
-        return new FrozenFrame(target, "/" + frozenName, testAnalyze);
+        String frozenName = target.getFileName().toString();
+        // SHM readers use the exact file name, including its Windows .bin suffix.
+        return new FrozenFrame(target, "/" + frozenName, true);
     }
 
     private HeatmapArtifact generateHeatmapArtifact(

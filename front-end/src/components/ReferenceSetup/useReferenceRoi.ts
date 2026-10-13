@@ -41,7 +41,7 @@ export function useReferenceRoi(
   const jointGroupKey = createGroupKey(activeCameraIds);
   const jointCameraId = resolveCameraId(
     activeCameraIds,
-    jointCameraIdsByGroupKey[jointGroupKey] ?? findStoredJointCameraId(activeCameraIds),
+    jointCameraIdsByGroupKey[jointGroupKey] ?? (useStoredRois ? findStoredJointCameraId(activeCameraIds) : null),
   );
   const jointRoiKey = createJointRoiKey(activeCameraIds, jointCameraId);
   const jointRoiPolygon = jointRoiPolygonsByKey[jointRoiKey] ?? [];
@@ -55,7 +55,7 @@ export function useReferenceRoi(
     const groupKey = createGroupKey(targetCameraIds);
     return resolveCameraId(
       targetCameraIds,
-      jointCameraIdsByGroupKey[groupKey] ?? findStoredJointCameraId(targetCameraIds),
+      jointCameraIdsByGroupKey[groupKey] ?? (useStoredRois ? findStoredJointCameraId(targetCameraIds) : null),
     );
   };
 
@@ -121,9 +121,20 @@ export function useReferenceRoi(
       Object.fromEntries(
         Object.entries(previous).filter(([roiKey]) => {
           const keyCameraIds = roiKey.split(":")[0].split(",").map(Number);
-          return !keyCameraIds.every((cameraId) => targetCameraIdSet.has(cameraId));
+          const jointCameraId = Number(roiKey.split(":")[1]);
+          return !targetCameraIdSet.has(jointCameraId) &&
+            !keyCameraIds.every((cameraId) => targetCameraIdSet.has(cameraId));
         }),
       ),
+    );
+    // A reference acknowledgement/archive replacement must also release the
+    // explicit camera selection so the newly committed seam ROI can resolve.
+    // Replacing a sibling alone keeps the current seam editor intact.
+    setJointCameraIdsByGroupKey((previous) =>
+      Object.fromEntries(Object.entries(previous).filter(([groupKey, cameraId]) =>
+        !targetCameraIdSet.has(cameraId) &&
+        !groupKey.split(",").map(Number).every((id) => targetCameraIdSet.has(id)),
+      )),
     );
   };
 

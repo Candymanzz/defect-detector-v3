@@ -228,6 +228,56 @@ def test_component_intensity_increases_local_score(
     assert strong_score > weak_score
 
 
+def test_fragmented_far_noise_is_not_joined_into_a_scratch(
+    inspection_service: InspectionService,
+) -> None:
+    diff = np.zeros((80, 160, 3), dtype=np.uint8)
+    for x in range(15, 140, 12):
+        diff[38:40, x : x + 2] = 20
+    settings = AnalysisSettings.from_overrides(
+        {
+            "use_patchcore": False,
+            "min_defect_area": 6,
+            "min_diff_signal": 8.0,
+            "scratch_score_floor": 0.45,
+            "scratch_aspect_floor": 3.5,
+        }
+    )
+    far_weights = (
+        np.ones((80, 160), dtype=np.float32),
+        np.full((80, 160), 2.0, dtype=np.float32),
+    )
+
+    score, mask = inspection_service._run_anomaly_model(
+        diff,
+        settings,
+        decision_threshold=0.387,
+        perspective_weights=far_weights,
+    )
+
+    assert np.count_nonzero(mask) > 0
+    assert score < 0.387
+
+
+def test_compact_strong_defect_rejects_without_scratch_shape(
+    inspection_service: InspectionService,
+) -> None:
+    diff = np.zeros((80, 160, 3), dtype=np.uint8)
+    diff[35:42, 75:82] = 120
+    settings = AnalysisSettings.from_overrides(
+        {"use_patchcore": False, "min_defect_area": 6, "min_diff_signal": 8.0}
+    )
+
+    score, mask = inspection_service._run_anomaly_model(
+        diff,
+        settings,
+        decision_threshold=0.387,
+    )
+
+    assert np.count_nonzero(mask) > 0
+    assert score >= 0.387
+
+
 def test_unchanged_full_roi_reuses_initial_anomaly_pass(
     inspection_service: InspectionService,
     gray_frame: np.ndarray,
@@ -2061,3 +2111,75 @@ def test_accept_all_builds_padded_fp_mini_etalon(
         alignment_h_ref_to_cur=identity,
     )
     assert passed.status == "ГОДЕН"
+
+
+def _scattered_thin_lines(count: int = 8) -> np.ndarray:
+    """Short diagonal-free horizontal traces spread over the whole frame."""
+    diff = np.zeros((400, 400, 3), dtype=np.uint8)
+    positions = [(40, 40), (40, 300), (120, 160), (200, 40), (200, 300), (280, 160), (340, 40), (340, 300)]
+    for x, y in positions[:count]:
+        diff[y : y + 3, x : x + 50] = 90
+    return diff
+
+
+def test_scatter_guard_downweights_widely_spread_thin_deviations(
+    inspection_service: InspectionService,
+) -> None:
+    diff = _scattered_thin_lines()
+    base = {"use_patchcore": False, "min_diff_signal": 12.0, "min_defect_area": 6}
+    guarded, _ = inspection_service._run_anomaly_model(diff, AnalysisSettings.from_overrides(base))
+    unguarded, _ = inspection_service._run_anomaly_model(
+        diff, AnalysisSettings.from_overrides({**base, "scatter_guard_enabled": False})
+    )
+
+    assert guarded < unguarded
+
+
+def test_scatter_guard_keeps_local_cluster_and_thick_blob(
+    inspection_service: InspectionService,
+) -> None:
+    base = {"use_patchcore": False, "min_diff_signal": 12.0, "min_defect_area": 6}
+    off = AnalysisSettings.from_overrides({**base, "scatter_guard_enabled": False})
+    on = AnalysisSettings.from_overrides(base)
+
+    cluster = np.zeros((400, 400, 3), dtype=np.uint8)
+    for row in range(8):
+        cluster[100 + row * 6 : 103 + row * 6, 100:150] = 90
+    assert inspection_service._run_anomaly_model(cluster, on)[0] == pytest.approx(
+        inspection_service._run_anomaly_model(cluster, off)[0]
+    )
+
+    blob_plus_scatter = _scattered_thin_lines()
+    blob_plus_scatter[180:230, 20:70] = 200
+    assert inspection_service._run_anomaly_model(blob_plus_scatter, on)[0] == pytest.approx(
+        inspection_service._run_anomaly_model(blob_plus_scatter, off)[0]
+    )
+
+
+@pytest.mark.parametrize("transpose", [False, True])
+def test_scatter_guard_keeps_two_dimensional_local_scratch_cluster(
+    inspection_service: InspectionService, transpose: bool,
+) -> None:
+    # The cluster spans two axes but occupies a small part of the frame.
+    # Normalizing its own bounding box to a 4x4 grid incorrectly classified
+    # it as frame-wide misalignment and reduced its score below threshold.
+    diff = np.zeros((400, 400, 3), dtype=np.uint8)
+    positions = [(40, 40), (40, 300), (120, 160), (200, 40),
+                 (200, 300), (280, 160), (340, 40), (340, 300)]
+    for x, y in positions:
+        x, y = 130 + x // 4, 130 + y // 4
+        diff[y:y + 3, x:x + 20] = 55
+    if transpose:
+        diff = diff.transpose(1, 0, 2).copy()
+    settings = AnalysisSettings.from_overrides({
+        "use_patchcore": False, "min_diff_signal": 10.58496,
+        "min_defect_area": 5, "diff_percentile": 97.46936,
+        "min_scratch_aspect": 2.14776, "scratch_score_floor": 0.477836,
+        "scratch_aspect_floor": 3.22164,
+    })
+    guarded, _ = inspection_service._run_anomaly_model(diff, settings)
+    unguarded, _ = inspection_service._run_anomaly_model(
+        diff, AnalysisSettings.from_overrides({**settings.to_dict(), "scatter_guard_enabled": False}),
+    )
+    assert unguarded > .327
+    assert guarded == pytest.approx(unguarded)

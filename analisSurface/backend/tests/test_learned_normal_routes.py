@@ -2,13 +2,24 @@ import base64
 
 import cv2
 import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 
 from app.api.dependencies import inspection_service
+from app.api import file_routes, learned_normal_routes, roi_routes
 from app.main import app
 
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def isolated_learning_api_service(inspection_service, monkeypatch):
+    """API learning tests must not alter the operator's persisted normals."""
+    monkeypatch.setitem(globals(), "inspection_service", inspection_service)
+    monkeypatch.setattr(file_routes, "inspection_service", inspection_service)
+    monkeypatch.setattr(learned_normal_routes, "inspection_service", inspection_service)
+    monkeypatch.setattr(roi_routes, "inspection_service", inspection_service)
 
 
 def test_learning_review_page_is_available() -> None:

@@ -266,6 +266,9 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             boolean concentricityPass = siblingView
                     || concentricity.deviationMm() <= request.maxConcentricityMm();
             boolean jointPass = evaluateJointPass(request, joint);
+            diag.put("joint_continuity_pass", joint.continuityPass());
+            diag.put("joint_continuity_ran", joint.continuityMeasured());
+            diag.put("joint_missing_run_mm", joint.missingRunMm());
             // After upstream positioning, surface QC belongs to python — geometry absdiff
             // wrinkles are too light-sensitive and caused false rejects on matched frames.
             boolean wrinklesPass = poseLocked || wrinkles.score <= request.maxWrinklesScore();
@@ -887,7 +890,10 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
                     seam.widthTopMm(),
                     seam.widthBottomMm(),
                     seam.taperMm(),
-                    seam.visibility()
+                    seam.visibility(),
+                    seam.continuityPass(),
+                    seam.missingRunMm(),
+                    seam.continuityMeasured()
             );
         } finally {
             release(jointMat, jointMask);
@@ -945,6 +951,7 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             // Joint ROI was drawn — seam must be present. Empty / no-label → FAIL.
             return false;
         }
+        if (!joint.continuityPass) return false;
         // Canny double-edge (~2–4 px ≈ 0.04–0.08 mm @ 0.02 mm/px) often has vis≈1.0 —
         // still not a real seam gap; treat as inconclusive PASS regardless of visibility.
         double noiseFloorMm = Math.max(0.10, request.jointMinWidthMm() * 0.4);
@@ -1303,8 +1310,15 @@ public class OpenCvGeometryAnalysisService implements GeometryAnalysisService {
             double widthTopMm,
             double widthBottomMm,
             double taperMm,
-            double visibility
+            double visibility,
+            boolean continuityPass,
+            double missingRunMm,
+            boolean continuityMeasured
     ) {
+        JointResult(boolean found, double defectMm, double parallelismDeg, double widthMm,
+                    double widthTopMm, double widthBottomMm, double taperMm, double visibility) {
+            this(found, defectMm, parallelismDeg, widthMm, widthTopMm, widthBottomMm, taperMm, visibility, true, 0.0, false);
+        }
         static JointResult skipped() {
             return new JointResult(true, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
         }

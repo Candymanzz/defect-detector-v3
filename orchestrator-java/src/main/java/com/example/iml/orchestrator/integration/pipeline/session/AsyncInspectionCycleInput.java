@@ -106,7 +106,9 @@ public record AsyncInspectionCycleInput(
                 detectorId,
                 activeReference,
                 referenceMsFinal,
-                tCameraStartNanos,
+                // A new trigger starts a new cycle; the shared input lives for
+                // the entire camera loop and must not contribute idle time.
+                System.nanoTime(),
                 worker,
                 lightClient,
                 pythonPool,

@@ -40,6 +40,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const [referenceName, setReferenceName] = useState("");
   const [isFullReferenceReplacement, setIsFullReferenceReplacement] = useState(false);
   const [isRoiOnlyEditMode, setIsRoiOnlyEditMode] = useState(false);
+  const [isRefreshingReferenceFrame, setIsRefreshingReferenceFrame] = useState(false);
   const [autoSubmitCameraIds, setAutoSubmitCameraIds] = useState<number[] | null>(null);
   const [referenceSubmission, setReferenceSubmission] = useState<ReferenceSubmissionState | null>(null);
   const referencePreviewResumeTimerRef = useRef<number | null>(null);
@@ -82,6 +83,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       : activeCameraIds;
   const canSendAllReferences = Boolean(
     submissionCameraIds.length > 0 &&
+    !isRefreshingReferenceFrame &&
     submissionCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId]) &&
     referenceRoi.hasRequiredRoisForCameraIds(submissionCameraIds) &&
     (!isFullReferenceReplacement || activeCameraIds.every((cameraId) => replacementCameraIds.includes(cameraId))) &&
@@ -283,6 +285,29 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
 
   const handleSendAllReferences = () => {
     sendReferenceForGroups([submissionCameraIds]);
+  };
+
+  const handleRefreshReferenceFrame = async () => {
+    if (isRefreshingReferenceFrame || referenceSubmission?.state === "pending") {
+      return;
+    }
+    const cameraId = referenceRoi.selectedCameraId;
+    setIsRefreshingReferenceFrame(true);
+    setMessage(`Получение нового кадра камеры ${cameraId}...`);
+    try {
+      const { loadedCameraIds, snapshotCameraIds } = await captureLatestImages([cameraId]);
+      if (![...loadedCameraIds, ...snapshotCameraIds].includes(cameraId)) {
+        setMessage(`Не удалось обновить кадр камеры ${cameraId}. Прежний кадр сохранён.`);
+        return;
+      }
+      // Frame capture updates only the image. Keep both stored geometry and
+      // the operator's unsaved ROI/perspective edits until bundle submission.
+      setMessage(`Кадр камеры ${cameraId} обновлён. ROI и линия перспективы сохранены. Нажмите «Подтвердить изменения».`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsRefreshingReferenceFrame(false);
+    }
   };
 
   const handleCaptureNewReferenceFrames = async () => {
@@ -616,10 +641,12 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     replacementCameraIds,
     isFullReferenceReplacement,
     isRoiOnlyEditMode,
+    isRefreshingReferenceFrame,
     referenceName,
     setReferenceName,
     referenceSubmission,
     handleCaptureNewReferenceFrames,
+    handleRefreshReferenceFrame,
     handleCreateNewReference,
     handleRefreshFramesKeepingRoi,
     handleToggleCameraReplacement,

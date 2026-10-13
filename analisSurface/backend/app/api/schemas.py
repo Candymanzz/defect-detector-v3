@@ -93,6 +93,7 @@ class AnalysisSettingsValues(BaseModel):
     diff_percentile: float = 98.0
     scratch_score_floor: float = 0.35
     scratch_aspect_floor: float = 4.5
+    enable_edge_suppression: bool = True
     edge_suppress_factor: float = 0.2
     text_min_contrast: int = 55
     text_structure_threshold: int = 30
@@ -105,6 +106,10 @@ class AnalysisSettingsValues(BaseModel):
     fp_trigger_diff_q90: float = 22.0
     far_edge_max_gain: float = 1.35
     far_edge_edge_suppress_factor: float = 0.35
+    scatter_guard_enabled: bool = True
+    scatter_min_components: int = 6
+    scatter_min_cells: int = 5
+    scatter_suppress_factor: float = 0.4
     enable_internal_alignment: bool = False
 
 
@@ -117,6 +122,7 @@ class AnalysisSettingsUpdateRequest(BaseModel):
     diff_percentile: Optional[float] = None
     scratch_score_floor: Optional[float] = None
     scratch_aspect_floor: Optional[float] = None
+    enable_edge_suppression: Optional[bool] = None
     edge_suppress_factor: Optional[float] = None
     text_min_contrast: Optional[int] = None
     text_structure_threshold: Optional[int] = None
@@ -129,6 +135,10 @@ class AnalysisSettingsUpdateRequest(BaseModel):
     fp_trigger_diff_q90: Optional[float] = None
     far_edge_max_gain: Optional[float] = None
     far_edge_edge_suppress_factor: Optional[float] = None
+    scatter_guard_enabled: Optional[bool] = None
+    scatter_min_components: Optional[int] = None
+    scatter_min_cells: Optional[int] = None
+    scatter_suppress_factor: Optional[float] = None
     enable_internal_alignment: Optional[bool] = None
 
 
