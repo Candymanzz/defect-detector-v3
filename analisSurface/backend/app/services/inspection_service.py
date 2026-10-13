@@ -41,6 +41,7 @@ from app.services.inspection_geometry import (
     validate_perspective_line,
     validate_polygon_points,
 )
+from app.services.inspection_positioning import FramePositioner
 from app.services.inspection_models import FPZone, FPZoneScore, InspectionResult, RoiSubZone, RoiSubZoneScore
 from app.services.learned_normals import (
     AcceptedNormalMemory,
@@ -204,6 +205,8 @@ class InspectionService:
         self._analysis_settings_mtime_ns = -1
         self._analysis_settings_signature = None
         self._orb = cv2.ORB_create(nfeatures=1800)
+        self._positioner = FramePositioner()
+        self._python_positioning = os.environ.get("PY_POSITIONING", "1").strip().lower() not in {"0", "false", "off", "no"}
         self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
         self._fp_zones_file = Path(__file__).resolve().parent.parent / "data" / "fp_zones.json"
         self._fp_crops_dir = Path(__file__).resolve().parent.parent / "data" / "fp_zone_crops"
@@ -1077,17 +1080,30 @@ class InspectionService:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
         reference = reference.copy()
 
-        # Positioning is owned exclusively by java-positioning. Python receives
-        # a frame that is already in reference coordinates and must never run a
-        # second ORB/ECC/warp pass over it.
-        aligned = self._use_fixed_frame(frame, reference)
+        # Positioning lives in Python (inspection_positioning): the frame is locked to
+        # the reference by a rigid transform, and the two zones that cannot be
+        # inspected after the shift (void + newly-appeared strip) are excluded below.
+        polygon = self.get_roi_polygon(product_type)
+        valid_mask: Optional[np.ndarray] = None
+        position_diag: dict[str, object] = {}
+        if self._python_positioning:
+            positioned = self._positioner.position(
+                frame, reference, product_type=product_type, roi_polygon=polygon,
+            )
+            aligned = positioned.aligned
+            position_diag = dict(positioned.diagnostics)
+            if positioned.matrix is not None and np.any(positioned.valid_mask == 0):
+                valid_mask = positioned.valid_mask
+        else:
+            aligned = self._use_fixed_frame(frame, reference)
         log_analysis_stage(
             "alignment",
-            "frame accepted from positioning service",
+            "frame positioned in python",
             product_type=product_type,
             extra={
-                "method": "positioning_service",
+                "method": "python_positioning" if self._python_positioning else "fixed_frame",
                 "resized": frame.shape[:2] != reference.shape[:2],
+                **position_diag,
             },
         )
         align_finished = time.perf_counter()
@@ -1100,12 +1116,16 @@ class InspectionService:
                 product_type=product_type,
             )
 
+        if valid_mask is not None and valid_mask.shape[:2] != reference.shape[:2]:
+            valid_mask = cv2.resize(
+                valid_mask, (reference.shape[1], reference.shape[0]), interpolation=cv2.INTER_NEAREST,
+            )
+
         # Retain real neighborhood pixels for illumination and blur. Setting
         # them to black first creates artificial structure along the ROI edge.
         difference_aligned = aligned
         difference_reference = reference
         # 2. Ограничить анализ ROI-полигоном (вне полигона — нули).
-        polygon = self.get_roi_polygon(product_type)
         if polygon is not None:
             aligned, reference = mask_to_polygon(aligned, reference, polygon)
             log_analysis_stage(
@@ -1204,6 +1224,8 @@ class InspectionService:
                 reference.shape[1], reference.shape[0], polygon,
             )
             diff_map[roi_diff_mask == 0] = 0
+        if valid_mask is not None:
+            diff_map[valid_mask == 0] = 0
         log_analysis_stage(
             "illumination",
             "shadow/glare guard applied",

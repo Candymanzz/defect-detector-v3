@@ -54,7 +54,8 @@ java_geometry:
 # Вердикт — у geometry / python. При неудачном align идём дальше с исходным кадром.
 # UI JPEG / current.jpg: без эталона — сырой кадр; с эталоном — только после positioning_aligned.
 java_positioning:
-  enabled: true
+  # false: позиционирование делает Python (analisSurface, inspection_positioning.py).
+  enabled: false
   fail_on_reject: false
   write_aligned: true
   pixels_to_mm: 0.02
