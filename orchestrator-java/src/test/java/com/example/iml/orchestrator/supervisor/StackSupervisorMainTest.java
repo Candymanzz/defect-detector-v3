@@ -18,6 +18,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StackSupervisorMainTest {
 
+    @Test void orderlyExitStopsSupervisorButFailuresStillRecover() {
+        assertTrue(StackSupervisorMain.isOrderlyExit(new StackSupervisorMain.MonitorResult("process-exited", 0, 0)));
+        assertFalse(StackSupervisorMain.isOrderlyExit(new StackSupervisorMain.MonitorResult("process-exited", 2, 0)));
+        assertFalse(StackSupervisorMain.isOrderlyExit(new StackSupervisorMain.MonitorResult("health-failed", 0, 0)));
+    }
+
     private HttpServer server;
 
     @AfterEach

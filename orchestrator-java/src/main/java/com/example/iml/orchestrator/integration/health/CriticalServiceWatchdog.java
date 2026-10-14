@@ -5,7 +5,6 @@ import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationC
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
 import com.example.iml.orchestrator.integration.python.AnalisSurfaceLauncher;
-import com.example.iml.orchestrator.integration.lighting.LightServerLauncher;
 import com.example.iml.orchestrator.integration.lighting.LightsShutdown;
 import com.example.iml.orchestrator.integration.subprocess.ExternalServiceProcess;
 import com.example.iml.orchestrator.integration.subprocess.IntegrationExternalProcessLauncher;
@@ -28,25 +27,18 @@ import java.util.function.Supplier;
 
 /**
  * Демон-поток recovery: death vision-blocking сервиса → vision_fault + пауза пайплайна;
- * io_input_monitor перезапускается без vision_fault. Также analis_surface, geometry/positioning.
+ * Перезапускает analis_surface, geometry/positioning и другие внешние сервисы.
  */
 public final class CriticalServiceWatchdog implements IntegrationComponent {
 
     private static final long POLL_MS = 2000L;
     /** Повторный restart упавших сервисов, если первая попытка не удалась. */
     private static final long RECOVERY_RETRY_MS = 10_000L;
-    /** HTTP direction latch IoInputMonitor (config direction_http.port, default 9101). */
-    private static final int IO_INPUT_HTTP_PORT = 9101;
-    /** Пауза после close/kill — Windows часто ещё держит COM/handle. */
-    private static final long IO_COM_RELEASE_MS = 1200L;
-    /** Процесс должен прожить grace, иначе рестарт считается неудачным (анти-storm). */
-    private static final long IO_ALIVE_GRACE_MS = 1500L;
 
     private final Logger log;
     private final ServiceHealthGate healthGate;
     private final IntegrationRuntimeContext ctx;
     private final IntegrationExternalProcessLauncher externalLauncher;
-    private final LightServerLauncher lightLauncher;
     private final AnalisSurfaceLauncher analisLauncher;
     private final ScheduledExecutorService scheduler;
     private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -61,14 +53,12 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
             ServiceHealthGate healthGate,
             IntegrationRuntimeContext ctx,
             IntegrationExternalProcessLauncher externalLauncher,
-            LightServerLauncher lightLauncher,
             AnalisSurfaceLauncher analisLauncher
     ) {
         this.log = log;
         this.healthGate = healthGate;
         this.ctx = ctx;
         this.externalLauncher = externalLauncher;
-        this.lightLauncher = lightLauncher;
         this.analisLauncher = analisLauncher;
         this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "critical-service-watchdog");
@@ -87,7 +77,6 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
                 healthGate,
                 ctx,
                 new IntegrationExternalProcessLauncher(log),
-                new LightServerLauncher(log),
                 new AnalisSurfaceLauncher(log)
         );
         watchdog.bindExternals();
@@ -98,20 +87,6 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
     }
 
     private void bindExternals() {
-        if (ioInputMonitorAutostartEnabled()) {
-            watchExternal(
-                    "io_input_monitor",
-                    ctx::ioInputMonitorProcess,
-                    this::restartIoInputMonitor
-            );
-        }
-        if (lightServerAutostartEnabled()) {
-            watchExternal(
-                    "light_server",
-                    ctx::lightServerProcess,
-                    this::restartLightServer
-            );
-        }
         if (analisSurfaceAutostartEnabled()) {
             watchExternal(
                     "analis_surface",
@@ -143,19 +118,6 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
                 attachExit(process, "analis_surface", this::restartAnalisSurfacePool);
             }
         }
-    }
-
-    private boolean ioInputMonitorAutostartEnabled() {
-        return externalLauncher.parseAutostart(
-                ctx.integration(),
-                "io_input_monitor_autostart",
-                ctx.projectRoot(),
-                "."
-        ).enabled();
-    }
-
-    private boolean lightServerAutostartEnabled() {
-        return LightServersConfig.fromRootYaml(ctx.root()).enabled();
     }
 
     private boolean analisSurfaceAutostartEnabled() {
@@ -243,6 +205,10 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
 
     /** Проактивный health-check всех критичных сервисов в daemon-потоке. */
     private void probeAllServicesHealth() {
+        if (ctx.lightClient() != null && ctx.lightClient().isNativeLighting()) {
+            if (ctx.lightClient().isLightingHealthy()) healthGate.markHealthy("lighting");
+            else healthGate.markUnhealthy("lighting");
+        }
         probeExternalHealth();
         probePythonHttpPool();
         probeSupervisorPoolHealth(ctx.geometryPool(), "geometry");
@@ -361,16 +327,8 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
     }
 
     private void tryRecover(String reason) {
-        if ("io_input_monitor".equals(reason)) {
-            attemptServiceRestart("io_input_monitor", this::restartIoInputMonitor);
-            return;
-        }
         if ("analis_surface".equals(reason)) {
             attemptServiceRestart("analis_surface", this::restartAnalisSurfacePool);
-            return;
-        }
-        if ("light_server".equals(reason)) {
-            attemptServiceRestart("light_server", this::restartLightServer);
             return;
         }
         if (reason.startsWith("geometry_")) {
@@ -656,37 +614,6 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
         }
     }
 
-    private boolean restartIoInputMonitor() {
-        ExternalServiceProcess old = ctx.ioInputMonitorProcess();
-        if (old != null) {
-            old.close();
-        }
-        // Сироты после crash/Ctrl+C держат COM и HTTP 9101 → мгновенный рестарт падает в loop.
-        ExternalServiceProcess.killOrphansMatchingCommand("IoInputMonitor", log);
-        ExternalServiceProcess.killOrphansMatchingCommand("io-input-monitor", log);
-        ExternalServiceProcess.killListenersOnPort(IO_INPUT_HTTP_PORT, log);
-        sleepQuiet(IO_COM_RELEASE_MS);
-        ExternalServiceProcess next = externalLauncher.startIfConfigured(
-                ctx.integration(),
-                ctx.projectRoot(),
-                ctx.windows(),
-                "io_input_monitor_autostart",
-                "io_input_monitor_command_windows",
-                "io_input_monitor_command_linux",
-                "io-input-monitor",
-                "."
-        );
-        ctx.setIoInputMonitorProcess(next);
-        if (next == null || !next.isAlive()) {
-            return false;
-        }
-        if (!waitProcessAlive(next, IO_ALIVE_GRACE_MS)) {
-            log.warn("io_input_monitor exited during grace_ms={} — treating restart as failed", IO_ALIVE_GRACE_MS);
-            return false;
-        }
-        return true;
-    }
-
     private static void sleepQuiet(long ms) {
         if (ms <= 0) {
             return;
@@ -707,25 +634,6 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
             sleepQuiet(100L);
         }
         return process.isAlive();
-    }
-
-    private boolean restartLightServer() {
-        ExternalServiceProcess old = ctx.lightServerProcess();
-        if (old != null) {
-            old.close();
-        }
-        LightsShutdown.clearProcessRefOnly();
-        ExternalServiceProcess next = lightLauncher.startIfConfigured(
-                ctx.integration(),
-                ctx.projectRoot(),
-                ctx.windows(),
-                ctx.bootConfig().lightStartupDelayMs()
-        );
-        ctx.setLightServerProcess(next);
-        if (next != null) {
-            LightsShutdown.replaceProcess(next);
-        }
-        return next != null && next.isAlive();
     }
 
     private boolean restartAnalisSurfacePool() {

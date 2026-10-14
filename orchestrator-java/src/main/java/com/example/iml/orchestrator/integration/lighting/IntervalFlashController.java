@@ -108,7 +108,7 @@ public final class IntervalFlashController implements AutoCloseable {
     }
 
     /**
-     * Сырой DI от IoInputMonitor. Должен возвращаться быстро — без HTTP.
+     * Сырой DI от IO source. Должен возвращаться быстро — без HTTP.
      */
     public void onDiChange(IoInputDiChange change) {
         if (!config.enabled() || change == null || lights.constantMode()) {

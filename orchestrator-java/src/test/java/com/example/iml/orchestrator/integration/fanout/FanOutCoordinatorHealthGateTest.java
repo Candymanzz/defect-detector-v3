@@ -62,17 +62,17 @@ class FanOutCoordinatorHealthGateTest {
         assertDoesNotThrow(() -> fanOut.onSessionState(ClientWsSessionState.READY));
         assertTrue(gate.healthy());
 
-        gate.markUnhealthy("io_input_monitor");
+        gate.markUnhealthy("geometry_0");
         assertFalse(gate.healthy());
         assertTrue(refreshes.get() >= 1);
 
-        gate.markHealthy("io_input_monitor");
+        gate.markHealthy("geometry_0");
         assertTrue(gate.healthy());
         fanOut.close();
     }
 
     @Test
-    void ioInputMonitorAloneDoesNotBlockVisionFault() throws Exception {
+    void criticalServiceFailureBlocksVision() throws Exception {
         Path map = tempDir.resolve("register-map.yaml");
         Files.writeString(map, """
                 version: 1
@@ -102,9 +102,9 @@ class FanOutCoordinatorHealthGateTest {
         fanOut.setHealthGate(gate);
         fanOut.onSessionState(ClientWsSessionState.READY);
 
-        gate.markUnhealthy(ServiceHealthGate.IO_INPUT_MONITOR);
+        gate.markUnhealthy("geometry_0");
         assertFalse(gate.healthy());
-        assertTrue(gate.healthyForVision());
+        assertFalse(gate.healthyForVision());
         fanOut.refreshPlcLevels();
         fanOut.close();
     }

@@ -11,7 +11,8 @@ from app.services.analysis_settings_presets import (
 
 
 def test_expand_simple_mid_matches_defaults() -> None:
-    expanded = expand_simple(0.25, 0.5)
+    # Presets return overrides; omitted detailed flags retain their defaults.
+    expanded = AnalysisSettings.from_overrides(expand_simple(0.25, 0.5)).to_dict()
     defaults = AnalysisSettings.defaults().to_dict()
     assert expanded["default_threshold"] == 0.25
     for key, value in defaults.items():

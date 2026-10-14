@@ -37,7 +37,7 @@ class IntegrationExternalProcessLauncherTest {
   @Test
   void missingAutostartBlockIsDisabled() {
     var launcher = new IntegrationExternalProcessLauncher(LogManager.getLogger("test"));
-    var settings = launcher.parseAutostart(Map.of(), "io_input_monitor_autostart", projectRoot, ".");
+    var settings = launcher.parseAutostart(Map.of(), "test_service_autostart", projectRoot, ".");
 
     assertFalse(settings.enabled());
   }
@@ -91,11 +91,11 @@ class IntegrationExternalProcessLauncherTest {
     var method = IntegrationExternalProcessLauncher.class.getDeclaredMethod(
             "verifyLaunchCommand", String.class, List.class, boolean.class);
     method.setAccessible(true);
-    Path missingDll = root.resolve("IoInputMonitor/bin/Release/net10.0/IoInputMonitor.dll");
+    Path missingDll = root.resolve("test-service/bin/Release/service.dll");
     @SuppressWarnings("unchecked")
     boolean ok = (boolean) method.invoke(
             launcher,
-            "io-input-monitor",
+            "test-service",
             List.of("dotnet", "exec", missingDll.toString()),
             true
     );

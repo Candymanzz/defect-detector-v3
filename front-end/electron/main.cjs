@@ -1,10 +1,14 @@
-const { app, BrowserWindow, crashReporter, ipcMain } = require("electron");
+const { app, BrowserWindow, crashReporter, ipcMain, screen } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL;
 const isDev = Boolean(rendererUrl);
-const runtimeLogPath = path.resolve(__dirname, "..", "..", "logs", "electron-runtime.log");
+const isKiosk = process.env.IML_KIOSK === "1";
+const runtimeLogPath = process.env.IML_ELECTRON_LOG_PATH || path.resolve(__dirname, "..", "..", "logs", "electron-runtime.log");
+const rendererRecoveryWindowMs = 60_000;
+const rendererRecoveryLimit = 3;
+const rendererRecoveryTimes = [];
 
 function writeRuntimeLog(event, details = {}) {
   try {
@@ -28,25 +32,99 @@ process.on("unhandledRejection", (reason) => {
 });
 
 function createMainWindow() {
+  const kioskBounds = isKiosk ? screen.getPrimaryDisplay().bounds : null;
   const mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 960,
-    minHeight: 640,
+    ...(kioskBounds || { width: 1280, height: 800 }),
+    minWidth: isKiosk ? 0 : 960,
+    minHeight: isKiosk ? 0 : 640,
     title: "Defect Detector",
     backgroundColor: "#101317",
+    kiosk: isKiosk,
+    frame: !isKiosk,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
+      devTools: !isKiosk,
     },
   });
+
+  if (isKiosk) {
+    mainWindow.setMenu(null);
+    // A bare Xorg session has no window manager to honour fullscreen requests.
+    // Set the actual monitor bounds as well as the kiosk flag.
+    const fitKioskToDisplay = () => {
+      if (mainWindow.isDestroyed()) return;
+      const display = screen.getPrimaryDisplay();
+      mainWindow.setBounds(display.bounds);
+      writeRuntimeLog("kiosk-display", {
+        displayId: display.id,
+        displayBounds: display.bounds,
+        scaleFactor: display.scaleFactor,
+        windowBounds: mainWindow.getBounds(),
+      });
+    };
+    const onDisplayMetricsChanged = () => fitKioskToDisplay();
+    mainWindow.once("ready-to-show", fitKioskToDisplay);
+    screen.on("display-metrics-changed", onDisplayMetricsChanged);
+    screen.on("display-added", onDisplayMetricsChanged);
+    screen.on("display-removed", onDisplayMetricsChanged);
+    mainWindow.once("closed", () => {
+      screen.removeListener("display-metrics-changed", onDisplayMetricsChanged);
+      screen.removeListener("display-added", onDisplayMetricsChanged);
+      screen.removeListener("display-removed", onDisplayMetricsChanged);
+    });
+    mainWindow.on("close", (event) => {
+      if (!app.isQuitting) event.preventDefault();
+    });
+    mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+    mainWindow.webContents.on("will-navigate", (event) => event.preventDefault());
+    mainWindow.webContents.on("before-input-event", (event, input) => {
+      const key = input.key.toLowerCase();
+      if (["f11", "f12"].includes(key) ||
+          (input.alt && key === "f4") ||
+          ((input.control || input.meta) && ["q", "w", "r", "l", "n", "t"].includes(key)) ||
+          (input.control && input.shift && ["i", "j", "c"].includes(key))) {
+        event.preventDefault();
+      }
+    });
+  }
 
   mainWindow.on("unresponsive", () => writeRuntimeLog("window-unresponsive"));
   mainWindow.on("responsive", () => writeRuntimeLog("window-responsive"));
   mainWindow.on("closed", () => writeRuntimeLog("window-closed"));
   mainWindow.webContents.on("render-process-gone", (_event, details) => {
     writeRuntimeLog("render-process-gone", details);
+    if (details?.reason === "clean-exit" || app.isQuitting) {
+      return;
+    }
+
+    const now = Date.now();
+    while (rendererRecoveryTimes.length > 0 && now - rendererRecoveryTimes[0] > rendererRecoveryWindowMs) {
+      rendererRecoveryTimes.shift();
+    }
+    if (rendererRecoveryTimes.length >= rendererRecoveryLimit) {
+      writeRuntimeLog("renderer-recovery-skipped", { reason: "rate-limit", attempts: rendererRecoveryTimes.length });
+      return;
+    }
+    rendererRecoveryTimes.push(now);
+
+    // A renderer OOM leaves an otherwise live BrowserWindow black. Drop Chromium's
+    // decoded-resource cache and reload the UI in the same window.
+    setTimeout(async () => {
+      if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {
+        return;
+      }
+      try {
+        if (details?.reason === "oom") {
+          await mainWindow.webContents.session.clearCache();
+        }
+        writeRuntimeLog("renderer-recovery", { reason: details?.reason ?? "unknown" });
+        mainWindow.webContents.reloadIgnoringCache();
+      } catch (error) {
+        writeRuntimeLog("renderer-recovery-failed", { error: error?.stack ?? String(error) });
+      }
+    }, 500);
   });
 
   if (isDev) {
@@ -121,6 +199,7 @@ app.on("child-process-gone", (_event, details) => {
   }
 });
 app.on("before-quit", (_event, exitCode) => {
+  app.isQuitting = true;
   writeRuntimeLog("before-quit", { exitCode });
 });
 app.on("will-quit", (_event, exitCode) => {

@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Имитация IoInputMonitor: UDP JSON на порт оркестратора (inspection_trigger.udp.bind_port).
+ * Имитация IO source: UDP JSON на порт оркестратора (inspection_trigger.udp.bind_port).
  * Оркестратор должен быть запущен, иначе пакеты уйдут в никуда (шаг send всё равно OK).
  */
 public final class IoInputUdpSmokeMain {

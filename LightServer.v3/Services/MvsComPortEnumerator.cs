@@ -160,6 +160,15 @@ internal static class MvsComPortEnumerator
     public static string NormalizeComPort(string p)
     {
         p = p.Trim();
+        const string sdkPrefix = "COM_Port#";
+        if (p.StartsWith(sdkPrefix, StringComparison.OrdinalIgnoreCase))
+            p = p[sdkPrefix.Length..];
+        if (p.StartsWith("/dev/", StringComparison.Ordinal))
+            p = p["/dev/".Length..];
+        // Linux tty names are case-sensitive. Keep their spelling and avoid
+        // adding a second COM_Port# prefix when resolving the SDK port.
+        if (p.StartsWith("tty", StringComparison.Ordinal))
+            return p;
         if (p.Length == 0)
             return "";
 

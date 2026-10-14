@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * IoInputMonitor публикует только DI3↑ (Rising-only). Без сброса triggerActive
+ * IO source публикует только DI3↑ (Rising-only). Без сброса triggerActive
  * повторные UDP 3:1 молча игнорируются после первого кадра.
  */
 class IoInputRisingOnlyRetriggerTest {

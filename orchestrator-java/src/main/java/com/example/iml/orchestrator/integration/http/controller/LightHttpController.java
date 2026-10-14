@@ -22,7 +22,7 @@ import java.io.IOException;
 import java.util.Map;
 
 /**
- * HTTP API подсветки: яркость по endpoint, вспышка по триггеру, прокси LightServer.v3.
+ * HTTP API подсветки: яркость, режимы, устройства и команды встроенного света.
  */
 public final class LightHttpController implements HttpController {
 
@@ -43,7 +43,7 @@ public final class LightHttpController implements HttpController {
             LightBrightnessStore brightnessStore
     ) {
         this.lightClient = lightClient;
-        this.upstream = cfg != null && cfg.enabled() ? new LightUpstreamClient(cfg) : null;
+        this.upstream = cfg != null && cfg.enabled() ? new LightUpstreamClient(cfg, lightClient) : null;
         this.brightnessStore = brightnessStore;
     }
 
@@ -147,6 +147,20 @@ public final class LightHttpController implements HttpController {
         } catch (Exception e) {
             HttpResponses.sendJsonError(ctx, 502, "light trigger failed: " + e.getMessage());
         }
+    }
+
+    public void handleBank(HttpRequestContext ctx) throws IOException {
+        if (!requireUpstream(ctx)) return;
+        if ("GET".equalsIgnoreCase(ctx.method())) forwardGet(ctx, "/api/camera-flash/bank");
+        else if ("POST".equalsIgnoreCase(ctx.method())) forwardPost(ctx, "/api/camera-flash/bank", ctx.readBody());
+        else HttpResponses.methodNotAllowed(ctx);
+    }
+
+    public void handleCameraFlash(HttpRequestContext ctx) throws IOException {
+        if (!requireUpstream(ctx)) return;
+        if ("POST".equalsIgnoreCase(ctx.method())) forwardPost(ctx, ctx.path(), ctx.readBody());
+        else if ("GET".equalsIgnoreCase(ctx.method())) forwardGet(ctx, ctx.path());
+        else HttpResponses.methodNotAllowed(ctx);
     }
 
     public void handleNetworkDevices(HttpRequestContext ctx) throws IOException {

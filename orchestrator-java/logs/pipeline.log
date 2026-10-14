@@ -114,3 +114,19 @@
 2026-09-22 15:47:24.807 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true vision_blocking=[] io_input_only=false)
 2026-09-22 15:47:24.807 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true vision_blocking=[] io_input_only=true)
 2026-09-22 15:47:24.807 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true vision_blocking=[] io_input_only=true)
+2026-10-13 10:48:19.687 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins enabled host=127.0.0.1:57265 map=/tmp/junit2789935248660154397/register-map.yaml pulse_ms=50 timeouts=0
+2026-10-13 10:48:19.704 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result reject_route=DO outputs={0=Output[port=6, sdkPort=5, activeHigh=true, enableOnWrite=true, timer=Timer6, line=Out6], 1=Output[port=7, sdkPort=6, activeHigh=true, enableOnWrite=true, timer=Timer7, line=Out7]} other_signals=FINS
+2026-10-13 10:48:19.706 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true vision_blocking=[] io_input_only=false)
+2026-10-13 10:48:19.710 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=true
+2026-10-13 10:48:19.714 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-10-13 10:48:19.716 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-10-13 11:40:58.381 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins enabled host=127.0.0.1:34580 map=/tmp/junit18007758318239466300/register-map.yaml pulse_ms=50 timeouts=0
+2026-10-13 11:40:58.395 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result reject_route=DO outputs={0=Output[port=6, sdkPort=5, activeHigh=true, enableOnWrite=true, timer=Timer6, line=Out6], 1=Output[port=7, sdkPort=6, activeHigh=true, enableOnWrite=true, timer=Timer7, line=Out7]} other_signals=FINS
+2026-10-13 11:40:58.397 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true vision_blocking=[] io_input_only=false)
+2026-10-13 11:40:58.402 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=true
+2026-10-13 11:40:58.404 INFO  [plc-fins-publisher] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_fault area=W address=0.5 value=false
+2026-10-13 11:40:58.406 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins write signal=vision_ready area=W address=0.4 value=false
+2026-10-13 11:40:58.414 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result plc_fins disabled (plc_fins.enabled=false)
+2026-10-13 11:40:58.415 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - inspection result reject_route=DO outputs={0=Output[port=3, sdkPort=2, activeHigh=false, enableOnWrite=true, timer=, line=Out3], 1=Output[port=4, sdkPort=3, activeHigh=false, enableOnWrite=true, timer=, line=Out4]} other_signals=FINS
+2026-10-13 11:40:58.416 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=READY vision_ready=true vision_fault=false (reference_active=true healthy=true vision_blocking=[] io_input_only=false)
+2026-10-13 11:40:58.419 INFO  [main] c.e.i.o.i.f.FanOutCoordinator - plc fins session_state=NO_REFERENCE vision_ready=false vision_fault=false (reference_active=false healthy=true vision_blocking=[] io_input_only=false)

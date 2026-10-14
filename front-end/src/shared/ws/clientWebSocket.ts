@@ -65,6 +65,7 @@ export class OrchestratorWebSocketClient {
 
     socket.addEventListener("open", () => {
       clientLog("ws_open", { reconnect_attempt: this.reconnectAttempt });
+      if (this.socket !== socket) return;
       this.reconnectAttempt = 0;
       this.setStatus({
         state: "open",
@@ -73,11 +74,13 @@ export class OrchestratorWebSocketClient {
     });
 
     socket.addEventListener("message", (event) => {
+      if (this.socket !== socket) return;
       this.handleMessage(event.data);
     });
 
     socket.addEventListener("error", () => {
       clientLog("ws_error", {}, "warn");
+      if (this.socket !== socket) return;
       this.setStatus({
         state: "error",
         reconnectAttempt: this.reconnectAttempt,
@@ -87,9 +90,8 @@ export class OrchestratorWebSocketClient {
 
     socket.addEventListener("close", (event) => {
       clientLog("ws_close", { code: event.code, reason: event.reason }, "warn");
-      if (this.socket === socket) {
-        this.socket = null;
-      }
+      if (this.socket !== socket) return;
+      this.socket = null;
 
       if (this.manuallyClosed) {
         this.setStatus({

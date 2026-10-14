@@ -38,7 +38,8 @@ public final class TriggerRuntimeBootstrapService {
                 IntegrationFeatureConfig.parseContinuousInspection(ctx.integration());
         InspectionTriggerConfig inspectionTriggerConfig = InspectionTriggerConfig.parse(ctx.integration());
         IntegrationFeatureConfig.InspectionTriggerMode triggerMode =
-                inspectionTriggerConfig.ioInput().di3Only()
+                inspectionTriggerConfig.mvsIo().enabled()
+                        || inspectionTriggerConfig.ioInput().di3Only()
                         || inspectionTriggerConfig.ioInput().directionLatchOnWork()
                         ? IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL
                         : IntegrationFeatureConfig.resolveInspectionTriggerMode(ctx.integration());
@@ -113,6 +114,11 @@ public final class TriggerRuntimeBootstrapService {
                 bucketInspectionConfig.enabled() ? bucketInspectionConfig.groups() : List.of(),
                 ctx.manualLineDirection()
         );
+        if (inspectionTriggerConfig.mvsIo().enabled()
+                && (ctx.lineCaptureCoordinator() == null || !lineCaptureCfg.hardwareLineTrigger())) {
+            triggerRuntime.close();
+            throw new IllegalStateException("mvs_io monitoring requires hardware_line_trigger=true and simultaneous_line_capture.enabled=true for frame reception");
+        }
         ctx.setTriggerRuntime(triggerRuntime);
 
         wireIntervalFlash(ctx);
@@ -180,7 +186,8 @@ public final class TriggerRuntimeBootstrapService {
             SimultaneousLineCaptureConfig lineCaptureCfg,
             List<Integer> inspectionCameraIds
     ) {
-        if (lineCaptureCfg.enabled() && inspectionCameraIds.size() > 1) {
+        if (lineCaptureCfg.enabled() && (inspectionCameraIds.size() > 1
+                || com.example.iml.orchestrator.integration.io.mvs.MvsIoConfig.parse(ctx.integration()).enabled())) {
             LineSynchronizedCaptureCoordinator lineCaptureCoordinator = new LineSynchronizedCaptureCoordinator(
                     inspectionCameraIds,
                     lineCaptureCfg.barrierWaitMs(),
@@ -271,7 +278,11 @@ public final class TriggerRuntimeBootstrapService {
         } else if (continuousInspection.enabled()) {
             log.info("continuous_inspection enabled cycle_delay_ms={}", continuousInspection.cycleDelayMs());
         } else if (triggerMode == IntegrationFeatureConfig.InspectionTriggerMode.EXTERNAL) {
-            if (triggerCfg.usesIoInputMonitor()) {
+            if (triggerCfg.mvsIo().enabled()) {
+                log.info("inspection_trigger native MVS monitor port={} serial={} inputs={} outputs={} input_mode={} debounce=disabled",
+                        triggerCfg.mvsIo().port(), triggerCfg.mvsIo().serial(), triggerCfg.mvsIo().inputs().keySet(),
+                        triggerCfg.mvsIo().outputs(), triggerCfg.mvsIo().inputMode());
+            } else if (triggerCfg.usesIoInputUdp()) {
                 log.info(
                         "inspection_trigger external io_input {}:{} di={}/{}/{} shutdown_di={} trigger_edge={} di3_only={} direction_latch_on_work={} direction_arm_next_di3={} require_direction={} require_work={} direction_invert={} direction_wait_ms={} direction_poll_ms={} debounce_ms={} stub_work={}",
                         triggerCfg.udp().bindHost(),

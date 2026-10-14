@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * DI2 часто размыкается раньше DI3; при falling edge направление берётся с момента замыкания DI3.
  * DI3 также может прийти раньше DI2 — направление фиксируется в latch на время импульса.
  */
-class IoInputMonitorTriggerSequenceTest {
+class IoInputTriggerSequenceTest {
 
     @Test
     void risingSequenceWithDirectionAfterTriggerUsesLatch() {

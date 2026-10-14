@@ -75,7 +75,7 @@ LightServer.v3/
 | **MV-LE (основной)** | `MvCameraControl.Net` | COM MV-LE, Ethernet MV-LE — GenICam `LightController*` |
 | **IO Box (legacy)** | `MvIOInterfaceBox.dll` | `IoControllerComService` — зарегистрирован, но **не** в HTTP API v3 |
 
-**Важно:** на одном COM может висеть либо MV-LE (подсветка), либо IO box (DI) — это разные устройства. COM1/COM2 часто MV-LE, COM3 может быть IO box (см. IoInputMonitor).
+**Важно:** на одном COM может висеть либо MV-LE (подсветка), либо IO box (DI) — это разные устройства. COM1/COM2 часто MV-LE, COM3 может быть IO box.
 
 ---
 
@@ -281,7 +281,7 @@ MV-LE не всегда умеет «включить 4 канала однов�
 |---------|---------|---------|
 | `Building…` зависает | Синхронный Open COM блокировал старт | Инициализация в фоне (`ComLightBankHostedService`) — дождаться лога «COM-банк готов» |
 | Open `0x800000FF` | COM занят MVS Client / второй LightServer | Закрыть MVS, один экземпляр сервера |
-| COM в конфиге, но `skipped` | На порту нет MV-LE (IO box / пусто) | `GET /api/com/devices`, проверить кабель; не путать с IoInputMonitor |
+| COM в конфиге, но `skipped` | На порту нет MV-LE (IO box / пусто) | `GET /api/com/devices`, проверить кабель; не путать с IO-контроллером |
 | `Simultaneous On unavailable` | Нет Timer trigger и нет broadcast | `FlashSyncMode: Hold` или настроить Timer1 в MVS |
 | EnumDevices пустой | `SetEnumSerialPorts` не вызван / неверный COM | Проверить `51-light-hardware.yaml`, закрыть MVS |
 | Яркость «не та» на /pair | 0–255 vs проценты | `/pair` — raw 255; `/api/com/light` — проценты 0–100 |

@@ -19,6 +19,7 @@ import { ReferenceSetup } from "../ReferenceSetup";
 import { ServerStream } from "../ServerStream";
 import { AnalysisSettingsPanel } from "./AnalysisSettingsPanel";
 import { orchestratorApi } from "../../shared/api";
+import { orchestratorWs } from "../../shared/ws";
 import benchmarkIconUrl from "../../shared/assets/images/benchmark.svg";
 import camerasIconUrl from "../../shared/assets/images/cameras.svg";
 import streamIconUrl from "../../shared/assets/images/stream.svg";
@@ -228,7 +229,7 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
   const requestIdRef = useRef(0);
 
   const isBusy = settingData.status.state === "loading" || settingData.status.state === "saving";
-  const canEditSettings = !isBusy;
+  const canEditSettings = settingData.status.state === "ready";
   const brightnessScopeText = selectedCameraId === null ? "Все камеры" : `Камера ${selectedCameraId}`;
   const analysisScopeText = selectedCameraId === null ? "Все изделия камер" : `Изделие камеры ${selectedCameraId}`;
   const streamCameraId = selectedCameraId ?? SETTINGS_STREAM_CAMERA_ID;
@@ -277,20 +278,44 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
 
   useEffect(() => {
     let isActive = true;
-    const requestId = requestIdRef.current;
-
-    loadSettingData(selectedCameraId)
-      .catch(createSettingErrorData)
-      .then((nextSettingData) => {
-        if (!isActive || requestId !== requestIdRef.current) {
-          return;
-        }
-
-        setSettingData(nextSettingData);
-      });
+    let retryTimer: number | undefined;
+    let previousConnectionState = orchestratorWs.snapshot.state;
+    const refreshSettings = () => {
+      window.clearTimeout(retryTimer);
+      const requestId = ++requestIdRef.current;
+      setSaveFeedback(null);
+      setSettingData(INITIAL_SETTING_DATA);
+      void loadSettingData(selectedCameraId).then(
+        (nextSettingData) => {
+          if (isActive && requestId === requestIdRef.current) setSettingData(nextSettingData);
+        },
+        (error: unknown) => {
+          if (!isActive || requestId !== requestIdRef.current) return;
+          setSettingData(createSettingErrorData(error));
+          retryTimer = window.setTimeout(refreshSettings, 1500);
+        },
+      );
+    };
+    refreshSettings();
+    const unsubscribe = orchestratorWs.onStatus((status) => {
+      if (status.state === previousConnectionState) return;
+      const wasOpen = previousConnectionState === "open";
+      previousConnectionState = status.state;
+      if (status.state === "open") {
+        refreshSettings();
+      } else if (wasOpen) {
+        // Invalidate requests and displayed values from the previous backend session.
+        ++requestIdRef.current;
+        window.clearTimeout(retryTimer);
+        setSaveFeedback(null);
+        setSettingData(INITIAL_SETTING_DATA);
+      }
+    });
 
     return () => {
       isActive = false;
+      window.clearTimeout(retryTimer);
+      unsubscribe();
     };
   }, [selectedCameraId]);
 
@@ -595,7 +620,7 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
                 min="0"
                 max="100"
                 step="1"
-                value={settingData.form.brightnessPercent}
+                value={settingData.status.state === "loading" || settingData.status.state === "error" ? "" : settingData.form.brightnessPercent}
                 disabled={!canEditSettings}
                 onChange={handleFieldChange("brightnessPercent")}
               />

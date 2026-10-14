@@ -26,7 +26,7 @@ public final class StackSupervisorMain {
 
     static final int[] DEV_STACK_PORTS = {
             8000, 8001, 8002, 8003, 8004, 8005, 8006, 8007, 8008, 8009,
-            8099, 8765, 5173, 5079, 5080, 8088, 9101
+            8099, 8765, 5173, 8088
     };
 
     private final Path orchestratorJar;
@@ -193,12 +193,20 @@ public final class StackSupervisorMain {
                     cleanupOrphanPorts("pre-start");
                     child = startOrchestrator();
                     if (!awaitStackHealth(startupHealthTimeoutMs)) {
+                        if (!child.isAlive() && exitCodeQuiet(child) == 0) {
+                            log.info("stack supervisor orderly orchestrator exit during startup — no restart");
+                            return 0;
+                        }
                         log.error(
                                 "stack supervisor startup health timeout {}ms — services not healthy after restart",
                                 startupHealthTimeoutMs
                         );
                     } else {
                         MonitorResult result = monitorUntilUnhealthy(child, -1L, false);
+                        if (isOrderlyExit(result)) {
+                            log.info("stack supervisor orderly orchestrator exit — no restart");
+                            return 0;
+                        }
                         if (stopRequested.get()) {
                             log.info("stack supervisor stopping spawned orchestrator (user request)");
                             destroyProcessTree(child, false);
@@ -309,6 +317,9 @@ public final class StackSupervisorMain {
     private Process startOrchestrator() throws IOException {
         List<String> command = List.of(
                 resolveJavaBinary(),
+                "-Xms256m",
+                "-Xmx1024m",
+                "-XX:+ExitOnOutOfMemoryError",
                 "-jar",
                 orchestratorJar.toAbsolutePath().toString(),
                 configPath.toAbsolutePath().toString()
@@ -468,9 +479,6 @@ public final class StackSupervisorMain {
         if (envBoolean("IML_SUPERVISOR_PROBE_PYTHON", true)) {
             uris.add(URI.create(env("IML_PYTHON_HEALTH_URL", "http://127.0.0.1:8000/detector/health")));
         }
-        if (envBoolean("IML_SUPERVISOR_PROBE_LIGHT", false)) {
-            uris.add(URI.create(env("IML_LIGHT_HEALTH_URL", "http://127.0.0.1:5080/")));
-        }
         return uris;
     }
 
@@ -584,5 +592,8 @@ public final class StackSupervisorMain {
     }
 
     record MonitorResult(String reason, int exitCode, long stableHealthyMs) {
+    }
+    static boolean isOrderlyExit(MonitorResult result) {
+        return "process-exited".equals(result.reason()) && result.exitCode() == 0;
     }
 }

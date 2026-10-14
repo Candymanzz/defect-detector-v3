@@ -15,13 +15,13 @@ function Stop-PidSafe([int]$ProcessId) {
 function Send-LightBankOff {
     try {
         $body = '{"state":"off"}'
-        Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:5080/api/camera-flash/bank" `
+        Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8099/api/orchestrator/light/bank" `
             -ContentType "application/json; charset=utf-8" -Body $body -TimeoutSec 2 | Out-Null
         if (-not $Quiet) {
-            Write-Host "LightServer bank Off отправлен." -ForegroundColor DarkYellow
+            Write-Host "Java lights bank Off отправлен." -ForegroundColor DarkYellow
         }
     } catch {
-        # LightServer already not listening - ok
+        # Orchestrator already not listening - ok
     }
 }
 
@@ -36,8 +36,8 @@ if (Test-Path $PidFile) {
     Remove-Item $PidFile -Force
 }
 
-# Порты: analisSurface pool 8000..8009 (python_parallelism), UI HTTP, WS, Vite, LightServer, fan-out stub
-foreach ($port in 8000..8009 + @(8099, 8765, 5173, 5079, 5080, 8088)) {
+# Порты: analisSurface pool 8000..8009 (python_parallelism), UI HTTP, WS, Vite, fan-out stub
+foreach ($port in 8000..8009 + @(8099, 8765, 5173, 8088)) {
     Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
         ForEach-Object { Stop-PidSafe $_.OwningProcess }
 }

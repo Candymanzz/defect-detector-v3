@@ -1034,8 +1034,17 @@ class InspectionService:
 
     def inspect_frame(self, product_type: str, frame: np.ndarray, *args, **kwargs) -> InspectionResult:
         """Inspect against one atomic camera-scoped configuration snapshot."""
-        with self._product_lock(product_type):
-            return self._inspect_frame_unlocked(product_type, frame, *args, **kwargs)
+        lock = self._product_lock(product_type)
+        waiting_ns = time.perf_counter_ns()
+        with lock:
+            lock_wait_ms = (time.perf_counter_ns() - waiting_ns) / 1_000_000
+            try:
+                return self._inspect_frame_unlocked(product_type, frame, *args, **kwargs)
+            finally:
+                logging.getLogger("uvicorn.error").info(
+                    "python_product_lock_timing pid=%s product=%s lock_wait_ms=%.3f",
+                    os.getpid(), product_type, lock_wait_ms,
+                )
 
     def _inspect_frame_unlocked(
         self,

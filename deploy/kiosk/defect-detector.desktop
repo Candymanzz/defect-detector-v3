@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Defect Detector Kiosk
+Comment=Factory operator session
+Exec=/usr/local/bin/defect-detector-kiosk
+TryExec=/usr/local/bin/defect-detector-kiosk
+Type=Application
+DesktopNames=DefectDetector

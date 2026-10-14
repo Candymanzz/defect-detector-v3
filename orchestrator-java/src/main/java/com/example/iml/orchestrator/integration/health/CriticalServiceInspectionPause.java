@@ -11,7 +11,6 @@ import java.util.Set;
 
 /**
  * Пауза инспекции при vision_fault (analis_surface, geometry, …).
- * IoInputMonitor не блокирует пайплайн — см. {@link ServiceHealthGate#IO_INPUT_MONITOR}.
  */
 public final class CriticalServiceInspectionPause {
 

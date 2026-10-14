@@ -67,6 +67,9 @@ public class MvsComPortEnumeratorTests
     [InlineData("3", "COM3")]
     [InlineData("COM_Port#COM5", "COM5")]
     [InlineData("com7", "COM7")]
+    [InlineData("ttyS4", "ttyS4")]
+    [InlineData("/dev/ttyUSB0", "ttyUSB0")]
+    [InlineData("COM_Port#ttyS4", "ttyS4")]
     public void NormalizeComPort_standardizesInput(string raw, string expected) =>
         Assert.Equal(expected, MvsComPortEnumerator.NormalizeComPort(raw));
 }

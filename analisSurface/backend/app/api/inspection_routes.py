@@ -6,7 +6,9 @@
 
 import asyncio
 import logging
+import os
 import threading
+from time import perf_counter_ns
 from functools import partial
 from pathlib import Path
 
@@ -301,7 +303,24 @@ async def _inspect_shm_parallel(
         include_heatmap_u8=include_heatmap_u8,
         force_skip_learning_review=force_skip_learning_review,
     )
-    return await loop.run_in_executor(inspect_executor, job)
+    queued_ns = perf_counter_ns()
+
+    def timed_job():
+        started_ns = perf_counter_ns()
+        try:
+            return job()
+        finally:
+            logging.getLogger("uvicorn.error").info(
+                "python_internal_timing pid=%s product=%s frame=%s "
+                "executor_queue_ms=%.3f executor_job_ms=%.3f",
+                os.getpid(),
+                payload.product_type,
+                payload.heatmap_u8_output_path or payload.shm_name,
+                (started_ns - queued_ns) / 1_000_000,
+                (perf_counter_ns() - started_ns) / 1_000_000,
+            )
+
+    return await loop.run_in_executor(inspect_executor, timed_job)
 
 
 @router.post("/inspect-shm", response_model=InspectResponse)

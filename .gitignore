@@ -66,7 +66,6 @@ defect-detector-v3
 analisSurface/backend/app/data/analysis_settings.json
 analisSurface/test-analysis.html
 /.pdf_pages
-
 /LightServer.v3/logs
 # lab: локальная лаборатория тестирования analisSurface
 /analisSurface/lab/

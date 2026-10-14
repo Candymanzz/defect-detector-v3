@@ -45,7 +45,7 @@ public record InspectionDecision(
         return new InspectionDecision(
                 cameraId,
                 frameId,
-                false,
+                true,
                 "CAPTURE",
                 0.0,
                 "NO_REFERENCE",

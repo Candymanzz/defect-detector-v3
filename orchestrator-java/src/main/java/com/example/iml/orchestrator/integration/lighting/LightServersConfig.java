@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Конфигурация подсветки через LightServer.v3: три типа URL — вкл, выкл, яркость по камерам.
+ * Конфигурация подсветки; URL сохранены для совместимого HTTP backend.
  */
 public record LightServersConfig(
         boolean enabled,
@@ -94,7 +94,7 @@ public record LightServersConfig(
         List<CameraFlashSpec> cameras = parseCameras(ls, root, globalBrightness);
 
         if (cameras.isEmpty() && ls.containsKey("endpoints")) {
-            cameras = migrateLegacyEndpoints(ls, globalBrightness);
+            cameras = migrateLegacyEndpoints(ls, root, globalBrightness);
         }
         if (cameras.isEmpty() && root != null) {
             cameras = defaultCamerasFromRoot(root, globalBrightness);
@@ -245,10 +245,10 @@ public record LightServersConfig(
             }
             Map<String, Object> m = (Map<String, Object>) em;
             int cameraId = YamlScalars.toInt(m.get("camera_id"), YamlScalars.toInt(m.get("id"), -1));
-            if (cameraId < 0 || !hasFlashHardware(cameraId)) {
+            if (cameraId < 0 || !hasConfiguredFlash(root, cameraId)) {
                 continue;
             }
-            FlashMode mode = parseFlashMode(String.valueOf(m.getOrDefault("mode", defaultModeNameForCameraId(cameraId))));
+            FlashMode mode = parseFlashMode(String.valueOf(m.getOrDefault("mode", configuredMode(root, cameraId).name())));
             int percent = LightBrightnessScale.clampPercent(
                     YamlScalars.toInt(m.get("brightness_percent"), globalBrightness));
             int left = LightBrightnessScale.clampPercent(
@@ -267,17 +267,17 @@ public record LightServersConfig(
         }
         List<CameraFlashSpec> out = new ArrayList<>(ids.size());
         for (int cameraId : ids) {
-            if (!hasFlashHardware(cameraId)) {
+            if (!hasConfiguredFlash(root, cameraId)) {
                 continue;
             }
-            FlashMode mode = defaultModeForCameraId(cameraId);
+            FlashMode mode = configuredMode(root, cameraId);
             out.add(new CameraFlashSpec(cameraId, mode, globalBrightness, globalBrightness, globalBrightness));
         }
         return List.copyOf(out);
     }
 
     @SuppressWarnings("unchecked")
-    private static List<CameraFlashSpec> migrateLegacyEndpoints(Map<String, Object> ls, int globalBrightness) {
+    private static List<CameraFlashSpec> migrateLegacyEndpoints(Map<String, Object> ls, Map<String, Object> root, int globalBrightness) {
         Object raw = ls.get("endpoints");
         if (!(raw instanceof List<?> list) || list.isEmpty()) {
             return List.of();
@@ -298,10 +298,10 @@ public record LightServersConfig(
                 continue;
             }
             for (int cameraId : cameraIds) {
-                if (!hasFlashHardware(cameraId)) {
+                if (cameraId < 0 || !hasConfiguredFlash(root, cameraId)) {
                     continue;
                 }
-                FlashMode mode = defaultModeForCameraId(cameraId);
+                FlashMode mode = parseFlashMode(String.valueOf(m.getOrDefault("mode", configuredMode(root, cameraId).name())));
                 byCamera.put(cameraId, new CameraFlashSpec(cameraId, mode, percent, percent, percent));
             }
         }
@@ -316,33 +316,35 @@ public record LightServersConfig(
         return ls;
     }
 
+    private static List<?> configuredChannels(Map<String, Object> root, int cameraId) {
+        if (root.get("light_hardware") instanceof Map<?, ?> hardware
+                && hardware.get("camera_routes") instanceof List<?> routes) {
+            for (Object raw : routes) if (raw instanceof Map<?, ?> route
+                    && YamlScalars.toInt(route.get("camera_number"), -1) == cameraId + 1
+                    && route.get("channels") instanceof List<?> channels) return channels;
+        }
+        return null;
+    }
+
+    private static boolean hasConfiguredFlash(Map<String, Object> root, int cameraId) {
+        if (root.get("light_hardware") instanceof Map<?, ?> hardware && hardware.containsKey("camera_routes"))
+            return configuredChannels(root, cameraId) != null;
+        return cameraId >= 0; // Explicit legacy HTTP camera lists have no fixed ID limit.
+    }
+
+    private static FlashMode configuredMode(Map<String, Object> root, int cameraId) {
+        List<?> channels = configuredChannels(root, cameraId);
+        return channels == null ? parseFlashMode(java.util.Objects.toString(((Map<?, ?>) root.getOrDefault("light_servers", Map.of())).get("default_camera_mode"), "pair"))
+                : channels.size() == 1 ? FlashMode.SINGLE : FlashMode.PAIR;
+    }
+
     private static FlashMode parseFlashMode(String modeStr) {
         String t = modeStr == null ? "" : modeStr.trim().toLowerCase();
         return switch (t) {
             case "single", "one", "1" -> FlashMode.SINGLE;
-            default -> FlashMode.PAIR;
+            case "pair", "two", "2" -> FlashMode.PAIR;
+            default -> throw new IllegalArgumentException("Light camera mode must be single or pair: " + modeStr);
         };
-    }
-
-    /**
-     * Вспышки: id 0–9 (camera_number 1–10) — Ethernet MV-LE pair, кроме id 2 и 7 (COM single).
-     * См. config/blocks/51-light-hardware.yaml.
-     */
-    static boolean hasFlashHardware(int cameraId) {
-        return cameraId >= 0 && cameraId <= 9;
-    }
-
-    /** id 2 и 7 — COM single (1 канал); остальные — Ethernet pair (2 канала). */
-    private static FlashMode defaultModeForCameraId(int cameraId) {
-        return isComFlashCamera(cameraId) ? FlashMode.SINGLE : FlashMode.PAIR;
-    }
-
-    private static String defaultModeNameForCameraId(int cameraId) {
-        return isComFlashCamera(cameraId) ? "single" : "pair";
-    }
-
-    private static boolean isComFlashCamera(int cameraId) {
-        return cameraId == 2 || cameraId == 7;
     }
 
     private static int[] parseCameraIds(Object raw) {

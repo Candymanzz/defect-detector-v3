@@ -1,37 +1,52 @@
-# Конфигурация вспышек для LightServer.v3 (авто-поиск: config/blocks/51-light-hardware.yaml).
-# Оркестратор и другие сервисы этот файл не читают.
+# Конфигурация вспышек встроенного Java-модуля; импортируется главным YAML.
 #
 # Ethernet MV-LE + COM MV-LE (camera id 2 и 7 — центральные).
-# Bank On/Off: POST /api/camera-flash/bank (Ethernet + COM).
+# source_on/source_off можно переопределить отдельно в каждом устройстве.
+# Bank On/Off: /api/orchestrator/light/bank на HTTP-порту оркестратора.
 
 light_hardware:
-  initialize_on_startup: true
 
   devices:
     # Центральные вспышки (camera id 2 и 7): один контроллер, 2 канала.
     - id: com1
       enabled: true
       type: com
-      com_port: COM1
+      model_prefixes: [MV-LE]
+      brightness_min: 0  # SDK brightness range; API remains 0..255 / UI 0..100%
+      brightness_max: 255
+      com_port_windows: COM1
+      com_port_linux: ""  # REQUIRED: SDK port of the flash controller, e.g. COM_Port#ttyUSB0; not the IO port
       channels: 2
     - id: mv-le-1
       enabled: true
       type: ethernet
+      model_prefixes: [MV-LE]
+      brightness_min: 0
+      brightness_max: 255
       ip: "169.254.220.23"
       channels: 4
     - id: mv-le-2
       enabled: true
       type: ethernet
+      model_prefixes: [MV-LE]
+      brightness_min: 0
+      brightness_max: 255
       ip: "169.254.220.22"
       channels: 4
     - id: mv-le-3
       enabled: true
       type: ethernet
+      model_prefixes: [MV-LE]
+      brightness_min: 0
+      brightness_max: 255
       ip: "169.254.220.2"
       channels: 4
     - id: mv-le-4
       enabled: true
       type: ethernet
+      model_prefixes: [MV-LE]
+      brightness_min: 0
+      brightness_max: 255
       ip: "169.254.220.1"
       channels: 4
 

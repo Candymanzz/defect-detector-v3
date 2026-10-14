@@ -54,7 +54,7 @@ class DefaultInspectionDecisionAggregatorTest {
 
         assertEquals("CAPTURE", decision.action());
         assertEquals("NO_REFERENCE", decision.pythonStatus());
-        assertFalse(decision.overallPass());
+        assertTrue(decision.overallPass());
     }
 
     @Test

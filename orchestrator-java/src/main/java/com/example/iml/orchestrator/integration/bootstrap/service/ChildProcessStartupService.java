@@ -10,7 +10,6 @@ import com.example.iml.orchestrator.integration.config.CameraWorkerPaths;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.PythonDetectorConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
-import com.example.iml.orchestrator.integration.lighting.LightServerLauncher;
 import com.example.iml.orchestrator.integration.lighting.LightServersConfig;
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import com.example.iml.orchestrator.integration.pipeline.stages.CaptureFrameDownscaleService;
@@ -43,13 +42,11 @@ public final class ChildProcessStartupService {
 
     private final Logger log;
     private final AnalisSurfaceLauncher analisSurfaceLauncher;
-    private final LightServerLauncher lightServerLauncher;
     private final IntegrationExternalProcessLauncher externalProcessLauncher;
 
     public ChildProcessStartupService(Logger log) {
         this.log = log;
         this.analisSurfaceLauncher = new AnalisSurfaceLauncher(log);
-        this.lightServerLauncher = new LightServerLauncher(log);
         this.externalProcessLauncher = new IntegrationExternalProcessLauncher(log);
     }
 
@@ -100,33 +97,6 @@ public final class ChildProcessStartupService {
                     ),
                     boot
             );
-            CompletableFuture<ExternalServiceProcess> lightFuture = CompletableFuture.supplyAsync(() -> {
-                if (!lightServersCfg.enabled()) {
-                    log.info("light_servers.enabled=false — LightServer не запускается, COM-вспышки отключены");
-                    return null;
-                }
-                return lightServerLauncher.startIfConfigured(
-                        ctx.integration(), ctx.projectRoot(), ctx.windows(), ctx.bootConfig().lightStartupDelayMs());
-            }, boot);
-            CompletableFuture<ExternalServiceProcess> ioFuture = CompletableFuture.supplyAsync(() -> {
-                if (!inspectionTriggerConfig.usesIoInputMonitor()) {
-                    return null;
-                }
-                // Снять сирот после прошлого Ctrl+C / crash до bind COM + HTTP 9101.
-                ExternalServiceProcess.killOrphansMatchingCommand("IoInputMonitor", log);
-                ExternalServiceProcess.killOrphansMatchingCommand("io-input-monitor", log);
-                ExternalServiceProcess.killListenersOnPort(9101, log);
-                return externalProcessLauncher.startIfConfigured(
-                        ctx.integration(),
-                        ctx.projectRoot(),
-                        ctx.windows(),
-                        "io_input_monitor_autostart",
-                        "io_input_monitor_command_windows",
-                        "io_input_monitor_command_linux",
-                        "io-input-monitor",
-                        "."
-                );
-            }, boot);
             CompletableFuture<ExternalServiceProcess> frontendFuture = CompletableFuture.supplyAsync(() -> {
                 if (!startFrontend) {
                     log.info("frontend autostart disabled (IML_FRONTEND_AUTOSTART=false)");
@@ -154,15 +124,13 @@ public final class ChildProcessStartupService {
             }, boot);
 
             CompletableFuture.allOf(
-                    analisFuture, geometryFuture, positioningFuture, lightFuture, ioFuture, frontendFuture
+                    analisFuture, geometryFuture, positioningFuture, frontendFuture
             ).join();
 
             AnalisSurfaceLauncher.PoolStartResult analisSurfacePool = analisFuture.join();
             ctx.setAnalisSurfaceProcesses(analisSurfacePool.processes());
             ctx.setGeometryPool(geometryFuture.join());
             ctx.setPositioningPool(positioningFuture.join());
-            ctx.setLightServerProcess(lightFuture.join());
-            ctx.setIoInputMonitorProcess(ioFuture.join());
             ctx.setFrontendProcess(frontendFuture.join());
 
             ctx.setPythonPool(poolFactory.createPythonHttpPool(
@@ -218,9 +186,6 @@ public final class ChildProcessStartupService {
         ctx.setGeometryRuntimeConfig(new GeometryRuntimeConfig(openGeometryRuntimeStore(ctx.projectRoot())));
         ctx.setInspectionGate(PerCameraInspectionGate.fromCameras(ctx.cameras()));
         ManualLineDirectionService manualLineDirection = new ManualLineDirectionService();
-        var ioDirectionClient = com.example.iml.orchestrator.integration.trigger.IoInputMonitorDirectionClient
-                .fromIntegration(log, ctx.integration());
-        manualLineDirection.setOnChanged(ioDirectionClient::publishDirection);
         ctx.setManualLineDirection(manualLineDirection);
         ctx.setPlcFinsHolder(new PlcFinsServiceHolder());
         var clientWsHolder = new com.example.iml.orchestrator.integration.clientws.ClientWsServiceHolder();

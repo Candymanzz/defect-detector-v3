@@ -29,7 +29,7 @@
 #ifdef HAVE_ARAVIS
 #include <arv.h>
 #endif
-#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+#ifdef HAVE_HIK_MVS
 #include <MvCameraControl.h>
 #endif
 
@@ -82,6 +82,8 @@ typedef struct {
     FILE *metrics_log_file;
     char capture_source[32];
     int frame_timeout_ms;
+    char capture_window_path[512];
+    char capture_window_token[32];
     int exposure_us;
     float gain_db;
     float gamma;
@@ -105,7 +107,7 @@ typedef struct {
     uint64_t started_ns;
     int capture_backend_ready;
     char capture_backend_info[128];
-#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+#ifdef HAVE_HIK_MVS
     void *hik_handle;
     unsigned char *hik_raw_frame;
     unsigned int hik_raw_capacity;
@@ -127,9 +129,10 @@ typedef struct {
 #endif
 } worker_state_t;
 
+static int json_copy_token_string(const char *js, const jsmntok_t *tok, char *out, size_t out_len);
 static void stream_lock_enter(worker_state_t *st);
 static void stream_lock_leave(worker_state_t *st);
-#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+#ifdef HAVE_HIK_MVS
 static void hik_configure_trigger_mode(worker_state_t *st);
 #endif
 
@@ -709,7 +712,7 @@ static int build_pattern_frame(worker_state_t *st) {
     return 0;
 }
 
-#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+#ifdef HAVE_HIK_MVS
 static int parse_ipv4(const char *ip, unsigned int *out) {
     if (!ip || !out) return -1;
     unsigned int a = 0, b = 0, c = 0, d = 0;
@@ -874,6 +877,8 @@ static void hik_read_runtime_tuning(worker_state_t *st) {
     }
 }
 
+#endif /* HAVE_HIK_MVS: SDK tuning helpers */
+
 static void format_settings_json(const worker_state_t *st, char *out, size_t out_len) {
     int exposure_us = st->exposure_us;
     float gain_db = st->gain_db;
@@ -882,7 +887,7 @@ static void format_settings_json(const worker_state_t *st, char *out, size_t out
     float balance_ratio_red = st->balance_ratio_red;
     float balance_ratio_blue = st->balance_ratio_blue;
     int mvs_available = 0;
-#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+#ifdef HAVE_HIK_MVS
     mvs_available = st->hik_handle != NULL;
     if (st->hik_handle) {
         float value = 0.0f;
@@ -1005,7 +1010,7 @@ static int apply_settings_from_header(worker_state_t *st, const char *header_jso
     }
 
     stream_lock_enter(st);
-#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+#ifdef HAVE_HIK_MVS
     if (st->hik_handle) {
         if (has_exposure) {
             hik_apply_exposure(st->hik_handle, exposure_us);
@@ -1069,7 +1074,7 @@ static int apply_settings_from_header(worker_state_t *st, const char *header_jso
     if (has_mode) {
         int new_mode = parse_trigger_mode(mode);
         st->trigger_mode = new_mode;
-#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+#ifdef HAVE_HIK_MVS
         hik_configure_trigger_mode(st);
 #endif
     }
@@ -1077,6 +1082,7 @@ static int apply_settings_from_header(worker_state_t *st, const char *header_jso
     return 0;
 }
 
+#ifdef HAVE_HIK_MVS
 static void hik_configure_trigger_mode(worker_state_t *st) {
     if (!st->hik_handle) {
         return;
@@ -1712,7 +1718,12 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
                     nRet = openRet;
                     break;
                 }
+#ifdef _WIN32
                 Sleep(250);
+#else
+                struct timespec retry_pause = {0, 250000000L};
+                nanosleep(&retry_pause, NULL);
+#endif
             }
             if (!opened) {
                 MV_CC_DestroyHandle(st->hik_handle);
@@ -1828,7 +1839,7 @@ static void shutdown_hik_mvs(worker_state_t *st) {
     }
     st->hik_raw_capacity = 0;
 }
-#endif /* _WIN32 && HAVE_HIK_MVS */
+#endif /* HAVE_HIK_MVS */
 
 #ifdef HAVE_ARAVIS
 static int init_aravis(worker_state_t *st, char *err, size_t err_len) {
@@ -1909,7 +1920,7 @@ static int fire_software_trigger_only(worker_state_t *st, char *err, size_t err_
         snprintf(err, err_len, "trigger_only unsupported for source=%s", st->capture_source);
         return -1;
     }
-#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+#ifdef HAVE_HIK_MVS
     if (st->trigger_mode != TRIGGER_MODE_SOFTWARE) {
         snprintf(err, err_len, "trigger_only requires software trigger mode");
         return -1;
@@ -1923,15 +1934,26 @@ static int fire_software_trigger_only(worker_state_t *st, char *err, size_t err_
     st->pending_trigger_fired_ns = now_ns();
     return 0;
 #else
-    snprintf(err, err_len, "trigger_only requires hik/MVS on Windows");
+    snprintf(err, err_len, "trigger_only requires hik/MVS");
     return -1;
 #endif
+}
+
+static int capture_window_open(worker_state_t *st) {
+    if (!st->capture_window_path[0]) return 1;
+    if (!st->capture_window_token[0] || strcmp(st->capture_window_token, "0") == 0) return 0;
+    FILE *f = fopen(st->capture_window_path, "r");
+    if (!f) return 0;
+    char token[32] = {0};
+    int ok = fgets(token, sizeof(token), f) != NULL && strcmp(token, st->capture_window_token) == 0;
+    fclose(f);
+    return ok;
 }
 
 static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t frame_id, int sync_capture, int wait_only,
                                char *err, size_t err_len) {
     if (strcmp(st->capture_source, "hik") == 0) {
-#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+#ifdef HAVE_HIK_MVS
         int use_sync = !wait_only && (sync_capture || st->trigger_mode == TRIGGER_MODE_SOFTWARE);
         MV_FRAME_OUT_INFO_EX info;
         memset(&info, 0, sizeof(info));
@@ -1944,12 +1966,35 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
                 return -1;
             }
         } else if (wait_only) {
-            /* hardware Line0 (DO5): сбросить очередь SDK без GetOneFrame-drain
-             * (drain гоняется с DO5 и выкидывает нужный кадр). */
-            (void)hik_flush_image_buffer(st);
+            if (!capture_window_open(st)) {
+                snprintf(err, err_len, "capture_window_closed");
+                return -1;
+            }
+            /* Hardware triggers also produce frames outside the DI2 inspection
+             * window. Discard buffered frames before waiting for a fresh one. */
+            int clear_rc = MV_CC_ClearImageBuffer(st->hik_handle);
+            if (clear_rc != MV_OK) {
+                snprintf(err, err_len, "hik clear buffer failed: 0x%x", clear_rc);
+                return -1;
+            }
         }
-        nRet = MV_CC_GetOneFrameTimeout(st->hik_handle, st->hik_raw_frame, st->hik_raw_capacity, &info,
-                                        (unsigned int)st->frame_timeout_ms);
+        if (wait_only && st->capture_window_path[0]) {
+            uint64_t deadline = now_ns() + (uint64_t)st->frame_timeout_ms * 1000000ull;
+            do {
+                if (!capture_window_open(st)) {
+                    snprintf(err, err_len, "capture_window_closed");
+                    return -1;
+                }
+                nRet = MV_CC_GetOneFrameTimeout(st->hik_handle, st->hik_raw_frame, st->hik_raw_capacity, &info, 20);
+                if (!capture_window_open(st)) {
+                    snprintf(err, err_len, "capture_window_closed");
+                    return -1;
+                }
+            } while (nRet == MV_E_NODATA && now_ns() < deadline);
+        } else {
+            nRet = MV_CC_GetOneFrameTimeout(st->hik_handle, st->hik_raw_frame, st->hik_raw_capacity, &info,
+                                          (unsigned int)st->frame_timeout_ms);
+        }
         if (nRet != MV_OK) {
             snprintf(err, err_len, "hik timeout/error: 0x%x", nRet);
             return -1;
@@ -1971,13 +2016,13 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
             return -1;
         }
         if (hik_copy_frame_to_bgr(st, &info, frame) != 0) {
-            snprintf(err, err_len, "hik unsupported pixel type: 0x%x", info.enPixelType);
+            snprintf(err, err_len, "hik unsupported pixel type: 0x%x", (unsigned int)info.enPixelType);
             return -1;
         }
         (void)frame_id;
         return 0;
 #else
-        snprintf(err, err_len, "hik source requested but camera-worker built without MVS SDK (Windows)");
+        snprintf(err, err_len, "hik source requested but camera-worker built without MVS SDK");
         return -1;
 #endif
     }
@@ -2142,7 +2187,7 @@ static void stop_stream_internal(worker_state_t *st) {
     }
 #endif
     st->trigger_mode = st->stream_restore_trigger_mode;
-#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+#ifdef HAVE_HIK_MVS
     hik_configure_trigger_mode(st);
 #endif
     fprintf(stderr, "stream stopped camera=%d trigger_restored=%s\n", st->camera_id,
@@ -2198,7 +2243,7 @@ static int start_stream_internal(worker_state_t *st, int fps, char *err, size_t 
     st->stream_fps = fps;
     st->stream_restore_trigger_mode = st->trigger_mode;
     st->trigger_mode = TRIGGER_MODE_CONTINUOUS;
-#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+#ifdef HAVE_HIK_MVS
     hik_configure_trigger_mode(st);
 #endif
     st->stream_active = 1;
@@ -2406,14 +2451,14 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
 #endif
     }
     if (strcmp(st->capture_source, "hik") == 0) {
-#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+#ifdef HAVE_HIK_MVS
         char src_err[256] = {0};
         if (init_hik_mvs(st, src_err, sizeof(src_err)) != 0) {
             fprintf(stderr, "capture source init failed: %s\n", src_err);
             return 1;
         }
 #else
-        fprintf(stderr, "capture source init failed: hik backend needs Windows + MVS SDK (see camera-worker/CMakeLists.txt)\n");
+        fprintf(stderr, "capture source init failed: hik backend needs MVS SDK (see camera-worker/CMakeLists.txt)\n");
         return 1;
 #endif
     }
@@ -2483,7 +2528,7 @@ static void destroy_worker_state(worker_state_t *st) {
 #ifdef HAVE_ARAVIS
     shutdown_aravis(st);
 #endif
-#if defined(_WIN32) && defined(HAVE_HIK_MVS)
+#ifdef HAVE_HIK_MVS
     shutdown_hik_mvs(st);
 #endif
 }
@@ -2602,6 +2647,9 @@ static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, 
             (void)json_find_bool(header_buf, (int)strlen(header_buf), "sync", &sync_capture);
             (void)json_find_bool(header_buf, (int)strlen(header_buf), "trigger_only", &trigger_only);
             (void)json_find_bool(header_buf, (int)strlen(header_buf), "wait_frame", &wait_frame);
+            st.capture_window_path[0] = st.capture_window_token[0] = '\0';
+            (void)json_find_string(header_buf, (int)strlen(header_buf), "capture_window_path", st.capture_window_path, sizeof(st.capture_window_path));
+            (void)json_find_string(header_buf, (int)strlen(header_buf), "capture_window_token", st.capture_window_token, sizeof(st.capture_window_token));
             stream_lock_enter(&st);
             int cap_rc;
             if (trigger_only) {
@@ -2715,7 +2763,21 @@ static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, 
 
 static int run_binary_loop(int camera_id, const char *detector, const worker_camera_config_t *cam_cfg,
                            const char *capture_source, int frame_timeout_ms) {
+#if !defined(_WIN32) && defined(HAVE_HIK_MVS)
+    /* MVS may print diagnostics to stdout (e.g. XOpenDisplay errors).
+     * Keep the binary protocol on a separate descriptor for the entire session. */
+    int protocol_fd = dup(STDOUT_FILENO);
+    if (protocol_fd < 0) return 1;
+    FILE *protocol_output = fdopen(protocol_fd, "wb");
+    if (!protocol_output) { close(protocol_fd); return 1; }
+    fflush(stdout);
+    if (dup2(STDERR_FILENO, STDOUT_FILENO) < 0) { fclose(protocol_output); return 1; }
+    int result = run_binary_loop_io(stdin, protocol_output, camera_id, detector, cam_cfg, capture_source, frame_timeout_ms);
+    fclose(protocol_output);
+    return result;
+#else
     return run_binary_loop_io(stdin, stdout, camera_id, detector, cam_cfg, capture_source, frame_timeout_ms);
+#endif
 }
 
 static int run_named_pipe_loop(const char *pipe_base_path, int camera_id, const char *detector,

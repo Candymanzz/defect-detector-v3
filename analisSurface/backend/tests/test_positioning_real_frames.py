@@ -34,6 +34,8 @@ def _mean_diff(a, b, valid=None, margin=40):
 
 @pytest.mark.parametrize("item", _items(), ids=lambda i: i["frame"])
 def test_real_frame_is_locked_to_reference(item):
+    if not all((DATA / item[key]).is_file() for key in ("reference", "frame")):
+        pytest.skip("real frame images are not included in the repository")
     ref = cv2.imread(str(DATA / item["reference"]))
     cur = cv2.imread(str(DATA / item["frame"]))
     result = FramePositioner().position(cur, ref, product_type=item["frame"])

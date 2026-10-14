@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 /**
- * Парсер UDP-пакетов {@code IoInputMonitor}: JSON, text_di, byte_di и legacy 0/1.
+ * Парсер UDP-пакетов {@code IO source}: JSON, text_di, byte_di и legacy 0/1.
  */
 public final class IoInputDiChangeParser {
 

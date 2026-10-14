@@ -11,7 +11,7 @@ namespace ImlLauncher
         private static readonly int[] Ports = new int[]
         {
             8000, 8001, 8002, 8003, 8004, 8005, 8006, 8007, 8008, 8009,
-            8099, 8765, 5173, 5079, 5080, 8088, 9101
+            8099, 8765, 5173, 8088
         };
 
         public static void Run(string repoRoot, bool quiet)
@@ -35,7 +35,7 @@ namespace ImlLauncher
         {
             try
             {
-                HttpWebRequest req = (HttpWebRequest)WebRequest.Create("http://127.0.0.1:5080/api/camera-flash/bank");
+                HttpWebRequest req = (HttpWebRequest)WebRequest.Create("http://127.0.0.1:8099/api/orchestrator/light/bank");
                 req.Method = "POST";
                 req.ContentType = "application/json; charset=utf-8";
                 req.Timeout = 2000;
