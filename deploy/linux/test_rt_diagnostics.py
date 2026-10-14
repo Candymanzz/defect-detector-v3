@@ -89,6 +89,23 @@ class ProcessTests(unittest.TestCase):
         self.assertTrue(stack.is_service(installed, "/project"))
         self.assertFalse(stack.is_service(unrelated, "/project"))
 
+    def test_backend_start_preserves_kiosk_and_its_children(self):
+        entries = {
+            10: process(10, 1, ["java", "StackSupervisorMain"]),
+            11: process(11, 10, ["camera_worker"]),
+            20: process(20, 1, ["sh", "/usr/local/bin/defect-detector-kiosk"], "/opt/defect-detector-ui"),
+            21: process(21, 20, ["electron", "."], "/opt/defect-detector-ui"),
+            22: process(22, 21, ["renderer"], "/tmp"),
+        }
+        self.assertEqual(set(stack.select_services(entries, "/project", {1}, include_kiosk=False)), {10, 11})
+
+    def test_skip_kiosk_never_pauses_the_other_users_session(self):
+        with patch.object(stop_stack, "processes", return_value={}), \
+                patch.object(stop_stack, "stop_systemd", return_value=[]), \
+                patch.object(stop_stack, "pause_kiosk") as pause:
+            stop_stack.stop(Path("/project"), 1, skip_kiosk=True)
+            pause.assert_not_called()
+
 
 class SystemdStopTests(unittest.TestCase):
     def test_stop_job_is_queued_without_waiting_for_service_exit(self):

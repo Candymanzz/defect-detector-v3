@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="новые флаги для инспекции нагрузки системы фикс" />
+    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="убрал -q из ребилда" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -102,6 +102,7 @@
     <MESSAGE value="файлы пересбрки" />
     <MESSAGE value="новые флаги для инспекции нагрузки системы" />
     <MESSAGE value="новые флаги для инспекции нагрузки системы фикс" />
-    <option name="LAST_COMMIT_MESSAGE" value="новые флаги для инспекции нагрузки системы фикс" />
+    <MESSAGE value="убрал -q из ребилда" />
+    <option name="LAST_COMMIT_MESSAGE" value="убрал -q из ребилда" />
   </component>
 </project>

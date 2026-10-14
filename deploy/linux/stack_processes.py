@@ -35,14 +35,20 @@ def processes(proc=Path("/proc")):
     return result
 
 
+def is_installed_frontend(entry):
+    args = entry["args"]
+    frontend = os.environ.get("IML_INSTALLED_FRONTEND_DIR", "/opt/defect-detector-ui")
+    return bool(args) and Path(args[0]).name.lower() in {"electron", "node"} and (
+        entry["cwd"] == frontend or entry["cwd"].startswith(frontend + "/"))
+
+
 def is_service(entry, root):
     args = entry["args"]
     if not args:
         return False
     command = " ".join(args)
     executable = Path(args[0]).name.lower()
-    frontend = os.environ.get("IML_INSTALLED_FRONTEND_DIR", "/opt/defect-detector-ui")
-    if executable in {"electron", "node"} and (entry["cwd"] == frontend or entry["cwd"].startswith(frontend + "/")):
+    if is_installed_frontend(entry):
         return True
     root = str(Path(root).resolve())
     belongs = entry["cwd"] == root or entry["cwd"].startswith(root + "/")
@@ -71,7 +77,18 @@ def is_kiosk_controller(entry, root):
     return any(arg in known for arg in args[1:])
 
 
-def select_services(entries, root, excluded=()):
+def select_services(entries, root, excluded=(), include_kiosk=True):
+    excluded = set(excluded)
+    if not include_kiosk:
+        ignored = {pid for pid, entry in entries.items()
+                   if is_installed_frontend(entry) or is_kiosk_controller(entry, root)}
+        while True:
+            # Caller ancestors must not exclude every unrelated descendant of PID 1.
+            expanded = ignored | {pid for pid, entry in entries.items() if entry["ppid"] in ignored}
+            if expanded == ignored:
+                break
+            ignored = expanded
+        excluded.update(ignored)
     selected = {pid for pid, entry in entries.items() if is_service(entry, root) and pid not in excluded}
     while True:
         children = {pid for pid, entry in entries.items() if entry["ppid"] in selected and pid not in excluded}

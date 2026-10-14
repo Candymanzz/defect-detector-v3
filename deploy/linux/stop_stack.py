@@ -154,13 +154,14 @@ def wait_for(entries, seconds):
         time.sleep(0.1)
 
 
-def stop(root, timeout, processes_only=False):
+def stop(root, timeout, processes_only=False, skip_kiosk=False):
     # Snapshot descendants before a supervisor shutdown can reparent them.
     snapshot = processes()
     excluded = ancestors(snapshot, os.getpid())
-    targets = select_services(snapshot, root, excluded)
+    targets = select_services(snapshot, root, excluded, include_kiosk=not skip_kiosk)
     stopping = [] if processes_only else (stop_systemd(root) or [])
-    pause_kiosk(snapshot, root)
+    if not skip_kiosk:
+        pause_kiosk(snapshot, root)
     supervisors = [entry for entry in targets.values() if "StackSupervisorMain" in " ".join(entry["args"])]
     for entry in supervisors:
         send(entry, signal.SIGTERM)
@@ -168,18 +169,18 @@ def stop(root, timeout, processes_only=False):
     for entry in supervisors:
         send(entry, signal.SIGKILL)
     # Include any services started while the old supervisor was shutting down.
-    targets.update(select_services(processes(), root, excluded))
+    targets.update(select_services(processes(), root, excluded, include_kiosk=not skip_kiosk))
     for entry in targets.values():
         print(f"Stop pid={entry['pid']} name={entry['name']}", flush=True)
         send(entry, signal.SIGTERM)
     wait_for(list(targets.values()), timeout)
     # A launcher's EXIT trap may have started a cleanup child during SIGTERM.
-    targets.update(select_services(processes(), root, excluded))
+    targets.update(select_services(processes(), root, excluded, include_kiosk=not skip_kiosk))
     for entry in targets.values():
         send(entry, signal.SIGKILL)
     wait_for(list(targets.values()), 3)
     finish_systemd(stopping, timeout)
-    survivors = select_services(processes(), root, excluded)
+    survivors = select_services(processes(), root, excluded, include_kiosk=not skip_kiosk)
     if survivors:
         raise RuntimeError("Services are still running: " + ", ".join(map(str, survivors)))
     print("Application stack stopped", flush=True)
@@ -192,6 +193,8 @@ def main():
     parser.add_argument("--resume-kiosk", action="store_true")
     parser.add_argument("--processes-only", action="store_true",
                         help="Launcher EXIT cleanup: stop processes without creating a systemd stop job")
+    parser.add_argument("--skip-kiosk", action="store_true",
+                        help="Backend launcher: leave the separate graphical kiosk session running")
     args = parser.parse_args()
     if not sys.platform.startswith("linux"):
         parser.error("This tool requires Linux /proc")
@@ -201,7 +204,7 @@ def main():
         if args.resume_kiosk:
             resume_kiosk(args.root.resolve())
         else:
-            stop(args.root.resolve(), args.timeout, args.processes_only)
+            stop(args.root.resolve(), args.timeout, args.processes_only, args.skip_kiosk)
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
         print(f"ERROR: {exc}; rebuild cancelled", file=sys.stderr)
         return 1

@@ -32,7 +32,7 @@ if [[ "$RT_DIAGNOSTICS" == true ]]; then
 fi
 if [[ "${IML_STACK_ALREADY_STOPPED:-0}" != 1 ]]; then
   echo "==> Stop previous application stack"
-  bash "$REPO_ROOT/stop-dev.sh"
+  bash "$REPO_ROOT/stop-dev.sh" --skip-kiosk
 fi
 unset IML_STACK_ALREADY_STOPPED
 
@@ -51,7 +51,7 @@ cleanup() {
   local status=$?
   trap - EXIT INT TERM
   echo "==> Stop application stack"
-  bash "$REPO_ROOT/stop-dev.sh" --processes-only || status=1
+  bash "$REPO_ROOT/stop-dev.sh" --processes-only --skip-kiosk || status=1
   if [[ -n "$supervisor_pid" ]]; then wait "$supervisor_pid" 2>/dev/null || true; fi
   if [[ -n "$monitor_pid" ]]; then
     kill -TERM "$monitor_pid" 2>/dev/null || true
