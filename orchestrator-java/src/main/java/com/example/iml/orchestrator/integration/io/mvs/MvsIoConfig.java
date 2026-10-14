@@ -71,8 +71,8 @@ public record MvsIoConfig(boolean enabled, String library, String port, String s
             throw new IllegalArgumentException("Event IO requires mvs_io.library" + platformSuffix
                     + " and mvs_io.port" + platformSuffix + " (or library/port); install compatible IO SDK");
         IoRejectConfig reject = IoRejectConfig.parse(integration);
-        if (reject.enabled() && (!enabled || !backend.equals(reject.mode().equals("timer") ? "mv_camera" : "mv_io")))
-            throw new IllegalArgumentException("io_reject requires enabled mvs_io: timer mode uses mv_camera, level mode uses mv_io");
+        if (reject.enabled() && (!enabled || !backend.equals(!reject.mode().equals("level") ? "mv_camera" : "mv_io")))
+            throw new IllegalArgumentException("io_reject requires enabled mvs_io: timer/hold modes use mv_camera, level mode uses mv_io");
         Map<String, Timer> timers = new LinkedHashMap<>();
         if (cfg.get("timers") instanceof Map<?, ?> mapping) mapping.forEach((key, value) -> {
             String name = key.toString();

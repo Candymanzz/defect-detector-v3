@@ -12,9 +12,11 @@ public final class IoRejectPublisher implements AutoCloseable {
     private final IoRejectConfig config;
     private volatile Writer writer;
     private volatile boolean closed;
+    private final java.util.concurrent.atomic.AtomicLong generation = new java.util.concurrent.atomic.AtomicLong();
     private final Map<Integer, ExecutorService> workers = new TreeMap<>();
     private final Map<Integer, Long> earlyTimerSequences = new ConcurrentHashMap<>();
     private final Map<Integer, Boolean> active = new ConcurrentHashMap<>();
+    private final Map<Integer, Long> heldSequences = new ConcurrentHashMap<>();
     private final org.apache.logging.log4j.Logger log = LogManager.getLogger(IoRejectPublisher.class);
     public IoRejectPublisher(IoRejectConfig config) {
         this.config = config;
@@ -30,8 +32,10 @@ public final class IoRejectPublisher implements AutoCloseable {
         if (output == null) throw new IllegalArgumentException("No DO reject mapping for group " + group);
         if (closed || (config.mode().equals("timer") ? timerWriter == null : writer == null)) throw new IllegalStateException("DO reject output is not ready");
         CompletableFuture<Void> edge = new CompletableFuture<>();
+        long submittedGeneration = generation.get();
         try {
             workers.get(group).execute(() -> {
+                if (submittedGeneration != generation.get()) { edge.complete(null); return; }
                 if (config.mode().equals("timer")) {
                     try {
                         if (!pass && !(hold && Long.valueOf(sequence).equals(earlyTimerSequences.get(group)))) {
@@ -46,9 +50,13 @@ public final class IoRejectPublisher implements AutoCloseable {
                     }
                     return;
                 }
-                boolean pulse = !pass && !hold && config.pulseMs() > 0;
+                boolean pulse = config.mode().equals("level") && !pass && !hold && config.pulseMs() > 0;
                 try {
-                    if (!Boolean.valueOf(!pass).equals(active.get(group)) || pulse) set(group, output, !pass, sequence);
+                    if (config.mode().equals("hold") && sequence < heldSequences.getOrDefault(group, Long.MIN_VALUE)) {
+                        edge.complete(null); return;
+                    }
+                    if (config.mode().equals("hold") || !Boolean.valueOf(!pass).equals(active.get(group)) || pulse) set(group, output, !pass, sequence);
+                    if (config.mode().equals("hold")) heldSequences.put(group, sequence);
                     edge.complete(null);
                     if (pulse) Thread.sleep(config.pulseMs());
                 } catch (Exception e) {
@@ -73,6 +81,26 @@ public final class IoRejectPublisher implements AutoCloseable {
                 group, sequence, output.port(), value, value == output.activeHigh());
     }
     public void rejectAll(long sequence) { config.groups().keySet().forEach(group -> publish(group, sequence, false, true)); }
+    /** Session reset releases held rejects, even when no subsequent inspection arrives. */
+    public void resetIdle() {
+        generation.incrementAndGet();
+        if (closed || config.mode().equals("timer") || writer == null) return;
+        config.groups().forEach((group, output) -> {
+            CompletableFuture<Void> reset = new CompletableFuture<>();
+            try {
+                workers.get(group).execute(() -> {
+                    heldSequences.remove(group);
+                    earlyTimerSequences.remove(group);
+                    try { set(group, output, false, -1); reset.complete(null); }
+                    catch (RuntimeException e) { reset.completeExceptionally(e); }
+                });
+                reset.get(config.ackTimeoutMs(), TimeUnit.MILLISECONDS);
+            } catch (Exception e) {
+                if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+                log.error("io event=reject_reset_idle_failed group={} do={}", group, output.port(), e);
+            }
+        });
+    }
     @Override public synchronized void close() {
         if (closed) return;
         closed = true; workers.values().forEach(ExecutorService::shutdownNow);

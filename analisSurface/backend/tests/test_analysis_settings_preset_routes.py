@@ -1,10 +1,12 @@
 from fastapi.testclient import TestClient
+import pytest
 
 from app.main import app
 from app.services.analysis_settings_presets import expand_simple
 
 
 client = TestClient(app)
+pytestmark = pytest.mark.usefixtures("isolated_analysis_settings_api")
 
 
 def test_simple_settings_put_get_roundtrip() -> None:

@@ -14,6 +14,31 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class DoRejectRoutingTest {
     @TempDir Path directory;
+    @Test void independentDoRejectsAndReferenceResetRestoresPass() throws Exception {
+        var root = Map.<String, Object>of("plc_fins", Map.of("enabled", false),
+                "integration", Map.of("io_reject", Map.of("enabled", true, "mode", "hold",
+                        "groups", Map.of(0, Map.of("port", 3, "active_high", false),
+                                1, Map.of("port", 4, "active_high", false)))));
+        try (var ws = new ClientWebSocketServer(LogManager.getLogger(getClass()), ClientWsConfig.disabled());
+             var fanout = FanOutCoordinator.fromConfig(root, directory, ws)) {
+            Map<Integer, Boolean> levels = new ConcurrentHashMap<>();
+            fanout.bindIoRejectOutputs(levels::put);
+            // Reproduce the cached PLC material flag without a physical PLC.
+            var material = FanOutCoordinator.class.getDeclaredField("plasticHandleMode");
+            material.setAccessible(true); material.setBoolean(fanout, true);
+            ws.setSessionState(ClientWsSessionState.READY);
+            fanout.onSessionState(ClientWsSessionState.READY);
+            assertFalse(fanout.publishEarlyPlasticHandleReject(1, 0));
+            fanout.publishBucket(new BucketFanOutResult(0, 1, false, List.of(), Map.of()));
+            fanout.publishBucket(new BucketFanOutResult(1, 1, true, List.of(), Map.of()));
+            assertEquals(Map.of(3, false, 4, true), levels);
+            ws.setSessionState(ClientWsSessionState.NO_REFERENCE);
+            fanout.onSessionState(ClientWsSessionState.NO_REFERENCE);
+            assertEquals(Map.of(3, true, 4, true), levels);
+            fanout.publishBucket(new BucketFanOutResult(0, 2, false, List.of(), Map.of()));
+            assertEquals(Map.of(3, true, 4, true), levels);
+        }
+    }
     @Test void bucketRejectsGoToDoAndReadyFaultStayOnFins() throws Exception {
         Path map = directory.resolve("register-map.yaml");
         Files.writeString(map, """

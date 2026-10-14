@@ -225,7 +225,8 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             if (afterPlcUi != null) {
                 state.pendingUiByCamera.put(cameraId, afterPlcUi);
             }
-            if (!decision.overallPass() && fanOut != null) {
+            if (!decision.overallPass() && !"CAPTURE".equalsIgnoreCase(decision.action())
+                    && !"NO_REFERENCE".equalsIgnoreCase(decision.pythonStatus()) && fanOut != null) {
                 fanOut.publishEarlyPlasticHandleReject(triggerSequence, cameraId);
             }
             scheduleTimeoutIfNeeded(state, fanOut);

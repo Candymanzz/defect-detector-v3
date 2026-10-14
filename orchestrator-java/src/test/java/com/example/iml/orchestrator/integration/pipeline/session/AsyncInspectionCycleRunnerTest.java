@@ -152,7 +152,7 @@ class AsyncInspectionCycleRunnerTest {
         assertNotNull(decision);
         assertEquals("CAPTURE", decision.action());
         assertEquals("NO_REFERENCE", decision.pythonStatus());
-        assertFalse(decision.overallPass());
+        assertTrue(decision.overallPass());
         gate.endInspection(1);
     }
 

@@ -54,9 +54,10 @@ integration:
     transfer_wave_gap_ms: 15
   geometry_pool_size: 10
   positioning_pool_size: 10
-  python_parallelism: 10
-  # Один процесс uvicorn; 10 HTTP-клиентов к :8000. Без этого — 10 uvicorn × модели ≈ ×10 RAM.
-  python_server_pool_size: 1
+  # 12 HTTP-клиентов: по 3 на каждый из четырёх процессов.
+  python_parallelism: 12
+  python_request_parallelism: 10
+  python_server_pool_size: 4
   stage_queue_size: 20
   # Таймаут RPC к camera-worker (health/capture/inspect). Для 10 камер увеличен, чтобы избежать ложных startup timeout.
   worker_command_timeout_ms: 30000
@@ -108,8 +109,8 @@ integration:
   # Автозапуск uvicorn. Один раз: pip install в analisSurface/backend/.venv
   analis_surface_autostart:
     enabled: true
-    # Потоков inspect в одном uvicorn (10 кадров с 10 камер параллельно).
-    inspect_workers: 10
+    # По 3 потока на процесс: 10 кадров распределяются между 4 CPU.
+    inspect_workers: 3
     working_dir: "analisSurface/backend"
     startup_timeout_ms: 180000
     health_path: "/health"
@@ -123,7 +124,7 @@ integration:
     - "--port"
     - "8000"
   analis_surface_command_linux:
-    - "analisSurface/backend/.venv/bin/python"
+    - "tools/run-analis-isolated.sh"
     - "-m"
     - "uvicorn"
     - "app.main:app"

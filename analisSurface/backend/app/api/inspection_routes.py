@@ -6,7 +6,9 @@
 
 import asyncio
 import logging
+import os
 import threading
+from time import perf_counter_ns
 from functools import partial
 from pathlib import Path
 
@@ -196,18 +198,17 @@ def _sync_request_roi(
     stale orchestrator cache or a Python restart from silently enabling
     full-frame analysis for one camera.
     """
-    if raw_polygon is None:
-        return
-    points: list[tuple[float, float]] = []
-    for point in raw_polygon:
-        try:
-            points.append((float(point["x"]), float(point["y"])))
-        except (KeyError, TypeError, ValueError):
-            raise ValueError("roi_polygon_norm points must contain numeric x and y")
-    if len(points) < 3:
-        raise ValueError("roi_polygon_norm must contain at least 3 points")
-    inspection_service.set_roi_polygon(product_type=product_type, points=points)
-    if raw_perspective_line:
+    if raw_polygon is not None:
+        points: list[tuple[float, float]] = []
+        for point in raw_polygon:
+            try:
+                points.append((float(point["x"]), float(point["y"])))
+            except (KeyError, TypeError, ValueError):
+                raise ValueError("roi_polygon_norm points must contain numeric x and y")
+        if len(points) < 3:
+            raise ValueError("roi_polygon_norm must contain at least 3 points")
+        inspection_service.set_roi_polygon(product_type=product_type, points=points)
+    if raw_perspective_line is not None:
         line: list[tuple[float, float]] = []
         for point in raw_perspective_line:
             try:
@@ -215,6 +216,8 @@ def _sync_request_roi(
             except (KeyError, TypeError, ValueError):
                 raise ValueError("perspective_line_norm points must contain numeric x and y")
         inspection_service.set_perspective_line(product_type, line)
+    else:
+        inspection_service.set_perspective_line(product_type, None)
 
 
 def _inspect_shm_sync(
@@ -300,7 +303,24 @@ async def _inspect_shm_parallel(
         include_heatmap_u8=include_heatmap_u8,
         force_skip_learning_review=force_skip_learning_review,
     )
-    return await loop.run_in_executor(inspect_executor, job)
+    queued_ns = perf_counter_ns()
+
+    def timed_job():
+        started_ns = perf_counter_ns()
+        try:
+            return job()
+        finally:
+            logging.getLogger("uvicorn.error").info(
+                "python_internal_timing pid=%s product=%s frame=%s "
+                "executor_queue_ms=%.3f executor_job_ms=%.3f",
+                os.getpid(),
+                payload.product_type,
+                payload.heatmap_u8_output_path or payload.shm_name,
+                (started_ns - queued_ns) / 1_000_000,
+                (perf_counter_ns() - started_ns) / 1_000_000,
+            )
+
+    return await loop.run_in_executor(inspect_executor, timed_job)
 
 
 @router.post("/inspect-shm", response_model=InspectResponse)

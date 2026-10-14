@@ -49,12 +49,10 @@ java_geometry:
     bench-lan10:
       max_joint_parallelism_deg: 5.0
 
-# Нормализация позы изделия к эталону перед geometry / analisSurface.
-# Позиционирование только выравнивает кадр — брак не ставит (fail_on_reject=false).
-# Вердикт — у geometry / python. При неудачном align идём дальше с исходным кадром.
-# UI JPEG / current.jpg: без эталона — сырой кадр; с эталоном — только после positioning_aligned.
+# Позиционирование выполняется внутри Python analisSurface (PY_POSITIONING=1).
+# Java-сервис позиционирования и предварительное выравнивание отключены.
 java_positioning:
-  enabled: true
+  enabled: false
   fail_on_reject: false
   write_aligned: true
   pixels_to_mm: 0.02

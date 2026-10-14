@@ -142,7 +142,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     }
 
     @Override
-    public void publishBucket(BucketFanOutResult result) {
+    public synchronized void publishBucket(BucketFanOutResult result) {
         ServiceHealthGate gate = healthGate;
         if (gate != null && !gate.healthyForVision()) {
             log.warn(
@@ -155,7 +155,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         }
         // Сначала подтверждение выхода брака выбранного транспорта, затем результат в UI.
         BucketFanOutResult effectiveResult = result;
-        if (plasticHandleMode && earlyPlasticRejectSequences.contains(result.triggerSequence()) && result.overallPass()) {
+        if (ioReject == null && plasticHandleMode && earlyPlasticRejectSequences.contains(result.triggerSequence()) && result.overallPass()) {
             effectiveResult = new BucketFanOutResult(
                     result.groupId(), result.triggerSequence(), false,
                     result.bucketCameraIds(), result.frameDecisions()
@@ -181,6 +181,8 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
 
     @Override
     public boolean publishEarlyPlasticHandleReject(long triggerSequence, int cameraId) {
+        // DO lines represent independent bucket verdicts; never reject a sibling line.
+        if (ioReject != null) return false;
         if (!plasticHandleMode || !inspectionEnabled() || (plcPublisher == null && ioReject == null)) {
             return false;
         }
@@ -214,8 +216,12 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
      * Реакция на смену session_state: ready = эталон активен AND сервисы здоровы;
      * fault = сервисы нездоровы.
      */
-    public void onSessionState(ClientWsSessionState state) {
+    public synchronized void onSessionState(ClientWsSessionState state) {
         lastSessionState = state == null ? ClientWsSessionState.NO_REFERENCE : state;
+        if (lastSessionState == ClientWsSessionState.NO_REFERENCE || lastSessionState == ClientWsSessionState.TEST) {
+            earlyPlasticRejectSequences.clear();
+            if (ioReject != null) ioReject.resetIdle();
+        }
         refreshPlcLevels();
     }
 

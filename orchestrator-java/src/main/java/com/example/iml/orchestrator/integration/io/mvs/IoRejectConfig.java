@@ -14,7 +14,7 @@ public record IoRejectConfig(boolean enabled, int pulseMs, int ackTimeoutMs, int
     public static IoRejectConfig parse(Map<String, Object> integration) {
         Map<?, ?> cfg = integration != null && integration.get("io_reject") instanceof Map<?, ?> m ? m : Map.of();
         String mode = Objects.toString(cfg.get("mode"), "level");
-        if (!Set.of("timer", "level").contains(mode)) throw new IllegalArgumentException("io_reject.mode: timer or level");
+        if (!Set.of("timer", "level", "hold").contains(mode)) throw new IllegalArgumentException("io_reject.mode: timer, level or hold");
         Set<String> timers = new HashSet<>();
         boolean enabled = YamlScalars.toBool(cfg.get("enabled"), false);
         Set<Integer> protectedPorts = new HashSet<>();
@@ -26,12 +26,14 @@ public record IoRejectConfig(boolean enabled, int pulseMs, int ackTimeoutMs, int
             if (group < 0 || !(value instanceof Map<?, ?> spec)) throw new IllegalArgumentException("io_reject.groups: expected group >= 0 and output mapping");
             int port = YamlScalars.toInt(spec.get("port"), 0);
             int sdkPort = YamlScalars.toInt(spec.get("sdk_port"), port - 1);
-            if (port < 1 || port > 8 || sdkPort < 0 || sdkPort > 255 || protectedPorts.contains(port)
+            if (port < 1 || port > 8 || sdkPort < 0 || sdkPort > 255 || (port == 5 || protectedPorts.contains(port))
                     || !ports.add(port) || !sdkPorts.add(sdkPort)) throw new IllegalArgumentException("io_reject: invalid, protected or duplicate output for group " + group);
             String timer = Objects.toString(spec.get("timer"), "");
             String line = Objects.toString(spec.get("line"), "Out" + port);
             if (mode.equals("timer") && (!timer.matches("Timer[1-8]") || timer.equals("Timer5") || !timers.add(timer) || !line.equals("Out" + port)))
                 throw new IllegalArgumentException("io_reject: explicit unique Timer1..8 (except camera Timer5) and matching OutN required");
+            if (mode.equals("hold") && !line.equals("Out" + port))
+                throw new IllegalArgumentException("io_reject hold: line must match output port");
             groups.put(group, new Output(port, sdkPort, YamlScalars.toBool(spec.get("active_high"), true),
                     YamlScalars.toBool(spec.get("enable_on_write"), true), timer, line));
         });

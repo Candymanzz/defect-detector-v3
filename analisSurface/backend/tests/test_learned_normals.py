@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 import pytest
 
@@ -7,8 +8,84 @@ from app.services.learned_normals import (
     _convert_legacy_template,
     _fit_template,
     _mask_geometry,
+    extract_defect_candidates,
     filter_review_candidates,
 )
+
+
+def test_normal_bbox_does_not_overwrite_an_unmatched_component(tmp_path):
+    memory = AcceptedNormalMemory(tmp_path / "normals")
+    aligned = np.full((220, 220, 3), 60, np.uint8)
+    mask = np.zeros_like(aligned)
+    cv2.rectangle(mask, (25, 25), (195, 195), (255, 255, 255), 4)
+    aligned[mask[:, :, 0] > 0] = 180
+    diff = np.zeros_like(aligned)
+    diff[mask[:, :, 0] > 0] = 120
+    saved = extract_defect_candidates(aligned, diff, mask)[0]
+    memory.add_from_candidate(
+        product_type="part", reference_hash="reference", inspection_id="old",
+        candidate=saved, source_frame=aligned,
+    )
+    current = aligned.copy()
+    current[95:105, 95:105] = 80
+    diff[95:105, 95:105] = 32
+    mask[95:105, 95:105] = 255
+    result = memory.apply(
+        product_type="part", reference_hash="reference", aligned=current,
+        diff_map=diff, segmentation_mask=mask,
+    )
+    assert result.matched_candidates_count == 1
+    assert len(result.candidates) == 2
+    np.testing.assert_array_equal(result.filtered_diff_map[95:105, 95:105], diff[95:105, 95:105])
+    np.testing.assert_array_equal(result.filtered_mask[95:105, 95:105], mask[95:105, 95:105])
+
+
+def test_overlapping_matched_normals_keep_each_others_cut_residual(tmp_path, monkeypatch):
+    from app.services import learned_normals
+    from app.services.analysis_settings import AnalysisSettings
+    from app.services.inspection_service import InspectionService
+
+    memory = AcceptedNormalMemory(tmp_path / "normals", session_wipe=False)
+    normal = np.full((240, 240, 3), 60, np.uint8)
+    mask = np.zeros_like(normal)
+    # Separate L-shaped components with overlapping bounding rectangles.
+    for start, end in [
+        ((20, 20), (180, 20)), ((180, 20), (180, 180)),
+        ((50, 50), (50, 210)), ((50, 210), (210, 210)),
+    ]:
+        cv2.line(mask, start, end, (255, 255, 255), 4)
+    normal[mask[:, :, 0] > 0] = 180
+    diff = np.zeros_like(normal)
+    diff[mask[:, :, 0] > 0] = 120
+    saved_candidates = extract_defect_candidates(normal, diff, mask)
+    memory.add_from_candidate(
+        product_type="part", reference_hash="reference", inspection_id="first",
+        candidate=saved_candidates[0], source_frame=normal,
+    )
+    current = normal.copy()
+    current[80:140, 178:183] = 20
+    candidates = extract_defect_candidates(current, diff, mask)
+    # The second normal was accepted on a later frame: its rectangle contains
+    # the cut, although the operator accepted only the other L-shaped region.
+    memory.add_from_candidate(
+        product_type="part", reference_hash="reference", inspection_id="second",
+        candidate=candidates[1], source_frame=current,
+    )
+    detector = InspectionService.__new__(InspectionService)
+    detector._anomaly_engine = None
+    settings = AnalysisSettings.from_overrides({"use_patchcore": False})
+    results = []
+    for order in (candidates, candidates[::-1]):
+        monkeypatch.setattr(learned_normals, "extract_defect_candidates", lambda *args, order=order: order)
+        result = memory.apply(
+            product_type="part", reference_hash="reference", aligned=current,
+            diff_map=diff, segmentation_mask=mask,
+        )
+        assert result.matched_candidates_count == 2
+        assert np.max(result.filtered_diff_map[80:140, 178:183]) == 148
+        assert detector._run_anomaly_model(result.filtered_diff_map, settings)[0] >= .387
+        results.append(result.filtered_diff_map)
+    np.testing.assert_array_equal(results[0], results[1])
 
 
 def test_accepted_normals_are_refreshed_between_server_processes(tmp_path) -> None:
@@ -311,3 +388,80 @@ def test_legacy_stretched_template_recovers_saved_bbox_aspect() -> None:
     geometry = _mask_geometry(restored)
     assert geometry is not None
     assert geometry.aspect == pytest.approx(5.0, rel=0.1)
+
+
+def test_rejection_reason_is_reported_for_a_shifted_normal(tmp_path):
+    memory = AcceptedNormalMemory(tmp_path / "normals")
+    aligned = np.full((220, 220, 3), 60, np.uint8)
+    mask = np.zeros_like(aligned)
+    cv2.rectangle(mask, (25, 25), (95, 95), (255, 255, 255), 4)
+    aligned[mask[:, :, 0] > 0] = 180
+    diff = np.zeros_like(aligned)
+    diff[mask[:, :, 0] > 0] = 120
+    saved = extract_defect_candidates(aligned, diff, mask)[0]
+    memory.add_from_candidate(
+        product_type="part", reference_hash="reference", inspection_id="old",
+        candidate=saved, source_frame=aligned,
+    )
+    shifted = np.roll(np.roll(aligned, 40, axis=1), 40, axis=0)
+    shifted_mask = np.roll(np.roll(mask, 40, axis=1), 40, axis=0)
+    shifted_diff = np.roll(np.roll(diff, 40, axis=1), 40, axis=0)
+
+    result = memory.apply(
+        product_type="part", reference_hash="reference", aligned=shifted,
+        diff_map=shifted_diff, segmentation_mask=shifted_mask,
+    )
+
+    assert result.matched_candidates_count == 0
+    assert result.usable_cases == 1 and result.foreign_reference_cases == 0
+    assert result.rejections and result.rejections[0]["reason"] == "position"
+    assert result.rejections[0]["distance_px"] > result.rejections[0]["tolerance_px"]
+
+    other = memory.apply(
+        product_type="part", reference_hash="another", aligned=shifted,
+        diff_map=shifted_diff, segmentation_mask=shifted_mask,
+    )
+    assert other.usable_cases == 0 and other.foreign_reference_cases == 1
+
+
+def _filled_blob_frame(size, blob_size, shift):
+    height, width = size
+    aligned = np.full((height, width, 3), 60, np.uint8)
+    mask = np.zeros_like(aligned)
+    x0, y0 = 120 + shift[0], 100 + shift[1]
+    cv2.rectangle(mask, (x0, y0), (x0 + blob_size[0], y0 + blob_size[1]), (255, 255, 255), -1)
+    aligned[mask[:, :, 0] > 0] = 180
+    diff = np.zeros_like(aligned)
+    diff[mask[:, :, 0] > 0] = 90
+    return aligned, diff, mask
+
+
+def _apply_shifted(memory, size, blob_size, shift):
+    aligned, diff, mask = _filled_blob_frame(size, blob_size, (0, 0))
+    saved = extract_defect_candidates(aligned, diff, mask)[0]
+    memory.add_from_candidate(
+        product_type="part", reference_hash="reference", inspection_id="old",
+        candidate=saved, source_frame=aligned,
+    )
+    aligned, diff, mask = _filled_blob_frame(size, blob_size, shift)
+    return memory.apply(
+        product_type="part", reference_hash="reference", aligned=aligned,
+        diff_map=diff, segmentation_mask=mask,
+    )
+
+
+def test_large_recurring_normal_tolerates_proportional_position_shift(tmp_path):
+    result = _apply_shifted(
+        AcceptedNormalMemory(tmp_path / "normals"), (500, 700), (300, 160), (14, 9),
+    )
+
+    assert result.matched_candidates_count == 1, str(result.rejections)
+
+
+def test_small_normal_keeps_strict_position_tolerance(tmp_path):
+    result = _apply_shifted(
+        AcceptedNormalMemory(tmp_path / "normals"), (500, 700), (24, 24), (14, 9),
+    )
+
+    assert result.matched_candidates_count == 0
+    assert result.rejections and result.rejections[0]["reason"] == "position"

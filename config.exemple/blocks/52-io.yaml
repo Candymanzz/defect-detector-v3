@@ -20,18 +20,17 @@ integration:
     retry_ms: 1000         # повтор только если SDK не принял команду
   io_reject:
     enabled: true
-    mode: timer           # TriggerSoftware → Timer3/4 → DO3/4
-    pulse_ms: 80           # only for optional mode: level; timer duration is set in MVS
+    mode: hold            # запуск/PASS → On, брак → Off
+    pulse_ms: 80           # только для mode: level; hold не использует длительность
     ack_timeout_ms: 3000
     queue_size: 64
     shutdown_timeout_ms: 5000
     protected_outputs: [5]  # DO5 остаётся аппаратным триггером камер
     groups:
-      0: {port: 3, timer: Timer3, line: Out3}
-      1: {port: 4, timer: Timer4, line: Out4}
-    # В MVS: Timer3/4 TriggerSource=Software, режим с доступным TriggerSoftware;
-    # Out3 LineSource=Timer3, Out4 LineSource=Timer4; длительность/задержка задаются в MVS.
-    # Ранний брак пластика тоже запускает один импульс, без удержания до PASS.
+      0: {port: 3, timer: Timer3, line: Out3, active_high: false}
+      1: {port: 4, timer: Timer4, line: Out4, active_high: false}
+    # hold: при подключении и закрытии источник On (состояние PASS).
+    # timer в groups оставлен для возврата к режиму импульсов mode: timer.
   # Внешний триггер инспекции (когда dev_auto_trigger_stub и continuous_inspection выключены).
   inspection_trigger:
     # Direct DI/DO monitoring inside Java.

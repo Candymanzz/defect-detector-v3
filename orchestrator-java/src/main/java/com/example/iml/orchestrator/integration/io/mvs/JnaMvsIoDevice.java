@@ -34,6 +34,8 @@ public final class JnaMvsIoDevice implements MvsIoDevice {
     private Pointer handle;
     private boolean initialized, opened;
     private String originalLine, originalEventSelector;
+    private boolean holdOutputsInitialized;
+    private final Map<Integer, Boolean> outputLevels = new HashMap<>();
     // Strong references must survive until CloseDevice has stopped SDK callbacks.
     private final List<EventCallback> callbacks = new ArrayList<>();
     private final Map<String, String> originalNotifications = new LinkedHashMap<>();
@@ -64,7 +66,14 @@ public final class JnaMvsIoDevice implements MvsIoDevice {
                 setEnum("LineSelector", output);
                 bool("LineStatus");
             }
-            if (validateInputs) configureTimers();
+            if (validateInputs) {
+                configureTimers();
+                if (config.reject().enabled() && config.reject().mode().equals("hold")) {
+                    validateHoldOutputs();
+                    holdOutputsInitialized = true;
+                    resetHoldOutputs();
+                }
+            }
             setEnum("LineSelector", originalLine);
             log.info("MVS IO monitor connected inputs={} outputs={} input_mode={}",
                     config.inputs().keySet(), config.outputs(), config.inputMode());
@@ -72,8 +81,12 @@ public final class JnaMvsIoDevice implements MvsIoDevice {
     }
 
     private void configureTimers() {
-        MvsTimerCommand.configure(config.timers(), timerNodes());
-        config.timers().forEach((timer, settings) -> log.info(
+        Map<String, MvsIoConfig.Timer> timers = new LinkedHashMap<>(config.timers());
+        if (config.reject().enabled() && config.reject().mode().equals("hold"))
+            timers.entrySet().removeIf(entry -> config.reject().groups().values().stream()
+                    .anyMatch(output -> output.line().equals(entry.getValue().line())));
+        MvsTimerCommand.configure(timers, timerNodes());
+        timers.forEach((timer, settings) -> log.info(
                 "io event=timer_configured timer={} line={} enums={} integers={}",
                 timer, settings.line(), settings.enums(), settings.integers()));
     }
@@ -125,6 +138,45 @@ public final class JnaMvsIoDevice implements MvsIoDevice {
             states.put(entry.getKey(), bool("LineStatus") ^ entry.getValue().invert());
         }
         return states;
+    }
+
+    private void validateHoldOutputs() {
+        String oldLine = current("LineSelector");
+        try {
+            for (var output : config.reject().groups().values()) {
+                setEnum("LineSelector", output.line());
+                List<String> sources = symbols("LineSource");
+                if (!sources.containsAll(List.of("On", "Off")))
+                    throw new IllegalStateException(output.line() + ": LineSource On/Off unavailable: " + sources);
+                log.info("io event=hold_output_supported line={} inverter={}", output.line(), bool("LineInverter"));
+            }
+        } finally { cleanup(() -> setEnum("LineSelector", oldLine)); }
+    }
+
+    private void resetHoldOutputs() {
+        outputLevels.clear();
+        for (var output : config.reject().groups().values()) setOutput(output.port(), !output.activeHigh());
+    }
+
+    @Override public synchronized void setOutput(int port, boolean high) {
+        ensureOpen();
+        if (!config.reject().enabled() || !config.reject().mode().equals("hold"))
+            throw new IllegalStateException("mv_camera output levels require io_reject.mode: hold");
+        var output = config.reject().groups().values().stream().filter(o -> o.port() == port).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Output is not configured for reject: " + port));
+        if (port == 5) throw new IllegalArgumentException("Camera output protected");
+        if (Boolean.valueOf(high).equals(outputLevels.get(port))) return;
+        String oldLine = current("LineSelector");
+        try {
+            setEnum("LineSelector", output.line());
+            // On/Off enable or disable the output source. LineInverter describes
+            // electrical polarity; compensating it here enabled the relay at rest.
+            String source = high ? "On" : "Off";
+            setEnum("LineSource", source);
+            outputLevels.put(port, high);
+            log.info("io event=hold_output line={} source={} requested_high={} observed_high={}",
+                    output.line(), source, high, bool("LineStatus"));
+        } finally { cleanup(() -> setEnum("LineSelector", oldLine)); }
     }
 
     @Override public synchronized void triggerTimer(String timer, String line) {
@@ -250,12 +302,32 @@ public final class JnaMvsIoDevice implements MvsIoDevice {
         result.put("LineSelector", symbols("LineSelector"));
         try { result.put("EventSelector", symbols("EventSelector")); }
         catch (RuntimeException e) { result.put("EventSelector_error", e.getMessage()); }
-        result.put("outputs", readOutputs()); return result;
+        result.put("outputs", readOutputs());
+        if (config.reject().enabled() && config.reject().mode().equals("hold")) {
+            Map<String, Object> levels = new LinkedHashMap<>();
+            String oldLine = current("LineSelector");
+            try {
+                for (var output : config.reject().groups().values()) {
+                    setEnum("LineSelector", output.line());
+                    levels.put(output.line(), Map.of("sources", symbols("LineSource"),
+                            "source", current("LineSource"), "inverter", bool("LineInverter"), "high", bool("LineStatus")));
+                }
+            } finally { cleanup(() -> setEnum("LineSelector", oldLine)); }
+            result.put("hold_outputs", levels);
+        }
+        return result;
     }
 
     @Override public synchronized void close() {
         log.info("io event=device_close_requested backend=mv_camera port={} opened={}", config.port(), opened);
         if (opened) {
+            if (holdOutputsInitialized) {
+                outputLevels.clear();
+                for (var output : config.reject().groups().values())
+                    cleanup(() -> setOutput(output.port(), !output.activeHigh()));
+            }
+            holdOutputsInitialized = false;
+            outputLevels.clear();
             for (var entry : originalNotifications.entrySet()) {
                 cleanup(() -> { setEnum("EventSelector", entry.getKey()); setEnum("EventNotification", entry.getValue()); });
             }

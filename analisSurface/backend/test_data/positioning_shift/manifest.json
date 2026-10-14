@@ -1,0 +1,126 @@
+{
+ "note": "Кадры с браком (python REJECT) и доворотом ведра 3-6 px относительно первого кадра камеры (псевдо-эталон). Источник: frames36.",
+ "items": [
+  {
+   "camera": 0,
+   "reference": "camera_0/reference.jpg",
+   "frame": "camera_0/f_0000032.jpg",
+   "source_score": 0.2587794117647059,
+   "measured_shift_px": [
+    5.462,
+    2.068
+   ],
+   "measured_rotation_deg": 0.14
+  },
+  {
+   "camera": 0,
+   "reference": "camera_0/reference.jpg",
+   "frame": "camera_0/f_0000036.jpg",
+   "source_score": 0.283684126984127,
+   "measured_shift_px": [
+    5.959,
+    1.875
+   ],
+   "measured_rotation_deg": 0.1552
+  },
+  {
+   "camera": 1,
+   "reference": "camera_1/reference.jpg",
+   "frame": "camera_1/f_0000018.jpg",
+   "source_score": 1.0,
+   "measured_shift_px": [
+    -3.988,
+    -0.427
+   ],
+   "measured_rotation_deg": -0.1483
+  },
+  {
+   "camera": 1,
+   "reference": "camera_1/reference.jpg",
+   "frame": "camera_1/f_0000378.jpg",
+   "source_score": 0.3156936819172113,
+   "measured_shift_px": [
+    3.026,
+    -4.625
+   ],
+   "measured_rotation_deg": 0.6104
+  },
+  {
+   "camera": 3,
+   "reference": "camera_3/reference.jpg",
+   "frame": "camera_3/f_0000011.jpg",
+   "source_score": 1.0,
+   "measured_shift_px": [
+    2.759,
+    -3.721
+   ],
+   "measured_rotation_deg": 0.3107
+  },
+  {
+   "camera": 4,
+   "reference": "camera_4/reference.jpg",
+   "frame": "camera_4/f_0000042.jpg",
+   "source_score": 1.0,
+   "measured_shift_px": [
+    -0.805,
+    4.645
+   ],
+   "measured_rotation_deg": -0.3333
+  },
+  {
+   "camera": 5,
+   "reference": "camera_5/reference.jpg",
+   "frame": "camera_5/f_0000032.jpg",
+   "source_score": 1.0,
+   "measured_shift_px": [
+    -0.732,
+    4.579
+   ],
+   "measured_rotation_deg": -0.3509
+  },
+  {
+   "camera": 5,
+   "reference": "camera_5/reference.jpg",
+   "frame": "camera_5/f_0000036.jpg",
+   "source_score": 0.2509553688141924,
+   "measured_shift_px": [
+    1.241,
+    2.974
+   ],
+   "measured_rotation_deg": -0.1492
+  },
+  {
+   "camera": 6,
+   "reference": "camera_6/reference.jpg",
+   "frame": "camera_6/f_0000032.jpg",
+   "source_score": 1.0,
+   "measured_shift_px": [
+    -3.324,
+    -1.026
+   ],
+   "measured_rotation_deg": -0.0267
+  },
+  {
+   "camera": 7,
+   "reference": "camera_7/reference.jpg",
+   "frame": "camera_7/f_0000393.jpg",
+   "source_score": 0.3157830065359477,
+   "measured_shift_px": [
+    2.254,
+    6.087
+   ],
+   "measured_rotation_deg": -0.3011
+  },
+  {
+   "camera": 8,
+   "reference": "camera_8/reference.jpg",
+   "frame": "camera_8/f_0000031.jpg",
+   "source_score": 0.5424377211024269,
+   "measured_shift_px": [
+    -2.928,
+    2.055
+   ],
+   "measured_rotation_deg": -0.5229
+  }
+ ]
+}

@@ -20,6 +20,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BucketInspectionAggregatorTest {
 
+    @Test
+    void captureWithoutReferencePassesAndNeverOffersEarlyReject() {
+        aggregator = new BucketInspectionAggregator(LogManager.getLogger(getClass()),
+                new BucketInspectionConfig(true, List.of(new BucketGroup(0, List.of(0))), 1000L, 1000L));
+        List<BucketFanOutResult> published = new ArrayList<>();
+        AtomicInteger earlyRejects = new AtomicInteger();
+        BucketFanOutSink sink = new BucketFanOutSink() {
+            public void publishBucket(BucketFanOutResult result) { published.add(result); }
+            public boolean publishEarlyPlasticHandleReject(long sequence, int cameraId) {
+                earlyRejects.incrementAndGet(); return true;
+            }
+        };
+        aggregator.recordFrameResult(1L, 0, InspectionDecision.captureOnly(0, 1L), sink);
+        assertEquals(0, earlyRejects.get());
+        assertEquals(1, published.size());
+        assertTrue(published.get(0).overallPass());
+    }
+
     private BucketInspectionAggregator aggregator;
 
     @AfterEach

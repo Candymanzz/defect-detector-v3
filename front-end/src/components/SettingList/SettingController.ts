@@ -119,7 +119,7 @@ export async function saveLineDirection(
 export async function loadSettingData(selectedCameraId: number | null = null): Promise<SettingData> {
   const [lightBrightness, lightMode, geometryRuntime, analysisProductTypes, frameArchiveSettings] = await Promise.all([
     orchestratorApi.getLightBrightness(),
-    orchestratorApi.getLightMode().catch(() => ({ constant: false, mode: "interval" as const })),
+    orchestratorApi.getLightMode(),
     orchestratorApi.getGeometryRuntime(selectedCameraId),
     loadAnalysisProductTypes(),
     orchestratorApi.getFrameArchiveSettings().catch(() => null),

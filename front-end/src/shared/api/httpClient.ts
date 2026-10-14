@@ -87,6 +87,7 @@ export class HttpClient {
         headers,
         body: hasBody ? JSON.stringify(options.body) : undefined,
         signal: controller.signal,
+        cache: "no-store",
       });
 
       if (!response.ok) {
