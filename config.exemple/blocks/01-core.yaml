@@ -131,6 +131,7 @@ integration:
   continuous_inspection:
     enabled: false
     cycle_delay_ms: 3500
+  # Пишется в logs/<дата_время>/orchestrator/pipeline-stages.jsonl; `file` — запасной путь без сессии логов.
   timing_stages_log:
     enabled: true
     file: "logs/pipeline-stages.jsonl"

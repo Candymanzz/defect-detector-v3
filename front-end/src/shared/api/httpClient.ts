@@ -1,3 +1,5 @@
+import { clientLog, elapsedMs } from "../lib/clientLogger";
+
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export type RequestOptions = {
@@ -81,19 +83,38 @@ export class HttpClient {
     const abortListener = () => controller.abort();
     options.signal?.addEventListener("abort", abortListener, { once: true });
 
+    const method = options.method ?? (hasBody ? "POST" : "GET");
+    const startedAt = performance.now();
+    const logPath = `/${normalizePath(path)}`;
+
     try {
       const response = await fetch(this.url(path, options.query), {
-        method: options.method ?? (hasBody ? "POST" : "GET"),
+        method,
         headers,
         body: hasBody ? JSON.stringify(options.body) : undefined,
         signal: controller.signal,
       });
+
+      clientLog(
+        "http",
+        { method, path: logPath, status: response.status, ms: elapsedMs(startedAt) },
+        response.ok ? "info" : "warn",
+      );
 
       if (!response.ok) {
         throw new HttpError(response, await safeReadText(response));
       }
 
       return response;
+    } catch (error) {
+      if (!(error instanceof HttpError)) {
+        clientLog(
+          "http_failed",
+          { method, path: logPath, ms: elapsedMs(startedAt), message: error instanceof Error ? error.message : String(error) },
+          "error",
+        );
+      }
+      throw error;
     } finally {
       window.clearTimeout(timeoutId);
       options.signal?.removeEventListener("abort", abortListener);

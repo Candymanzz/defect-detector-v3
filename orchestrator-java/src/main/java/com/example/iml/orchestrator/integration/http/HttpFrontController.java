@@ -8,6 +8,7 @@ import com.example.iml.orchestrator.integration.camera.CameraSettingsService;
 import com.example.iml.orchestrator.integration.http.controller.CameraSettingsHttpController;
 
 import com.example.iml.orchestrator.integration.http.controller.ClientApiHttpController;
+import com.example.iml.orchestrator.integration.http.controller.ClientLogHttpController;
 
 import com.example.iml.orchestrator.integration.http.controller.FrameArchiveHttpController;
 
@@ -26,6 +27,9 @@ import com.sun.net.httpserver.HttpExchange;
 
 
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.IOException;
 
 import java.util.Optional;
@@ -37,6 +41,8 @@ import java.util.regex.Pattern;
 public final class HttpFrontController {
 
 
+
+    private static final Logger ACCESS_LOG = LogManager.getLogger("com.example.iml.orchestrator.integration.http.access");
 
     private final HttpRouter router;
 
@@ -51,6 +57,30 @@ public final class HttpFrontController {
 
 
     public void dispatch(HttpExchange exchange) throws IOException {
+        long startedNs = System.nanoTime();
+        try {
+            dispatchInner(exchange);
+        } finally {
+            logAccess(exchange, startedNs);
+        }
+    }
+
+    /** Одна строка на запрос: метод, путь, статус, длительность. Health и MJPEG-поток не пишем. */
+    private static void logAccess(HttpExchange exchange, long startedNs) {
+        String path = exchange.getRequestURI().getPath();
+        if ("/health".equals(path) || path.endsWith(".mjpeg") || "/api/client-log".equals(path)) {
+            return;
+        }
+        ACCESS_LOG.info(
+                "{} {} status={} duration_ms={}",
+                exchange.getRequestMethod(),
+                path,
+                exchange.getResponseCode(),
+                String.format(java.util.Locale.ROOT, "%.1f", (System.nanoTime() - startedNs) / 1_000_000.0)
+        );
+    }
+
+    private void dispatchInner(HttpExchange exchange) throws IOException {
 
         HttpRequestContext req = new HttpRequestContext(exchange);
 
@@ -103,6 +133,7 @@ public final class HttpFrontController {
         HttpRouter router = new HttpRouter();
 
         router.register(HttpRoute.exact("GET", "/health", new HealthHttpController()));
+        router.register(HttpRoute.exact("POST", "/api/client-log", new ClientLogHttpController()));
 
 
 

@@ -79,9 +79,7 @@ async def http_file_logging(request: Request, call_next) -> Response:
     response = await call_next(request)
     duration_ms = (time.perf_counter() - started) * 1000.0
 
-    response_body = b""
-    async for chunk in response.body_iterator:
-        response_body += chunk
+    response_body = b"".join([chunk async for chunk in response.body_iterator])
     response_headers = {
         key: value
         for key, value in response.headers.items()

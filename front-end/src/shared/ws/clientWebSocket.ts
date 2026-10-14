@@ -1,4 +1,5 @@
 import { appEnv } from "../config/env";
+import { clientLog } from "../lib/clientLogger";
 import { resolveReferenceBundleImages, stageReferenceBundleImages } from "../referenceImages";
 import type {
   ClientFpZonesUpdatePayload,
@@ -16,6 +17,14 @@ import type {
 } from "./types";
 
 const PROTOCOL_VERSION = 1;
+
+/** Кадры превью и телеметрия идут потоком — в клиентский лог не пишем. */
+const HIGH_FREQUENCY_SERVER_MESSAGES = new Set<string>([
+  "server.preview_frame",
+  "server.preview_batch",
+  "server.state",
+  "server.plc_fins_traffic",
+]);
 
 export class OrchestratorWebSocketClient {
   private socket: WebSocket | null = null;
@@ -55,6 +64,7 @@ export class OrchestratorWebSocketClient {
     this.socket = socket;
 
     socket.addEventListener("open", () => {
+      clientLog("ws_open", { reconnect_attempt: this.reconnectAttempt });
       this.reconnectAttempt = 0;
       this.setStatus({
         state: "open",
@@ -67,6 +77,7 @@ export class OrchestratorWebSocketClient {
     });
 
     socket.addEventListener("error", () => {
+      clientLog("ws_error", {}, "warn");
       this.setStatus({
         state: "error",
         reconnectAttempt: this.reconnectAttempt,
@@ -75,6 +86,7 @@ export class OrchestratorWebSocketClient {
     });
 
     socket.addEventListener("close", (event) => {
+      clientLog("ws_close", { code: event.code, reason: event.reason }, "warn");
       if (this.socket === socket) {
         this.socket = null;
       }
@@ -190,6 +202,7 @@ export class OrchestratorWebSocketClient {
     }
 
     this.socket.send(JSON.stringify(message));
+    clientLog("ws_send", { type, message_id: message.message_id });
     return message.message_id;
   }
 
@@ -210,6 +223,14 @@ export class OrchestratorWebSocketClient {
         lastMessageAtMs: Date.now(),
         lastError: undefined,
       });
+
+      if (!HIGH_FREQUENCY_SERVER_MESSAGES.has(message.type)) {
+        clientLog("ws_recv", {
+          type: message.type,
+          message_id: (message as { message_id?: string }).message_id,
+          bytes: data.length,
+        });
+      }
 
       if (message.type === "server.reference_bundle_ack") {
         resolveReferenceBundleImages(message.message_id, message.payload.ok);

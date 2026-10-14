@@ -1,7 +1,10 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/App";
+import { installClientLogging } from "./shared/lib/clientLogger";
 import "./style.css";
+
+installClientLogging();
 
 const rootElement = document.querySelector<HTMLDivElement>("#app");
 

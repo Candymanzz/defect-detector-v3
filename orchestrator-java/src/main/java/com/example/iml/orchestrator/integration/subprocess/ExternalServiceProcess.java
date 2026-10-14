@@ -1,5 +1,6 @@
 package com.example.iml.orchestrator.integration.subprocess;
 
+import com.example.iml.orchestrator.integration.logging.LogSession;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -40,6 +41,7 @@ public final class ExternalServiceProcess implements AutoCloseable {
     ) throws IOException {
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.directory(workingDir.toFile());
+        pb.environment().putAll(LogSession.childEnv());
         if (extraEnv != null) {
             for (Map.Entry<String, String> entry : extraEnv.entrySet()) {
                 if (entry.getKey() != null && entry.getValue() != null) {

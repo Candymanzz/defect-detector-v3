@@ -97,6 +97,11 @@ if (-not (Test-Path $PythonExe)) {
 
 $stack = @{ python = $null; orchestrator = $null; frontend = $null }
 
+# Общая папка сессии логов: logs\<дата_время>\ (python, оркестратор, geometry, frontend пишут в свои подпапки).
+if (-not $env:IML_LOG_SESSION_DIR) {
+    $env:IML_LOG_SESSION_DIR = Join-Path $RepoRoot ("logs\" + (Get-Date -Format "yyyy-MM-dd_HH-mm-ss"))
+}
+
 Write-Step "Запуск analisSurface (uvicorn :8000)"
 $pythonProc = Start-Process -FilePath $PythonExe `
     -ArgumentList "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000" `

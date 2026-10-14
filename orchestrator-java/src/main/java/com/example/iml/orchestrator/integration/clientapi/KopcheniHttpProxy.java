@@ -1,6 +1,8 @@
 package com.example.iml.orchestrator.integration.clientapi;
 
 import com.sun.net.httpserver.HttpExchange;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,6 +19,7 @@ import java.util.Locale;
  */
 public final class KopcheniHttpProxy {
 
+    private static final Logger ACCESS_LOG = LogManager.getLogger("com.example.iml.orchestrator.integration.http.access");
     private static final HttpClient CLIENT = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15))
             .build();
@@ -57,8 +60,18 @@ public final class KopcheniHttpProxy {
             rb.header("Content-Type", contentType);
         }
         rb.header("Accept", ex.getRequestHeaders().getFirst("Accept") != null ? ex.getRequestHeaders().getFirst("Accept") : "*/*");
+        long startedNs = System.nanoTime();
         try {
             HttpResponse<byte[]> resp = CLIENT.send(rb.build(), HttpResponse.BodyHandlers.ofByteArray());
+            ACCESS_LOG.info(
+                    "PROXY->python {} {} status={} duration_ms={} req_bytes={} resp_bytes={}",
+                    method,
+                    URI.create(target).getPath(),
+                    resp.statusCode(),
+                    String.format(Locale.ROOT, "%.1f", (System.nanoTime() - startedNs) / 1_000_000.0),
+                    body.length,
+                    resp.body() == null ? 0 : resp.body().length
+            );
             ex.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
             String respCt = resp.headers().firstValue("Content-Type").orElse("application/octet-stream");
             ex.getResponseHeaders().set("Content-Type", respCt);

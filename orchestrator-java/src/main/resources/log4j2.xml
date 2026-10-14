@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN">
     <Properties>
-        <Property name="logDir">${sys:iml.log.dir:-${sys:user.dir}/logs}</Property>
+        <Property name="sessionDir">${sys:iml.log.dir:-${env:IML_LOG_SESSION_DIR:-${sys:user.dir}/logs}}</Property>
+        <Property name="logDir">${sessionDir}/orchestrator</Property>
         <Property name="logPattern">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] %c{1.} - %msg%n</Property>
     </Properties>
     <Appenders>
@@ -62,8 +63,40 @@
             </Policies>
             <DefaultRolloverStrategy max="10"/>
         </RollingFile>
+        <!-- HTTP-доступ оркестратора и прокси к python: метод, путь, статус, duration_ms. -->
+        <RollingFile name="HttpFile"
+                     fileName="${logDir}/http.log"
+                     filePattern="${logDir}/http-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${logPattern}"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="20 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+        <!-- События браузера (POST /api/client-log): время берётся из самого события. -->
+        <RollingFile name="ClientFile"
+                     fileName="${sessionDir}/frontend/client.log"
+                     filePattern="${sessionDir}/frontend/client-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="%msg%n"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="20 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+        <Async name="ClientAsync" bufferSize="2048">
+            <AppenderRef ref="ClientFile"/>
+        </Async>
+        <Async name="HttpAsync" bufferSize="2048">
+            <AppenderRef ref="HttpFile"/>
+        </Async>
     </Appenders>
     <Loggers>
+        <Logger name="com.example.iml.client" level="info" additivity="false">
+            <AppenderRef ref="ClientAsync"/>
+        </Logger>
+        <Logger name="com.example.iml.orchestrator.integration.http.access" level="info" additivity="false">
+            <AppenderRef ref="HttpAsync"/>
+        </Logger>
         <Logger name="com.example.iml.orchestrator.integration.plc" level="info" additivity="true">
             <AppenderRef ref="PlcFile"/>
         </Logger>

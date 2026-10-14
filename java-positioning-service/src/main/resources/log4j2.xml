@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN">
     <Properties>
-        <Property name="logDir">${sys:iml.log.dir:-${sys:user.dir}/logs}</Property>
+        <Property name="logDir">${sys:iml.log.dir:-${env:IML_LOG_SESSION_DIR:-${sys:user.dir}/logs}}/positioning</Property>
         <Property name="logPattern">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] %c{1.} - %msg%n</Property>
     </Properties>
     <Appenders>
@@ -17,8 +17,23 @@
             </Policies>
             <DefaultRolloverStrategy max="10"/>
         </RollingFile>
+        <RollingFile name="OpsFile"
+                     fileName="${logDir}/positioning-ops.log"
+                     filePattern="${logDir}/positioning-ops-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${logPattern}"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="20 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+        <Async name="OpsAsync" bufferSize="2048">
+            <AppenderRef ref="OpsFile"/>
+        </Async>
     </Appenders>
     <Loggers>
+        <Logger name="com.example.iml.positioning.ops" level="info" additivity="false">
+            <AppenderRef ref="OpsAsync"/>
+        </Logger>
         <Logger name="com.example.iml" level="info" additivity="false">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="PositioningFile"/>

@@ -19,6 +19,8 @@ import java.util.Map;
 public final class StdioBinaryPositioningLoop {
 
     private static final Logger log = LogManager.getLogger(StdioBinaryPositioningLoop.class);
+    /** Время каждой операции (кроме health): отдельный файл positioning-ops.log в папке сессии. */
+    private static final Logger OPS_LOG = LogManager.getLogger("com.example.iml.positioning.ops");
 
     private final DataInputStream in;
     private final DataOutputStream out;
@@ -53,7 +55,7 @@ public final class StdioBinaryPositioningLoop {
 
             String op = String.valueOf(msg.header().getOrDefault("op", ""));
             try {
-                dispatch(op, msg);
+                timedDispatch(op, msg);
             } catch (Exception e) {
                 String err = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
                 log.error("Positioning op failed: {} error={}", op, err, e);
@@ -64,6 +66,22 @@ public final class StdioBinaryPositioningLoop {
                 errHeader.put("status", "ERROR");
                 errHeader.put("overallPass", false);
                 BinaryProtocol.write(out, BinaryProtocol.MSG_ERROR, errHeader, new byte[0]);
+            }
+        }
+    }
+
+    private void timedDispatch(String op, BinaryProtocol.Message msg) throws Exception {
+        long startedNs = System.nanoTime();
+        try {
+            dispatch(op, msg);
+        } finally {
+            if (!"health".equals(op)) {
+                Map<String, Object> h = msg.header();
+                OPS_LOG.info("op={} camera_id={} frame_id={} duration_ms={}",
+                        op,
+                        h.getOrDefault("camera_id", ""),
+                        h.getOrDefault("frame_id", ""),
+                        String.format(java.util.Locale.ROOT, "%.1f", (System.nanoTime() - startedNs) / 1_000_000.0));
             }
         }
     }

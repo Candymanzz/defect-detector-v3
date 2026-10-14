@@ -5,6 +5,7 @@ import com.example.iml.orchestrator.integration.bootstrap.factory.IntegrationSer
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.IntegrationLifecycleComposite;
 import com.example.iml.orchestrator.integration.bootstrap.lifecycle.OrchestratorStopSignal;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
+import com.example.iml.orchestrator.integration.logging.LogSession;
 import com.example.iml.orchestrator.integration.capture.ImlShmJanitor;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.fanout.FanOutCoordinator;
@@ -196,7 +197,11 @@ public final class PipelineCameraRuntimeService {
             return;
         }
         try {
-            Path timingPath = ctx.projectRoot().resolve(timingStagesLogCfg.relativePath());
+            // Внутри сессии логов (logs/<дата_время>/orchestrator/); без сессии — путь из config.
+            Path sessionDir = LogSession.dirOrNull();
+            Path timingPath = sessionDir != null
+                    ? LogSession.serviceDir("orchestrator", sessionDir).resolve("pipeline-stages.jsonl")
+                    : ctx.projectRoot().resolve(timingStagesLogCfg.relativePath());
             ctx.setPipelineStagesLog(new PipelineStagesLog(timingPath));
             log.info("timing_stages_log enabled jsonl={} (рядом .txt с тем же базовым именем)", timingPath);
         } catch (Exception e) {
