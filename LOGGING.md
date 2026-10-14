@@ -39,3 +39,9 @@ Electron пишет через IPC; браузер отправляет небо
 Существующие переключатели Python (`ANALIS_SURFACE_FILE_LOGGING`, `ANALIS_SURFACE_DISABLE_FILE_LOG`, `python_detector.file_logging`) продолжают работать. Health-проверки Python по умолчанию исключены; включение — `ANALIS_SURFACE_LOG_HEALTH=1`.
 
 После изменения Java сервисы нужно пересобрать через `bash ./rebuild-and-run.sh`; запускать рабочую инспекцию для проверки логов не требуется.
+
+Флаг `-r` / `--rt-diagnostics` в Linux-скриптах запуска добавляет в ту же
+папку сессии `rt-samples.jsonl`, `rt-configuration.jsonl`, `rt-threads.jsonl`,
+`rt-kernel.jsonl`, `rt-events.jsonl`. Ошибки самого сборщика — `rt-monitor.log`.
+Метрики имеют UTC-время с миллисекундами и монотонную временную метку.
+JSONL-файлы ротируются после 10 МБ с пятью резервными файлами.

@@ -5,6 +5,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IML_CPUSET="${IML_CPUSET:-2-5,8-11}"
+export IML_CPUSET
 
 if ! command -v taskset >/dev/null 2>&1; then
   echo "taskset is required (Ubuntu package: util-linux)." >&2

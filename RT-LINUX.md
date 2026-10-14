@@ -86,3 +86,68 @@ sudo update-grub
 Затем перезагрузитесь. При проблемах загрузки нажмите `e` в GRUB,
 удалите добавленные параметры из строки `linux` и загрузитесь Ctrl+X.
 Это изменение действует только на одну загрузку; затем отмените настройку.
+
+## Диагностика нагрузки CPU и RT-ядра
+
+```bash
+bash ./rebuild-and-run.sh -r
+bash ./rebuild-and-run.sh -c -o -r --rt-interval 2
+bash ./run-rt.sh -r
+```
+
+`-r` / `--rt-diagnostics` собирает данные во время реальной работы приложения.
+Параметры ядра и планировщика не изменяются; искусственная нагрузка не создаётся.
+Сам флаг не привязывает приложение к CPU: для этого используйте `run-rt.sh`.
+
+В общей папке сессии `logs/<дата-время>/` появляются:
+
+- `rt-configuration.jsonl`: версия и конфигурация ядра, PREEMPT/RT, NO_HZ,
+  RCU, boot-параметры, изоляция CPU, SMT, топология, clocksource,
+  RT runtime/period, governor, C-states и IRQ affinity;
+- `rt-samples.jsonl`: нагрузка каждого CPU (user/system/irq/softirq/idle/iowait/steal),
+  сырые счётчики interrupts/softirqs, schedstat, loadavg, PSI, память, vmstat,
+  диски и сетевые интерфейсы;
+- `rt-threads.jsonl`: PID/TID сервисов, scheduling policy и RT priority,
+  affinity, последний CPU, миграции и scheduler-счётчики, runtime/wait
+  из schedstat, переключения контекста, I/O, cgroup-ограничения и throttling,
+  частоты CPU, температуры, C-state residency и наиболее загруженные процессы;
+- `rt-kernel.jsonl`: начальные предупреждения/ошибки dmesg и новые сообщения
+  kernel journal, включая доступные сообщения о stall/throttling;
+- `rt-events.jsonl` и `rt-monitor.log`: события и ошибки сборщика.
+
+Метрики CPU снимаются раз в секунду, потоки/датчики — раз в пять секунд,
+IRQ affinity — раз в тридцать секунд. `--rt-interval` меняет основной период
+в пределах 0.2–60 секунд. Каждый JSONL-файл ротируется после 10 МБ,
+сохраняются пять резервных файлов. Все записи имеют UTC-время и монотонную метку.
+Время самого сбора записывается как `collection_ms`.
+
+Сборщик по возможности запускается с nice +10 на housekeeping CPU вне
+`IML_CPUSET`, `isolated` и `nohz_full`. Ядра можно указать вручную:
+
+```bash
+IML_RT_DIAGNOSTICS_CPUSET=0,6 bash ./run-rt.sh -r
+```
+
+При ограничении cgroup или отсутствии прав сохраняются фактическая affinity
+и причина отказа. Недоступные файлы, PSI, dmesg, schedstats и датчики отмечаются
+в логах; сборщик не включает эти механизмы и не устанавливает пакеты.
+Число записываемых потоков ограничено 4096; достижение лимита отмечается.
+
+`collector_delay_ms` показывает задержку пробуждения обычного сборщика,
+а не предельную RT-задержку каждого ядра. Для отдельного измерения worst-case
+RT latency нужны специализированные тесты cyclictest/timerlat/osnoise;
+они автоматически не запускаются, чтобы не менять исследуемую нагрузку.
+Диагностика сама потребляет ресурсы, поэтому сравнивайте замеры с включённым
+и выключенным флагом. Нулевые schedstats при выключенном CONFIG/счётчиках
+не означают отсутствие ожидания или миграций.
+
+Описание источников и их интерпретации:
+[CPU load](https://docs.kernel.org/admin-guide/cpu-load.html),
+[PSI](https://docs.kernel.org/accounting/psi.html),
+[scheduler statistics](https://docs.kernel.org/scheduler/sched-stats.html),
+[RT group scheduling](https://docs.kernel.org/scheduler/sched-rt-group.html).
+
+Перед каждой пересборкой `rebuild-and-run.sh` останавливает supervisor и сервисы,
+ждёт завершения и при необходимости завершает оставшиеся процессы принудительно.
+Неудачная остановка отменяет сборку. Остановка определяет процессы по путям
+проекта и их дочерним процессам, без массового убийства по TCP-портам.

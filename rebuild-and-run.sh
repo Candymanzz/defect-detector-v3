@@ -8,6 +8,8 @@ NO_FRONTEND=false
 SKIP_CAMERA_WORKER=false
 SKIP_ORCHESTRATOR=false
 BUILD_ONLY=false
+RT_DIAGNOSTICS=false
+RT_INTERVAL="${IML_RT_DIAGNOSTICS_INTERVAL:-1}"
 
 usage() {
   cat <<'EOF'
@@ -16,12 +18,15 @@ Usage: bash ./rebuild-and-run.sh [options]
   -o, --skip-orchestrator   Skip orchestrator rebuild
   -f, --no-frontend         Launch without UI (frontend is never rebuilt)
   --config PATH          Configuration file (default: config/config.yaml)
-  --build-only           Rebuild without starting/stopping the running stack
+  -r, --rt-diagnostics     Log CPU/kernel/IRQ/scheduler telemetry during launch
+  --rt-interval SECONDS    Telemetry interval, 0.2 to 60 (default: 1)
+  --build-only           Stop the stack and rebuild without launching it
   -h, --help             Show this help
 
 Only orchestrator and camera-worker are rebuilt by default.
 Orchestrator build requires JDK 17+ and Maven; camera build requires CMake
 and a C compiler. Launch requires Java. MVS_ROOT defaults to /opt/MVS.
+Stopping the stack and RT diagnostics require Python 3 (standard library only).
 Python, geometry, positioning and frontend must already be prepared.
 EOF
 }
@@ -37,6 +42,10 @@ while (($#)); do
     -c|-с|--skip-camera-worker) SKIP_CAMERA_WORKER=true; shift ;;
     -o|--skip-orchestrator) SKIP_ORCHESTRATOR=true; shift ;;
     --build-only) BUILD_ONLY=true; shift ;;
+    -r|--rt-diagnostics) RT_DIAGNOSTICS=true; shift ;;
+    --rt-interval)
+      [[ $# -ge 2 ]] || fail "--rt-interval requires seconds"
+      RT_INTERVAL="$2"; shift 2 ;;
     --config)
       [[ $# -ge 2 && -n "$2" && "$2" != -* ]] || fail "--config requires a path"
       CONFIG="$2"; shift 2 ;;
@@ -57,6 +66,12 @@ elif [[ "$BUILD_ONLY" == false ]]; then
   require_tool java
 fi
 if [[ "$SKIP_CAMERA_WORKER" == false ]]; then require_tool cmake; fi
+require_tool python3
+[[ -f "$REPO_ROOT/stop-dev.sh" ]] || fail "Missing stop-dev.sh"
+if [[ "$RT_DIAGNOSTICS" == true ]]; then
+  [[ "$BUILD_ONLY" == false ]] || fail "--rt-diagnostics requires launch; omit --build-only"
+  python3 -c 'import math,sys; v=float(sys.argv[1]); sys.exit(0 if math.isfinite(v) and 0.2 <= v <= 60 else "RT interval must be 0.2 to 60 seconds")' "$RT_INTERVAL"
+fi
 if [[ "$BUILD_ONLY" == false ]]; then
   [[ -f "$CONFIG" ]] || fail "Config not found: $CONFIG"
   [[ -f "$REPO_ROOT/run-supervised.sh" ]] || fail "Missing run-supervised.sh"
@@ -64,6 +79,10 @@ if [[ "$BUILD_ONLY" == false ]]; then
     [[ -f "$REPO_ROOT/orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar" ]] || fail "Existing orchestrator JAR missing; omit -o to build it"
   fi
 fi
+
+step "Stop application stack before rebuilding"
+bash "$REPO_ROOT/stop-dev.sh"
+export IML_STACK_ALREADY_STOPPED=1
 
 if [[ "$SKIP_ORCHESTRATOR" == false ]]; then
   step "Build orchestrator-java"
@@ -94,5 +113,6 @@ step "Start stack supervisor"
 export CONFIG
 run_args=()
 if [[ "$NO_FRONTEND" == true ]]; then run_args+=(--no-frontend); fi
-# The launcher performs process cleanup and creates the session log directory.
+if [[ "$RT_DIAGNOSTICS" == true ]]; then run_args+=(--rt-diagnostics --rt-interval "$RT_INTERVAL"); fi
+# The launcher creates one log directory for application and RT diagnostics.
 exec bash "$REPO_ROOT/run-supervised.sh" "${run_args[@]}"
