@@ -40,8 +40,8 @@ Electron пишет через IPC; браузер отправляет небо
 
 После изменения Java сервисы нужно пересобрать через `bash ./rebuild-and-run.sh`; запускать рабочую инспекцию для проверки логов не требуется.
 
-Флаг `-r` / `--rt-diagnostics` в Linux-скриптах запуска добавляет в ту же
-папку сессии `rt-samples.jsonl`, `rt-configuration.jsonl`, `rt-threads.jsonl`,
+Флаг `-r` / `--rt-diagnostics` включает самостоятельное наблюдение за системой и создаёт отдельную
+папку диагностики в `logs/` с файлами `rt-samples.jsonl`, `rt-configuration.jsonl`, `rt-threads.jsonl`,
 `rt-kernel.jsonl`, `rt-events.jsonl`. Ошибки самого сборщика — `rt-monitor.log`.
 Метрики имеют UTC-время с миллисекундами и монотонную временную метку.
 JSONL-файлы ротируются после 10 МБ с пятью резервными файлами.

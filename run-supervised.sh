@@ -23,13 +23,14 @@ while (($#)); do
   esac
 done
 
+if [[ "$RT_DIAGNOSTICS" == true ]]; then
+  exec bash "$REPO_ROOT/rt-logs.sh" --rt-interval "$RT_INTERVAL"
+fi
+
 [[ -f "$CONFIG" ]] || { echo "Config not found: $CONFIG" >&2; exit 1; }
 [[ -f "$ORCHESTRATOR_JAR" ]] || { echo "Orchestrator JAR missing: $ORCHESTRATOR_JAR" >&2; exit 1; }
 command -v java >/dev/null || { echo "Java is required" >&2; exit 1; }
 command -v python3 >/dev/null || { echo "Python 3 is required to stop managed services" >&2; exit 1; }
-if [[ "$RT_DIAGNOSTICS" == true ]]; then
-  python3 -c 'import math,sys; v=float(sys.argv[1]); sys.exit(0 if math.isfinite(v) and 0.2 <= v <= 60 else "RT interval must be 0.2 to 60 seconds")' "$RT_INTERVAL"
-fi
 if [[ "${IML_STACK_ALREADY_STOPPED:-0}" != 1 ]]; then
   echo "==> Stop previous application stack"
   bash "$REPO_ROOT/stop-dev.sh" --skip-kiosk
@@ -45,7 +46,6 @@ if [[ "$NO_FRONTEND" == false && -f "$REPO_ROOT/.kiosk-paused.json" ]]; then
   bash "$REPO_ROOT/stop-dev.sh" --resume-kiosk
 fi
 export IML_ORCHESTRATOR_JAR="$ORCHESTRATOR_JAR"
-monitor_pid=""
 supervisor_pid=""
 cleanup() {
   local status=$?
@@ -53,23 +53,11 @@ cleanup() {
   echo "==> Stop application stack"
   bash "$REPO_ROOT/stop-dev.sh" --processes-only --skip-kiosk || status=1
   if [[ -n "$supervisor_pid" ]]; then wait "$supervisor_pid" 2>/dev/null || true; fi
-  if [[ -n "$monitor_pid" ]]; then
-    kill -TERM "$monitor_pid" 2>/dev/null || true
-    wait "$monitor_pid" 2>/dev/null || true
-  fi
   exit "$status"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-
-if [[ "$RT_DIAGNOSTICS" == true ]]; then
-  echo "RT diagnostics: $IML_LOG_SESSION_DIR/rt-*.jsonl (interval $RT_INTERVAL s)"
-  python3 "$REPO_ROOT/deploy/linux/rt_diagnostics.py" --root "$REPO_ROOT" \
-    --output "$IML_LOG_SESSION_DIR" --interval "$RT_INTERVAL" --parent-pid "$$" \
-    >> "$IML_LOG_SESSION_DIR/rt-monitor.log" 2>&1 &
-  monitor_pid=$!
-fi
 
 echo "Starting stack supervisor. Ctrl+C = stop all."
 echo "Session logs: $IML_LOG_SESSION_DIR"

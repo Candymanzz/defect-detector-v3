@@ -4,6 +4,12 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Diagnostic mode observes the existing workload; it does not invoke the launcher.
+for arg in "$@"; do
+  if [[ "$arg" == -r || "$arg" == --rt-diagnostics ]]; then
+    exec bash "$REPO_ROOT/rt-logs.sh" "$@"
+  fi
+done
 IML_CPUSET="${IML_CPUSET:-2-5,8-11}"
 export IML_CPUSET
 
