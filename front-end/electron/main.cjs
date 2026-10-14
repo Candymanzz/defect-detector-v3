@@ -1,27 +1,25 @@
 const { app, BrowserWindow, crashReporter, ipcMain, screen } = require("electron");
-const fs = require("node:fs");
 const path = require("node:path");
 
 const rendererUrl = process.env.ELECTRON_RENDERER_URL;
 const isDev = Boolean(rendererUrl);
 const isKiosk = process.env.IML_KIOSK === "1";
-const runtimeLogPath = process.env.IML_ELECTRON_LOG_PATH || path.resolve(__dirname, "..", "..", "logs", "electron-runtime.log");
+const sessionLogger = require("./session-logger.cjs");
 const rendererRecoveryWindowMs = 60_000;
 const rendererRecoveryLimit = 3;
 const rendererRecoveryTimes = [];
-
-function writeRuntimeLog(event, details = {}) {
-  try {
-    fs.mkdirSync(path.dirname(runtimeLogPath), { recursive: true });
-    fs.appendFileSync(
-      runtimeLogPath,
-      `${JSON.stringify({ ts: new Date().toISOString(), event, pid: process.pid, ...details })}\n`,
-      "utf8",
-    );
-  } catch {
-    // Diagnostics must never make the UI fail.
-  }
-}
+function writeRuntimeLog(event, details = {}) { sessionLogger.write(event, details); }
+ipcMain.on("app:diagnostic", (event, entry) => {
+  if (!BrowserWindow.fromWebContents(event.sender) || !entry || typeof entry !== "object") return;
+  sessionLogger.write(entry.event, { ...(entry.details && typeof entry.details === "object" ? entry.details : {}), recorded_at: entry.recorded_at }, entry.channel);
+});
+let logsDrained = false;
+app.on("before-quit", event => {
+  if (logsDrained) return;
+  event.preventDefault();
+  app.isQuitting = true;
+  sessionLogger.drain().finally(() => { logsDrained = true; app.quit(); });
+});
 
 crashReporter.start({ uploadToServer: false });
 process.on("uncaughtExceptionMonitor", (error, origin) => {

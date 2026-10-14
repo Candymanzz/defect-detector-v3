@@ -1,3 +1,4 @@
+import { logDiagnostic } from "../diagnostics";
 import { appEnv } from "../config/env";
 import { resolveReferenceBundleImages, stageReferenceBundleImages } from "../referenceImages";
 import type {
@@ -191,6 +192,7 @@ export class OrchestratorWebSocketClient {
       throw new Error("WebSocket is not open");
     }
 
+    logDiagnostic("requests", "ws-send", { type, message_id: messageId });
     this.socket.send(JSON.stringify(message));
     return message.message_id;
   }
@@ -213,6 +215,16 @@ export class OrchestratorWebSocketClient {
         lastError: undefined,
       });
 
+      if (!/preview|frame|stream_image|plc_fins_traffic/.test(message.type)) {
+        logDiagnostic("responses", "ws-receive", { type: message.type, message_id: message.message_id });
+      }
+      if (message.type === "server.inspect_result") {
+        logDiagnostic("decisions", "inspection-result", { inspection_id: message.payload.inspection_id,
+          frame_id: message.payload.frame_id, camera_id: message.payload.camera_id,
+          overall_pass: message.payload.overall_pass, action: message.payload.action,
+          python_status: message.payload.python_status, geometry_status: message.payload.geometry_status,
+          anomaly_score: message.payload.anomaly_score });
+      }
       if (message.type === "server.reference_bundle_ack") {
         resolveReferenceBundleImages(message.message_id, message.payload.ok);
       }
@@ -254,6 +266,10 @@ export class OrchestratorWebSocketClient {
   }
 
   private setStatus(status: WsConnectionStatus) {
+    if (status.state !== this.status.state || status.lastError !== this.status.lastError) {
+      logDiagnostic("decisions", "ws-status", { state: status.state, reconnectAttempt: status.reconnectAttempt,
+        message: status.lastError });
+    }
     this.status = status;
 
     for (const handler of this.statusHandlers) {

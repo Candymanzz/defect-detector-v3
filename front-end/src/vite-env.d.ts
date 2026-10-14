@@ -21,6 +21,7 @@ type ElectronEnvironment = {
 
 interface Window {
   electronAPI?: {
+    logDiagnostic?: (entry: { channel: string; event: string; details: Record<string, unknown> }) => void;
     getEnvironment: () => Promise<ElectronEnvironment>;
   };
 }

@@ -13,6 +13,8 @@ import java.nio.file.Path;
  */
 public final class OrchestratorMain {
 
+    static { com.example.iml.orchestrator.SessionLogs.initialize(); }
+
     private static final Logger log = LogManager.getLogger(OrchestratorMain.class);
 
     public static void main(String[] args) {

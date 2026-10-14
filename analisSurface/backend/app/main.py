@@ -1,6 +1,5 @@
 import json
 import logging
-import time
 
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -9,13 +8,11 @@ from fastapi.responses import JSONResponse
 
 from app.api.routes import router
 from app.file_logging import (
-    file_logging_enabled,
     init_file_logging,
     log_error,
-    log_http_request,
-    log_http_response,
 )
 from app.runtime import get_application_id
+from app.session_http_logging import SessionHttpLogging
 
 LOG = logging.getLogger("uvicorn.error")
 
@@ -39,68 +36,12 @@ app.include_router(router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
-    raw_body = await request.body()
-    body_text = ""
-    if raw_body:
-        try:
-            body_text = raw_body.decode("utf-8", errors="replace")
-        except Exception:
-            body_text = str(raw_body)
-    if len(body_text) > 4000:
-        body_text = body_text[:4000] + "..."
-    LOG.error(
-        "validation_422 path=%s detail=%s body=%s",
-        request.url.path,
-        exc.errors(),
-        body_text,
-    )
-    log_error(
-        "validation_422",
-        f"{request.method} {request.url.path}",
-        extra={"detail": exc.errors(), "body": body_text},
-    )
+    # Validation inputs can contain image bytes; retain field/type/message only.
+    details = [{"loc": error.get("loc"), "type": error.get("type"),
+                "msg": error.get("msg")} for error in exc.errors()]
+    LOG.error("validation_422 path=%s detail=%s", request.url.path, details)
+    log_error("validation_422", f"{request.method} {request.url.path}", extra={"detail": details})
     return JSONResponse(status_code=422, content={"detail": exc.errors()})
-
-
-@app.middleware("http")
-async def http_file_logging(request: Request, call_next) -> Response:
-    if not file_logging_enabled():
-        return await call_next(request)
-
-    started = time.perf_counter()
-    method = request.method
-    path = request.url.path
-    if request.url.query:
-        path = f"{path}?{request.url.query}"
-    request_headers = dict(request.headers)
-    request_body = await request.body()
-    log_http_request(method, path, request_headers, request_body)
-
-    response = await call_next(request)
-    duration_ms = (time.perf_counter() - started) * 1000.0
-
-    response_body = b""
-    async for chunk in response.body_iterator:
-        response_body += chunk
-    response_headers = {
-        key: value
-        for key, value in response.headers.items()
-        if key.lower() != "content-length"
-    }
-    log_http_response(
-        method,
-        path,
-        response.status_code,
-        duration_ms,
-        response_headers,
-        response_body,
-    )
-    return Response(
-        content=response_body,
-        status_code=response.status_code,
-        headers=response_headers,
-        media_type=response.media_type,
-    )
 
 
 @app.middleware("http")
@@ -144,3 +85,5 @@ async def health() -> dict:
         "service": "kopcheni-service",
         "detector_id": get_application_id(),
     }
+
+app.add_middleware(SessionHttpLogging)

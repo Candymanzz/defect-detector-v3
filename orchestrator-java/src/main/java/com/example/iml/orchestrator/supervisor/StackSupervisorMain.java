@@ -22,6 +22,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class StackSupervisorMain {
 
+    static {
+        System.setProperty("iml.runtime.name", "supervisor");
+        com.example.iml.orchestrator.SessionLogs.initialize();
+    }
+
     private static final Logger log = LogManager.getLogger(StackSupervisorMain.class);
 
     static final int[] DEV_STACK_PORTS = {
@@ -325,6 +330,7 @@ public final class StackSupervisorMain {
                 configPath.toAbsolutePath().toString()
         );
         ProcessBuilder pb = new ProcessBuilder(command);
+        com.example.iml.orchestrator.SessionLogs.inherit(pb.environment());
         pb.inheritIO();
         pb.directory(configPath.getParent() == null ? Path.of(".").toFile() : configPath.getParent().toFile());
         Process process = pb.start();

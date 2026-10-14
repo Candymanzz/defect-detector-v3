@@ -8,6 +8,8 @@
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO_ROOT"
+export IML_LOG_SESSION_DIR="$REPO_ROOT/logs/$(date +%Y-%m-%d_%H-%M-%S-%N)-$$"
+mkdir -p "$IML_LOG_SESSION_DIR"
 
 CONFIG="${CONFIG:-config/config.yaml}"
 ORCHESTRATOR_JAR="$REPO_ROOT/orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar"

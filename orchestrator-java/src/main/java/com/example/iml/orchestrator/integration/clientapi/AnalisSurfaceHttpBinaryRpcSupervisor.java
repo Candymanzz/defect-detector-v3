@@ -1081,12 +1081,30 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         return resp;
     }
 
-    private HttpResponse<byte[]> send(HttpRequest req) throws IOException {
+    private HttpResponse<byte[]> send(HttpRequest original) throws IOException {
+        String id = java.util.UUID.randomUUID().toString();
+        HttpRequest req = HttpRequest.newBuilder(original, (key, value) -> true)
+                .setHeader("X-Request-Id", id).build();
+        boolean diagnostic = !req.uri().getPath().endsWith("/health");
+        long started = System.nanoTime();
+        var requests = org.apache.logging.log4j.LogManager.getLogger("session.requests");
+        var responses = org.apache.logging.log4j.LogManager.getLogger("session.responses");
+        if (diagnostic) requests.info("id={} outbound service={} method={} path={} bytes={}", id, name,
+                req.method(), req.uri().getPath(), req.bodyPublisher().map(HttpRequest.BodyPublisher::contentLength).orElse(0L));
         try {
-            return HTTP.send(req, HttpResponse.BodyHandlers.ofByteArray());
+            HttpResponse<byte[]> result = HTTP.send(req, HttpResponse.BodyHandlers.ofByteArray());
+            if (diagnostic) responses.info("id={} outbound service={} status={} duration_ms={} bytes={}", id, name,
+                    result.statusCode(), (System.nanoTime() - started) / 1_000_000.0, result.body().length);
+            return result;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            if (diagnostic) responses.warn("id={} service={} interrupted duration_ms={}", id, name,
+                    (System.nanoTime() - started) / 1_000_000.0);
             throw new IOException(name + " HTTP interrupted", e);
+        } catch (IOException e) {
+            if (diagnostic) responses.warn("id={} service={} failed duration_ms={} error={}", id, name,
+                    (System.nanoTime() - started) / 1_000_000.0, e.toString());
+            throw e;
         }
     }
 
@@ -1124,16 +1142,8 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
     }
 
     private void logHttpFailure(String path, Map<String, Object> requestBody, HttpResponse<byte[]> resp) {
-        String req = safeJson(requestBody, 3000);
-        String body = safeResponseBody(resp.body(), 3000);
-        LOG.warn(
-                "{} HTTP POST {} failed status={} request={} response={}",
-                name,
-                path,
-                resp.statusCode(),
-                req,
-                body
-        );
+        LOG.warn("{} HTTP POST {} failed status={} response_bytes={}", name, path,
+                resp.statusCode(), resp.body() == null ? 0 : resp.body().length);
     }
 
     private static String safeJson(Map<String, Object> body, int maxLen) {

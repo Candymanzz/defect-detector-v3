@@ -1,3 +1,4 @@
+import { logDiagnostic } from "../diagnostics";
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export type RequestOptions = {
@@ -81,6 +82,11 @@ export class HttpClient {
     const abortListener = () => controller.abort();
     options.signal?.addEventListener("abort", abortListener, { once: true });
 
+    const requestId = globalThis.crypto?.randomUUID?.() ?? String(Date.now());
+    headers.set("X-Request-Id", requestId);
+    const started = performance.now();
+    const method = options.method ?? (hasBody ? "POST" : "GET");
+    logDiagnostic("requests", "http-request", { requestId, method, path });
     try {
       const response = await fetch(this.url(path, options.query), {
         method: options.method ?? (hasBody ? "POST" : "GET"),
@@ -90,11 +96,17 @@ export class HttpClient {
         cache: "no-store",
       });
 
+      logDiagnostic("responses", "http-response", { requestId, method, path,
+        status: response.status, duration_ms: performance.now() - started });
       if (!response.ok) {
         throw new HttpError(response, await safeReadText(response));
       }
 
       return response;
+    } catch (error) {
+      logDiagnostic("errors", "http-failed", { requestId, method, path,
+        message: String(error), duration_ms: performance.now() - started });
+      throw error;
     } finally {
       window.clearTimeout(timeoutId);
       options.signal?.removeEventListener("abort", abortListener);

@@ -24,7 +24,7 @@ public final class HttpResponses {
     public static void corsPreflight(HttpExchange ex, String allowMethods) throws IOException {
         ex.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
         ex.getResponseHeaders().set("Access-Control-Allow-Methods", allowMethods);
-        ex.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Accept");
+        ex.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Accept, X-Request-Id");
         ex.sendResponseHeaders(204, -1);
         ex.close();
     }

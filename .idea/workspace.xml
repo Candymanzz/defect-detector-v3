@@ -1,8 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="конфиги">
+    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="кукичь">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/analisSurface/backend/app/file_logging.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/app/file_logging.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/analisSurface/backend/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/app/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/front-end/electron/main.cjs" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/electron/main.cjs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/front-end/electron/preload.cjs" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/electron/preload.cjs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/front-end/src/shared/api/httpClient.ts" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/src/shared/api/httpClient.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/front-end/src/shared/ws/clientWebSocket.ts" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/src/shared/ws/clientWebSocket.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/front-end/src/vite-env.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/src/vite-env.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/java-geometry-service/src/main/resources/log4j2.xml" beforeDir="false" afterPath="$PROJECT_DIR$/java-geometry-service/src/main/resources/log4j2.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/java-positioning-service/src/main/resources/log4j2.xml" beforeDir="false" afterPath="$PROJECT_DIR$/java-positioning-service/src/main/resources/log4j2.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/launcher/netfx/StartupController.cs" beforeDir="false" afterPath="$PROJECT_DIR$/launcher/netfx/StartupController.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/OrchestratorMain.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/OrchestratorMain.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/clientapi/AnalisSurfaceHttpBinaryRpcSupervisor.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/clientapi/AnalisSurfaceHttpBinaryRpcSupervisor.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/http/HttpResponses.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/http/HttpResponses.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/subprocess/ExternalServiceProcess.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/subprocess/ExternalServiceProcess.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/ui/UiHttpServer.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/ui/UiHttpServer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/supervisor/StackSupervisorMain.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/supervisor/StackSupervisorMain.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/resources/log4j2.xml" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/resources/log4j2.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/run-supervised-headless.ps1" beforeDir="false" afterPath="$PROJECT_DIR$/run-supervised-headless.ps1" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/run-supervised.ps1" beforeDir="false" afterPath="$PROJECT_DIR$/run-supervised.ps1" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/run-supervised.sh" beforeDir="false" afterPath="$PROJECT_DIR$/run-supervised.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/run.ps1" beforeDir="false" afterPath="$PROJECT_DIR$/run.ps1" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/start-dev.ps1" beforeDir="false" afterPath="$PROJECT_DIR$/start-dev.ps1" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -99,6 +122,7 @@
     <MESSAGE value="фикса экрана" />
     <MESSAGE value="фикс продрачивания хромиума" />
     <MESSAGE value="конфиги" />
-    <option name="LAST_COMMIT_MESSAGE" value="конфиги" />
+    <MESSAGE value="кукичь" />
+    <option name="LAST_COMMIT_MESSAGE" value="кукичь" />
   </component>
 </project>

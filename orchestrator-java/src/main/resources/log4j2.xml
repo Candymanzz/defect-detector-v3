@@ -1,133 +1,219 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <Configuration status="WARN">
     <Properties>
-        <Property name="logDir">${sys:iml.log.dir:-${sys:user.dir}/logs}</Property>
-        <Property name="logPattern">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] %c{1.} - %msg%n</Property>
+        <Property name="logDir">${env:IML_LOG_SESSION_DIR:-${sys:iml.log.dir:-${sys:user.dir}/logs}}</Property>
+        <Property name="logPattern">%d{yyyy-MM-dd HH:mm:ss.SSSXXX} %-5level [%t] %c{1.} - %msg%n</Property>
     </Properties>
     <Appenders>
-        <RollingFile name="IoModuleFile"
-                     fileName="${logDir}/io-module.log"
-                     filePattern="${logDir}/io-module-%d{yyyy-MM-dd}-%i.log.gz">
-            <PatternLayout pattern="${logPattern}"/>
+        <RollingFile name="IoModuleFile" fileName="${logDir}/io-module.log" filePattern="${logDir}/io-module-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${logPattern}" />
             <Policies>
-                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <SizeBasedTriggeringPolicy size="10 MB" />
             </Policies>
-            <DefaultRolloverStrategy max="10"/>
+            <DefaultRolloverStrategy max="10" />
         </RollingFile>
-        <RollingFile name="LightModuleFile"
-                     fileName="${logDir}/light-module.log"
-                     filePattern="${logDir}/light-module-%d{yyyy-MM-dd}-%i.log.gz">
-            <PatternLayout pattern="${logPattern}"/>
+        <RollingFile name="LightModuleFile" fileName="${logDir}/light-module.log" filePattern="${logDir}/light-module-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${logPattern}" />
             <Policies>
-                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <SizeBasedTriggeringPolicy size="10 MB" />
             </Policies>
-            <DefaultRolloverStrategy max="10"/>
+            <DefaultRolloverStrategy max="10" />
         </RollingFile>
         <Console name="Console" target="SYSTEM_OUT">
-            <PatternLayout pattern="${logPattern}"/>
+            <PatternLayout pattern="${logPattern}" />
         </Console>
-        <RollingFile name="OrchestratorFile"
-                     fileName="${logDir}/orchestrator-runtime.log"
-                     filePattern="${logDir}/orchestrator-runtime-%d{yyyy-MM-dd}-%i.log.gz">
-            <PatternLayout pattern="${logPattern}"/>
+        <RollingFile name="OrchestratorFile" fileName="${logDir}/${sys:iml.runtime.name:-orchestrator}-runtime.log" filePattern="${logDir}/${sys:iml.runtime.name:-orchestrator}-runtime-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${logPattern}" />
             <Policies>
-                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <SizeBasedTriggeringPolicy size="10 MB" />
             </Policies>
-            <DefaultRolloverStrategy max="10"/>
+            <DefaultRolloverStrategy max="10" />
         </RollingFile>
-        <RollingFile name="PlcFile"
-                     fileName="${logDir}/plc-fins.log"
-                     filePattern="${logDir}/plc-fins-%d{yyyy-MM-dd}-%i.log.gz">
-            <PatternLayout pattern="${logPattern}"/>
+        <RollingFile name="PlcFile" fileName="${logDir}/plc-fins.log" filePattern="${logDir}/plc-fins-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${logPattern}" />
             <Policies>
-                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <SizeBasedTriggeringPolicy size="10 MB" />
             </Policies>
-            <DefaultRolloverStrategy max="10"/>
+            <DefaultRolloverStrategy max="10" />
         </RollingFile>
-        <RollingFile name="TriggerFile"
-                     fileName="${logDir}/io-trigger.log"
-                     filePattern="${logDir}/io-trigger-%d{yyyy-MM-dd}-%i.log.gz">
-            <PatternLayout pattern="${logPattern}"/>
+        <RollingFile name="TriggerFile" fileName="${logDir}/io-trigger.log" filePattern="${logDir}/io-trigger-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${logPattern}" />
             <Policies>
-                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <SizeBasedTriggeringPolicy size="10 MB" />
             </Policies>
-            <DefaultRolloverStrategy max="10"/>
+            <DefaultRolloverStrategy max="10" />
         </RollingFile>
-        <RollingFile name="PipelineFile"
-                     fileName="${logDir}/pipeline.log"
-                     filePattern="${logDir}/pipeline-%d{yyyy-MM-dd}-%i.log.gz">
-            <PatternLayout pattern="${logPattern}"/>
+        <RollingFile name="PipelineFile" fileName="${logDir}/pipeline.log" filePattern="${logDir}/pipeline-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${logPattern}" />
             <Policies>
-                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <SizeBasedTriggeringPolicy size="10 MB" />
             </Policies>
-            <DefaultRolloverStrategy max="10"/>
+            <DefaultRolloverStrategy max="10" />
         </RollingFile>
-        <RollingFile name="LightingFile"
-                     fileName="${logDir}/lighting.log"
-                     filePattern="${logDir}/lighting-%d{yyyy-MM-dd}-%i.log.gz">
-            <PatternLayout pattern="${logPattern}"/>
+        <RollingFile name="LightingFile" fileName="${logDir}/lighting.log" filePattern="${logDir}/lighting-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${logPattern}" />
             <Policies>
-                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <SizeBasedTriggeringPolicy size="10 MB" />
             </Policies>
-            <DefaultRolloverStrategy max="10"/>
+            <DefaultRolloverStrategy max="10" />
         </RollingFile>
-        <RollingFile name="SubprocessFile"
-                     fileName="${logDir}/subprocess.log"
-                     filePattern="${logDir}/subprocess-%d{yyyy-MM-dd}-%i.log.gz">
-            <PatternLayout pattern="${logPattern}"/>
+        <RollingFile name="SubprocessFile" fileName="${logDir}/subprocess.log" filePattern="${logDir}/subprocess-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${logPattern}" />
             <Policies>
-                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <SizeBasedTriggeringPolicy size="10 MB" />
             </Policies>
-            <DefaultRolloverStrategy max="10"/>
+            <DefaultRolloverStrategy max="10" />
         </RollingFile>
+        <Async name="AsyncIoModuleFile" bufferSize="4096" blocking="false">
+            <AppenderRef ref="IoModuleFile" />
+        </Async>
+        <Async name="AsyncLightModuleFile" bufferSize="4096" blocking="false">
+            <AppenderRef ref="LightModuleFile" />
+        </Async>
+        <Async name="AsyncOrchestratorFile" bufferSize="4096" blocking="false">
+            <AppenderRef ref="OrchestratorFile" />
+        </Async>
+        <Async name="AsyncPlcFile" bufferSize="4096" blocking="false">
+            <AppenderRef ref="PlcFile" />
+        </Async>
+        <Async name="AsyncTriggerFile" bufferSize="4096" blocking="false">
+            <AppenderRef ref="TriggerFile" />
+        </Async>
+        <Async name="AsyncPipelineFile" bufferSize="4096" blocking="false">
+            <AppenderRef ref="PipelineFile" />
+        </Async>
+        <Async name="AsyncLightingFile" bufferSize="4096" blocking="false">
+            <AppenderRef ref="LightingFile" />
+        </Async>
+        <Async name="AsyncSubprocessFile" bufferSize="4096" blocking="false">
+            <AppenderRef ref="SubprocessFile" />
+        </Async>
+        <RollingFile name="Httprequests" fileName="${logDir}/java-requests.log" filePattern="${logDir}/java-requests-%i.log.gz">
+            <PatternLayout pattern="${logPattern}" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB" />
+            </Policies>
+            <DefaultRolloverStrategy max="10" />
+        </RollingFile>
+        <Async name="AsyncHttprequests" bufferSize="4096" blocking="false">
+            <AppenderRef ref="Httprequests" />
+        </Async>
+        <RollingFile name="Httpresponses" fileName="${logDir}/java-responses.log" filePattern="${logDir}/java-responses-%i.log.gz">
+            <PatternLayout pattern="${logPattern}" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB" />
+            </Policies>
+            <DefaultRolloverStrategy max="10" />
+        </RollingFile>
+        <Async name="AsyncHttpresponses" bufferSize="4096" blocking="false">
+            <AppenderRef ref="Httpresponses" />
+        </Async>
+        <RollingFile name="Frontendrequests" fileName="${logDir}/frontend-requests.log" filePattern="${logDir}/frontend-requests-%i.log.gz">
+            <PatternLayout pattern="${logPattern}" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB" />
+            </Policies>
+            <DefaultRolloverStrategy max="5" />
+        </RollingFile>
+        <Async name="AsyncFrontendrequests" bufferSize="4096" blocking="false">
+            <AppenderRef ref="Frontendrequests" />
+        </Async>
+        <RollingFile name="Frontendresponses" fileName="${logDir}/frontend-responses.log" filePattern="${logDir}/frontend-responses-%i.log.gz">
+            <PatternLayout pattern="${logPattern}" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB" />
+            </Policies>
+            <DefaultRolloverStrategy max="5" />
+        </RollingFile>
+        <Async name="AsyncFrontendresponses" bufferSize="4096" blocking="false">
+            <AppenderRef ref="Frontendresponses" />
+        </Async>
+        <RollingFile name="Frontenddecisions" fileName="${logDir}/frontend-decisions.log" filePattern="${logDir}/frontend-decisions-%i.log.gz">
+            <PatternLayout pattern="${logPattern}" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB" />
+            </Policies>
+            <DefaultRolloverStrategy max="5" />
+        </RollingFile>
+        <Async name="AsyncFrontenddecisions" bufferSize="4096" blocking="false">
+            <AppenderRef ref="Frontenddecisions" />
+        </Async>
+        <RollingFile name="Frontenderrors" fileName="${logDir}/frontend-errors.log" filePattern="${logDir}/frontend-errors-%i.log.gz">
+            <PatternLayout pattern="${logPattern}" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB" />
+            </Policies>
+            <DefaultRolloverStrategy max="5" />
+        </RollingFile>
+        <Async name="AsyncFrontenderrors" bufferSize="4096" blocking="false">
+            <AppenderRef ref="Frontenderrors" />
+        </Async>
     </Appenders>
     <Loggers>
+        <Logger name="session.frontend.requests" level="info" additivity="false">
+            <AppenderRef ref="AsyncFrontendrequests" />
+        </Logger>
+        <Logger name="session.frontend.responses" level="info" additivity="false">
+            <AppenderRef ref="AsyncFrontendresponses" />
+        </Logger>
+        <Logger name="session.frontend.decisions" level="info" additivity="false">
+            <AppenderRef ref="AsyncFrontenddecisions" />
+        </Logger>
+        <Logger name="session.frontend.errors" level="info" additivity="false">
+            <AppenderRef ref="AsyncFrontenderrors" />
+        </Logger>
+        <Logger name="session.requests" level="info" additivity="false">
+            <AppenderRef ref="AsyncHttprequests" />
+        </Logger>
+        <Logger name="session.responses" level="info" additivity="false">
+            <AppenderRef ref="AsyncHttpresponses" />
+        </Logger>
         <Logger name="com.example.iml.orchestrator.integration.lighting.nativeio" level="debug" additivity="true">
-            <AppenderRef ref="LightModuleFile"/>
+            <AppenderRef ref="AsyncLightModuleFile" />
         </Logger>
         <Logger name="com.example.iml.orchestrator.integration.io.mvs" level="debug" additivity="true">
-            <AppenderRef ref="IoModuleFile"/>
+            <AppenderRef ref="AsyncIoModuleFile" />
         </Logger>
         <Logger name="com.example.iml.orchestrator.integration.trigger.transport.IoInputTriggerTransport" level="info" additivity="true">
-            <AppenderRef ref="IoModuleFile"/>
+            <AppenderRef ref="AsyncIoModuleFile" />
         </Logger>
         <Logger name="com.example.iml.orchestrator.integration.plc" level="info" additivity="true">
-            <AppenderRef ref="PlcFile"/>
+            <AppenderRef ref="AsyncPlcFile" />
         </Logger>
         <Logger name="com.example.iml.orchestrator.integration.trigger" level="info" additivity="true">
-            <AppenderRef ref="TriggerFile"/>
+            <AppenderRef ref="AsyncTriggerFile" />
         </Logger>
         <Logger name="com.example.iml.orchestrator.integration.capture" level="info" additivity="true">
-            <AppenderRef ref="PipelineFile"/>
+            <AppenderRef ref="AsyncPipelineFile" />
         </Logger>
         <Logger name="com.example.iml.orchestrator.integration.fanout" level="info" additivity="true">
-            <AppenderRef ref="PipelineFile"/>
+            <AppenderRef ref="AsyncPipelineFile" />
         </Logger>
         <Logger name="com.example.iml.orchestrator.integration.logging" level="info" additivity="true">
-            <AppenderRef ref="PipelineFile"/>
+            <AppenderRef ref="AsyncPipelineFile" />
         </Logger>
         <Logger name="com.example.iml.orchestrator.integration.clientapi" level="info" additivity="true">
-            <AppenderRef ref="PipelineFile"/>
+            <AppenderRef ref="AsyncPipelineFile" />
         </Logger>
         <Logger name="com.example.iml.orchestrator.integration.lighting" level="info" additivity="true">
-            <AppenderRef ref="LightingFile"/>
+            <AppenderRef ref="AsyncLightingFile" />
         </Logger>
         <Logger name="com.example.iml.orchestrator.integration.subprocess" level="info" additivity="true">
-            <AppenderRef ref="SubprocessFile"/>
+            <AppenderRef ref="AsyncSubprocessFile" />
         </Logger>
         <Logger name="com.example.iml.orchestrator.integration.services" level="info" additivity="true">
-            <AppenderRef ref="SubprocessFile"/>
+            <AppenderRef ref="AsyncSubprocessFile" />
         </Logger>
         <Logger name="com.example.iml.orchestrator.integration.camera" level="info" additivity="true">
-            <AppenderRef ref="SubprocessFile"/>
+            <AppenderRef ref="AsyncSubprocessFile" />
         </Logger>
         <Logger name="com.example.iml" level="info" additivity="false">
-            <AppenderRef ref="Console" level="info"/>
-            <AppenderRef ref="OrchestratorFile" level="info"/>
+            <AppenderRef ref="Console" level="info" />
+            <AppenderRef ref="AsyncOrchestratorFile" level="info" />
         </Logger>
         <Root level="warn">
-            <AppenderRef ref="Console"/>
-            <AppenderRef ref="OrchestratorFile"/>
+            <AppenderRef ref="Console" />
+            <AppenderRef ref="AsyncOrchestratorFile" />
         </Root>
     </Loggers>
 </Configuration>

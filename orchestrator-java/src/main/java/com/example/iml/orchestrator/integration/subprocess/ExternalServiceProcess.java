@@ -39,6 +39,7 @@ public final class ExternalServiceProcess implements AutoCloseable {
             Map<String, String> extraEnv
     ) throws IOException {
         ProcessBuilder pb = new ProcessBuilder(command);
+        com.example.iml.orchestrator.SessionLogs.inherit(pb.environment());
         pb.directory(workingDir.toFile());
         if (extraEnv != null) {
             for (Map.Entry<String, String> entry : extraEnv.entrySet()) {

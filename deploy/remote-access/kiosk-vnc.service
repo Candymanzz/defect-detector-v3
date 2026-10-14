@@ -1,0 +1,14 @@
+[Unit]
+Description=VNC access to the existing kiosk X11 desktop
+After=display-manager.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=kiosk
+ExecStart=/usr/bin/x11vnc -display :0 -auth /run/user/1001/gdm/Xauthority -localhost -rfbport 5900 -forever -shared -nopw
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=graphical.target

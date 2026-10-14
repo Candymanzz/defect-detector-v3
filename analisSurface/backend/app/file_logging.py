@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+import atexit
+import contextvars
+import logging
+import logging.handlers
+import queue
 import json
+from itertools import islice
 import os
 import threading
 from datetime import datetime
@@ -11,12 +17,18 @@ from typing import Any, Mapping, Optional
 
 from app.detector_settings import is_file_logging_enabled
 
-_LOGS_ROOT = Path(__file__).resolve().parent.parent / "logs"
+_LOGS_ROOT = Path(__file__).resolve().parents[3] / "logs"
 _MAX_BODY_CHARS = 4000
 _SLOW_REQUEST_MS = 1000.0
 _LOCK = threading.Lock()
 _SESSION_DIR: Optional[Path] = None
 _INITIALIZED = False
+_LOG_QUEUE = queue.Queue(maxsize=4096)
+_HANDLERS = {}
+_LISTENER = None
+_REQUEST_ID = contextvars.ContextVar("log_request_id", default="")
+_DROPPED = 0
+_RUNTIME_HANDLER = None
 
 _SKIP_PATHS = frozenset({"/health", "/detector/health"})
 
@@ -39,7 +51,7 @@ def _log_health_checks() -> bool:
 
 
 def _timestamp() -> str:
-    return datetime.now().isoformat(timespec="milliseconds")
+    return datetime.now().astimezone().isoformat(timespec="milliseconds")
 
 
 def _path_only(target: str) -> str:
@@ -52,46 +64,93 @@ def _should_skip_http(path: str) -> bool:
     return False
 
 
+class _Writer(logging.Handler):
+    def emit(self, record):
+        try:
+            if not hasattr(record, "log_name"):
+                record = logging.makeLogRecord(record.__dict__.copy())
+                stamp = datetime.fromtimestamp(record.created).astimezone().isoformat(timespec="milliseconds")
+                record.msg = f"{stamp} {record.levelname} {record.name} {record.getMessage()[:_MAX_BODY_CHARS]}"
+                record.args = ()
+                record.log_name = "errors" if record.levelno >= logging.ERROR else "runtime"
+            _HANDLERS[record.log_name].emit(record)
+        except Exception:
+            self.handleError(record)
+
+
+class _RuntimeQueueHandler(logging.handlers.QueueHandler):
+    def enqueue(self, record):
+        global _DROPPED
+        try:
+            self.queue.put_nowait(record)
+        except queue.Full:
+            with _LOCK:
+                _DROPPED += 1
+
+
+def _shutdown():
+    global _LISTENER, _RUNTIME_HANDLER
+    if _LISTENER is not None:
+        if _RUNTIME_HANDLER is not None:
+            logging.getLogger().removeHandler(_RUNTIME_HANDLER)
+            logging.getLogger("uvicorn.error").removeHandler(_RUNTIME_HANDLER)
+            _RUNTIME_HANDLER = None
+        # Only shutdown waits for disk, never the inspection pipeline.
+        _LOG_QUEUE.put(None)
+        _LISTENER._thread.join(timeout=5)
+        if not _LISTENER._thread.is_alive():
+            for handler in _HANDLERS.values():
+                handler.close()
+            _LISTENER = None
+
+
 def _ensure_initialized() -> None:
-    global _SESSION_DIR, _INITIALIZED
+    global _SESSION_DIR, _INITIALIZED, _LISTENER, _RUNTIME_HANDLER
     if _INITIALIZED or not _enabled():
-        _INITIALIZED = True
         return
     with _LOCK:
         if _INITIALIZED:
             return
-        _LOGS_ROOT.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        _SESSION_DIR = _LOGS_ROOT / stamp
+        stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f") + f"-{os.getpid()}"
+        session = os.environ.get("IML_LOG_SESSION_DIR", "")
+        _SESSION_DIR = Path(session) if session else _LOGS_ROOT / stamp
         _SESSION_DIR.mkdir(parents=True, exist_ok=True)
-        session_meta = "\n".join(
-            [
-                f"started_at={_timestamp()}",
-                f"session_dir={_SESSION_DIR}",
-                f"log_health_checks={_log_health_checks()}",
-                "files=requests.log,responses.log,analysis.log,errors.log,slow.log",
-                "notes=health endpoints skipped unless ANALIS_SURFACE_LOG_HEALTH=1",
-            ]
-        )
-        (_SESSION_DIR / "session.txt").write_text(session_meta + "\n", encoding="utf-8")
-        for name in ("requests", "responses", "analysis", "errors", "slow"):
-            (_SESSION_DIR / f"{name}.log").write_text(
-                f"=== {name} log started: {_SESSION_DIR / f'{name}.log'} ===\n",
-                encoding="utf-8",
-            )
+        for name in ("requests", "responses", "analysis", "errors", "slow", "runtime"):
+            handler = logging.handlers.RotatingFileHandler(
+                _SESSION_DIR / f"python-{name}-{os.getpid()}.log",
+                maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8")
+            handler.setFormatter(logging.Formatter("%(message)s"))
+            _HANDLERS[name] = handler
+        _LISTENER = logging.handlers.QueueListener(_LOG_QUEUE, _Writer())
+        _LISTENER.start()
+        _RUNTIME_HANDLER = _RuntimeQueueHandler(_LOG_QUEUE)
+        logging.getLogger().addHandler(_RUNTIME_HANDLER)
+        if not logging.getLogger("uvicorn.error").propagate:
+            logging.getLogger("uvicorn.error").addHandler(_RUNTIME_HANDLER)
+        atexit.register(_shutdown)
         _INITIALIZED = True
 
 
 def _append(log_name: str, lines: list[str]) -> None:
+    global _DROPPED
     if not _enabled():
         return
     _ensure_initialized()
     if _SESSION_DIR is None:
         return
-    payload = "\n".join(lines) + "\n"
+    # Bound output, escape newlines, keep every event on one timestamped line.
+    payload = " | ".join(str(line).replace("\n", "\\n")[:_MAX_BODY_CHARS] for line in lines)
+    payload += f" request_id={_REQUEST_ID.get()}"
     with _LOCK:
-        with (_SESSION_DIR / f"{log_name}.log").open("a", encoding="utf-8") as handle:
-            handle.write(payload)
+        if _DROPPED:
+            payload += f" dropped_before={_DROPPED}"
+        record = logging.LogRecord("session", logging.INFO, "", 0, payload, (), None)
+        record.log_name = log_name
+        try:
+            _LOG_QUEUE.put_nowait(record)
+            _DROPPED = 0
+        except queue.Full:
+            _DROPPED += 1
 
 
 def _truncate_text(text: str, limit: int = _MAX_BODY_CHARS) -> str:
@@ -104,6 +163,8 @@ def _format_body_for_log(body: bytes, content_type: str) -> str:
     content_type = (content_type or "").lower()
     if not body:
         return ""
+    if len(body) > _MAX_BODY_CHARS:
+        return f"[body omitted, {len(body)} bytes]"
     if "multipart/form-data" in content_type:
         return f"[multipart body omitted, {len(body)} bytes]"
     if content_type.startswith("image/") or content_type.startswith("video/"):
@@ -125,7 +186,7 @@ def _format_body_for_log(body: bytes, content_type: str) -> str:
 
 def _format_headers(headers: Mapping[str, str]) -> str:
     safe_headers = {
-        key: ("[omitted]" if key.lower() == "authorization" else value)
+        key: ("[omitted]" if key.lower() in {"authorization", "cookie", "set-cookie", "x-api-key"} else value)
         for key, value in headers.items()
     }
     return json.dumps(safe_headers, ensure_ascii=False)
@@ -208,7 +269,7 @@ def log_analysis_stage(
     headline += f" {message}"
     lines = [headline]
     if extra:
-        lines.append(" ".join(f"{key}={value}" for key, value in extra.items()))
+        lines.append(" ".join(f"{key}={_safe_value(value)}" for key, value in extra.items()))
     _append("analysis", lines)
 
 
@@ -220,10 +281,28 @@ def log_error(
 ) -> None:
     lines = [f"{_timestamp()} {kind} {message}"]
     if extra:
-        lines.append(json.dumps(dict(extra), ensure_ascii=False))
+        lines.append(json.dumps({k: _safe_value(v) for k, v in extra.items()}, ensure_ascii=False))
     _append("errors", lines)
 
 
 def init_file_logging() -> None:
     """Вызывается при старте приложения — создаёт папку сессии и файлы логов."""
     _ensure_initialized()
+
+
+def _safe_value(value, depth=0):
+    if depth >= 4:
+        return "[nested data omitted]"
+    if isinstance(value, (bytes, bytearray)):
+        return f"[binary omitted, {len(value)} bytes]"
+    if hasattr(value, "shape"):
+        return f"[array omitted, shape={value.shape}]"
+    if isinstance(value, str):
+        return value[:1000] if len(value) <= 1000 else f"[text omitted, {len(value)} characters]"
+    if isinstance(value, Mapping):
+        return {str(k): _safe_value(v, depth + 1) for k, v in islice(value.items(), 30)}
+    if isinstance(value, (list, tuple)):
+        return [_safe_value(v, depth + 1) for v in value[:20]]
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    return f"[{type(value).__name__} omitted]"

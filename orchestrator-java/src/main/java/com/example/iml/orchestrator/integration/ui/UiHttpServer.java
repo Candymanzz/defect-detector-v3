@@ -155,7 +155,29 @@ public final class UiHttpServer implements AutoCloseable, CameraPreviewStore {
         );
         HttpFrontController frontController = new HttpFrontController(httpContext);
         OrchestratorApiDocumentationHandlers.register(httpServer);
-        httpServer.createContext("/", exchange -> frontController.dispatch(exchange));
+        FrontendDiagnostics.register(httpServer);
+        httpServer.createContext("/", exchange -> {
+            long started = System.nanoTime();
+            String incomingId = exchange.getRequestHeaders().getFirst("X-Request-Id");
+            String id = incomingId != null && incomingId.matches("[a-zA-Z0-9-]{1,80}")
+                    ? incomingId : java.util.UUID.randomUUID().toString();
+            String requestPath = exchange.getRequestURI().getPath();
+            boolean diagnostic = !requestPath.equals("/health");
+            var requests = org.apache.logging.log4j.LogManager.getLogger("session.requests");
+            var responses = org.apache.logging.log4j.LogManager.getLogger("session.responses");
+            if (diagnostic) requests.info("id={} method={} path={} content_length={}", id,
+                    exchange.getRequestMethod(), requestPath, exchange.getRequestHeaders().getFirst("Content-Length"));
+            try {
+                frontController.dispatch(exchange);
+            } catch (Exception e) {
+                responses.error("id={} path={} failed", id, requestPath, e);
+                throw e;
+            } finally {
+                if (diagnostic) responses.info("id={} method={} path={} status={} duration_ms={}", id,
+                        exchange.getRequestMethod(), requestPath, exchange.getResponseCode(),
+                        (System.nanoTime() - started) / 1_000_000.0);
+            }
+        });
         // Cached pool so long-lived MJPEG streams do not starve /health and other short requests.
         this.httpExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
             private final AtomicInteger n = new AtomicInteger();
