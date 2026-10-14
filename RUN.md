@@ -3,13 +3,18 @@
 Из корня проекта:
 
 ```bash
-bash ./rebuild-and-run.sh       # Сборка компонентов и запуск supervisor
-bash ./rebuild-and-run.sh -f    # Без установки, сборки и запуска фронтенда
+bash ./rebuild-and-run.sh       # Сборка оркестратора и camera-worker, затем запуск
+bash ./rebuild-and-run.sh -c    # Только оркестратор
+bash ./rebuild-and-run.sh -o    # Только camera-worker
+bash ./rebuild-and-run.sh -f    # Запуск без фронтенда
 bash ./rebuild-and-run.sh --build-only  # Только сборка
 ```
 
-Нужны JDK 17+, Maven, Python 3 с venv/pip, CMake и C-компилятор.
-Для фронтенда также нужны Node.js (не ниже 20.19) и npm.
+Для сборки оркестратора нужны JDK 17+ и Maven; для camera-worker — CMake
+и C-компилятор. Инструменты пропущенного компонента не требуются для сборки.
+Python, geometry, positioning и фронтенд не пересобираются и не переустанавливаются;
+при запуске используются уже подготовленные компоненты.
+Флаги можно сочетать: `-c -f`, `-o -f` или `-c -o` (запуск без пересборки).
 SDK камеры задаётся через `MVS_ROOT` (по умолчанию `/opt/MVS`).
 Рабочий конфиг по умолчанию — `config/config.yaml`.
 

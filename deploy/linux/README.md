@@ -5,14 +5,17 @@
 Из корня проекта:
 
 ```bash
-bash ./rebuild-and-run.sh       # Пересборка сервисов и запуск supervisor
-bash ./rebuild-and-run.sh -f    # Без установки, сборки и запуска фронтенда
+bash ./rebuild-and-run.sh       # Оркестратор + camera-worker, затем запуск supervisor
+bash ./rebuild-and-run.sh -c    # Без пересборки camera-worker
+bash ./rebuild-and-run.sh -o    # Без пересборки оркестратора
+bash ./rebuild-and-run.sh -f    # Запуск без фронтенда
 bash ./rebuild-and-run.sh --build-only  # Только пересборка
 ```
 
-Скрипт собирает три Java-сервиса, подготавливает Linux-venv Python,
-собирает camera-worker и фронтенд. Нужны JDK 17+, Maven, Python 3 с venv/pip,
-CMake и C-компилятор; для фронтенда также Node.js и npm.
+Скрипт пересобирает только оркестратор и camera-worker. Python, geometry,
+positioning и фронтенд используются уже подготовленными: их сборка и установка
+зависимостей не выполняются. Для оркестратора нужны JDK 17+ и Maven;
+для camera-worker — CMake и C-компилятор. Флаги `-c`, `-o`, `-f` можно сочетать.
 `MVS_ROOT` задаёт каталог SDK (по умолчанию `/opt/MVS`).
 Другой конфиг: `--config путь/к/config.yaml`; пропуск сборки камеры:
 `--skip-camera-worker`. Тесты запускаются отдельно через `run-all-tests.sh`.

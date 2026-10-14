@@ -1,24 +1,28 @@
 #!/usr/bin/env bash
-# Linux rebuild and launch. -f skips frontend dependencies, build and autostart.
+# Rebuild only orchestrator and camera-worker; all other components are reused.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG="${CONFIG:-config/config.yaml}"
 NO_FRONTEND=false
 SKIP_CAMERA_WORKER=false
+SKIP_ORCHESTRATOR=false
 BUILD_ONLY=false
 
 usage() {
   cat <<'EOF'
 Usage: bash ./rebuild-and-run.sh [options]
-  -f, --no-frontend       Skip frontend installation/build and launch without UI
-  --skip-camera-worker   Use an existing camera-worker binary
+  -c, --skip-camera-worker  Skip camera-worker rebuild
+  -o, --skip-orchestrator   Skip orchestrator rebuild
+  -f, --no-frontend         Launch without UI (frontend is never rebuilt)
   --config PATH          Configuration file (default: config/config.yaml)
   --build-only           Rebuild without starting/stopping the running stack
   -h, --help             Show this help
 
-Requires JDK 17+, Maven, Python 3 with venv/pip, CMake and a C compiler.
-Frontend builds also require Node.js and npm. MVS_ROOT defaults to /opt/MVS.
+Only orchestrator and camera-worker are rebuilt by default.
+Orchestrator build requires JDK 17+ and Maven; camera build requires CMake
+and a C compiler. Launch requires Java. MVS_ROOT defaults to /opt/MVS.
+Python, geometry, positioning and frontend must already be prepared.
 EOF
 }
 
@@ -30,7 +34,8 @@ trap 'echo "ERROR: Build stopped at line $LINENO (exit $?). Stack was not launch
 while (($#)); do
   case "$1" in
     -f|--no-frontend) NO_FRONTEND=true; shift ;;
-    --skip-camera-worker) SKIP_CAMERA_WORKER=true; shift ;;
+    -c|-с|--skip-camera-worker) SKIP_CAMERA_WORKER=true; shift ;;
+    -o|--skip-orchestrator) SKIP_ORCHESTRATOR=true; shift ;;
     --build-only) BUILD_ONLY=true; shift ;;
     --config)
       [[ $# -ge 2 && -n "$2" && "$2" != -* ]] || fail "--config requires a path"
@@ -42,40 +47,30 @@ done
 
 cd "$REPO_ROOT"
 step "Check build tools"
-if [[ -n "${JAVA_HOME:-}" ]]; then
-  [[ -x "$JAVA_HOME/bin/java" && -x "$JAVA_HOME/bin/javac" ]] || fail "JAVA_HOME must point to a JDK"
+if [[ -n "${JAVA_HOME:-}" && ( "$SKIP_ORCHESTRATOR" == false || "$BUILD_ONLY" == false ) ]]; then
+  [[ -x "$JAVA_HOME/bin/java" ]] || fail "JAVA_HOME must contain bin/java"
   export PATH="$JAVA_HOME/bin:$PATH"
 fi
-for tool in java javac mvn python3; do require_tool "$tool"; done
-if [[ "$SKIP_CAMERA_WORKER" == false ]]; then require_tool cmake; fi
-if [[ "$NO_FRONTEND" == false ]]; then
-  require_tool node
-  require_tool npm
+if [[ "$SKIP_ORCHESTRATOR" == false ]]; then
+  for tool in java javac mvn; do require_tool "$tool"; done
+elif [[ "$BUILD_ONLY" == false ]]; then
+  require_tool java
 fi
+if [[ "$SKIP_CAMERA_WORKER" == false ]]; then require_tool cmake; fi
 if [[ "$BUILD_ONLY" == false ]]; then
   [[ -f "$CONFIG" ]] || fail "Config not found: $CONFIG"
   [[ -f "$REPO_ROOT/run-supervised.sh" ]] || fail "Missing run-supervised.sh"
+  if [[ "$SKIP_ORCHESTRATOR" == true ]]; then
+    [[ -f "$REPO_ROOT/orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar" ]] || fail "Existing orchestrator JAR missing; omit -o to build it"
+  fi
 fi
 
-for service in orchestrator-java java-geometry-service java-positioning-service; do
-  step "Build $service"
+if [[ "$SKIP_ORCHESTRATOR" == false ]]; then
+  step "Build orchestrator-java"
   # A rebuild skips both test execution and test compilation; run-all-tests.sh runs tests.
-  (cd "$REPO_ROOT/$service" && mvn -q package -Dmaven.test.skip=true)
-  case "$service" in
-    orchestrator-java) artifact="orchestrator-0.1.0-SNAPSHOT.jar" ;;
-    *) artifact="$service-0.1.0-SNAPSHOT.jar" ;;
-  esac
-  [[ -f "$REPO_ROOT/$service/target/$artifact" ]] || fail "Build artifact missing: $service/target/$artifact"
-done
-
-PYTHON_BACKEND="$REPO_ROOT/analisSurface/backend"
-PYTHON_VENV="$PYTHON_BACKEND/.venv"
-step "Python venv + pip"
-if [[ ! -e "$PYTHON_VENV" ]]; then
-  python3 -m venv "$PYTHON_VENV"
+  (cd "$REPO_ROOT/orchestrator-java" && mvn -q package -Dmaven.test.skip=true)
+  [[ -f "$REPO_ROOT/orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar" ]] || fail "Orchestrator build artifact missing"
 fi
-[[ -x "$PYTHON_VENV/bin/python" ]] || fail "Invalid Linux venv: $PYTHON_VENV (a Windows venv cannot be used on Linux)"
-"$PYTHON_VENV/bin/python" -m pip install -q -r "$PYTHON_BACKEND/requirements.txt"
 
 if [[ "$SKIP_CAMERA_WORKER" == false ]]; then
   step "Build camera-worker"
@@ -91,12 +86,6 @@ if [[ "$SKIP_CAMERA_WORKER" == false ]]; then
   # Replace the inode atomically: Linux disallows overwriting a running executable.
   cp "$CAMERA_BUILD/camera_worker" "$worker_target.new.$$"
   mv -f "$worker_target.new.$$" "$worker_target"
-fi
-
-if [[ "$NO_FRONTEND" == false ]]; then
-  step "Install and build front-end"
-  (cd "$REPO_ROOT/front-end" && npm ci && npm run build)
-  [[ -f "$REPO_ROOT/front-end/dist/index.html" ]] || fail "Frontend build artifact missing"
 fi
 
 step "Build complete"
