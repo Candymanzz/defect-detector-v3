@@ -3,31 +3,22 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG="${CONFIG:-config/config.yaml}"
-NO_FRONTEND=false
 SKIP_CAMERA_WORKER=false
 SKIP_ORCHESTRATOR=false
-BUILD_ONLY=false
-RT_DIAGNOSTICS=false
-RT_INTERVAL="${IML_RT_DIAGNOSTICS_INTERVAL:-1}"
+LEGACY_OPTIONS=false
 
 usage() {
   cat <<'EOF'
 Usage: bash ./rebuild-and-run.sh [options]
   -c, --skip-camera-worker  Skip camera-worker rebuild
   -o, --skip-orchestrator   Skip orchestrator rebuild
-  -f, --no-frontend         Launch without UI (frontend is never rebuilt)
-  --config PATH          Configuration file (default: config/config.yaml)
-  -r, --rt-diagnostics     Log CPU/kernel/IRQ/scheduler telemetry during launch
-  --rt-interval SECONDS    Telemetry interval, 0.2 to 60 (default: 1)
-  --build-only           Stop the stack and rebuild without launching it
-  -h, --help             Show this help
+  -h, --help               Show this help
 
-Only orchestrator and camera-worker are rebuilt by default.
+Only orchestrator and camera-worker are rebuilt; services are not stopped or started.
 Orchestrator build requires JDK 17+ and Maven; camera build requires CMake
-and a C compiler. Launch requires Java. MVS_ROOT defaults to /opt/MVS.
-Stopping the stack and RT diagnostics require Python 3 (standard library only).
-Python, geometry, positioning and frontend must already be prepared.
+and a C compiler. MVS_ROOT defaults to /opt/MVS.
+Legacy -f, -r, --build-only, --config and --rt-interval are accepted but ignored.
+For RT diagnostics use: bash ./run-rt.sh -r
 EOF
 }
 
@@ -88,29 +79,27 @@ resolve_cmake() {
   done
   fail "CMake not found in PATH or standard installation directories. Set CMAKE_CMD=/path/to/bin/cmake or CMAKE_HOME=/path/to/cmake. Pass -c to reuse the existing camera-worker."
 }
-trap 'echo "ERROR: Build stopped at line $LINENO (exit $?). Stack was not launched." >&2' ERR
+trap 'echo "ERROR: Build stopped at line $LINENO (exit $?). " >&2' ERR
 
 while (($#)); do
   case "$1" in
-    -f|--no-frontend) NO_FRONTEND=true; shift ;;
     -c|-с|--skip-camera-worker) SKIP_CAMERA_WORKER=true; shift ;;
     -o|--skip-orchestrator) SKIP_ORCHESTRATOR=true; shift ;;
-    --build-only) BUILD_ONLY=true; shift ;;
-    -r|--rt-diagnostics) RT_DIAGNOSTICS=true; shift ;;
-    --rt-interval)
-      [[ $# -ge 2 ]] || fail "--rt-interval requires seconds"
-      RT_INTERVAL="$2"; shift 2 ;;
-    --config)
-      [[ $# -ge 2 && -n "$2" && "$2" != -* ]] || fail "--config requires a path"
-      CONFIG="$2"; shift 2 ;;
+    -f|--no-frontend|-r|--rt-diagnostics|--build-only) LEGACY_OPTIONS=true; shift ;;
+    --config|--rt-interval)
+      [[ $# -ge 2 && -n "$2" && "$2" != -* ]] || fail "$1 requires a value"
+      LEGACY_OPTIONS=true; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) fail "Unknown option: $1 (use --help)" ;;
   esac
 done
+if [[ "$LEGACY_OPTIONS" == true ]]; then
+  echo "Build-only: legacy launch options are ignored. RT diagnostics: bash ./run-rt.sh -r"
+fi
 
 cd "$REPO_ROOT"
 step "Check build tools"
-if [[ -n "${JAVA_HOME:-}" && ( "$SKIP_ORCHESTRATOR" == false || "$BUILD_ONLY" == false ) ]]; then
+if [[ -n "${JAVA_HOME:-}" && "$SKIP_ORCHESTRATOR" == false ]]; then
   [[ -x "$JAVA_HOME/bin/java" ]] || fail "JAVA_HOME must contain bin/java"
   export PATH="$JAVA_HOME/bin:$PATH"
 fi
@@ -118,32 +107,12 @@ if [[ "$SKIP_ORCHESTRATOR" == false ]]; then
   for tool in java javac; do require_tool "$tool"; done
   resolve_maven
   echo "Maven: ${MAVEN_COMMAND[*]}"
-elif [[ "$BUILD_ONLY" == false ]]; then
-  require_tool java
 fi
 if [[ "$SKIP_CAMERA_WORKER" == false ]]; then
   resolve_cmake
   "$CMAKE_COMMAND" --version >/dev/null || fail "Cannot run CMake: $CMAKE_COMMAND"
   echo "CMake: $CMAKE_COMMAND"
 fi
-require_tool python3
-[[ -f "$REPO_ROOT/stop-dev.sh" ]] || fail "Missing stop-dev.sh"
-if [[ "$RT_DIAGNOSTICS" == true ]]; then
-  [[ "$BUILD_ONLY" == false ]] || fail "--rt-diagnostics requires launch; omit --build-only"
-  python3 -c 'import math,sys; v=float(sys.argv[1]); sys.exit(0 if math.isfinite(v) and 0.2 <= v <= 60 else "RT interval must be 0.2 to 60 seconds")' "$RT_INTERVAL"
-fi
-if [[ "$BUILD_ONLY" == false ]]; then
-  [[ -f "$CONFIG" ]] || fail "Config not found: $CONFIG"
-  [[ -f "$REPO_ROOT/run-supervised.sh" ]] || fail "Missing run-supervised.sh"
-  if [[ "$SKIP_ORCHESTRATOR" == true ]]; then
-    [[ -f "$REPO_ROOT/orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar" ]] || fail "Existing orchestrator JAR missing; omit -o to build it"
-  fi
-fi
-
-step "Stop application stack before rebuilding"
-bash "$REPO_ROOT/stop-dev.sh"
-export IML_STACK_ALREADY_STOPPED=1
-
 if [[ "$SKIP_ORCHESTRATOR" == false ]]; then
   step "Build orchestrator-java"
   # A rebuild skips both test execution and test compilation; run-all-tests.sh runs tests.
@@ -169,11 +138,3 @@ if [[ "$SKIP_CAMERA_WORKER" == false ]]; then
 fi
 
 step "Build complete"
-if [[ "$BUILD_ONLY" == true ]]; then exit 0; fi
-step "Start stack supervisor"
-export CONFIG
-run_args=()
-if [[ "$NO_FRONTEND" == true ]]; then run_args+=(--no-frontend); fi
-if [[ "$RT_DIAGNOSTICS" == true ]]; then run_args+=(--rt-diagnostics --rt-interval "$RT_INTERVAL"); fi
-# The launcher creates one log directory for application and RT diagnostics.
-exec bash "$REPO_ROOT/run-supervised.sh" "${run_args[@]}"
