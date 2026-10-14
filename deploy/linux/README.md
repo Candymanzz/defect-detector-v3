@@ -5,14 +5,18 @@
 Из корня проекта:
 
 ```bash
-bash ./rebuild-and-run.sh       # Только сборка оркестратора и camera-worker
-bash ./rebuild-and-run.sh -c    # Только сборка оркестратора
-bash ./rebuild-and-run.sh -o    # Только сборка camera-worker
+bash ./rebuild-and-run.sh       # Оркестратор, camera-worker и установка нового фронта
+bash ./rebuild-and-run.sh -c    # Оркестратор и фронт
+bash ./rebuild-and-run.sh -o    # camera-worker и фронт
+bash ./rebuild-and-run.sh -c -o # Только фронт
+bash ./rebuild-and-run.sh -f    # Без сборки и установки фронта
 ```
 
-Скрипт не останавливает и не запускает сервисы. Python, geometry, positioning
-и фронтенд не пересобираются и не переустанавливаются. Для оркестратора нужны
-JDK 17+ и Maven; для camera-worker — CMake и C-компилятор.
+Скрипт не останавливает и не запускает сервисы. Фронт собирается и копируется
+в `/opt/defect-detector-ui` (`dist/`, `electron/`, `package.json`), с запросом `sudo`
+при необходимости. Electron/node_modules киоска должны быть установлены заранее.
+Python, geometry и positioning не пересобираются. Для оркестратора нужны
+JDK 17+ и Maven; для camera-worker — CMake и C-компилятор; для фронта — Node.js и npm.
 `MVS_ROOT` задаёт каталог SDK (по умолчанию `/opt/MVS`).
 Старые параметры запуска принимаются, но игнорируются.
 
@@ -25,7 +29,7 @@ bash ./run-supervised.sh -r --rt-interval 2
 ```
 
 Тесты: `bash ./run-all-tests.sh`. Инструкции: [RUN.md](../../RUN.md).
-Установленная копия UI в `/opt` при сборке не обновляется.
+После установки отдельно перезапустите Electron киоска, чтобы загрузить новый UI.
 
 Для одинаковых ПК с Ubuntu 24.04 и одинаковой нумерацией CPU. Скрипт работает
 на Python 3 без дополнительных Python-пакетов. Запускать его на Linux.

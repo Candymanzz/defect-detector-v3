@@ -3,18 +3,29 @@
 Пересборка из корня проекта:
 
 ```bash
-bash ./rebuild-and-run.sh       # Оркестратор и camera-worker
-bash ./rebuild-and-run.sh -c    # Только оркестратор
-bash ./rebuild-and-run.sh -o    # Только camera-worker
+bash ./rebuild-and-run.sh       # Оркестратор, camera-worker и фронт с установкой в /opt
+bash ./rebuild-and-run.sh -c    # Оркестратор и фронт
+bash ./rebuild-and-run.sh -o    # camera-worker и фронт
+bash ./rebuild-and-run.sh -c -o # Только фронт с установкой
+bash ./rebuild-and-run.sh -f    # Оркестратор и camera-worker, без фронта
 ```
 
 Скрипт только собирает выбранные компоненты и завершает работу. Он не
-останавливает и не запускает сервисы, не вызывает systemctl и не меняет киоск.
-Python, geometry, positioning и фронтенд не пересобираются.
-Старые параметры `-f`, `-r`, `--build-only`, `--config`, `--rt-interval`
+останавливает и не запускает сервисы, не вызывает systemctl. Фронт собирается
+через `npm run build`; `dist/`, `electron/` и `package.json` копируются в
+`/opt/defect-detector-ui`. Установленный Electron и его `node_modules` используются
+повторно. Для защищённого каталога скрипт запрашивает `sudo` до начала сборки.
+Путь установки можно изменить через `FRONTEND_INSTALL_DIR`. После установки
+нужно отдельно перезапустить Electron киоска, чтобы загрузить новую версию.
+Python, geometry и positioning не пересобираются.
+`-f`, `--skip-frontend`, `--no-frontend` пропускают сборку и установку фронта.
+Старые параметры `-r`, `--build-only`, `--config`, `--rt-interval`
 принимаются для совместимости, но на сборку не влияют; скрипт сообщает об этом.
 
 Для оркестратора нужны JDK 17+ и Maven; для camera-worker — CMake и C-компилятор.
+Для фронта нужны Node.js >=20.19.0 и npm; скрипт обнаруживает установки NVM.
+Если TypeScript/Vite ещё не установлены, он выполняет `npm ci`. При изменении
+зависимостей выполните `npm ci` в `front-end` перед пересборкой.
 Инструменты пропущенного компонента не требуются. Maven ищется в PATH,
 MAVEN_HOME/M2_HOME, Maven Wrapper и стандартных установках IntelliJ IDEA.
 CMake ищется в PATH, CMAKE_HOME, /opt, ~/.local/bin, Downloads, Загрузки и CLion.

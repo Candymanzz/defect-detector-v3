@@ -7,6 +7,10 @@ public interface BucketFanOutSink {
 
     void publishBucket(BucketFanOutResult result);
 
+    default void publishBuckets(java.util.List<BucketFanOutResult> results) {
+        results.forEach(this::publishBucket);
+    }
+
     default boolean publishEarlyPlasticHandleReject(long triggerSequence, int cameraId) {
         return false;
     }

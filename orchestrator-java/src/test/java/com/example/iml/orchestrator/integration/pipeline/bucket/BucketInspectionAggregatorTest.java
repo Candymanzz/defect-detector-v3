@@ -21,6 +21,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BucketInspectionAggregatorTest {
 
     @Test
+    void deliversBothGroupsAsBatchBeforeCameraUi() {
+        aggregator = new BucketInspectionAggregator(LogManager.getLogger(getClass()),
+                new BucketInspectionConfig(true, List.of(
+                        new BucketGroup(0, List.of(0)), new BucketGroup(1, List.of(1))), 1000L, 1000L));
+        List<String> events = new ArrayList<>();
+        BucketFanOutSink sink = new BucketFanOutSink() {
+            public void publishBucket(BucketFanOutResult result) {
+                throw new AssertionError("multi-group delivery must use a batch");
+            }
+            public void publishBuckets(List<BucketFanOutResult> results) {
+                assertEquals(List.of(0, 1), results.stream().map(BucketFanOutResult::groupId).toList());
+                events.add("DO3");
+                events.add("DO4");
+            }
+        };
+        aggregator.recordFrameResult(1L, 0, decision(0, 1L, true), sink, () -> events.add("UI0"));
+        assertTrue(events.isEmpty());
+        aggregator.recordFrameResult(1L, 1, decision(1, 1L, true), sink, () -> events.add("UI1"));
+        assertEquals(List.of("DO3", "DO4", "UI0", "UI1"), events);
+    }
+
+    @Test
     void captureWithoutReferencePassesAndNeverOffersEarlyReject() {
         aggregator = new BucketInspectionAggregator(LogManager.getLogger(getClass()),
                 new BucketInspectionConfig(true, List.of(new BucketGroup(0, List.of(0))), 1000L, 1000L));

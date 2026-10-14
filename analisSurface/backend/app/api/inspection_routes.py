@@ -8,6 +8,7 @@ import asyncio
 import logging
 import os
 import threading
+from dataclasses import replace
 from time import perf_counter_ns
 from functools import partial
 from pathlib import Path
@@ -20,6 +21,7 @@ from app.api.dependencies import inspect_executor, inspection_service
 from app.api.mappers import to_inspect_response, to_visuals_response
 from app.api.schemas import (
     DetectorHealthResponse,
+    DeferredHeatmapRequest,
     InspectResponse,
     ShmFrameRequest,
     ShmVisualsRequest,
@@ -28,6 +30,7 @@ from app.api.schemas import (
 )
 from app.runtime import get_application_id
 from app.services.analysis_settings import AnalysisSettings
+from app.services.deferred_heatmaps import DeferredHeatmapCache
 from app.services.analysis_settings_presets import expand_merged, normalize_strengths
 from app.services.inspection_geometry import polygon_mask_from_norm_points
 from app.services.shm_io import ShmImageOutputInfo, open_bgr_shm_frame, write_u8_image_to_shm
@@ -35,6 +38,7 @@ from app.services.shm_io import ShmImageOutputInfo, open_bgr_shm_frame, write_u8
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+deferred_heatmaps = DeferredHeatmapCache()
 
 _test_frame_bgr_lock = threading.Lock()
 _test_frame_bgr_cache: dict[tuple[str, str, str], np.ndarray] = {}
@@ -285,6 +289,7 @@ def _inspect_shm_sync(
             force_skip_learning_review or payload.skip_learning_review or payload.test_analyze
         ),
         defer_learning_review=payload.defer_learning_review,
+        defer_heatmap=payload.defer_heatmap,
     )
 
 
@@ -348,7 +353,39 @@ async def inspect_shm(payload: ShmFrameRequest) -> InspectResponse:
             # transport error/REJECT merely because its heatmap could not be written.
             return to_inspect_response(result)
         return to_visuals_response(result, outputs)
-    return to_inspect_response(result)
+    response = to_inspect_response(result)
+    if payload.defer_heatmap:
+        response.deferred_heatmap_token = deferred_heatmaps.put(result)
+    return response
+
+
+@router.post("/render-heatmap", response_model=ShmVisualsResponse)
+async def render_heatmap(payload: DeferredHeatmapRequest) -> ShmVisualsResponse:
+    """Render the frozen production result without another inspection or learning update."""
+    result = deferred_heatmaps.get(payload.token)
+    if result is None:
+        raise HTTPException(status_code=410, detail="deferred heatmap expired or unavailable")
+
+    def render():
+        mask, diff_map, polygon = result.deferred_heatmap_data
+        heatmap = inspection_service._build_heatmap_gray(mask, diff_map)
+        if polygon is not None:
+            roi = polygon_mask_from_norm_points(heatmap.shape[1], heatmap.shape[0], polygon) > 0
+            heatmap = np.where(roi, heatmap, 0).astype(np.uint8)
+        max_width = payload.heatmap_max_width or 0
+        if max_width > 0 and heatmap.shape[1] > max_width:
+            height = max(1, round(heatmap.shape[0] * max_width / heatmap.shape[1]))
+            heatmap = cv2.resize(heatmap, (max_width, height), interpolation=cv2.INTER_AREA)
+        if polygon is not None:
+            roi = polygon_mask_from_norm_points(heatmap.shape[1], heatmap.shape[0], polygon) > 0
+            heatmap = np.where(roi, heatmap, 0).astype(np.uint8)
+        output = write_u8_image_to_shm(payload.heatmap_u8_output_path, heatmap)
+        return to_visuals_response(replace(result, heatmap_u8=heatmap), {"heatmap": output})
+
+    try:
+        return await asyncio.get_running_loop().run_in_executor(inspect_executor, render)
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/inspect-shm-visuals", response_model=ShmVisualsResponse)

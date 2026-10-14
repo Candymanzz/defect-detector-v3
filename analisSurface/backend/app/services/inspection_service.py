@@ -1062,6 +1062,7 @@ class InspectionService:
         inspect_scale_after_align: Optional[float] = None,
         store_learning_review: bool = True,
         defer_learning_review: bool = False,
+        defer_heatmap: bool = False,
     ) -> InspectionResult:
         # --- Пайплайн инспекции (см. docs/GUIDE.md) ---
         pipeline_started = time.perf_counter()
@@ -1676,6 +1677,8 @@ class InspectionService:
             diff_map=diff_map if include_visuals else None,
             heatmap=heatmap if include_visuals else None,
             heatmap_u8=heatmap_u8,
+            deferred_heatmap_data=(segmentation_mask, filtered_diff_map, tuple(polygon) if polygon is not None else None)
+            if defer_heatmap and not include_visuals and not include_heatmap_u8 else None,
             segmentation_mask=segmentation_mask if include_visuals else None,
             excluded_normal_zones=excluded_normal_zones,
             py_align_ms=(align_finished - pipeline_started) * 1000.0,

@@ -170,6 +170,7 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                         pythonCfg == null ? null : pythonCfg.get("defer_heatmap"),
                         false
                 );
+                if (deferHeatmap) pyHeader.put("defer_heatmap", true);
                 if (!deferHeatmap) {
                     pyHeader.put(
                             "heatmap_u8_output_path",

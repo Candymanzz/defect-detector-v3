@@ -577,6 +577,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                             && (heatmapSource.path() == null || heatmapSource.width() <= 0 || heatmapSource.height() <= 0)) {
                         heatmapSource = generateHeatmapArtifact(
                                 uiVisualsPython,
+                                pyResp,
                                 activeReference,
                                 geometry,
                                 uiCfg,
@@ -1043,6 +1044,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
 
     private HeatmapArtifact generateHeatmapArtifact(
             BinaryRpcSupervisor uiVisualsPython,
+            BinaryProtocol.Message productionResponse,
             ReferenceSnapshot activeReference,
             BinaryProtocol.Message geometry,
             Map<String, Object> uiCfg,
@@ -1055,6 +1057,36 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             int height,
             int stride
     ) {
+        Map<String, Object> responseHeader = productionResponse == null || productionResponse.header() == null
+                ? Map.of() : productionResponse.header();
+        Object token = responseHeader.get("deferred_heatmap_token");
+        Object origin = responseHeader.get("deferred_heatmap_base_url");
+        if (token != null && origin != null) {
+            Path output = FrameJpegWriter.imlShmFilePath("iml_ui_heatmap_cam_" + cameraId + "_frame_" + frameId);
+            try {
+                var renderer = new com.example.iml.orchestrator.integration.clientapi.AnalisSurfaceHttpBinaryRpcSupervisor(
+                        "ui-cached-heatmap", String.valueOf(origin), 5000);
+                BinaryProtocol.Message rendered = renderer.commandNoRetry(Map.of(
+                        "op", "render_heatmap",
+                        "deferred_heatmap_token", token,
+                        "heatmap_u8_output_path", output.toString(),
+                        "heatmap_max_width", Math.max(0, YamlScalars.toInt(
+                                uiCfg == null ? null : uiCfg.get("heatmap_preview_max_width"), 512))));
+                if (rendered.type() == BinaryProtocol.MSG_ERROR) {
+                    log.warn("deferred heatmap unavailable cam={} frame={} error={}", cameraId, frameId, rendered.header());
+                    return HeatmapArtifact.empty();
+                }
+                return resolveHeatmapArtifact(rendered.header(), output, width, height);
+            } catch (Exception e) {
+                log.warn("deferred heatmap render failed cam={} frame={}: {}", cameraId, frameId, e.getMessage());
+                return HeatmapArtifact.empty();
+            }
+        }
+        if (YamlScalars.toBool(pythonCfg == null ? null : pythonCfg.get("defer_heatmap"), false)) {
+            // Missing/expired snapshots must not trigger a second, possibly different verdict.
+            log.warn("deferred heatmap missing cam={} frame={}", cameraId, frameId);
+            return HeatmapArtifact.empty();
+        }
         if (uiVisualsPython == null) {
             return HeatmapArtifact.empty();
         }

@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Rebuild only orchestrator and camera-worker; all other components are reused.
+# Rebuild orchestrator, camera-worker and the frontend; install the kiosk UI.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKIP_CAMERA_WORKER=false
 SKIP_ORCHESTRATOR=false
+SKIP_FRONTEND=false
+FRONTEND_INSTALL_DIR="${FRONTEND_INSTALL_DIR:-/opt/defect-detector-ui}"
+FRONTEND_INSTALL_COMMAND=()
 LEGACY_OPTIONS=false
 
 usage() {
@@ -12,12 +15,19 @@ usage() {
 Usage: bash ./rebuild-and-run.sh [options]
   -c, --skip-camera-worker  Skip camera-worker rebuild
   -o, --skip-orchestrator   Skip orchestrator rebuild
+  -f, --skip-frontend       Skip frontend build and kiosk installation
   -h, --help               Show this help
 
-Only orchestrator and camera-worker are rebuilt; services are not stopped or started.
+Rebuild orchestrator, camera-worker and frontend; services are not stopped or started.
+Frontend: npm run build, then copy dist/, electron/ and package.json to
+/opt/defect-detector-ui (override with FRONTEND_INSTALL_DIR). Existing kiosk
+Electron/node_modules are reused. sudo is requested only for protected files.
+Restart the kiosk Electron separately to load the new UI.
 Orchestrator build requires JDK 17+ and Maven; camera build requires CMake
-and a C compiler. MVS_ROOT defaults to /opt/MVS.
-Legacy -f, -r, --build-only, --config and --rt-interval are accepted but ignored.
+and a C compiler. Frontend requires Node.js and npm (NVM installs are detected).
+MVS_ROOT defaults to /opt/MVS.
+--no-frontend aliases --skip-frontend.
+Legacy -r, --build-only, --config and --rt-interval are accepted but ignored.
 For RT diagnostics use: bash ./run-rt.sh -r
 EOF
 }
@@ -25,6 +35,47 @@ EOF
 fail() { echo "ERROR: $*" >&2; exit 1; }
 step() { echo; echo "==> $*"; }
 require_tool() { command -v "$1" >/dev/null 2>&1 || fail "Command not found: $1"; }
+resolve_frontend_tools() {
+  if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
+    local candidate
+    local candidates=()
+    [[ -z "${NODE_HOME:-}" ]] || candidates+=("$NODE_HOME/bin")
+    shopt -s nullglob
+    candidates+=("${NVM_DIR:-$HOME/.nvm}"/versions/node/*/bin)
+    shopt -u nullglob
+    while IFS= read -r candidate; do
+      if [[ -x "$candidate/node" && -x "$candidate/npm" ]]; then
+        export PATH="$candidate:$PATH"
+        break
+      fi
+    done < <(printf '%s\n' "${candidates[@]}" | sort -Vr)
+  fi
+  require_tool node
+  require_tool npm
+  node -e 'const [major, minor] = process.versions.node.split(".").map(Number); if (major < 20 || (major === 20 && minor < 19)) process.exit(1)' \
+    || fail "Frontend requires Node.js >=20.19.0"
+  echo "Node.js: $(node --version); npm: $(npm --version)"
+}
+prepare_frontend_install() {
+  [[ "$FRONTEND_INSTALL_DIR" == /* && "$FRONTEND_INSTALL_DIR" != / ]] \
+    || fail "FRONTEND_INSTALL_DIR must be an absolute application directory"
+  [[ -x "$FRONTEND_INSTALL_DIR/node_modules/electron/dist/electron" ]] \
+    || fail "Kiosk Electron missing under $FRONTEND_INSTALL_DIR/node_modules; provision the kiosk first (deploy/linux/README.md), or pass -f"
+  local needs_sudo=false
+  local destination
+  [[ -w "$FRONTEND_INSTALL_DIR" ]] || needs_sudo=true
+  for destination in "$FRONTEND_INSTALL_DIR/electron" "$FRONTEND_INSTALL_DIR/dist" "$FRONTEND_INSTALL_DIR/package.json"; do
+    if [[ -e "$destination" && ! -w "$destination" ]]; then needs_sudo=true; fi
+  done
+  if [[ "$needs_sudo" == true ]]; then
+    if ((EUID != 0)); then
+      require_tool sudo
+      echo "Kiosk installation needs sudo access to $FRONTEND_INSTALL_DIR"
+      sudo -v
+      FRONTEND_INSTALL_COMMAND=(sudo)
+    fi
+  fi
+}
 resolve_maven() {
   if [[ -n "${MAVEN_CMD:-}" ]]; then
     MAVEN_COMMAND=("$(command -v "$MAVEN_CMD")") || fail "MAVEN_CMD not found: $MAVEN_CMD"
@@ -85,7 +136,8 @@ while (($#)); do
   case "$1" in
     -c|-с|--skip-camera-worker) SKIP_CAMERA_WORKER=true; shift ;;
     -o|--skip-orchestrator) SKIP_ORCHESTRATOR=true; shift ;;
-    -f|--no-frontend|-r|--rt-diagnostics|--build-only) LEGACY_OPTIONS=true; shift ;;
+    -f|--skip-frontend|--no-frontend) SKIP_FRONTEND=true; shift ;;
+    -r|--rt-diagnostics|--build-only) LEGACY_OPTIONS=true; shift ;;
     --config|--rt-interval)
       [[ $# -ge 2 && -n "$2" && "$2" != -* ]] || fail "$1 requires a value"
       LEGACY_OPTIONS=true; shift 2 ;;
@@ -113,6 +165,10 @@ if [[ "$SKIP_CAMERA_WORKER" == false ]]; then
   "$CMAKE_COMMAND" --version >/dev/null || fail "Cannot run CMake: $CMAKE_COMMAND"
   echo "CMake: $CMAKE_COMMAND"
 fi
+if [[ "$SKIP_FRONTEND" == false ]]; then
+  resolve_frontend_tools
+  prepare_frontend_install
+fi
 if [[ "$SKIP_ORCHESTRATOR" == false ]]; then
   step "Build orchestrator-java"
   # A rebuild skips both test execution and test compilation; run-all-tests.sh runs tests.
@@ -135,6 +191,25 @@ if [[ "$SKIP_CAMERA_WORKER" == false ]]; then
   # Replace the inode atomically: Linux disallows overwriting a running executable.
   cp "$CAMERA_BUILD/camera_worker" "$worker_target.new.$$"
   mv -f "$worker_target.new.$$" "$worker_target"
+fi
+
+if [[ "$SKIP_FRONTEND" == false ]]; then
+  step "Build frontend"
+  (
+    cd "$REPO_ROOT/front-end"
+    if [[ ! -x node_modules/.bin/tsc || ! -x node_modules/.bin/vite ]]; then
+      npm ci
+    fi
+    npm run build
+  )
+  [[ -f "$REPO_ROOT/front-end/dist/index.html" ]] || fail "Frontend build artifact missing"
+  step "Install kiosk frontend to $FRONTEND_INSTALL_DIR"
+  "${FRONTEND_INSTALL_COMMAND[@]}" mkdir -p "$FRONTEND_INSTALL_DIR/dist" "$FRONTEND_INSTALL_DIR/electron"
+  # Keep older hashed assets until the running kiosk is reloaded.
+  "${FRONTEND_INSTALL_COMMAND[@]}" cp -R "$REPO_ROOT/front-end/dist/." "$FRONTEND_INSTALL_DIR/dist/"
+  "${FRONTEND_INSTALL_COMMAND[@]}" cp -R "$REPO_ROOT/front-end/electron/." "$FRONTEND_INSTALL_DIR/electron/"
+  "${FRONTEND_INSTALL_COMMAND[@]}" cp "$REPO_ROOT/front-end/package.json" "$FRONTEND_INSTALL_DIR/package.json"
+  echo "Frontend installed. Restart the kiosk Electron to load this build."
 fi
 
 step "Build complete"
