@@ -51,7 +51,7 @@ cleanup() {
   local status=$?
   trap - EXIT INT TERM
   echo "==> Stop application stack"
-  bash "$REPO_ROOT/stop-dev.sh" || status=1
+  bash "$REPO_ROOT/stop-dev.sh" --processes-only || status=1
   if [[ -n "$supervisor_pid" ]]; then wait "$supervisor_pid" 2>/dev/null || true; fi
   if [[ -n "$monitor_pid" ]]; then
     kill -TERM "$monitor_pid" 2>/dev/null || true

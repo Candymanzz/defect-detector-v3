@@ -2,6 +2,7 @@ import argparse
 import json
 from pathlib import Path
 import signal
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -87,6 +88,49 @@ class ProcessTests(unittest.TestCase):
         unrelated = process(21, 1, ["electron", "."], "/opt/another-application")
         self.assertTrue(stack.is_service(installed, "/project"))
         self.assertFalse(stack.is_service(unrelated, "/project"))
+
+
+class SystemdStopTests(unittest.TestCase):
+    def test_stop_job_is_queued_without_waiting_for_service_exit(self):
+        calls = []
+
+        def run(command, **kwargs):
+            calls.append(command)
+            if "--user" in command:
+                return subprocess.CompletedProcess(command, 1, "", "no user bus")
+            if "show" in command:
+                return subprocess.CompletedProcess(command, 0,
+                    f"ActiveState=deactivating\nWorkingDirectory={ROOT}\nExecStart=\n", "")
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+        with patch.object(stop_stack.shutil, "which", return_value="/usr/bin/tool"), \
+                patch.object(stop_stack.Path, "is_dir", return_value=True), \
+                patch.object(stop_stack.Path, "read_text", return_value="0::/user.slice/session.scope"), \
+                patch.object(stop_stack.os, "geteuid", return_value=1000, create=True), \
+                patch.object(stop_stack.subprocess, "run", side_effect=run):
+            units = stop_stack.stop_systemd(Path(ROOT))
+        self.assertEqual(len(units), 1)
+        self.assertIn(["sudo", "-n", "systemctl", "--no-block", "stop", "defect-detector.service"], calls)
+
+    def test_stuck_unit_is_force_stopped_and_then_verified(self):
+        with patch.object(stop_stack, "unit_status", side_effect=[
+                (False, {"ActiveState": "deactivating"}), (True, {"ActiveState": "inactive"})]), \
+                patch.object(stop_stack.time, "monotonic", side_effect=[0, 100, 100]), \
+                patch.object(stop_stack.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "", "")) as run:
+            stop_stack.finish_systemd([(["systemctl"], ["sudo", "-n", "systemctl"], "defect-detector.service")], 1)
+        self.assertEqual(run.call_args.args[0], ["sudo", "-n", "systemctl", "kill", "--signal=SIGKILL", "defect-detector.service"])
+
+    def test_surviving_unit_is_an_error_even_after_force_stop(self):
+        with patch.object(stop_stack, "unit_status", return_value=(False, {"ActiveState": "deactivating"})), \
+                patch.object(stop_stack.time, "monotonic", side_effect=[0, 100, 100, 110]), \
+                patch.object(stop_stack.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "", "")):
+            with self.assertRaisesRegex(RuntimeError, "did not stop"):
+                stop_stack.finish_systemd([(["systemctl"], ["systemctl"], "defect-detector.service")], 1)
+
+    def test_inactive_unit_with_pending_stop_job_is_not_considered_stopped(self):
+        with patch.object(stop_stack.subprocess, "run", return_value=subprocess.CompletedProcess([], 0,
+                "ActiveState=inactive\nMainPID=0\nJob=123\nControlGroup=\n", "")):
+            self.assertFalse(stop_stack.unit_status(["systemctl"], "defect-detector.service")[0])
 
 
 class TelemetryTests(unittest.TestCase):

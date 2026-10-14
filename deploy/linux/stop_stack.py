@@ -13,13 +13,14 @@ from stack_processes import ancestors, is_kiosk_controller, processes, select_se
 
 
 def stop_systemd(root):
+    stopping = []
     if not shutil.which("systemctl") or not Path("/run/systemd/system").is_dir():
-        return
+        return stopping
     unit = os.environ.get("IML_SYSTEMD_UNIT", "defect-detector.service")
     # A launcher started by this unit must not stop its own systemd cgroup.
     own_cgroup = Path("/proc/self/cgroup").read_text()
     if any(unit in line.split(":", 2)[-1].split("/") for line in own_cgroup.splitlines()):
-        return
+        return stopping
     for scope in ([], ["--user"]):
         command = ["systemctl", *scope]
         query = subprocess.run(command + ["show", unit, "--property=ActiveState,WorkingDirectory,ExecStart"],
@@ -32,14 +33,65 @@ def stop_systemd(root):
         # Do not stop another checkout's service, even if it has the same unit name.
         if properties.get("WorkingDirectory") != str(root) and str(root) + "/" not in properties.get("ExecStart", ""):
             continue
-        stop = command + ["stop", unit]
+        privileged = command
         if not scope and os.geteuid() != 0:
             if not shutil.which("sudo"):
                 raise RuntimeError(f"Run sudo systemctl stop {unit} before rebuilding")
-            stop = ["sudo", "-n", *stop]
-        completed = subprocess.run(stop, capture_output=True, text=True, timeout=45)
+            privileged = ["sudo", "-n", *command]
+        # Queue the stop job; waiting here prevents us from stopping stuck children.
+        completed = subprocess.run(privileged + ["--no-block", "stop", unit],
+                                   capture_output=True, text=True, timeout=10)
         if completed.returncode:
             raise RuntimeError(f"Cannot stop {unit}: {completed.stderr.strip()}. Run {' '.join(command)} stop {unit} with sufficient permissions")
+        print(f"Stopping systemd unit {unit} (non-blocking)", flush=True)
+        stopping.append((command, privileged, unit))
+    return stopping
+
+
+def unit_status(command, unit):
+    query = subprocess.run(command + ["show", unit, "--property=ActiveState,SubState,MainPID,ControlGroup,Job"],
+                           capture_output=True, text=True, timeout=5)
+    if query.returncode:
+        raise RuntimeError(f"Cannot verify stopped unit {unit}: {query.stderr.strip()}")
+    properties = dict(line.split("=", 1) for line in query.stdout.splitlines() if "=" in line)
+    group = properties.get("ControlGroup", "")
+    populated = False
+    if group:
+        group_path = Path("/sys/fs/cgroup") / group.lstrip("/") / "cgroup.procs"
+        try:
+            populated = bool(group_path.read_text().strip())
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            raise RuntimeError(f"Cannot verify cgroup for {unit}: {exc}") from exc
+    stopped = properties.get("ActiveState") in {"inactive", "failed"}
+    stopped = stopped and properties.get("MainPID", "0") == "0" and not populated
+    stopped = stopped and properties.get("Job", "0").split(" ", 1)[0] in {"", "0"}
+    return stopped, properties
+
+
+def finish_systemd(stopping, timeout):
+    for command, privileged, unit in stopping:
+        deadline = time.monotonic() + timeout
+        while True:
+            stopped, properties = unit_status(command, unit)
+            if stopped:
+                break
+            if time.monotonic() >= deadline:
+                print(f"Unit {unit} is still {properties.get('ActiveState')}; terminating its remaining processes", flush=True)
+                killed = subprocess.run(privileged + ["kill", "--signal=SIGKILL", unit],
+                                        capture_output=True, text=True, timeout=10)
+                # The unit can disappear between show and kill; always check state again.
+                final_deadline = time.monotonic() + 5
+                while True:
+                    stopped, properties = unit_status(command, unit)
+                    if stopped:
+                        break
+                    if time.monotonic() >= final_deadline:
+                        raise RuntimeError(f"Unit {unit} did not stop: {properties}; {killed.stderr.strip()}. Check sudo systemctl status {unit} and sudo journalctl -u {unit} -n 100")
+                    time.sleep(0.2)
+                break
+            time.sleep(0.2)
         print(f"Stopped systemd unit {unit}; it remains stopped during the manual launch", flush=True)
 
 
@@ -102,12 +154,12 @@ def wait_for(entries, seconds):
         time.sleep(0.1)
 
 
-def stop(root, timeout):
+def stop(root, timeout, processes_only=False):
     # Snapshot descendants before a supervisor shutdown can reparent them.
     snapshot = processes()
     excluded = ancestors(snapshot, os.getpid())
     targets = select_services(snapshot, root, excluded)
-    stop_systemd(root)
+    stopping = [] if processes_only else (stop_systemd(root) or [])
     pause_kiosk(snapshot, root)
     supervisors = [entry for entry in targets.values() if "StackSupervisorMain" in " ".join(entry["args"])]
     for entry in supervisors:
@@ -126,6 +178,7 @@ def stop(root, timeout):
     for entry in targets.values():
         send(entry, signal.SIGKILL)
     wait_for(list(targets.values()), 3)
+    finish_systemd(stopping, timeout)
     survivors = select_services(processes(), root, excluded)
     if survivors:
         raise RuntimeError("Services are still running: " + ", ".join(map(str, survivors)))
@@ -137,6 +190,8 @@ def main():
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--timeout", type=float, default=15)
     parser.add_argument("--resume-kiosk", action="store_true")
+    parser.add_argument("--processes-only", action="store_true",
+                        help="Launcher EXIT cleanup: stop processes without creating a systemd stop job")
     args = parser.parse_args()
     if not sys.platform.startswith("linux"):
         parser.error("This tool requires Linux /proc")
@@ -146,7 +201,7 @@ def main():
         if args.resume_kiosk:
             resume_kiosk(args.root.resolve())
         else:
-            stop(args.root.resolve(), args.timeout)
+            stop(args.root.resolve(), args.timeout, args.processes_only)
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
         print(f"ERROR: {exc}; rebuild cancelled", file=sys.stderr)
         return 1
