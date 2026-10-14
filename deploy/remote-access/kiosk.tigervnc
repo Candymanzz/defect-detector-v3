@@ -1,0 +1,5 @@
+TigerVNC Configuration file Version 1.0
+
+ServerName=127.0.0.1::15900
+Shared=1
+FullScreen=0

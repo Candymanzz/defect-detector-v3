@@ -1,0 +1,9 @@
+# Copy this block into %USERPROFILE%\.ssh\config on Windows.
+# Replace User with the person's own Linux account when available.
+Host detector-kiosk
+    HostName 100.122.121.36
+    User o
+    LocalForward 127.0.0.1:15900 127.0.0.1:5900
+    ExitOnForwardFailure yes
+    ServerAliveInterval 30
+    ServerAliveCountMax 3
