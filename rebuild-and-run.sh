@@ -147,7 +147,8 @@ export IML_STACK_ALREADY_STOPPED=1
 if [[ "$SKIP_ORCHESTRATOR" == false ]]; then
   step "Build orchestrator-java"
   # A rebuild skips both test execution and test compilation; run-all-tests.sh runs tests.
-  (cd "$REPO_ROOT/orchestrator-java" && "${MAVEN_COMMAND[@]}" -q package -Dmaven.test.skip=true)
+  (cd "$REPO_ROOT/orchestrator-java" && "${MAVEN_COMMAND[@]}" --batch-mode --no-transfer-progress \
+    -Dstyle.color=never package -Dmaven.test.skip=true)
   [[ -f "$REPO_ROOT/orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar" ]] || fail "Orchestrator build artifact missing"
 fi
 

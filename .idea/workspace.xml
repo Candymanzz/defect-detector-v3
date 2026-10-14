@@ -1,11 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="новые флаги для инспекции нагрузки системы">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/RUN.md" beforeDir="false" afterPath="$PROJECT_DIR$/RUN.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rebuild-and-run.sh" beforeDir="false" afterPath="$PROJECT_DIR$/rebuild-and-run.sh" afterDir="false" />
-    </list>
+    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="новые флаги для инспекции нагрузки системы фикс" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -105,6 +101,7 @@
     <MESSAGE value="логи" />
     <MESSAGE value="файлы пересбрки" />
     <MESSAGE value="новые флаги для инспекции нагрузки системы" />
-    <option name="LAST_COMMIT_MESSAGE" value="новые флаги для инспекции нагрузки системы" />
+    <MESSAGE value="новые флаги для инспекции нагрузки системы фикс" />
+    <option name="LAST_COMMIT_MESSAGE" value="новые флаги для инспекции нагрузки системы фикс" />
   </component>
 </project>
