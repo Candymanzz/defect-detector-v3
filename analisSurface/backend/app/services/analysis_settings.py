@@ -34,6 +34,8 @@ class AnalysisSettings:
     scatter_min_components: int = 6
     scatter_min_cells: int = 5
     scatter_suppress_factor: float = 0.4
+    # Гамма подъёма теней (<1 усиливает различия в тёмных зонах: чёрное на чёрном). 1.0 — выключено (по умолчанию), ~0.6 — включить.
+    shadow_lift_gamma: float = 1.0
 
     @classmethod
     def defaults(cls) -> "AnalysisSettings":
@@ -103,6 +105,8 @@ class AnalysisSettings:
             raise ValueError("scatter_min_cells must be in [1, 16]")
         if not 0.0 <= self.scatter_suppress_factor <= 1.0:
             raise ValueError("scatter_suppress_factor must be in [0, 1]")
+        if not 0.3 <= self.shadow_lift_gamma <= 1.0:
+            raise ValueError("shadow_lift_gamma must be in [0.3, 1]")
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

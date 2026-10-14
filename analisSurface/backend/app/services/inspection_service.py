@@ -82,6 +82,13 @@ _ILLUMINATION_BROAD_MAX_SUPPRESSION = 0.75
 # These kernels are read-only inputs to OpenCV. Reusing them avoids allocating
 # the same arrays for every frame in every inspection worker.
 _LOCAL_ENVELOPE_KERNEL = np.ones((5, 5), dtype=np.uint8)
+
+
+@lru_cache(maxsize=8)
+def _shadow_lift_lut(gamma: float) -> Optional[np.ndarray]:
+    if gamma >= 0.999:
+        return None
+    return np.clip(255.0 * (np.arange(256) / 255.0) ** gamma, 0, 255).astype(np.uint8)
 _THIN_DEFECT_KERNEL = np.ones((15, 15), dtype=np.uint8)
 _EDGE_ZONE_KERNEL = np.ones((3, 3), dtype=np.uint8)
 _DEFECT_GAP_CLOSE_KERNEL_X = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 1))
@@ -2891,6 +2898,13 @@ class InspectionService:
         # against local min/max envelope of reference.
         ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
         cur_gray = cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY)
+        # Shadow lift: dark-on-dark changes (black label corner over black
+        # background) are a few gray levels in linear intensity and fall below
+        # every contrast threshold. A gamma < 1 stretches the dark range.
+        shadow_lut = _shadow_lift_lut(float(settings.shadow_lift_gamma))
+        if shadow_lut is not None:
+            ref_gray = cv2.LUT(ref_gray, shadow_lut)
+            cur_gray = cv2.LUT(cur_gray, shadow_lut)
         # Classify illumination on the original gray signal. CLAHE is useful
         # for defects but can turn a smooth shadow/glare into artificial texture.
         illumination_confidence = None

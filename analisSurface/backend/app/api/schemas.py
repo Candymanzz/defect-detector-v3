@@ -110,6 +110,7 @@ class AnalysisSettingsValues(BaseModel):
     scatter_min_components: int = 6
     scatter_min_cells: int = 5
     scatter_suppress_factor: float = 0.4
+    shadow_lift_gamma: float = 1.0
     enable_internal_alignment: bool = False
 
 
@@ -138,6 +139,7 @@ class AnalysisSettingsUpdateRequest(BaseModel):
     scatter_guard_enabled: Optional[bool] = None
     scatter_min_components: Optional[int] = None
     scatter_min_cells: Optional[int] = None
+    shadow_lift_gamma: Optional[float] = None
     scatter_suppress_factor: Optional[float] = None
     enable_internal_alignment: Optional[bool] = None
 
