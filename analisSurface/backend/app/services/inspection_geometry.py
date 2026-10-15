@@ -9,6 +9,10 @@ from typing import Tuple
 
 import cv2
 import numpy as np
+from app.services.reference_preparation import ReferencePreparationCache
+
+
+_region_masks = ReferencePreparationCache(max_bytes=32 * 1024 * 1024, max_entries=128)
 
 
 def validate_polygon_points(points: list[Tuple[float, float]], label: str) -> list[Tuple[float, float]]:
@@ -80,6 +84,22 @@ def polygon_mask_from_norm_points(width: int, height: int, points: list[Tuple[fl
     return mask
 
 
+def cached_polygon_mask(width: int, height: int, points, *, boolean: bool = False) -> np.ndarray:
+    """Immutable masks keyed by actual geometry; editing ROI never reuses a stale mask."""
+    polygon = tuple(tuple(point) for point in points)
+    def build():
+        mask = polygon_mask_from_norm_points(width, height, polygon)
+        return {"mask": mask > 0 if boolean else mask}
+    return _region_masks.get(("polygon", width, height, polygon, boolean), build)["mask"]
+
+
+def cached_region_mask(width: int, height: int, include_polygon, exclude_polygons) -> np.ndarray:
+    include = None if include_polygon is None else tuple(map(tuple, include_polygon))
+    exclude = tuple(tuple(map(tuple, polygon)) for polygon in exclude_polygons)
+    return _region_masks.get(("region", width, height, include, exclude),
+                             lambda: {"mask": combine_region_masks(width, height, include, exclude)})["mask"]
+
+
 def mask_to_polygon(
     aligned: np.ndarray,
     reference: np.ndarray,
@@ -87,7 +107,7 @@ def mask_to_polygon(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Обнулить пиксели вне ROI на обоих кадрах перед сравнением."""
     height, width = reference.shape[:2]
-    mask = polygon_mask_from_norm_points(width, height, polygon)
+    mask = cached_polygon_mask(width, height, polygon)
 
     aligned_masked = cv2.bitwise_and(aligned, aligned, mask=mask)
     reference_masked = cv2.bitwise_and(reference, reference, mask=mask)

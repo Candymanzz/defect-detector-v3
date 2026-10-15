@@ -168,6 +168,11 @@ public final class MvsIoTransport implements TriggerTransport {
         if (!connected || current == null) throw new IllegalStateException("IO is disconnected; reject output cannot be delivered");
         current.setOutput(port, high);
     }
+    public void setOutputs(Map<Integer, Boolean> levels) {
+        MvsIoDevice current = device;
+        if (!connected || current == null) throw new IllegalStateException("IO is disconnected; reject outputs cannot be delivered");
+        current.setOutputs(levels);
+    }
     /** Latest observed DO levels; empty when disconnected. */
     public Map<Integer, Boolean> outputStates() { return connected ? outputStates : Map.of(); }
     public boolean isConnected() { return connected; }

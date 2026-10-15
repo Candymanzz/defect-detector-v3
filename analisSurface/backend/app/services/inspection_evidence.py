@@ -11,23 +11,23 @@ from app.services.analysis_settings import AnalysisSettings
 from app.services.inspection_curvature import GeometryWeights
 
 
-def _compact_candidates(connected: np.ndarray, geometry=None):
+def _compact_candidates(connected: np.ndarray, geometry=None, *, allow_boundary_separation=True):
     """Keep normal components; separate thick islands from attached edge traces.
 
     Opening is restricted to rejected parents. It never enlarges a region or
     converts the entire boundary into defect support.
     """
     count, labels, stats, _ = cv2.connectedComponentsWithStats(connected, connectivity=8)
-    rejected = np.zeros_like(connected)
+    rejected = np.zeros_like(connected) if allow_boundary_separation else None
     for label in range(1, count):
         x, y, width, height, area = (int(v) for v in stats[label])
         component = labels[y:y + height, x:x + width] == label
         stretch = _local_curvature(geometry, x, y, width, height, component)
         if max(width / height, height / width) <= 3.0 * stretch and area / (width * height) >= 0.5:
             yield x, y, width, height, area, component, False
-        else:
+        elif rejected is not None:
             rejected[y:y + height, x:x + width][component] = 255
-    if not np.any(rejected):
+    if rejected is None or not np.any(rejected):
         return
     islands = cv2.morphologyEx(rejected, cv2.MORPH_OPEN, np.ones((9, 9), np.uint8))
     count, labels, stats, _ = cv2.connectedComponentsWithStats(islands, connectivity=8)
@@ -89,7 +89,9 @@ def compact_residual_evidence(
     )
     score = 0.0
     frame_height, frame_width = gray.shape
-    for x, y, width, height, area, component, separated in _compact_candidates(connected, perspective_weights):
+    for x, y, width, height, area, component, separated in _compact_candidates(
+        connected, perspective_weights, allow_boundary_separation=allow_boundary_separation,
+    ):
         if separated and not allow_boundary_separation:
             continue
         # Long boundary traces are common after an article shift. They must be
@@ -179,7 +181,7 @@ def compact_residual_evidence(
     return score, mask
 
 
-def pre_normalization_compact_signal(reference_gray, current_gray, settings, geometry=None):
+def pre_normalization_compact_signal(reference_gray, current_gray, settings, geometry=None, *, prepared_reference=None):
     """Retain compact, locally supported raw structure before light removal.
 
     A local envelope tolerates registration jitter. Broad smooth fields are
@@ -187,11 +189,12 @@ def pre_normalization_compact_signal(reference_gray, current_gray, settings, geo
     The output joins the ordinary difference map and follows the same learning,
     FP, review and sub-ROI lifecycle, without separate hidden camera state.
     """
-    reference = cv2.GaussianBlur(reference_gray, (3, 3), 0)
     current = cv2.GaussianBlur(current_gray, (3, 3), 0)
-    envelope = np.ones((5, 5), np.uint8)
-    raw = cv2.max(cv2.subtract(current, cv2.dilate(reference, envelope)),
-                  cv2.subtract(cv2.erode(reference, envelope), current))
+    if prepared_reference is None:
+        from app.services.reference_preparation import prepare_raw_compact
+        prepared_reference = prepare_raw_compact(reference_gray)
+    raw = cv2.max(cv2.subtract(current, prepared_reference["maximum"]),
+                  cv2.subtract(prepared_reference["minimum"], current))
     local = cv2.morphologyEx(raw, cv2.MORPH_TOPHAT,
                              cv2.getStructuringElement(cv2.MORPH_RECT, (31, 31)))
     # This raw branch historically has no longitudinal area gain. Carry only

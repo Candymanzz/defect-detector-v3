@@ -65,6 +65,9 @@ python_detector:
   base_url: "http://127.0.0.1:8000"
   # Downscale кадров перед inspect_shm (0.5 ≈ в 2.5× меньше пикселей, чем 0.8).
   inspect_scale: 0.75
+  # One FIFO per server; distribute queued work by measured per-camera cost.
+  # round_robin retains server FIFO isolation for controlled A/B comparisons.
+  scheduling_strategy: weighted
   rois:
     - name: main
       x: 0

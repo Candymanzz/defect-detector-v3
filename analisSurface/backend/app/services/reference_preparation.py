@@ -61,9 +61,15 @@ def prepare_illumination(gray: np.ndarray) -> dict:
     ref_float = gray.astype(np.float32)
     low_ref = cv2.GaussianBlur(ref_float, (9, 9), 0)
     detail = ref_float - low_ref
-    return {"float": ref_float, "low": low_ref,
+    return {"float": ref_float, "low": low_ref, "detail": detail,
             "gx": cv2.Sobel(detail, cv2.CV_32F, 1, 0, ksize=3),
             "gy": cv2.Sobel(detail, cv2.CV_32F, 0, 1, ksize=3)}
+
+
+def prepare_raw_compact(gray: np.ndarray) -> dict:
+    reference = cv2.GaussianBlur(gray, (3, 3), 0)
+    envelope = np.ones((5, 5), np.uint8)
+    return {"minimum": cv2.erode(reference, envelope), "maximum": cv2.dilate(reference, envelope)}
 
 
 def prepare_features(gray: np.ndarray, clahe_clip: float | None, detail: bool,

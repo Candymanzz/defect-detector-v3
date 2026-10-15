@@ -6,6 +6,52 @@ import java.util.concurrent.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class IoRejectPublisherTest {
+    @Test void partiallyFailedBatchCannotBeOverwrittenByAnOlderResult() {
+        var cfg = IoRejectConfig.parse(Map.of("io_reject", Map.of("enabled", true, "mode", "hold",
+                "groups", Map.of(0, Map.of("port", 3), 1, Map.of("port", 4)))));
+        List<Integer> writes = new CopyOnWriteArrayList<>();
+        try (var publisher = new IoRejectPublisher(cfg)) {
+            publisher.bind((port, high) -> {
+                if (port == 4) throw new IllegalStateException("failure after first DO changed");
+                writes.add(port);
+            });
+            assertThrows(IllegalStateException.class, () -> publisher.publishBatch(10, Map.of(0, false, 1, false)));
+            publisher.bind((port, high) -> writes.add(port));
+            publisher.publishBatch(9, Map.of(0, true, 1, true));
+            assertEquals(List.of(3), writes);
+            publisher.publishBatch(10, Map.of(0, false, 1, false));
+            assertEquals(List.of(3, 3, 4), writes);
+        }
+    }
+    @Test void holdBatchUsesOneWriteAndKeepsStaleSequenceAndResetRules() {
+        var cfg = IoRejectConfig.parse(Map.of("io_reject", Map.of("enabled", true, "mode", "hold",
+                "groups", Map.of(0, Map.of("port", 3, "active_high", false), 1, Map.of("port", 4, "active_high", false)))));
+        List<Map<Integer, Boolean>> batches = new CopyOnWriteArrayList<>();
+        try (var publisher = new IoRejectPublisher(cfg)) {
+            publisher.bind(new IoRejectPublisher.Writer() {
+                public void write(int port, boolean high) { fail("must use the SDK batch path"); }
+                public void writeAll(Map<Integer, Boolean> levels) { batches.add(Map.copyOf(levels)); }
+            });
+            publisher.publishBatch(10, Map.of(0, false, 1, true));
+            assertEquals(List.of(Map.of(3, false, 4, true)), batches);
+            publisher.publishBatch(9, Map.of(0, true, 1, false));
+            assertEquals(1, batches.size(), "old results must not overwrite newer levels");
+            publisher.resetIdle();
+            assertEquals(Map.of(3, true, 4, true), batches.get(1));
+            publisher.publishBatch(1, Map.of(0, false, 1, false));
+            assertEquals(Map.of(3, false, 4, false), batches.get(2));
+        }
+    }
+    @Test void failedHoldBatchIsNotAcknowledgedAndCanBeRetried() {
+        var cfg = IoRejectConfig.parse(Map.of("io_reject", Map.of("enabled", true, "mode", "hold",
+                "groups", Map.of(0, Map.of("port", 3)))));
+        try (var publisher = new IoRejectPublisher(cfg)) {
+            publisher.bind((port, high) -> { throw new IllegalStateException("SDK disconnected"); });
+            assertThrows(IllegalStateException.class, () -> publisher.publishBatch(1, Map.of(0, false)));
+            List<Boolean> writes = new CopyOnWriteArrayList<>(); publisher.bind((port, high) -> writes.add(high));
+            publisher.publishBatch(1, Map.of(0, false)); assertEquals(List.of(true), writes);
+        }
+    }
     @Test void sessionResetReleasesBothLinesAndAcceptsNewSequences() {
         var cfg = IoRejectConfig.parse(Map.of("io_reject", Map.of("enabled", true, "mode", "hold",
                 "groups", Map.of(0, Map.of("port", 3, "active_high", false),

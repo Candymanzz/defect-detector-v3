@@ -28,6 +28,8 @@ from app.services.inspection_curvature import (
 )
 from app.services.analysis_settings_presets import DEFAULT_STRENGTHS, expand_merged, normalize_strengths
 from app.services.inspection_geometry import (
+    cached_polygon_mask,
+    cached_region_mask,
     PerspectiveLine,
     combine_region_masks,
     far_tip_weights,
@@ -1249,7 +1251,7 @@ class InspectionService:
         else:
             diff_map = diff_crop
         if polygon is not None:
-            roi_diff_mask = polygon_mask_from_norm_points(
+            roi_diff_mask = cached_polygon_mask(
                 reference.shape[1], reference.shape[0], polygon,
             )
             diff_map[roi_diff_mask == 0] = 0
@@ -1557,7 +1559,7 @@ class InspectionService:
         # the displayed heatmap back to the configured inspection region.
         heatmap_visual_mask = segmentation_mask
         if polygon is not None and heatmap_u8 is not None:
-            roi_mask = polygon_mask_from_norm_points(heatmap_u8.shape[1], heatmap_u8.shape[0], polygon) > 0
+            roi_mask = cached_polygon_mask(heatmap_u8.shape[1], heatmap_u8.shape[0], polygon, boolean=True)
             heatmap_u8 = np.where(roi_mask, heatmap_u8, 0).astype(np.uint8)
             heatmap_visual_mask = segmentation_mask.copy()
             heatmap_visual_mask[~roi_mask] = 0
@@ -1738,7 +1740,7 @@ class InspectionService:
         """Единый расчёт вердикта для live-inspect и ознакомительного review."""
         h, w = filtered_diff_map.shape[:2]
         hole_polygons = [zone.points for zone in sub_zones]
-        main_region_mask = combine_region_masks(w, h, polygon, hole_polygons)
+        main_region_mask = cached_region_mask(w, h, polygon, hole_polygons)
         main_roi_score = (
             float(precomputed_main_score)
             if precomputed_main_score is not None
@@ -1753,7 +1755,7 @@ class InspectionService:
         )
         sub_zone_scores: list[RoiSubZoneScore] = []
         for zone in sub_zones:
-            zone_mask = polygon_mask_from_norm_points(w, h, zone.points) > 0
+            zone_mask = cached_polygon_mask(w, h, zone.points, boolean=True)
             zone_threshold = zone.threshold if zone.threshold is not None else inspection_threshold
             zone_score = self._score_region(
                 filtered_diff_map,
@@ -2093,7 +2095,7 @@ class InspectionService:
     ) -> dict[str, float]:
         """Сводные метрики активности внутри полигона — для FP-recheck и score по ROI."""
         h, w = diff_map.shape[:2]
-        zone_mask = polygon_mask_from_norm_points(w, h, points) > 0
+        zone_mask = cached_polygon_mask(w, h, points, boolean=True)
         if not np.any(zone_mask):
             return {"diff_q90": 0.0, "diff_max": 0.0, "active_ratio": 0.0, "score": 0.0}
 
@@ -2203,7 +2205,7 @@ class InspectionService:
         for zone in zones:
             if zone.fp_crop is None or zone.fp_crop.size == 0:
                 continue
-            zone_mask = polygon_mask_from_norm_points(width, height, zone.points_norm_ref)
+            zone_mask = cached_polygon_mask(width, height, zone.points_norm_ref)
             if not np.any(zone_mask):
                 continue
             # Only the polygon is compared against the mini-etalon. Its outer
@@ -2258,7 +2260,7 @@ class InspectionService:
             expected_crop = expected
             if expected_crop.shape[:2] != current_crop.shape[:2]:
                 expected_crop = cv2.resize(expected_crop, (crop_w, crop_h), interpolation=cv2.INTER_LINEAR)
-        local_mask = polygon_mask_from_norm_points(width, height, points)[y0 : y0 + crop_h, x0 : x0 + crop_w]
+        local_mask = cached_polygon_mask(width, height, points)[y0 : y0 + crop_h, x0 : x0 + crop_w]
         verified_normal_mask = np.zeros_like(local_mask, dtype=bool)
         if not expected_is_full_frame and np.any(local_mask):
             # A saved normal is an alternative acceptable appearance, not an
@@ -2389,7 +2391,7 @@ class InspectionService:
                 or activity["score"] >= 0.08
             )
             if not triggered:
-                zone_mask = polygon_mask_from_norm_points(
+                zone_mask = cached_polygon_mask(
                     diff_map.shape[1], diff_map.shape[0], points,
                 ) > 0
                 # A compact weak defect can be significant yet occupy much
@@ -2941,10 +2943,16 @@ class InspectionService:
         # for defects but can turn a smooth shadow/glare into artificial texture.
         illumination_confidence = None
         compensate_light = vertical_compensation if illumination_compensation is None else illumination_compensation
-        compact_raw = (
-            pre_normalization_compact_signal(ref_gray, cur_gray, settings, perspective_weights)
-            if compensate_light else None
-        )
+        compact_raw = None
+        if compensate_light:
+            from app.services.reference_preparation import prepare_raw_compact
+            compact_raw = pre_normalization_compact_signal(
+                ref_gray, cur_gray, settings, perspective_weights,
+                prepared_reference=self._reference_preparation.get(
+                    ("raw_compact", reference_key), lambda: prepare_raw_compact(ref_gray),
+                ),
+            )
+        compact_finished = time.perf_counter()
         if compensate_light:
             # Remove the smooth photometric field before CLAHE can turn its
             # slope into texture. Keep pixels containing changed fine detail.
@@ -2956,6 +2964,7 @@ class InspectionService:
                 prepared_reference=self._reference_preparation.get(
                     ("illumination", reference_key), lambda: prepare_illumination(ref_gray),
                 ),
+                return_corrected=False,
             )
             cur_gray = normalized_current
 
@@ -3222,7 +3231,8 @@ class InspectionService:
         if illumination_diagnostics is not None:
             logging.getLogger("uvicorn.error").info(
                 "python_diff_timing pid=%s width=%s height=%s gray_ms=%.3f illumination_ms=%.3f "
-                "preparation_ms=%.3f denoise_ms=%.3f morphology_ms=%.3f structure_ms=%.3f",
+                "preparation_ms=%.3f denoise_ms=%.3f morphology_ms=%.3f structure_ms=%.3f "
+                "compact_ms=%.3f illumination_only_ms=%.3f",
                 os.getpid(), aligned.shape[1], aligned.shape[0],
                 (gray_finished-diff_started)*1000,
                 (illumination_finished-gray_finished)*1000,
@@ -3230,6 +3240,8 @@ class InspectionService:
                 (denoise_finished-preparation_finished)*1000,
                 (morphology_finished-denoise_finished)*1000,
                 (time.perf_counter()-morphology_finished)*1000,
+                (compact_finished-gray_finished)*1000,
+                (illumination_finished-compact_finished)*1000,
             )
         return result
 
@@ -3242,7 +3254,8 @@ class InspectionService:
         diagnostics: Optional[dict[str, object]] = None,
         normalized_current: Optional[np.ndarray] = None,
         prepared_reference: Optional[dict[str, np.ndarray]] = None,
-    ) -> tuple[np.ndarray, np.ndarray]:
+        return_corrected: bool = True,
+    ) -> tuple[Optional[np.ndarray], np.ndarray]:
         """Suppress broad shadow/glare while retaining local structural changes."""
         height, width = robust_gray.shape[:2]
         if diagnostics is not None:
@@ -3284,11 +3297,14 @@ class InspectionService:
 
         # A genuine defect changes high-frequency detail or gradient structure;
         # only pixels preserving both are eligible for illumination suppression.
-        detail_delta = np.abs((cur_float - low_cur) - (ref_float - low_ref))
+        cur_detail = cur_float - low_cur
+        ref_detail = prepared_reference.get("detail")
+        if ref_detail is None:
+            ref_detail = ref_float - low_ref
+        detail_delta = np.abs(cur_detail - ref_detail)
         detail_confidence = _gaussian_similarity(detail_delta, _ILLUMINATION_DETAIL_SCALE)
         # A smooth light field has gradients too. Compare the remaining
         # detail, otherwise the slope of a glare protects the glare itself.
-        cur_detail = cur_float - low_cur
         ref_gx = prepared_reference["gx"]
         ref_gy = prepared_reference["gy"]
         cur_gx = cv2.Sobel(cur_detail, cv2.CV_32F, 1, 0, ksize=3)
@@ -3331,11 +3347,12 @@ class InspectionService:
         )
 
         raw_float = robust_gray.astype(np.float32)
-        corrected = raw_float * (1.0 - suppression * confidence)
-        # Preserved local detail is evidence of illumination even when a
-        # glare does not span most of the image width.
-        corrected[confidence >= 0.55] = 0.0
-        corrected[protected_mask] = np.maximum(corrected[protected_mask], raw_float[protected_mask])
+        corrected = None
+        if return_corrected or normalized_current is None:
+            corrected = raw_float * (1.0 - suppression * confidence)
+            # The production caller uses normalized_current + confidence only.
+            corrected[confidence >= 0.55] = 0.0
+            corrected[protected_mask] = np.maximum(corrected[protected_mask], raw_float[protected_mask])
 
         if diagnostics is not None:
             signed_shift = low_cur - low_ref
@@ -3360,7 +3377,7 @@ class InspectionService:
                 raw_energy=round(raw_energy, 1),
                 corrected_energy=round(corrected_energy, 1),
             )
-        return np.clip(corrected, 0.0, 255.0).astype(np.uint8), confidence
+        return (np.clip(corrected, 0.0, 255.0).astype(np.uint8) if return_corrected else None), confidence
 
     @staticmethod
     def _far_edge_extra_gain(settings: AnalysisSettings) -> float:
