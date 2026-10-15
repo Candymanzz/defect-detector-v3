@@ -16,6 +16,8 @@ def _assert_health(url: str, expected_service: str | None = None) -> None:
         pytest.skip(f"service not reachable at {url}: {exc}")
 
     assert response.status_code == 200, f"{url} returned {response.status_code}"
+    if expected_service is None and response.text.strip() == "ok":
+        return  # The orchestrator health endpoint intentionally returns text/plain.
     payload = response.json()
     assert payload.get("status") == "ok", payload
     if expected_service is not None:

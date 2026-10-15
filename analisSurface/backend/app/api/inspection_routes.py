@@ -17,7 +17,8 @@ import cv2
 import numpy as np
 from fastapi import APIRouter, HTTPException
 
-from app.api.dependencies import inspect_executor, inspection_service
+from app.api.dependencies import heatmap_executor, inspect_executor, inspection_service
+from app.services.inspection_workload import BackgroundBusy
 from app.api.mappers import to_inspect_response, to_visuals_response
 from app.api.schemas import (
     DetectorHealthResponse,
@@ -383,7 +384,9 @@ async def render_heatmap(payload: DeferredHeatmapRequest) -> ShmVisualsResponse:
         return to_visuals_response(replace(result, heatmap_u8=heatmap), {"heatmap": output})
 
     try:
-        return await asyncio.get_running_loop().run_in_executor(inspect_executor, render)
+        return await asyncio.get_running_loop().run_in_executor(heatmap_executor, render)
+    except BackgroundBusy as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

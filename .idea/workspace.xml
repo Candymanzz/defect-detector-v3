@@ -1,11 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="исправил нехватку прав чтобы писать в /opt/logs">
+    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="переход на 6 процессов и шесть ядер">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/RUN.md" beforeDir="false" afterPath="$PROJECT_DIR$/RUN.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/linux/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/deploy/linux/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rebuild-and-run.sh" beforeDir="false" afterPath="$PROJECT_DIR$/rebuild-and-run.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/analisSurface/backend/app/api/dependencies.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/app/api/dependencies.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/analisSurface/backend/app/api/inspection_routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/app/api/inspection_routes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/analisSurface/backend/app/services/inspection_positioning.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/app/services/inspection_positioning.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/analisSurface/backend/app/services/inspection_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/app/services/inspection_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/analisSurface/backend/tests/integration/test_live_services.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/tests/integration/test_live_services.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/analisSurface/backend/tests/test_deferred_heatmaps.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/tests/test_deferred_heatmaps.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/analisSurface/backend/tests/test_inspection_positioning.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/tests/test_inspection_positioning.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/analisSurface/backend/tests/test_inspection_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/tests/test_inspection_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/analisSurface/backend/tests/test_perspective_regressions.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/tests/test_perspective_regressions.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/analisSurface/backend/tests/test_positioning_real_frames.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/tests/test_positioning_real_frames.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/analisSurface/backend/tests/test_session_logging.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/tests/test_session_logging.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config.exemple/blocks/20-detectors.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/config.exemple/blocks/20-detectors.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/capture/FrameJpegWriter.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/capture/FrameJpegWriter.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/pipeline/BinaryInspectHeaders.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/pipeline/BinaryInspectHeaders.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/clientapi/DeferredHeatmapTransportTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/clientapi/DeferredHeatmapTransportTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/clientapi/ReferenceScopeTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/clientapi/ReferenceScopeTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/pipeline/BinaryInspectHeadersTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/pipeline/BinaryInspectHeadersTest.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -113,6 +128,8 @@
     <MESSAGE value="мега логирование" />
     <MESSAGE value="ускорение времени и  обновление версий фронта через ребилд энд ран" />
     <MESSAGE value="исправил нехватку прав чтобы писать в /opt/logs" />
-    <option name="LAST_COMMIT_MESSAGE" value="исправил нехватку прав чтобы писать в /opt/logs" />
+    <MESSAGE value="больше не требуется подтверждение прав для обновления фронта" />
+    <MESSAGE value="переход на 6 процессов и шесть ядер" />
+    <option name="LAST_COMMIT_MESSAGE" value="переход на 6 процессов и шесть ядер" />
   </component>
 </project>
