@@ -2,9 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="исправил нехватку прав чтобы писать в /opt/logs">
-      <change afterPath="$PROJECT_DIR$/front-end/electron/tests/session-logger.node-test.cjs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/front-end/electron/session-logger.cjs" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/electron/session-logger.cjs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/RUN.md" beforeDir="false" afterPath="$PROJECT_DIR$/RUN.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/linux/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/deploy/linux/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rebuild-and-run.sh" beforeDir="false" afterPath="$PROJECT_DIR$/rebuild-and-run.sh" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

@@ -17,6 +17,24 @@ bash ./rebuild-and-run.sh -f    # Оркестратор и camera-worker, бе�
 повторно. Для защищённого каталога скрипт запрашивает `sudo` до начала сборки.
 Путь установки можно изменить через `FRONTEND_INSTALL_DIR`. После установки
 нужно отдельно перезапустить Electron киоска, чтобы загрузить новую версию.
+
+Однократная настройка обновлений без повторного ввода пароля (пользователь `o`):
+
+```bash
+sudo bash deploy/linux/setup-frontend-updates.sh o
+bash ./rebuild-and-run.sh -c -o --restart-frontend
+```
+
+Настройка передаёт `o` только `dist/`, `electron/` и `package.json`. Каталог
+приложения, Electron в `node_modules` и `chrome-sandbox` сохраняют прежние права
+доступа к среде исполнения; корень приложения принадлежит `root`.
+`--restart-frontend` вызывает через `sudo -n` фиксированную команду
+`/usr/local/sbin/defect-detector-restart-ui` без аргументов. Она завершает только
+процессы Electron пользователя `kiosk`; цикл киоска запускает их снова через 5 секунд.
+Без этого параметра пересборка не перезапускает интерфейс. Команда настройки
+сохраняет сведения о прежних правах и копии существующего helper/sudoers в
+`/var/backups/defect-detector-frontend.*`.
+
 Python, geometry и positioning не пересобираются.
 `-f`, `--skip-frontend`, `--no-frontend` пропускают сборку и установку фронта.
 Старые параметры `-r`, `--build-only`, `--config`, `--rt-interval`

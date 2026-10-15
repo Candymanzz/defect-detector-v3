@@ -6,6 +6,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKIP_CAMERA_WORKER=false
 SKIP_ORCHESTRATOR=false
 SKIP_FRONTEND=false
+RESTART_FRONTEND=false
 FRONTEND_INSTALL_DIR="${FRONTEND_INSTALL_DIR:-/opt/defect-detector-ui}"
 FRONTEND_INSTALL_COMMAND=()
 LEGACY_OPTIONS=false
@@ -16,6 +17,7 @@ Usage: bash ./rebuild-and-run.sh [options]
   -c, --skip-camera-worker  Skip camera-worker rebuild
   -o, --skip-orchestrator   Skip orchestrator rebuild
   -f, --skip-frontend       Skip frontend build and kiosk installation
+  --restart-frontend       Restart kiosk UI after installation, without a password
   -h, --help               Show this help
 
 Rebuild orchestrator, camera-worker and frontend; services are not stopped or started.
@@ -23,6 +25,7 @@ Frontend: npm run build, then copy dist/, electron/ and package.json to
 /opt/defect-detector-ui (override with FRONTEND_INSTALL_DIR). Existing kiosk
 Electron/node_modules are reused. sudo is requested only for protected files.
 Restart the kiosk Electron separately to load the new UI.
+For updates without sudo prompts, run deploy/linux/setup-frontend-updates.sh once as root.
 Orchestrator build requires JDK 17+ and Maven; camera build requires CMake
 and a C compiler. Frontend requires Node.js and npm (NVM installs are detected).
 MVS_ROOT defaults to /opt/MVS.
@@ -63,10 +66,22 @@ prepare_frontend_install() {
     || fail "Kiosk Electron missing under $FRONTEND_INSTALL_DIR/node_modules; provision the kiosk first (deploy/linux/README.md), or pass -f"
   local needs_sudo=false
   local destination
-  [[ -w "$FRONTEND_INSTALL_DIR" ]] || needs_sudo=true
-  for destination in "$FRONTEND_INSTALL_DIR/electron" "$FRONTEND_INSTALL_DIR/dist" "$FRONTEND_INSTALL_DIR/package.json"; do
-    if [[ -e "$destination" && ! -w "$destination" ]]; then needs_sudo=true; fi
+  # Existing child directories can be updated without write access to /opt itself.
+  for destination in "$FRONTEND_INSTALL_DIR/electron" "$FRONTEND_INSTALL_DIR/dist"; do
+    if [[ -d "$destination" ]]; then
+      if [[ ! -w "$destination" || ! -x "$destination" ]] \
+          || [[ -n "$(find "$destination" ! -type l ! -writable -print -quit)" ]]; then
+        needs_sudo=true
+      fi
+    elif [[ ! -w "$FRONTEND_INSTALL_DIR" ]]; then
+      needs_sudo=true
+    fi
   done
+  if [[ -e "$FRONTEND_INSTALL_DIR/package.json" ]]; then
+    [[ -w "$FRONTEND_INSTALL_DIR/package.json" ]] || needs_sudo=true
+  elif [[ ! -w "$FRONTEND_INSTALL_DIR" ]]; then
+    needs_sudo=true
+  fi
   if [[ "$needs_sudo" == true ]]; then
     if ((EUID != 0)); then
       require_tool sudo
@@ -137,6 +152,7 @@ while (($#)); do
     -c|-с|--skip-camera-worker) SKIP_CAMERA_WORKER=true; shift ;;
     -o|--skip-orchestrator) SKIP_ORCHESTRATOR=true; shift ;;
     -f|--skip-frontend|--no-frontend) SKIP_FRONTEND=true; shift ;;
+    --restart-frontend) RESTART_FRONTEND=true; shift ;;
     -r|--rt-diagnostics|--build-only) LEGACY_OPTIONS=true; shift ;;
     --config|--rt-interval)
       [[ $# -ge 2 && -n "$2" && "$2" != -* ]] || fail "$1 requires a value"
@@ -145,6 +161,16 @@ while (($#)); do
     *) fail "Unknown option: $1 (use --help)" ;;
   esac
 done
+if [[ "$RESTART_FRONTEND" == true ]]; then
+  [[ "$SKIP_FRONTEND" == false ]] || fail "--restart-frontend cannot be combined with --skip-frontend"
+  [[ "$FRONTEND_INSTALL_DIR" == /opt/defect-detector-ui ]] \
+    || fail "--restart-frontend only restarts the installed /opt/defect-detector-ui kiosk"
+  [[ -x /usr/local/sbin/defect-detector-restart-ui ]] \
+    || fail "Run sudo bash deploy/linux/setup-frontend-updates.sh once to configure kiosk restart"
+  require_tool sudo
+  sudo -n -l /usr/local/sbin/defect-detector-restart-ui >/dev/null \
+    || fail "Passwordless kiosk restart is not configured; run deploy/linux/setup-frontend-updates.sh as root once"
+fi
 if [[ "$LEGACY_OPTIONS" == true ]]; then
   echo "Build-only: legacy launch options are ignored. RT diagnostics: bash ./run-rt.sh -r"
 fi
@@ -209,7 +235,12 @@ if [[ "$SKIP_FRONTEND" == false ]]; then
   "${FRONTEND_INSTALL_COMMAND[@]}" cp -R "$REPO_ROOT/front-end/dist/." "$FRONTEND_INSTALL_DIR/dist/"
   "${FRONTEND_INSTALL_COMMAND[@]}" cp -R "$REPO_ROOT/front-end/electron/." "$FRONTEND_INSTALL_DIR/electron/"
   "${FRONTEND_INSTALL_COMMAND[@]}" cp "$REPO_ROOT/front-end/package.json" "$FRONTEND_INSTALL_DIR/package.json"
-  echo "Frontend installed. Restart the kiosk Electron to load this build."
+  if [[ "$RESTART_FRONTEND" == true ]]; then
+    step "Restart kiosk UI"
+    sudo -n /usr/local/sbin/defect-detector-restart-ui
+  else
+    echo "Frontend installed. Restart the kiosk Electron to load this build (--restart-frontend)."
+  fi
 fi
 
 step "Build complete"

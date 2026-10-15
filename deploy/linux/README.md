@@ -31,6 +31,19 @@ bash ./run-supervised.sh -r --rt-interval 2
 Тесты: `bash ./run-all-tests.sh`. Инструкции: [RUN.md](../../RUN.md).
 После установки отдельно перезапустите Electron киоска, чтобы загрузить новый UI.
 
+Чтобы пользователь `o` обновлял фронт без повторного ввода пароля:
+
+```bash
+sudo bash deploy/linux/setup-frontend-updates.sh o   # Один раз
+bash ./rebuild-and-run.sh -c -o --restart-frontend
+```
+
+Настройка разрешает запись только в `dist/`, `electron/` и `package.json`.
+`node_modules` и `chrome-sandbox` не меняются. Для перезапуска выдаётся NOPASSWD
+только на `/usr/local/sbin/defect-detector-restart-ui` без аргументов: завершение
+Electron пользователя `kiosk`, который автоматически запускается циклом киоска.
+Backend эта команда не перезапускает.
+
 Для одинаковых ПК с Ubuntu 24.04 и одинаковой нумерацией CPU. Скрипт работает
 на Python 3 без дополнительных Python-пакетов. Запускать его на Linux.
 
