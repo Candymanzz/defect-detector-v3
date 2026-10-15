@@ -1,26 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="мега логирование">
+    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="исправил нехватку прав чтобы писать в /opt/logs">
+      <change afterPath="$PROJECT_DIR$/front-end/electron/tests/session-logger.node-test.cjs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/RUN.md" beforeDir="false" afterPath="$PROJECT_DIR$/RUN.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/analisSurface/backend/app/api/inspection_routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/app/api/inspection_routes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/analisSurface/backend/app/api/schemas.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/app/api/schemas.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/analisSurface/backend/app/services/inspection_models.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/app/services/inspection_models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/analisSurface/backend/app/services/inspection_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/app/services/inspection_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.exemple/blocks/20-detectors.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/config.exemple/blocks/20-detectors.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/linux/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/deploy/linux/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/clientapi/AnalisSurfaceHttpBinaryRpcSupervisor.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/clientapi/AnalisSurfaceHttpBinaryRpcSupervisor.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/fanout/BucketFanOutSink.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/fanout/BucketFanOutSink.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/fanout/FanOutCoordinator.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/fanout/FanOutCoordinator.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/io/mvs/IoRejectPublisher.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/io/mvs/IoRejectPublisher.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/io/mvs/JnaMvsIoDevice.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/io/mvs/JnaMvsIoDevice.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/pipeline/bucket/BucketInspectionAggregator.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/pipeline/bucket/BucketInspectionAggregator.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/pipeline/stages/InspectPythonExecutor.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/pipeline/stages/InspectPythonExecutor.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/ui/UiArtifactsSidecar.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/ui/UiArtifactsSidecar.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/pipeline/bucket/BucketInspectionAggregatorTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/pipeline/bucket/BucketInspectionAggregatorTest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rebuild-and-run.sh" beforeDir="false" afterPath="$PROJECT_DIR$/rebuild-and-run.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ЗАПУСК.md" beforeDir="false" afterPath="$PROJECT_DIR$/ЗАПУСК.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/front-end/electron/session-logger.cjs" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/electron/session-logger.cjs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -126,6 +110,8 @@
     <MESSAGE value="фикс" />
     <MESSAGE value="убрал перрезапуск в ребилд анд ран" />
     <MESSAGE value="мега логирование" />
-    <option name="LAST_COMMIT_MESSAGE" value="мега логирование" />
+    <MESSAGE value="ускорение времени и  обновление версий фронта через ребилд энд ран" />
+    <MESSAGE value="исправил нехватку прав чтобы писать в /opt/logs" />
+    <option name="LAST_COMMIT_MESSAGE" value="исправил нехватку прав чтобы писать в /opt/logs" />
   </component>
 </project>
