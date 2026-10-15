@@ -144,25 +144,32 @@ class InspectPythonExecutorTest {
             }
         };
 
-        PipelineState result = executor.apply(
-                stateWithCapture(),
-                3,
-                "bench",
-                "detector-1",
-                reference(),
-                Map.of("defer_heatmap", true, "inspect_scale", 0.75),
-                List.of(python),
-                new Semaphore(1),
-                new AtomicInteger(0)
-        );
+        for (int cameraId : new int[] { 2, 7, 3 }) {
+            PipelineState result = executor.apply(
+                    stateWithCapture(),
+                    cameraId,
+                    "bench",
+                    "detector-1",
+                    reference(),
+                    Map.of("defer_heatmap", true, "inspect_scale", 0.75,
+                            "inspect_scale_by_camera", Map.of(2, 0.5, 7, 0.5)),
+                    List.of(python),
+                    new Semaphore(1),
+                    new AtomicInteger(0)
+            );
 
-        assertEquals(BinaryProtocol.MSG_RESPONSE, result.py().type());
-        assertTrue(Boolean.TRUE.equals(result.py().header().get("ok")));
-        assertEquals(3, sentHeader.get().get("camera_id"));
-        assertFalse(sentHeader.get().containsKey("heatmap_u8_output_path"));
-        assertFalse(sentHeader.get().containsKey("heatmap_max_width"));
-        assertEquals(0.75, ((Number) sentHeader.get().get("inspect_scale")).doubleValue(), 1e-9);
-        assertTrue(result.pythonMs() >= 0);
+            assertEquals(BinaryProtocol.MSG_RESPONSE, result.py().type());
+            assertTrue(Boolean.TRUE.equals(result.py().header().get("ok")));
+            assertEquals(cameraId, sentHeader.get().get("camera_id"));
+            assertFalse(sentHeader.get().containsKey("heatmap_u8_output_path"));
+            assertFalse(sentHeader.get().containsKey("heatmap_max_width"));
+            assertEquals(cameraId == 3 ? 0.75 : 0.5,
+                    ((Number) sentHeader.get().get("inspect_scale")).doubleValue(), 1e-9);
+            // Descriptors remain at full resolution: Python scales the aligned pair itself.
+            assertEquals(100, sentHeader.get().get("width"));
+            assertEquals(100, sentHeader.get().get("reference_width"));
+            assertTrue(result.pythonMs() >= 0);
+        }
     }
 
     @Test
@@ -258,7 +265,7 @@ class InspectPythonExecutorTest {
                 "bench",
                 "detector-1",
                 reference(),
-                Map.of("inspect_scale", 0.5),
+                Map.of("inspect_scale", 0.75, "inspect_scale_by_camera", Map.of("2", 0.5)),
                 List.of(python),
                 new Semaphore(1),
                 new AtomicInteger(0)

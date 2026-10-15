@@ -1,29 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="оптимизация питона">
+    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="ультра мега дупер оптимизация пайплайна">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/analisSurface/backend/INSPECTION_OPTIMIZATION.md" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/INSPECTION_OPTIMIZATION.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/analisSurface/backend/app/services/inspection_evidence.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/app/services/inspection_evidence.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/analisSurface/backend/app/services/inspection_geometry.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/app/services/inspection_geometry.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/analisSurface/backend/app/services/inspection_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/app/services/inspection_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/analisSurface/backend/app/services/reference_preparation.py" beforeDir="false" afterPath="$PROJECT_DIR$/analisSurface/backend/app/services/reference_preparation.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/config.exemple/blocks/20-detectors.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/config.exemple/blocks/20-detectors.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/logs/io-module.log" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/logs/io-module.log" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/logs/io-trigger.log" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/logs/io-trigger.log" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/logs/orchestrator-runtime.log" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/logs/orchestrator-runtime.log" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/logs/pipeline.log" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/logs/pipeline.log" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/logs/plc-fins.log" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/logs/plc-fins.log" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/bootstrap/service/PipelineCameraRuntimeService.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/bootstrap/service/PipelineCameraRuntimeService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/fanout/FanOutCoordinator.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/fanout/FanOutCoordinator.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/io/mvs/IoRejectPublisher.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/io/mvs/IoRejectPublisher.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/io/mvs/JnaMvsIoDevice.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/io/mvs/JnaMvsIoDevice.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/io/mvs/MvsIoDevice.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/io/mvs/MvsIoDevice.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/io/mvs/MvsIoTransport.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/io/mvs/MvsIoTransport.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config.exemple/config.json" beforeDir="false" afterPath="$PROJECT_DIR$/config.exemple/config.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/pipeline/stages/InspectPythonExecutor.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/pipeline/stages/InspectPythonExecutor.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/trigger/InspectionTriggerRuntime.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/trigger/InspectionTriggerRuntime.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/fanout/DoRejectRoutingTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/fanout/DoRejectRoutingTest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/io/mvs/IoRejectPublisherTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/io/mvs/IoRejectPublisherTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/ui/UiArtifactsSidecar.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/ui/UiArtifactsSidecar.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -135,6 +118,7 @@
     <MESSAGE value="переход на 6 процессов и шесть ядер" />
     <MESSAGE value="исправления записи в память" />
     <MESSAGE value="оптимизация питона" />
-    <option name="LAST_COMMIT_MESSAGE" value="оптимизация питона" />
+    <MESSAGE value="ультра мега дупер оптимизация пайплайна" />
+    <option name="LAST_COMMIT_MESSAGE" value="ультра мега дупер оптимизация пайплайна" />
   </component>
 </project>

@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.pipeline.stages;
 
 import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
+import com.example.iml.orchestrator.integration.config.InspectionScaleConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
@@ -141,10 +142,7 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                         heatmapMaxWidth
                 );
                 applyAnalysisProfileAndRuntimeOverrides(pyHeader, cameraId, productType, pythonCfg);
-                double testInspectScale = YamlScalars.toDouble(
-                        pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
-                        1.0
-                );
+                double testInspectScale = InspectionScaleConfig.resolve(pythonCfg, cameraId);
                 if (testInspectScale < 0.999d) {
                     pyHeader.put("inspect_scale", testInspectScale);
                 }
@@ -184,10 +182,7 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                 if (temporaryAnalysis instanceof Map<?, ?> temporary && !temporary.isEmpty()) {
                     pyHeader.put("analysis_test_settings", temporaryAnalysis);
                 }
-                double inspectScale = YamlScalars.toDouble(
-                        pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
-                        1.0
-                );
+                double inspectScale = InspectionScaleConfig.resolve(pythonCfg, cameraId);
                 if (inspectScale < 0.999d) {
                     // Keep current/reference SHM descriptors at the same full resolution.
                     // Python aligns first and then resizes the pair atomically, avoiding
@@ -200,9 +195,10 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                     pythonCfg == null ? "weighted" : pythonCfg.getOrDefault("scheduling_strategy", "weighted")));
             try (var reservation = pythonWorkload.reserve(pythonPool, cameraId + ":" + productType, weighted, pythonRoundRobin)) {
                 BinaryRpcSupervisor python = reservation.client();
-                log.info("python schedule cam={} frame={} server={} estimated_job_ms={} estimated_queue_ms={}",
+                log.info("python schedule cam={} frame={} server={} estimated_job_ms={} estimated_queue_ms={} inspect_scale={}",
                         cameraId, state.capture().header().get("frame_id"), python.supervisorLabel(),
-                        reservation.expectedMs(), reservation.queuedWorkMs());
+                        reservation.expectedMs(), reservation.queuedWorkMs(),
+                        InspectionScaleConfig.resolve(pythonCfg, cameraId));
                 reservation.awaitTurn();
                 pythonSlots.acquire();
                 try {

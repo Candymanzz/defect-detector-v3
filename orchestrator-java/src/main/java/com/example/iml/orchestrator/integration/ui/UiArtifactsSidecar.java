@@ -11,6 +11,7 @@ import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.capture.ImlShmJanitor;
 import com.example.iml.orchestrator.integration.capture.LineFramePinService;
 import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
+import com.example.iml.orchestrator.integration.config.InspectionScaleConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
@@ -1129,10 +1130,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             if (geometryRuntimeConfig != null) {
                 geometryRuntimeConfig.applyToPythonHeader(pyHeader, pythonCfg, analysisProfile);
             }
-            double inspectScale = YamlScalars.toDouble(
-                    pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
-                    1.0d
-            );
+            double inspectScale = InspectionScaleConfig.resolve(pythonCfg, cameraId);
             if (inspectScale < 0.999d) {
                 pyHeader.put("inspect_scale", inspectScale);
             }
