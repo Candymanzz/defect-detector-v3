@@ -174,8 +174,9 @@ public final class JnaMvsIoDevice implements MvsIoDevice {
             String source = high ? "On" : "Off";
             setEnum("LineSource", source);
             outputLevels.put(port, high);
-            log.info("io event=hold_output line={} source={} requested_high={} observed_high={}",
-                    output.line(), source, high, bool("LineStatus"));
+            // The SDK write succeeded. A diagnostic serial read must not delay the PLC edge.
+            log.info("io event=hold_output line={} source={} requested_high={}",
+                    output.line(), source, high);
         } finally { cleanup(() -> setEnum("LineSelector", oldLine)); }
     }
 

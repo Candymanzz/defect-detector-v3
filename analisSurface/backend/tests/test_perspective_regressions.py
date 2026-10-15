@@ -192,7 +192,7 @@ def test_heatmap_keeps_components_omitted_from_review(inspection_service, settin
     inspection_service.set_reference_frame("heatmap-regression", reference)
     result = inspection_service.inspect_frame(
         "heatmap-regression", current, settings=settings,
-        include_visuals=True, store_learning_review=False,
+        include_visuals=True, store_learning_review=True,
     )
     assert candidate_counts[-1] >= 2
     expected = inspection_service._build_heatmap_gray(result.segmentation_mask, result.diff_map)

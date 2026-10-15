@@ -211,6 +211,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
             case "health" -> health();
             case "set_reference_shm" -> uploadRefShm(header);
             case "inspect_shm" -> inspectShm(header);
+            case "render_heatmap" -> renderHeatmap(header);
             case "inspect_test_frame" -> inspectTestFrame(header);
             case "replace_fp_zones" -> replaceFpZones(header);
             case "sync_client_reference_bundle" -> syncClientReferenceBundle(header);
@@ -432,6 +433,19 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         return inspectShmWithReference(header);
     }
 
+    private BinaryProtocol.Message renderHeatmap(Map<String, Object> header) throws IOException {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("token", header.get("deferred_heatmap_token"));
+        body.put("heatmap_u8_output_path", header.get("heatmap_u8_output_path"));
+        copyIfPresent(body, header, "heatmap_max_width");
+        HttpResponse<byte[]> resp = httpPostJson("/render-heatmap", body);
+        if (resp.statusCode() / 100 != 2) return errorMessageToMsg(resp, "render-heatmap");
+        Map<String, Object> json = readJson(resp.body());
+        Map<String, Object> result = inspectJsonToStdioHeader(json);
+        appendHeatmapOutput(result, json);
+        return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, result, new byte[0]);
+    }
+
     /**
      * UI test-analyze: JPEG on disk + ephemeral knobs → {@code POST /inspect-test-frame}.
      * Production line keeps {@link #inspectShm}.
@@ -624,6 +638,11 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         Map<String, Object> pyHeader = inspectJsonToStdioHeader(json);
         pyHeader.put("product_type", originalProductType);
         appendHeatmapOutput(pyHeader, json);
+        Object token = json.get("deferred_heatmap_token");
+        if (token != null) {
+            pyHeader.put("deferred_heatmap_token", token);
+            pyHeader.put("deferred_heatmap_base_url", baseUrl);
+        }
         return new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE, pyHeader, new byte[0]);
     }
 
@@ -887,6 +906,7 @@ public final class AnalisSurfaceHttpBinaryRpcSupervisor implements BinaryRpcSupe
         if (YamlScalars.toBool(header.get("defer_learning_review"), false)) {
             body.put("defer_learning_review", true);
         }
+        copyIfPresent(body, header, "defer_heatmap");
         if (header.get("analysis_test_settings") instanceof Map<?, ?> temporaryAnalysis && !temporaryAnalysis.isEmpty()) {
             body.put("analysis_test_settings", temporaryAnalysis);
         }

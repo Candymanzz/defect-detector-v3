@@ -270,6 +270,18 @@ class BinaryInspectHeadersTest {
     }
 
     @Test
+    void pythonHeaderDefersHistoryByDefaultButAllowsExplicitSynchronousMode() {
+        Map<String, Object> defaults = BinaryInspectHeaders.pythonInspectHeader(
+                1, "bench-lan1", "surface", capture, null, Map.of(), false);
+        Map<String, Object> synchronous = BinaryInspectHeaders.pythonInspectHeader(
+                1, "bench-lan1", "surface", capture, null,
+                Map.of("defer_learning_review", false), false);
+
+        assertEquals(true, defaults.get("defer_learning_review"));
+        assertEquals(false, synchronous.get("defer_learning_review"));
+    }
+
+    @Test
     void geometryRuntimeDoesNotInjectAnomalyThresholdIntoPythonHeader() {
         Map<String, Object> header = new HashMap<>(BinaryInspectHeaders.pythonInspectHeader(
                 1,

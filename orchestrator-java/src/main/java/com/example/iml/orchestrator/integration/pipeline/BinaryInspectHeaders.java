@@ -412,7 +412,7 @@ public final class BinaryInspectHeaders {
         pyHeader.put("include_visuals", includeVisuals);
         pyHeader.put(
                 "defer_learning_review",
-                YamlScalars.toBool(pythonCfg == null ? null : pythonCfg.get("defer_learning_review"), false)
+                YamlScalars.toBool(pythonCfg == null ? null : pythonCfg.get("defer_learning_review"), true)
         );
         if (pythonCfg != null && pythonCfg.get("rois") != null) {
             pyHeader.put("rois", pythonCfg.get("rois"));

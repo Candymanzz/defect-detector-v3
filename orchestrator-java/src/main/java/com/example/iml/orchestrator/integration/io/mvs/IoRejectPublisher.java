@@ -75,10 +75,12 @@ public final class IoRejectPublisher implements AutoCloseable {
         }
     }
     private void set(int group, IoRejectConfig.Output output, boolean value, long sequence) {
+        long writeStarted = System.nanoTime();
         writer.write(output.port(), value == output.activeHigh());
+        double writeMs = (System.nanoTime() - writeStarted) / 1_000_000.0;
         active.put(group, value);
-        log.info("io event=reject_output group={} sequence={} do={} active={} physical_high={}",
-                group, sequence, output.port(), value, value == output.activeHigh());
+        log.info("io event=reject_output group={} sequence={} do={} active={} physical_high={} write_ms={}",
+                group, sequence, output.port(), value, value == output.activeHigh(), writeMs);
     }
     public void rejectAll(long sequence) { config.groups().keySet().forEach(group -> publish(group, sequence, false, true)); }
     /** Session reset releases held rejects, even when no subsequent inspection arrives. */

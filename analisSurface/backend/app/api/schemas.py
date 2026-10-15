@@ -62,6 +62,7 @@ class InspectResponse(BaseModel):
     py_heatmap_ms: float = 0.0
     py_total_ms: float = 0.0
     heatmap_u8: Optional[ShmImageOutput] = None
+    deferred_heatmap_token: Optional[str] = None
 
 
 class InspectWithVisualsResponse(InspectResponse):
@@ -242,11 +243,18 @@ class ShmFrameRequest(BaseModel):
     perspective_line_norm: Optional[list[dict[str, float]]] = None
     skip_learning_review: bool = False
     defer_learning_review: bool = False
+    defer_heatmap: bool = False
     test_analyze: bool = False
     # Applied inside Python after full-resolution alignment to the reference.
     # Both the aligned frame and reference are resized together.
     inspect_scale: Optional[float] = None
     heatmap_u8_output_path: Optional[str] = None
+    heatmap_max_width: Optional[int] = None
+
+
+class DeferredHeatmapRequest(BaseModel):
+    token: str
+    heatmap_u8_output_path: str
     heatmap_max_width: Optional[int] = None
 
 

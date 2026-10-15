@@ -126,6 +126,10 @@ public final class FrameJpegWriter {
 
     /** Каталог общей памяти: Linux /dev/shm, Windows %LOCALAPPDATA%\\iml_shm. */
     public static Path imlShmFilePath(String fileNameInShmDir) {
+        String testDirectory = System.getProperty("iml.shm.directory", "");
+        if (!testDirectory.isBlank()) {
+            return Path.of(testDirectory, fileNameInShmDir);
+        }
         String os = System.getProperty("os.name", "").toLowerCase();
         if (os.contains("win")) {
             String la = System.getenv("LOCALAPPDATA");
