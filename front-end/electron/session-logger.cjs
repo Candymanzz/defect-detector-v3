@@ -1,15 +1,35 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const os = require("node:os");
 
-const directory = process.env.IML_LOG_SESSION_DIR || path.resolve(
-  __dirname, "../../logs", `${new Date().toISOString().replace(/[:.]/g, "-")}-${process.pid}`,
+const sessionName = `${new Date().toISOString().replace(/[:.]/g, "-")}-${process.pid}`;
+const requestedDirectory = process.env.IML_LOG_SESSION_DIR || (
+  process.env.IML_ELECTRON_LOG_PATH
+    ? path.join(path.dirname(process.env.IML_ELECTRON_LOG_PATH), sessionName)
+    : path.resolve(__dirname, "../../logs", sessionName)
 );
-fs.mkdirSync(directory, { recursive: true });
+const fallbackDirectory = path.join(
+  process.env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state"),
+  "defect-detector", sessionName,
+);
+let directory = null;
+for (const candidate of new Set([requestedDirectory, fallbackDirectory])) {
+  try {
+    fs.mkdirSync(candidate, { recursive: true });
+    fs.accessSync(candidate, fs.constants.W_OK);
+    directory = candidate;
+    break;
+  } catch (error) {
+    // Logging is auxiliary: a protected installation directory must not prevent startup.
+    process.stderr.write(`Frontend logging unavailable at ${candidate}: ${error.code || error.message}\n`);
+  }
+}
 const queues = new Map();
 const limit = 4096;
 const maxBytes = 10 * 1024 * 1024;
 
 function write(event, details = {}, channel = "runtime") {
+  if (!directory) return;
   if (!["runtime", "requests", "responses", "decisions", "errors"].includes(channel)) return;
   let state = queues.get(channel);
   if (!state) {

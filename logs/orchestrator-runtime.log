@@ -31379,3 +31379,9 @@
 2026-10-13 15:05:17.274 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor port cleanup phase=pre-start
 2026-10-13 15:05:17.462 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor spawned orchestrator pid=2269
 2026-10-13 15:06:02.355 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor startup health OK
+2026-10-14 12:55:35.494 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor stopping spawned orchestrator (user request)
+2026-10-14 12:55:35.170 INFO  [stack-supervisor-stop] c.e.i.o.s.StackSupervisorMain - stack supervisor stop requested (shutdown hook)
+2026-10-14 12:56:08.110 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor started jar=/home/o/Документы/core-dev/orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar config=/home/o/Документы/core-dev/config/config.yaml health_uris=[http://127.0.0.1:8099/health, http://127.0.0.1:8000/detector/health] interval_ms=5000 restart_delay_ms=5000 fail_threshold=6 max_restarts=unlimited attach_pid=none startup_health_timeout_ms=180000 stable_health_ms=120000 reboot_enabled=false reboot_after_failures=3 reboot_delay_sec=90
+2026-10-14 12:56:08.114 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor port cleanup phase=pre-start
+2026-10-14 12:56:08.313 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor spawned orchestrator pid=2118
+2026-10-14 12:56:54.455 INFO  [main] c.e.i.o.s.StackSupervisorMain - stack supervisor startup health OK
