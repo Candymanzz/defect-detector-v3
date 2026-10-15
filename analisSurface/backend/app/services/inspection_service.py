@@ -42,6 +42,8 @@ from app.services.inspection_geometry import (
     validate_polygon_points,
 )
 from app.services.inspection_positioning import FramePositioner
+from app.services.inspection_workload import InspectionWorkload
+from app.services.reference_preparation import ReferencePreparationCache, prepare_features, prepare_illumination
 from app.services.inspection_models import FPZone, FPZoneScore, InspectionResult, RoiSubZone, RoiSubZoneScore
 from app.services.learned_normals import (
     AcceptedNormalMemory,
@@ -119,7 +121,7 @@ def _gaussian_similarity(values: np.ndarray, scale: float) -> np.ndarray:
 class _DeferredLearningReviewWriter:
     """Bounded, best-effort writer kept off the production verdict path."""
 
-    def __init__(self, store: InspectionReviewStore) -> None:
+    def __init__(self, store: InspectionReviewStore, workload: InspectionWorkload) -> None:
         raw_size = os.environ.get("ANALIS_LEARNING_REVIEW_QUEUE_SIZE", "16")
         raw_delay = os.environ.get("ANALIS_LEARNING_REVIEW_DEFER_DELAY_MS", "250")
         try:
@@ -131,7 +133,8 @@ class _DeferredLearningReviewWriter:
         except ValueError:
             self._defer_delay_s = 0.250
         self._store = store
-        self._queue: queue.Queue[Optional[dict]] = queue.Queue(maxsize=queue_size)
+        self._workload = workload
+        self._queue: queue.Queue[Optional[tuple[float, dict]]] = queue.Queue(maxsize=queue_size)
         self._thread = threading.Thread(
             target=self._run,
             name="learning-review-writer",
@@ -141,20 +144,26 @@ class _DeferredLearningReviewWriter:
 
     def submit(self, task: dict) -> bool:
         try:
-            self._queue.put_nowait(task)
+            self._queue.put_nowait((time.monotonic() + self._defer_delay_s, task))
             return True
         except queue.Full:
             return False
 
     def _run(self) -> None:
         while True:
-            task = self._queue.get()
+            entry = self._queue.get()
+            task = None
             try:
-                if task is None:
+                if entry is None:
                     return
-                if self._defer_delay_s > 0:
-                    time.sleep(self._defer_delay_s)
-                self._store.add(**task)
+                not_before, task = entry
+                # Delay relative to submission, not once per queued camera.
+                # Otherwise a burst of ten frames adds 2.5s of artificial backlog.
+                remaining = not_before - time.monotonic()
+                if remaining > 0:
+                    time.sleep(remaining)
+                with self._workload.background():
+                    self._store.add(**task)
                 log_analysis_stage(
                     "learning_review",
                     "deferred inspection history saved",
@@ -187,6 +196,7 @@ class InspectionService:
     ) -> None:
         self.references: Dict[str, np.ndarray] = {}
         self._reference_hashes: Dict[str, str] = {}
+        self._reference_preparation = ReferencePreparationCache()
         self._surface_geometry_cache: OrderedDict[str, tuple[tuple, GeometryWeights]] = OrderedDict()
         self._ref_orb_cache: Dict[str, Tuple[list, Optional[np.ndarray]]] = {}
         self.roi_polygons: Dict[str, list[Tuple[float, float]]] = {}
@@ -227,7 +237,8 @@ class InspectionService:
             storage_dir=reviews_dir if reviews_dir is not None else data_dir / "learning_reviews",
             session_wipe=session_wipe,
         )
-        self._deferred_learning_reviews = _DeferredLearningReviewWriter(self._learning_reviews)
+        self._workload = InspectionWorkload()
+        self._deferred_learning_reviews = _DeferredLearningReviewWriter(self._learning_reviews, self._workload)
 
         self._anomaly_engine = None
         self._load_anomalib_engine()
@@ -279,6 +290,8 @@ class InspectionService:
         }
         self.references.clear()
         self._reference_hashes.clear()
+        self._reference_preparation.clear()
+        self._positioner.invalidate()
         with self._product_locks_guard:
             self._surface_geometry_cache.clear()
         self._ref_orb_cache.clear()
@@ -1036,7 +1049,7 @@ class InspectionService:
         """Inspect against one atomic camera-scoped configuration snapshot."""
         lock = self._product_lock(product_type)
         waiting_ns = time.perf_counter_ns()
-        with lock:
+        with self._workload.foreground(), lock:
             lock_wait_ms = (time.perf_counter_ns() - waiting_ns) / 1_000_000
             try:
                 return self._inspect_frame_unlocked(product_type, frame, *args, **kwargs)
@@ -1090,20 +1103,17 @@ class InspectionService:
             raise ValueError(f"Reference for product_type '{product_type}' is not set")
         reference = reference.copy()
 
-        # Positioning lives in Python (inspection_positioning): the frame is locked to
-        # the reference by a rigid transform, and the two zones that cannot be
-        # inspected after the shift (void + newly-appeared strip) are excluded below.
+        # Compensate small bucket jitter by translation only. Never replace
+        # unobserved pixels with the reference or suppress positioning strips.
         polygon = self.get_roi_polygon(product_type)
-        valid_mask: Optional[np.ndarray] = None
         position_diag: dict[str, object] = {}
         if self._python_positioning:
             positioned = self._positioner.position(
                 frame, reference, product_type=product_type, roi_polygon=polygon,
+                reference_token=self._reference_hashes.get(product_type),
             )
             aligned = positioned.aligned
             position_diag = dict(positioned.diagnostics)
-            if positioned.matrix is not None and np.any(positioned.valid_mask == 0):
-                valid_mask = positioned.valid_mask
         else:
             aligned = self._use_fixed_frame(frame, reference)
         log_analysis_stage(
@@ -1124,11 +1134,6 @@ class InspectionService:
                 reference,
                 inspect_scale_after_align,
                 product_type=product_type,
-            )
-
-        if valid_mask is not None and valid_mask.shape[:2] != reference.shape[:2]:
-            valid_mask = cv2.resize(
-                valid_mask, (reference.shape[1], reference.shape[0]), interpolation=cv2.INTER_NEAREST,
             )
 
         # Retain real neighborhood pixels for illumination and blur. Setting
@@ -1234,8 +1239,6 @@ class InspectionService:
                 reference.shape[1], reference.shape[0], polygon,
             )
             diff_map[roi_diff_mask == 0] = 0
-        if valid_mask is not None:
-            diff_map[valid_mask == 0] = 0
         log_analysis_stage(
             "illumination",
             "shadow/glare guard applied",
@@ -2892,7 +2895,14 @@ class InspectionService:
         # Shift-tolerant difference:
         # allow small local displacement by comparing aligned intensity
         # against local min/max envelope of reference.
-        ref_gray = cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)
+        # Some offline evaluators construct this numerical service with __new__
+        # to avoid loading models/persistent operator data.
+        if not hasattr(self, "_reference_preparation"):
+            self._reference_preparation = ReferencePreparationCache()
+        reference_key = self._reference_preparation.identity(reference)
+        ref_gray = self._reference_preparation.get(
+            ("gray", reference_key), lambda: {"gray": cv2.cvtColor(reference, cv2.COLOR_BGR2GRAY)},
+        )["gray"]
         cur_gray = cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY)
         # Classify illumination on the original gray signal. CLAHE is useful
         # for defects but can turn a smooth shadow/glare into artificial texture.
@@ -2910,6 +2920,9 @@ class InspectionService:
                 cv2.absdiff(cur_gray, ref_gray), ref_gray, cur_gray,
                 diagnostics=illumination_diagnostics,
                 normalized_current=normalized_current,
+                prepared_reference=self._reference_preparation.get(
+                    ("illumination", reference_key), lambda: prepare_illumination(ref_gray),
+                ),
             )
             cur_gray = normalized_current
 
@@ -2926,34 +2939,40 @@ class InspectionService:
         # CLAHE can over-amplify texture noise on smooth frames. clipLimit≈1.0 is a
         # near no-op — treat it as off so sensitivity can ramp continuously via
         # clahe_clip_limit without a sudden score cliff when the bool flips.
+        clahe_clip = None
         if (
             settings.enable_clahe
             and float(settings.clahe_clip_limit) > 1.05
             and float(np.std(cur_gray)) > 5.0
         ):
             clahe = cv2.createCLAHE(clipLimit=settings.clahe_clip_limit, tileGridSize=(8, 8))
-            ref_gray = clahe.apply(ref_gray)
             cur_gray = clahe.apply(cur_gray)
+            clahe_clip = float(settings.clahe_clip_limit)
+
+        use_detail = vertical_compensation and perspective_weights is not None
+        prepared = self._reference_preparation.get(
+            ("features", reference_key, clahe_clip, use_detail),
+            lambda: prepare_features(ref_gray, clahe_clip, use_detail, _LOCAL_ENVELOPE_KERNEL, _EDGE_ZONE_KERNEL),
+        )
 
         # Light pre-smoothing suppresses matrix/sensor micro-noise so it does not
         # turn into false positives in robust difference map.
         detail_gray = None
-        if vertical_compensation and perspective_weights is not None:
+        if use_detail:
             # Less blur preserves small far-side defects. Keep the same 2px
             # displacement allowance as the main branch: a tighter envelope
             # turned normal rim/print jitter into amplified far-side scratches.
-            detail_ref = cv2.GaussianBlur(ref_gray, (3, 3), 0)
             detail_cur = cv2.GaussianBlur(cur_gray, (3, 3), 0)
             detail_gray = cv2.max(
-                cv2.subtract(detail_cur, cv2.dilate(detail_ref, _LOCAL_ENVELOPE_KERNEL)),
-                cv2.subtract(cv2.erode(detail_ref, _LOCAL_ENVELOPE_KERNEL), detail_cur),
+                cv2.subtract(detail_cur, prepared["detail_max"]),
+                cv2.subtract(prepared["detail_min"], detail_cur),
             ).astype(np.float32)
 
-        ref_gray = cv2.GaussianBlur(ref_gray, (5, 5), 0)
+        ref_gray = prepared["gray"]
         cur_gray = cv2.GaussianBlur(cur_gray, (5, 5), 0)
 
-        ref_min = cv2.erode(ref_gray, _LOCAL_ENVELOPE_KERNEL, iterations=1)
-        ref_max = cv2.dilate(ref_gray, _LOCAL_ENVELOPE_KERNEL, iterations=1)
+        ref_min = prepared["minimum"]
+        ref_max = prepared["maximum"]
 
         over = cv2.subtract(cur_gray, ref_max)
         under = cv2.subtract(ref_min, cur_gray)
@@ -3074,18 +3093,15 @@ class InspectionService:
 
         # Compute gradients once and reuse them for stable-edge suppression,
         # text handling and missing-structure detection.
-        ref_grad_x = cv2.Sobel(ref_gray, cv2.CV_32F, 1, 0, ksize=3)
-        ref_grad_y = cv2.Sobel(ref_gray, cv2.CV_32F, 0, 1, ksize=3)
         cur_grad_x = cv2.Sobel(cur_gray, cv2.CV_32F, 1, 0, ksize=3)
         cur_grad_y = cv2.Sobel(cur_gray, cv2.CV_32F, 0, 1, ksize=3)
-        ref_grad_mag = cv2.magnitude(ref_grad_x, ref_grad_y)
+        ref_grad_mag = prepared["gradient"]
         cur_grad_mag = cv2.magnitude(cur_grad_x, cur_grad_y)
 
         # Suppress only reference edges that are also present in the current
         # frame. A missing/broken edge is evidence and must keep its response.
-        edges_ref = cv2.Canny(ref_gray, 80, 160)
         edges_cur = cv2.Canny(cur_gray, 80, 160)
-        edges_zone = cv2.dilate(edges_ref, _EDGE_ZONE_KERNEL, iterations=2)
+        edges_zone = prepared["edges"]
         current_edge_zone = cv2.dilate(edges_cur, _EDGE_ZONE_KERNEL, iterations=2)
         edge_mask = (edges_zone > 0) & (current_edge_zone > 0)
         robust_gray = robust_gray.astype(np.float32)
@@ -3141,7 +3157,7 @@ class InspectionService:
         # Structural masking for text-heavy regions:
         # where reference has dense structure, require stronger local contrast
         # to treat response as anomaly.
-        structure_mask = cv2.Sobel(ref_gray, cv2.CV_8U, 1, 1, ksize=3)
+        structure_mask = prepared["structure"]
         text_like_zone = structure_mask > settings.text_structure_threshold
         if np.any(text_like_zone):
             text_vals = robust_gray[text_like_zone]
@@ -3175,6 +3191,7 @@ class InspectionService:
         *,
         diagnostics: Optional[dict[str, object]] = None,
         normalized_current: Optional[np.ndarray] = None,
+        prepared_reference: Optional[dict[str, np.ndarray]] = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Suppress broad shadow/glare while retaining local structural changes."""
         height, width = robust_gray.shape[:2]
@@ -3198,9 +3215,10 @@ class InspectionService:
         # is large, or receive a different correction in a small mini-etalon.
         # Fine detail and clipped highlights remain protected below.
         kernel_size = 9
-        ref_float = reference_gray.astype(np.float32)
+        prepared_reference = prepared_reference if prepared_reference is not None else prepare_illumination(reference_gray)
+        ref_float = prepared_reference["float"]
         cur_float = current_gray.astype(np.float32)
-        low_ref = cv2.GaussianBlur(ref_float, (kernel_size, kernel_size), 0)
+        low_ref = prepared_reference["low"]
         low_cur = cv2.GaussianBlur(cur_float, (kernel_size, kernel_size), 0)
 
         shift = np.abs(low_cur - low_ref)
@@ -3220,10 +3238,9 @@ class InspectionService:
         detail_confidence = _gaussian_similarity(detail_delta, _ILLUMINATION_DETAIL_SCALE)
         # A smooth light field has gradients too. Compare the remaining
         # detail, otherwise the slope of a glare protects the glare itself.
-        ref_detail = ref_float - low_ref
         cur_detail = cur_float - low_cur
-        ref_gx = cv2.Sobel(ref_detail, cv2.CV_32F, 1, 0, ksize=3)
-        ref_gy = cv2.Sobel(ref_detail, cv2.CV_32F, 0, 1, ksize=3)
+        ref_gx = prepared_reference["gx"]
+        ref_gy = prepared_reference["gy"]
         cur_gx = cv2.Sobel(cur_detail, cv2.CV_32F, 1, 0, ksize=3)
         cur_gy = cv2.Sobel(cur_detail, cv2.CV_32F, 0, 1, ksize=3)
         gradient_delta = cv2.magnitude(cur_gx - ref_gx, cur_gy - ref_gy)

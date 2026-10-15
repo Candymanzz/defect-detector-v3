@@ -78,6 +78,8 @@ python_detector:
   include_visuals: false
   # Render the original result after PLC delivery, without repeating inspection.
   defer_heatmap: true
+  # Persist learning history after the verdict, giving inspections CPU priority.
+  defer_learning_review: true
   # Файловые логи analisSurface (backend/logs/...): requests, responses, analysis, errors, slow.
   # Читает Python при старте из config/config.yaml (без изменений Java). false — отключить на длительных прогонах.
   file_logging: false

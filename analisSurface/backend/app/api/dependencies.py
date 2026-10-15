@@ -1,9 +1,9 @@
 import os
-from concurrent.futures import ThreadPoolExecutor
 
 import cv2
 
 from app.services.inspection_service import InspectionService
+from app.services.inspection_workload import BackgroundExecutor, InspectionExecutor
 
 
 # Parallelism is provided by the inspection process pool. Letting every OpenCV
@@ -25,4 +25,6 @@ inspection_service = InspectionService(
     session_wipe=False,
     learned_normals_session_wipe=False,
 )
-inspect_executor = ThreadPoolExecutor(max_workers=_inspect_worker_count(), thread_name_prefix="inspect")
+inspect_executor = InspectionExecutor(inspection_service._workload,
+                                     max_workers=_inspect_worker_count(), thread_name_prefix="inspect")
+heatmap_executor = BackgroundExecutor(inspection_service._workload)

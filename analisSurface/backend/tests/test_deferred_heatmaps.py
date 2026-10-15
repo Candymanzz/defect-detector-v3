@@ -7,6 +7,7 @@ from app.api import inspection_routes
 from app.main import app
 from app.services.deferred_heatmaps import DeferredHeatmapCache
 from app.services.inspection_models import InspectionResult
+from app.services.inspection_workload import BackgroundBusy
 
 
 def snapshot(value=100):
@@ -84,3 +85,18 @@ def test_primary_response_retains_snapshot_without_building_heatmap(monkeypatch)
     assert response.status_code == 200, response.text
     assert response.json()["heatmap_u8"] is None
     assert cache.get(response.json()["deferred_heatmap_token"]) is result
+
+
+def test_busy_heatmap_is_auxiliary_429_without_changing_cached_verdict(monkeypatch):
+    cache = DeferredHeatmapCache()
+    result = snapshot()
+    token = cache.put(result)
+    monkeypatch.setattr(inspection_routes, "deferred_heatmaps", cache)
+    def busy(*args, **kwargs):
+        raise BackgroundBusy("inspection has priority")
+    monkeypatch.setattr(inspection_routes, "heatmap_executor", SimpleNamespace(submit=busy))
+    response = TestClient(app).post("/render-heatmap", json={
+        "token": token, "heatmap_u8_output_path": "unused",
+    })
+    assert response.status_code == 429
+    assert cache.get(token).anomaly_score == .9
