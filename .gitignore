@@ -72,3 +72,4 @@ LightServer.v3/logs
 # Local verification tools and generated session logs
 /.verification/
 /.maven-test-cache/
+analisSurface/lab
