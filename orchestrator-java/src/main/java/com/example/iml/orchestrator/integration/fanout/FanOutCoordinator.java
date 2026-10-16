@@ -143,6 +143,40 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
 
     @Override
     public synchronized void publishBucket(BucketFanOutResult result) {
+        publishBuckets(java.util.List.of(result));
+    }
+
+    @Override
+    public synchronized void publishBuckets(java.util.List<BucketFanOutResult> results) {
+        java.util.List<BucketFanOutResult> delivered = new java.util.ArrayList<>();
+        if (ioReject != null && ioReject.isHoldMode() && !results.isEmpty()) {
+            long sequence = results.get(0).triggerSequence();
+            java.util.Map<Integer, Boolean> passes = new java.util.LinkedHashMap<>();
+            for (BucketFanOutResult result : results) {
+                if (result.triggerSequence() != sequence || passes.putIfAbsent(result.groupId(), result.overallPass()) != null)
+                    throw new IllegalArgumentException("DO batch must contain unique groups of one sequence");
+            }
+            ServiceHealthGate gate = healthGate;
+            if (gate != null && !gate.healthyForVision()) {
+                log.warn("inspect bucket publish skipped seq={} groups={} — services unhealthy {}",
+                        sequence, passes.keySet(), gate.visionBlockingReasons());
+            } else {
+                if (inspectionEnabled()) ioReject.publishBatch(sequence, passes);
+                delivered.addAll(results);
+            }
+        } else {
+            for (BucketFanOutResult result : results) {
+                BucketFanOutResult effectiveResult = publishPlcBucket(result);
+                if (effectiveResult != null) delivered.add(effectiveResult);
+            }
+        }
+        // No UI work between output writes: both PLC lines have priority.
+        if (clientWsServer != null) {
+            delivered.forEach(clientWsServer::notifyInspectBucketResult);
+        }
+    }
+
+    private BucketFanOutResult publishPlcBucket(BucketFanOutResult result) {
         ServiceHealthGate gate = healthGate;
         if (gate != null && !gate.healthyForVision()) {
             log.warn(
@@ -151,7 +185,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
                     result.groupId(),
                     gate.visionBlockingReasons()
             );
-            return;
+            return null;
         }
         // Сначала подтверждение выхода брака выбранного транспорта, затем результат в UI.
         BucketFanOutResult effectiveResult = result;
@@ -174,9 +208,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
                     result.groupId()
             );
         }
-        if (clientWsServer != null) {
-            clientWsServer.notifyInspectBucketResult(effectiveResult);
-        }
+        return effectiveResult;
     }
 
     @Override

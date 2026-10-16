@@ -51,6 +51,10 @@ class SessionLoggingTest(unittest.TestCase):
             self.assertEqual(logs._DROPPED, 1)
 
     def test_shared_directory_and_timestamped_records(self):
+        # Other API tests may have initialized this process-wide singleton.
+        logs._shutdown()
+        logs._INITIALIZED = False
+        logs._SESSION_DIR = None
         with tempfile.TemporaryDirectory() as directory, \
                 patch.dict(os.environ, {"IML_LOG_SESSION_DIR": directory}), \
                 patch.object(logs, "_enabled", return_value=True):

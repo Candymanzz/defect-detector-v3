@@ -43,4 +43,4 @@ def test_real_frame_is_locked_to_reference(item):
     assert abs(result.diagnostics["shift_x_px"] - item["measured_shift_px"][0]) < 1.0
     assert abs(result.diagnostics["shift_y_px"] - item["measured_shift_px"][1]) < 1.0
     assert _mean_diff(result.aligned, ref, result.valid_mask) < _mean_diff(cur, ref)
-    assert (result.valid_mask == 0).mean() < 0.05
+    assert result.valid_mask is None

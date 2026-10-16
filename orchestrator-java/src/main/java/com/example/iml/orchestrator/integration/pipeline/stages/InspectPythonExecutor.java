@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.pipeline.stages;
 
 import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
+import com.example.iml.orchestrator.integration.config.InspectionScaleConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
@@ -15,7 +16,7 @@ import org.apache.logging.log4j.Logger;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import com.example.iml.orchestrator.integration.python.PythonWorkloadBalancer;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -26,12 +27,7 @@ public final class InspectPythonExecutor implements PythonInspectStage {
 
     private final Logger log;
     private final GeometryRuntimeConfig inspectionRuntimeConfig;
-    /**
-     * One fair FIFO lane per Python process/client.  Letting two inspections enter the
-     * same FastAPI process at once makes both CPU-bound OpenCV pipelines slower and
-     * produces large tail-latency spikes.  Different pool members still run in parallel.
-     */
-    private final Map<BinaryRpcSupervisor, Semaphore> pythonFifoLanes = new ConcurrentHashMap<>();
+    private final PythonWorkloadBalancer pythonWorkload = new PythonWorkloadBalancer();
 
     public InspectPythonExecutor(Logger log) {
         this(log, null);
@@ -118,7 +114,6 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                     state.geometryMs()
             );
         }
-        BinaryRpcSupervisor python = pythonPool.get(Math.floorMod(pythonRoundRobin.getAndIncrement(), pythonPool.size()));
         try {
             long t0 = System.nanoTime();
             Map<String, Object> pyHeader;
@@ -147,10 +142,7 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                         heatmapMaxWidth
                 );
                 applyAnalysisProfileAndRuntimeOverrides(pyHeader, cameraId, productType, pythonCfg);
-                double testInspectScale = YamlScalars.toDouble(
-                        pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
-                        1.0
-                );
+                double testInspectScale = InspectionScaleConfig.resolve(pythonCfg, cameraId);
                 if (testInspectScale < 0.999d) {
                     pyHeader.put("inspect_scale", testInspectScale);
                 }
@@ -170,6 +162,7 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                         pythonCfg == null ? null : pythonCfg.get("defer_heatmap"),
                         false
                 );
+                if (deferHeatmap) pyHeader.put("defer_heatmap", true);
                 if (!deferHeatmap) {
                     pyHeader.put(
                             "heatmap_u8_output_path",
@@ -189,10 +182,7 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                 if (temporaryAnalysis instanceof Map<?, ?> temporary && !temporary.isEmpty()) {
                     pyHeader.put("analysis_test_settings", temporaryAnalysis);
                 }
-                double inspectScale = YamlScalars.toDouble(
-                        pythonCfg == null ? null : pythonCfg.get("inspect_scale"),
-                        1.0
-                );
+                double inspectScale = InspectionScaleConfig.resolve(pythonCfg, cameraId);
                 if (inspectScale < 0.999d) {
                     // Keep current/reference SHM descriptors at the same full resolution.
                     // Python aligns first and then resizes the pair atomically, avoiding
@@ -200,21 +190,32 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                     pyHeader.put("inspect_scale", inspectScale);
                 }
             }
-            Semaphore fifoLane = pythonFifoLanes.computeIfAbsent(python, ignored -> new Semaphore(1, true));
             long tQueue0 = System.nanoTime();
-            fifoLane.acquire();
-            try {
+            boolean weighted = !"round_robin".equals(String.valueOf(
+                    pythonCfg == null ? "weighted" : pythonCfg.getOrDefault("scheduling_strategy", "weighted")));
+            try (var reservation = pythonWorkload.reserve(pythonPool, cameraId + ":" + productType, weighted, pythonRoundRobin)) {
+                BinaryRpcSupervisor python = reservation.client();
+                log.info("python schedule cam={} frame={} server={} estimated_job_ms={} estimated_queue_ms={} inspect_scale={}",
+                        cameraId, state.capture().header().get("frame_id"), python.supervisorLabel(),
+                        reservation.expectedMs(), reservation.queuedWorkMs(),
+                        InspectionScaleConfig.resolve(pythonCfg, cameraId));
+                reservation.awaitTurn();
                 pythonSlots.acquire();
                 try {
                     long tCommand0 = System.nanoTime();
+                    reservation.started();
                     BinaryProtocol.Message rawResp = python.command(pyHeader);
                     long commandMs = YamlScalars.nanosToMs(System.nanoTime() - tCommand0);
                     long queueMs = YamlScalars.nanosToMs(tCommand0 - tQueue0);
                     Map<String, Object> responseHeader = new LinkedHashMap<>(
                             rawResp == null || rawResp.header() == null ? Map.of() : rawResp.header()
                     );
+                    if (rawResp != null && rawResp.type() != BinaryProtocol.MSG_ERROR) {
+                        reservation.completed(YamlScalars.toDouble(responseHeader.get("py_total_ms"), commandMs));
+                    }
                     responseHeader.put("python_queue_ms", queueMs);
                     responseHeader.put("python_rpc_ms", commandMs);
+                    responseHeader.put("python_server", python.supervisorLabel());
                     BinaryProtocol.Message pyResp = rawResp == null
                             ? new BinaryProtocol.Message(BinaryProtocol.MSG_ERROR, responseHeader, new byte[0])
                             : new BinaryProtocol.Message(rawResp.type(), Map.copyOf(responseHeader), rawResp.payload());
@@ -232,10 +233,9 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                 } finally {
                     pythonSlots.release();
                 }
-            } finally {
-                fifoLane.release();
             }
         } catch (Exception e) {
+            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
     }

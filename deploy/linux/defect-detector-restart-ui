@@ -1,0 +1,15 @@
+#!/bin/sh
+# Fixed operation: only the dedicated kiosk user's Electron processes.
+set -eu
+if [ "$#" -ne 0 ]; then
+    printf '%s\n' 'This command accepts no arguments.' >&2
+    exit 64
+fi
+if /usr/bin/pkill -TERM -u kiosk -x electron; then
+    exit 0
+else
+    result=$?
+    # With no Electron running, the kiosk session loop will launch it itself.
+    [ "$result" -eq 1 ] && exit 0
+    exit "$result"
+fi

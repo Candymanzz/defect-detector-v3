@@ -38,6 +38,8 @@ class InspectionResult:
     # BGR colormap for API/base64; UI SHM expects gray_u8 (see heatmap_u8).
     heatmap: Optional[np.ndarray] = None
     heatmap_u8: Optional[np.ndarray] = None
+    # Immutable analysis arrays retained only when the caller requests deferred rendering.
+    deferred_heatmap_data: Optional[tuple] = field(default=None, repr=False)
     segmentation_mask: Optional[np.ndarray] = None
     # Диагностика только для локального стенда. Production-ответы её не сериализуют.
     excluded_normal_zones: list[dict] = field(default_factory=list)

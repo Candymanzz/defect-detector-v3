@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="убрал перрезапуск в ребилд анд ран">
+    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="ультра мега дупер оптимизация пайплайна">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/RT-LINUX.md" beforeDir="false" afterPath="$PROJECT_DIR$/RT-LINUX.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/RUN.md" beforeDir="false" afterPath="$PROJECT_DIR$/RUN.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/linux/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/deploy/linux/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ЗАПУСК.md" beforeDir="false" afterPath="$PROJECT_DIR$/ЗАПУСК.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config.exemple/blocks/20-detectors.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/config.exemple/blocks/20-detectors.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config.exemple/config.json" beforeDir="false" afterPath="$PROJECT_DIR$/config.exemple/config.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/pipeline/stages/InspectPythonExecutor.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/pipeline/stages/InspectPythonExecutor.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/ui/UiArtifactsSidecar.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/ui/UiArtifactsSidecar.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -111,6 +111,14 @@
     <MESSAGE value="убрал -q из ребилда" />
     <MESSAGE value="фикс" />
     <MESSAGE value="убрал перрезапуск в ребилд анд ран" />
-    <option name="LAST_COMMIT_MESSAGE" value="убрал перрезапуск в ребилд анд ран" />
+    <MESSAGE value="мега логирование" />
+    <MESSAGE value="ускорение времени и  обновление версий фронта через ребилд энд ран" />
+    <MESSAGE value="исправил нехватку прав чтобы писать в /opt/logs" />
+    <MESSAGE value="больше не требуется подтверждение прав для обновления фронта" />
+    <MESSAGE value="переход на 6 процессов и шесть ядер" />
+    <MESSAGE value="исправления записи в память" />
+    <MESSAGE value="оптимизация питона" />
+    <MESSAGE value="ультра мега дупер оптимизация пайплайна" />
+    <option name="LAST_COMMIT_MESSAGE" value="ультра мега дупер оптимизация пайплайна" />
   </component>
 </project>

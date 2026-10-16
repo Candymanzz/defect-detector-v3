@@ -1764,6 +1764,46 @@ def test_learning_review_can_be_saved_after_verdict_returns(
     assert inspection_service.get_learning_review(result.inspection_id) is not None
 
 
+def test_deferred_review_prepares_candidates_after_verdict_from_frozen_frame(
+    inspection_service: InspectionService,
+    gray_frame: np.ndarray,
+    monkeypatch,
+) -> None:
+    from app.services import inspection_service as module
+
+    product = "deferred-candidates"
+    inspection_service.set_reference_frame(product, gray_frame)
+    current = gray_frame.copy()
+    current[10:30, 10:50] = 255
+    sync = inspection_service.inspect_frame(product, current, threshold=0.1, include_visuals=False)
+    expected = inspection_service._learning_reviews.get(sync.inspection_id)
+    started, release = threading.Event(), threading.Event()
+    real_extract = module.extract_defect_candidates
+
+    def blocked_extract(*args, **kwargs):
+        assert threading.current_thread().name == "learning-review-writer"
+        started.set()
+        assert release.wait(3)
+        return real_extract(*args, **kwargs)
+
+    monkeypatch.setattr(module, "extract_defect_candidates", blocked_extract)
+    inspection_service._deferred_learning_reviews._defer_delay_s = 0
+    try:
+        result = inspection_service.inspect_frame(product, current, threshold=0.1,
+            include_visuals=False, defer_learning_review=True)
+        assert (result.status, result.anomaly_score) == (sync.status, sync.anomaly_score)
+        assert started.wait(2)
+        assert inspection_service.get_learning_review(result.inspection_id) is None
+        current[:] = 0
+    finally:
+        release.set()
+        inspection_service._deferred_learning_reviews._queue.join()
+    actual = inspection_service._learning_reviews.get(result.inspection_id)
+    assert actual.aligned_png == expected.aligned_png
+    assert actual.diff_png == expected.diff_png
+    assert [(d.bbox, d.score) for d in actual.defects] == [(d.bbox, d.score) for d in expected.defects]
+
+
 def test_accepted_normal_is_wiped_on_service_restart(
     inspection_service: InspectionService,
     gray_frame: np.ndarray,

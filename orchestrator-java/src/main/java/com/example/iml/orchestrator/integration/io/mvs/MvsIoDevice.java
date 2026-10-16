@@ -12,6 +12,7 @@ public interface MvsIoDevice extends AutoCloseable {
     void subscribe(Consumer<IoInputDiChange> listener);
     Map<Integer, Boolean> readOutputs();
     default void setOutput(int port, boolean high) { throw new UnsupportedOperationException("DO writes unavailable for this backend"); }
+    default void setOutputs(Map<Integer, Boolean> levels) { levels.forEach(this::setOutput); }
     default void triggerTimer(String timer, String line) { throw new UnsupportedOperationException("Software timer commands unavailable for this backend"); }
     @Override void close();
 }

@@ -186,6 +186,10 @@ public final class InspectionTriggerRuntime implements AutoCloseable {
         if (nativeIo == null) throw new IllegalStateException("Native IO is not configured");
         nativeIo.setOutput(port, high);
     }
+    public void setNativeOutputs(java.util.Map<Integer, Boolean> levels) {
+        if (nativeIo == null) throw new IllegalStateException("Native IO is not configured");
+        nativeIo.setOutputs(levels);
+    }
 
     public java.util.Map<Integer, Boolean> nativeOutputStates() {
         return nativeIo == null ? java.util.Map.of() : nativeIo.outputStates();

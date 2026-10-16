@@ -131,7 +131,10 @@ public final class PipelineCameraRuntimeService {
             livePreview.setLineCaptureCoordinator(ctx.lineCaptureCoordinator());
         }
         wireDiShutdown(ctx, stopSignal);
-        fanOut.bindIoRejectOutputs(ctx.triggerRuntime()::setNativeOutput);
+        fanOut.bindIoRejectOutputs(new com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher.Writer() {
+            public void write(int port, boolean high) { ctx.triggerRuntime().setNativeOutput(port, high); }
+            public void writeAll(java.util.Map<Integer, Boolean> levels) { ctx.triggerRuntime().setNativeOutputs(levels); }
+        });
         fanOut.bindIoRejectTimers(ctx.triggerRuntime()::triggerNativeTimer);
         ctx.triggerRuntime().activateNativeIo();
 

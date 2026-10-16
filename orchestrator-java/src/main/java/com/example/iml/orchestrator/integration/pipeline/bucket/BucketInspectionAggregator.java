@@ -519,9 +519,7 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 results.stream().map(BucketFanOutResult::overallPass).toList()
         );
         // Сначала все линии на ПЛК (publishBucket ждёт фронт), потом UI.
-        for (BucketFanOutResult result : results) {
-            fanOut.publishBucket(result);
-        }
+        fanOut.publishBuckets(results);
         fanOut.finishSequence(results.get(0).triggerSequence());
         runPendingUi(pendingUi);
     }

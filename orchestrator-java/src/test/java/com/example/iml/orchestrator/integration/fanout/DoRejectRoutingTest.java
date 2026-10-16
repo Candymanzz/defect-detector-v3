@@ -14,6 +14,24 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class DoRejectRoutingTest {
     @TempDir Path directory;
+    @Test void syncedBucketsReachTheSdkAsOneBatchWithIndependentPolarities() throws Exception {
+        var root=Map.<String,Object>of("plc_fins",Map.of("enabled",false),"integration",Map.of("io_reject",
+                Map.of("enabled",true,"mode","hold","groups",Map.of(0,Map.of("port",3,"active_high",false),
+                        1,Map.of("port",4,"active_high",false)))));
+        try(var ws=new ClientWebSocketServer(LogManager.getLogger(getClass()),ClientWsConfig.disabled());
+            var fanout=FanOutCoordinator.fromConfig(root,directory,ws)) {
+            List<Map<Integer,Boolean>> batches=new CopyOnWriteArrayList<>();
+            fanout.bindIoRejectOutputs(new com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher.Writer() {
+                public void write(int port,boolean high) { fail("individual writes would allow a DI scan between DOs"); }
+                public void writeAll(Map<Integer,Boolean> levels) { batches.add(Map.copyOf(levels)); }
+            });
+            ws.setSessionState(ClientWsSessionState.READY); fanout.onSessionState(ClientWsSessionState.READY);
+            batches.clear();
+            fanout.publishBuckets(List.of(new BucketFanOutResult(0,7,false,List.of(),Map.of()),
+                    new BucketFanOutResult(1,7,true,List.of(),Map.of())));
+            assertEquals(List.of(Map.of(3,false,4,true)),batches);
+        }
+    }
     @Test void independentDoRejectsAndReferenceResetRestoresPass() throws Exception {
         var root = Map.<String, Object>of("plc_fins", Map.of("enabled", false),
                 "integration", Map.of("io_reject", Map.of("enabled", true, "mode", "hold",

@@ -184,6 +184,11 @@
   },
   "python_detector": {
     "base_url": "http://127.0.0.1:8000",
+    "inspect_scale": 0.75,
+    "inspect_scale_by_camera": {
+      "2": 0.5,
+      "7": 0.5
+    },
     "rois": [
       {
         "name": "main",
