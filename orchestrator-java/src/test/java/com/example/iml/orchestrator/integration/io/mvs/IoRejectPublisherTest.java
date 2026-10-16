@@ -6,6 +6,29 @@ import java.util.concurrent.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class IoRejectPublisherTest {
+    @Test void earlyRejectAllowsNextCyclePassIgnoresStaleRejectAndClearsLatchOnReset() {
+        var cfg = IoRejectConfig.parse(Map.of("io_reject", Map.of("enabled", true, "mode", "hold",
+                "groups", Map.of(0, Map.of("port", 3, "active_high", false),
+                        1, Map.of("port", 4, "active_high", false)))));
+        List<Map<Integer, Boolean>> batches = new CopyOnWriteArrayList<>();
+        try (var publisher = new IoRejectPublisher(cfg)) {
+            publisher.bind(new IoRejectPublisher.Writer() {
+                public void write(int port, boolean high) { fail("hold must use batch delivery"); }
+                public void writeAll(Map<Integer, Boolean> levels) { batches.add(Map.copyOf(levels)); }
+            });
+            publisher.publishEarlyReject(7, 0);
+            assertEquals(List.of(Map.of(3, false)), batches);
+            publisher.publishBatch(7, Map.of(0, true, 1, true));
+            assertEquals(Map.of(3, false, 4, true), batches.get(1));
+            publisher.publishBatch(8, Map.of(0, true, 1, true));
+            assertEquals(Map.of(3, true, 4, true), batches.get(2));
+            publisher.publishEarlyReject(7, 0);
+            assertEquals(3, batches.size(), "late earlier reject must not overwrite the next cycle's pass");
+            publisher.resetIdle();
+            publisher.publishBatch(7, Map.of(0, true, 1, true));
+            assertEquals(Map.of(3, true, 4, true), batches.get(4), "new session must not retain an old reject latch");
+        }
+    }
     @Test void partiallyFailedBatchCannotBeOverwrittenByAnOlderResult() {
         var cfg = IoRejectConfig.parse(Map.of("io_reject", Map.of("enabled", true, "mode", "hold",
                 "groups", Map.of(0, Map.of("port", 3), 1, Map.of("port", 4)))));

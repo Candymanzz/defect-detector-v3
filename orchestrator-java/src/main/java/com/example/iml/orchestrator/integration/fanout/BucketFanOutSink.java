@@ -15,6 +15,10 @@ public interface BucketFanOutSink {
         return false;
     }
 
+    default boolean publishEarlyBucketReject(long triggerSequence, int groupId, int cameraId) {
+        return publishEarlyPlasticHandleReject(triggerSequence, cameraId);
+    }
+
     default void finishSequence(long triggerSequence) {
     }
 }

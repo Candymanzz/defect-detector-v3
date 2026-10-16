@@ -186,6 +186,95 @@ class BucketInspectionAggregatorTest {
     }
 
     @Test
+    void earlyRejectIsRoutedOnlyToItsLineWhileOtherLineKeepsWaiting() {
+        aggregator = new BucketInspectionAggregator(
+                LogManager.getLogger(getClass()),
+                new BucketInspectionConfig(true, List.of(
+                        new BucketGroup(0, List.of(0, 1)), new BucketGroup(1, List.of(2, 3))), 1000L, 1000L));
+        List<Integer> earlyGroups = new ArrayList<>();
+        List<BucketFanOutResult> published = new ArrayList<>();
+        BucketFanOutSink sink = new BucketFanOutSink() {
+            public void publishBucket(BucketFanOutResult result) { published.add(result); }
+            public boolean publishEarlyBucketReject(long sequence, int groupId, int cameraId) {
+                earlyGroups.add(groupId);
+                return true;
+            }
+        };
+
+        aggregator.recordFrameResult(22L, 0, decision(0, 320L, false), sink);
+        assertEquals(List.of(0), earlyGroups);
+        assertTrue(published.isEmpty(), "normal bucket/UI results still wait for both complete line summaries");
+
+        aggregator.recordFrameResult(22L, 1, decision(1, 321L, true), sink);
+        aggregator.recordFrameResult(22L, 2, decision(2, 322L, true), sink);
+        aggregator.recordFrameResult(22L, 3, decision(3, 323L, true), sink);
+        assertEquals(2, published.size());
+        assertTrue(!published.get(0).overallPass());
+        assertTrue(published.get(1).overallPass());
+    }
+
+    @Test
+    void disabledCameraCannotTriggerEarlyReject() {
+        var gate = PerCameraInspectionGate.fromCameras(List.of(Map.of("id", 0), Map.of("id", 1)));
+        gate.setInspectionEnabled(1, false);
+        aggregator = new BucketInspectionAggregator(LogManager.getLogger(getClass()),
+                new BucketInspectionConfig(true, List.of(new BucketGroup(0, List.of(0, 1))), 1000L, 1000L),
+                JointSeamPolicy.defaults(), gate);
+        List<BucketFanOutResult> published = new ArrayList<>();
+        AtomicInteger early = new AtomicInteger();
+        BucketFanOutSink sink = new BucketFanOutSink() {
+            public void publishBucket(BucketFanOutResult result) { published.add(result); }
+            public boolean publishEarlyBucketReject(long sequence, int groupId, int cameraId) {
+                early.incrementAndGet(); return true;
+            }
+        };
+        aggregator.recordFrameResult(23L, 1, decision(1, 330L, false), sink);
+        aggregator.recordFrameResult(23L, 0, decision(0, 331L, true), sink);
+        assertEquals(0, early.get());
+        assertTrue(published.get(0).overallPass());
+    }
+
+    @Test
+    void earlyRejectIsSentOnceAndStaysInFinalResultAfterDisablingFailedCameras() {
+        var gate = PerCameraInspectionGate.fromCameras(List.of(Map.of("id", 0), Map.of("id", 1), Map.of("id", 2)));
+        aggregator = new BucketInspectionAggregator(LogManager.getLogger(getClass()),
+                new BucketInspectionConfig(true, List.of(new BucketGroup(0, List.of(0, 1, 2))), 1000L, 1000L),
+                JointSeamPolicy.defaults(), gate);
+        List<BucketFanOutResult> published = new ArrayList<>();
+        AtomicInteger early = new AtomicInteger();
+        BucketFanOutSink sink = new BucketFanOutSink() {
+            public void publishBucket(BucketFanOutResult result) { published.add(result); }
+            public boolean publishEarlyBucketReject(long sequence, int groupId, int cameraId) {
+                early.incrementAndGet(); return true;
+            }
+        };
+        aggregator.recordFrameResult(24L, 0, decision(0, 340L, false), sink);
+        aggregator.recordFrameResult(24L, 1, decision(1, 341L, false), sink);
+        assertEquals(1, early.get(), "further failing cameras must not issue redundant early DO writes");
+        gate.setInspectionEnabled(0, false);
+        gate.setInspectionEnabled(1, false);
+        aggregator.recordFrameResult(24L, 2, decision(2, 342L, true), sink);
+        assertTrue(!published.get(0).overallPass(), "UI verdict must agree with the already delivered reject");
+    }
+
+    @Test
+    void failedEarlyDeliveryStillCollectsFramesAndRetriesInFinalDelivery() {
+        aggregator = new BucketInspectionAggregator(LogManager.getLogger(getClass()),
+                new BucketInspectionConfig(true, List.of(new BucketGroup(0, List.of(0, 1))), 1000L, 1000L));
+        List<BucketFanOutResult> published = new ArrayList<>();
+        BucketFanOutSink sink = new BucketFanOutSink() {
+            public void publishBucket(BucketFanOutResult result) { published.add(result); }
+            public boolean publishEarlyBucketReject(long sequence, int groupId, int cameraId) {
+                throw new IllegalStateException("SDK write failed");
+            }
+        };
+        aggregator.recordFrameResult(25L, 0, decision(0, 350L, false), sink);
+        aggregator.recordFrameResult(25L, 1, decision(1, 351L, true), sink);
+        assertEquals(1, published.size());
+        assertTrue(!published.get(0).overallPass());
+    }
+
+    @Test
     void jointPassIgnoresLowSiblingVisibilityStrictGate() {
         JointSeamPolicy policy = new JointSeamPolicy(0.25, 1.5, 0.8, 2.5);
         aggregator = new BucketInspectionAggregator(
