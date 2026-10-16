@@ -21,6 +21,7 @@ public final class IoRejectPublisher implements AutoCloseable {
     private final Map<Integer, Long> earlyTimerSequences = new ConcurrentHashMap<>();
     private final Map<Integer, Boolean> active = new ConcurrentHashMap<>();
     private final Map<Integer, Long> heldSequences = new ConcurrentHashMap<>();
+    private final Map<Integer, Long> earlyRejectedSequences = new ConcurrentHashMap<>();
     private final org.apache.logging.log4j.Logger log = LogManager.getLogger(IoRejectPublisher.class);
     public IoRejectPublisher(IoRejectConfig config) {
         this.config = config;
@@ -85,6 +86,15 @@ public final class IoRejectPublisher implements AutoCloseable {
             throw new IllegalStateException("DO reject delivery failed group=" + group + " seq=" + sequence, e);
         }
     }
+    /** Reject one line immediately; later PASS results of this sequence cannot release it. */
+    public void publishEarlyReject(long sequence, int group) {
+        if (!isHoldMode()) throw new IllegalStateException("Early bucket reject requires hold outputs");
+        if (!config.groups().containsKey(group)) throw new IllegalArgumentException("No DO reject mapping for group " + group);
+        if (sequence < heldSequences.getOrDefault(group, Long.MIN_VALUE)) return;
+        earlyRejectedSequences.merge(group, sequence, Math::max);
+        publishBatch(sequence, Map.of(group, false));
+    }
+
     /** One FIFO entry and one SDK critical section for a sequence's independent hold levels. */
     public void publishBatch(long sequence, Map<Integer, Boolean> passes) {
         if (!isHoldMode()) throw new IllegalStateException("Batch delivery requires hold outputs");
@@ -104,12 +114,14 @@ public final class IoRejectPublisher implements AutoCloseable {
                     for (var entry : ordered.entrySet()) {
                         int group = entry.getKey();
                         if (sequence < heldSequences.getOrDefault(group, Long.MIN_VALUE)) continue;
-                        delivered.put(group, entry.getValue());
+                        boolean pass = entry.getValue()
+                                && !Long.valueOf(sequence).equals(earlyRejectedSequences.get(group));
+                        delivered.put(group, pass);
                         // Fence old results before SDK access: a batch can fail after its
                         // first physical write. The same sequence may retry; older ones may not undo it.
                         heldSequences.put(group, sequence);
                         var output = config.groups().get(group);
-                        levels.put(output.port(), (!entry.getValue()) == output.activeHigh());
+                        levels.put(output.port(), (!pass) == output.activeHigh());
                     }
                     long started = System.nanoTime();
                     if (!levels.isEmpty()) target.writeAll(Collections.unmodifiableMap(levels));
@@ -153,7 +165,7 @@ public final class IoRejectPublisher implements AutoCloseable {
                 holdWorker.execute(() -> {
                     try {
                         writer.writeAll(idleLevels());
-                        heldSequences.clear(); earlyTimerSequences.clear(); active.clear(); done.complete(null);
+                        heldSequences.clear(); earlyRejectedSequences.clear(); earlyTimerSequences.clear(); active.clear(); done.complete(null);
                     } catch (RuntimeException e) { done.completeExceptionally(e); }
                 });
                 done.get(config.ackTimeoutMs(), TimeUnit.MILLISECONDS);

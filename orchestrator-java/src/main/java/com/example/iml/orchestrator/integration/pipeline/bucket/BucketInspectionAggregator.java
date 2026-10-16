@@ -225,11 +225,19 @@ public final class BucketInspectionAggregator implements AutoCloseable {
             if (afterPlcUi != null) {
                 state.pendingUiByCamera.put(cameraId, afterPlcUi);
             }
-            if (!decision.overallPass() && !"CAPTURE".equalsIgnoreCase(decision.action())
-                    && !"NO_REFERENCE".equalsIgnoreCase(decision.pythonStatus()) && fanOut != null) {
-                fanOut.publishEarlyPlasticHandleReject(triggerSequence, cameraId);
-            }
             scheduleTimeoutIfNeeded(state, fanOut);
+            if (!state.earlyRejectPublished && isCameraRequired(cameraId)
+                    && !decision.overallPass() && !"CAPTURE".equalsIgnoreCase(decision.action())
+                    && !"NO_REFERENCE".equalsIgnoreCase(decision.pythonStatus()) && fanOut != null) {
+                try {
+                    state.earlyRejectPublished = fanOut.publishEarlyBucketReject(triggerSequence, groupId, cameraId);
+                } catch (RuntimeException e) {
+                    // Early delivery is an optimization. Keep collecting frames and let
+                    // the normal final batch retry the mandatory reject output.
+                    log.error("inspection early reject failed seq={} group={} camera={}; final delivery will retry",
+                            triggerSequence, groupId, cameraId, e);
+                }
+            }
             if (isBucketComplete(state)) {
                 publishBucket(state, fanOut, false);
             }
@@ -341,7 +349,9 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 }
             }
         }
-        boolean bucketPass = !anyReject;
+        // An already delivered verdict is final for this cycle, including when a
+        // camera is disabled while the remaining frames are still being inspected.
+        boolean bucketPass = !anyReject && !state.earlyRejectPublished;
         Map<Integer, InspectionDecision> snapshot = Map.copyOf(state.frameDecisions);
         boolean seamStrict = false;
         SeamStrictGate seamGate = evaluateSeamStrictGate(snapshot);
@@ -605,6 +615,7 @@ public final class BucketInspectionAggregator implements AutoCloseable {
         private final Map<Integer, InspectionDecision> frameDecisions = new LinkedHashMap<>();
         private final Map<Integer, Runnable> pendingUiByCamera = new LinkedHashMap<>();
         private volatile boolean published;
+        private boolean earlyRejectPublished;
         private volatile ScheduledFuture<?> timeoutFuture;
 
         private BucketState(long triggerSequence, int groupId, BucketGroup group) {

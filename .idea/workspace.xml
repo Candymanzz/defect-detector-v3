@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="ультра мега дупер оптимизация пайплайна">
+    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="вынес отдельный даунскейл для центральных камер">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.exemple/blocks/20-detectors.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/config.exemple/blocks/20-detectors.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.exemple/config.json" beforeDir="false" afterPath="$PROJECT_DIR$/config.exemple/config.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/pipeline/stages/InspectPythonExecutor.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/pipeline/stages/InspectPythonExecutor.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/ui/UiArtifactsSidecar.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/ui/UiArtifactsSidecar.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/fanout/BucketFanOutSink.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/fanout/BucketFanOutSink.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/fanout/FanOutCoordinator.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/fanout/FanOutCoordinator.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/io/mvs/IoRejectPublisher.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/io/mvs/IoRejectPublisher.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/pipeline/bucket/BucketInspectionAggregator.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/pipeline/bucket/BucketInspectionAggregator.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/fanout/DoRejectRoutingTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/fanout/DoRejectRoutingTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/io/mvs/IoRejectPublisherTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/io/mvs/IoRejectPublisherTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/pipeline/bucket/BucketInspectionAggregatorTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/pipeline/bucket/BucketInspectionAggregatorTest.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -119,6 +122,7 @@
     <MESSAGE value="исправления записи в память" />
     <MESSAGE value="оптимизация питона" />
     <MESSAGE value="ультра мега дупер оптимизация пайплайна" />
-    <option name="LAST_COMMIT_MESSAGE" value="ультра мега дупер оптимизация пайплайна" />
+    <MESSAGE value="вынес отдельный даунскейл для центральных камер" />
+    <option name="LAST_COMMIT_MESSAGE" value="вынес отдельный даунскейл для центральных камер" />
   </component>
 </project>

@@ -3,6 +3,10 @@ package com.example.iml.orchestrator.integration.fanout;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
 import com.example.iml.orchestrator.integration.clientws.config.ClientWsConfig;
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
+import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
+import com.example.iml.orchestrator.integration.pipeline.bucket.BucketGroup;
+import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionAggregator;
+import com.example.iml.orchestrator.integration.pipeline.bucket.BucketInspectionConfig;
 import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -14,6 +18,38 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class DoRejectRoutingTest {
     @TempDir Path directory;
+    @Test void firstFailReachesOnlyItsDoBeforeOtherCamerasComplete() throws Exception {
+        var root = Map.<String, Object>of("plc_fins", Map.of("enabled", false),
+                "integration", Map.of("io_reject", Map.of("enabled", true, "mode", "hold",
+                        "groups", Map.of(0, Map.of("port", 3, "active_high", false),
+                                1, Map.of("port", 4, "active_high", false)))));
+        try (var ws = new ClientWebSocketServer(LogManager.getLogger(getClass()), ClientWsConfig.disabled());
+             var fanout = FanOutCoordinator.fromConfig(root, directory, ws);
+             var aggregator = new BucketInspectionAggregator(LogManager.getLogger(getClass()),
+                     new BucketInspectionConfig(true, List.of(new BucketGroup(0, List.of(0, 1)),
+                             new BucketGroup(1, List.of(2, 3))), 1000L, 1000L))) {
+            List<Map<Integer, Boolean>> writes = new CopyOnWriteArrayList<>();
+            fanout.bindIoRejectOutputs(new com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher.Writer() {
+                public void write(int port, boolean high) { fail("hold must use batch delivery"); }
+                public void writeAll(Map<Integer, Boolean> levels) { writes.add(Map.copyOf(levels)); }
+            });
+            ws.setSessionState(ClientWsSessionState.READY);
+            fanout.onSessionState(ClientWsSessionState.READY);
+            writes.clear();
+            List<Integer> ui = new ArrayList<>();
+            aggregator.recordFrameResult(9, 2, InspectionDecision.simple(2, 902, false, "REJECT", 1, "OK", "PASS"),
+                    fanout, () -> ui.add(2));
+            assertEquals(List.of(Map.of(4, false)), writes, "DO4 must reject while all other frames are still pending");
+            assertTrue(ui.isEmpty());
+            for (int camera : List.of(0, 1, 3)) {
+                aggregator.recordFrameResult(9, camera,
+                        InspectionDecision.simple(camera, 900 + camera, true, "ACCEPT", 0, "OK", "PASS"),
+                        fanout, () -> ui.add(camera));
+            }
+            assertEquals(List.of(Map.of(4, false), Map.of(3, true, 4, false)), writes);
+            assertEquals(Set.of(0, 1, 2, 3), Set.copyOf(ui));
+        }
+    }
     @Test void syncedBucketsReachTheSdkAsOneBatchWithIndependentPolarities() throws Exception {
         var root=Map.<String,Object>of("plc_fins",Map.of("enabled",false),"integration",Map.of("io_reject",
                 Map.of("enabled",true,"mode","hold","groups",Map.of(0,Map.of("port",3,"active_high",false),
@@ -55,6 +91,31 @@ class DoRejectRoutingTest {
             assertEquals(Map.of(3, true, 4, true), levels);
             fanout.publishBucket(new BucketFanOutResult(0, 2, false, List.of(), Map.of()));
             assertEquals(Map.of(3, true, 4, true), levels);
+        }
+    }
+
+    @Test void earlyHoldRejectWritesOnlyItsLineAndCannotBeClearedBySameSequencePass() throws Exception {
+        var root = Map.<String, Object>of("plc_fins", Map.of("enabled", false),
+                "integration", Map.of("io_reject", Map.of("enabled", true, "mode", "hold",
+                        "groups", Map.of(0, Map.of("port", 3, "active_high", false),
+                                1, Map.of("port", 4, "active_high", false)))));
+        try (var ws = new ClientWebSocketServer(LogManager.getLogger(getClass()), ClientWsConfig.disabled());
+             var fanout = FanOutCoordinator.fromConfig(root, directory, ws)) {
+            List<Map<Integer, Boolean>> writes = new CopyOnWriteArrayList<>();
+            fanout.bindIoRejectOutputs(new com.example.iml.orchestrator.integration.io.mvs.IoRejectPublisher.Writer() {
+                public void write(int port, boolean high) { fail("hold output should use writeAll"); }
+                public void writeAll(Map<Integer, Boolean> levels) { writes.add(Map.copyOf(levels)); }
+            });
+            ws.setSessionState(ClientWsSessionState.READY);
+            fanout.onSessionState(ClientWsSessionState.READY);
+            writes.clear();
+
+            assertTrue(fanout.publishEarlyBucketReject(7, 0, 2));
+            assertEquals(List.of(Map.of(3, false)), writes, "line 2 must not wait for or be changed by line 1's reject");
+
+            fanout.publishBuckets(List.of(new BucketFanOutResult(0, 7, true, List.of(), Map.of()),
+                    new BucketFanOutResult(1, 7, true, List.of(), Map.of())));
+            assertEquals(Map.of(3, false, 4, true), writes.get(1), "same-sequence PASS must not undo an early reject");
         }
     }
     @Test void bucketRejectsGoToDoAndReadyFaultStayOnFins() throws Exception {

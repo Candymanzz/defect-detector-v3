@@ -240,6 +240,19 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     }
 
     @Override
+    public synchronized boolean publishEarlyBucketReject(long triggerSequence, int groupId, int cameraId) {
+        if (ioReject == null || !ioReject.isHoldMode()) {
+            return publishEarlyPlasticHandleReject(triggerSequence, cameraId);
+        }
+        if (!inspectionEnabled()) return false;
+        ServiceHealthGate gate = healthGate;
+        if (gate != null && !gate.healthyForVision()) return false;
+        ioReject.publishEarlyReject(triggerSequence, groupId);
+        log.info("io event=early_bucket_reject sequence={} group={} camera={}", triggerSequence, groupId, cameraId);
+        return true;
+    }
+
+    @Override
     public void finishSequence(long triggerSequence) {
         earlyPlasticRejectSequences.remove(triggerSequence);
     }
