@@ -40,7 +40,11 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   const [referenceName, setReferenceName] = useState("");
   const [isFullReferenceReplacement, setIsFullReferenceReplacement] = useState(false);
   const [isRoiOnlyEditMode, setIsRoiOnlyEditMode] = useState(false);
+  const [isRefreshingFramesKeepingRoi, setIsRefreshingFramesKeepingRoi] = useState(false);
+  const [autoSubmitCameraIds, setAutoSubmitCameraIds] = useState<number[] | null>(null);
   const [referenceSubmission, setReferenceSubmission] = useState<ReferenceSubmissionState | null>(null);
+  const refreshingFramesKeepingRoiRef = useRef(false);
+  const sendReferenceForGroupsRef = useRef<((targetGroups: number[][]) => void) | null>(null);
   const referencePreviewResumeTimerRef = useRef<number | null>(null);
   const isReferencePreviewPausedRef = useRef(false);
   const hasReferenceRef = useRef(false);
@@ -79,6 +83,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       ? replacementCameraIds
       : activeCameraIds;
   const canSendAllReferences = Boolean(
+    !isRefreshingFramesKeepingRoi &&
     submissionCameraIds.length > 0 &&
     submissionCameraIds.every((cameraId) => referenceFrames.framesByCameraId[cameraId]) &&
     referenceRoi.hasRequiredRoisForCameraIds(submissionCameraIds) &&
@@ -280,10 +285,16 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   }, [onClose]);
 
   const handleSendAllReferences = () => {
+    if (refreshingFramesKeepingRoiRef.current) {
+      return;
+    }
     sendReferenceForGroups([submissionCameraIds]);
   };
 
   const handleCaptureNewReferenceFrames = async () => {
+    if (refreshingFramesKeepingRoiRef.current) {
+      return;
+    }
     if (activeCameraIds.length === 0) {
       setMessage("Список настроенных камер пуст");
       return;
@@ -341,6 +352,9 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   };
 
   const handleCreateNewReference = async () => {
+    if (refreshingFramesKeepingRoiRef.current) {
+      return;
+    }
     if (activeCameraIds.length === 0) {
       setMessage("Список камер группы пуст");
       return;
@@ -365,7 +379,57 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     setMessage("Новые кадры получены. Задайте ROI и подтвердите новый эталон.");
   };
 
+  const handleRefreshFramesKeepingRoi = async () => {
+    if (refreshingFramesKeepingRoiRef.current) {
+      return;
+    }
+    if (activeCameraIds.length === 0 || !hasAnyStoredReferenceForActiveGroup) {
+      setMessage("Нет действующего эталона, ROI которого можно сохранить");
+      return;
+    }
+    if (!referenceRoi.hasRequiredRoisForCameraIds(activeCameraIds)) {
+      setMessage("В текущем эталоне не задан ROI для всех камер группы");
+      return;
+    }
+    if (status.state !== "open") {
+      setMessage("Эталон не отправлен: нет соединения с сервером");
+      return;
+    }
+
+    refreshingFramesKeepingRoiRef.current = true;
+    setIsRefreshingFramesKeepingRoi(true);
+    setIsNewReferenceMode(true);
+    setIsFullReferenceReplacement(false);
+    setIsRoiOnlyEditMode(true);
+    setReplacementCameraIds(activeCameraIds);
+    setReferenceName("");
+    setMessage(`Обновление кадров с сохранением ROI: ${activeCameraIds.join(", ")}...`);
+
+    try {
+      const { loadedCameraIds, snapshotCameraIds, missingCameraIds } = await captureLatestImages(activeCameraIds);
+      const capturedCameraIds = new Set([...loadedCameraIds, ...snapshotCameraIds]);
+      if (!activeCameraIds.every((cameraId) => capturedCameraIds.has(cameraId))) {
+        throw new Error(`Не получены кадры камер: ${missingCameraIds.join(", ")}`);
+      }
+
+      setMessage("Кадры обновлены. ROI сохранён, отправка нового эталона...");
+      setAutoSubmitCameraIds([...activeCameraIds]);
+    } catch (error) {
+      setAutoSubmitCameraIds(null);
+      setIsNewReferenceMode(false);
+      setIsRoiOnlyEditMode(false);
+      setReplacementCameraIds([]);
+      loadStoredReferenceImages(activeCameraIds);
+      refreshingFramesKeepingRoiRef.current = false;
+      setIsRefreshingFramesKeepingRoi(false);
+      setMessage(`Новый эталон не отправлен. ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
   const handleToggleCameraReplacement = async (cameraId: number) => {
+    if (refreshingFramesKeepingRoiRef.current) {
+      return;
+    }
     referenceRoi.setSelectedCameraId(cameraId);
     setIsFullReferenceReplacement(false);
     setIsRoiOnlyEditMode(false);
@@ -401,6 +465,9 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
   };
 
   const handleUseArchivedReference = (archiveId: string) => {
+    if (refreshingFramesKeepingRoiRef.current) {
+      return;
+    }
     const archive = getArchivedReferenceGroup(archiveId);
     if (!archive) {
       setMessage("Archived reference was not found");
@@ -522,6 +589,32 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     }
   };
 
+  useEffect(() => {
+    sendReferenceForGroupsRef.current = sendReferenceForGroups;
+  });
+
+  useEffect(() => {
+    if (!autoSubmitCameraIds) {
+      return;
+    }
+    // captureLatestImages updates React state asynchronously. Submit only after
+    // the new frames and frozen image URLs have reached the current render.
+    const framesAreReady = autoSubmitCameraIds.every(
+      (cameraId) => referenceFrames.framesByCameraId[cameraId] && imageUrlsByCameraId[cameraId],
+    );
+    if (!framesAreReady) {
+      return;
+    }
+
+    const timerId = window.setTimeout(() => {
+      setAutoSubmitCameraIds(null);
+      refreshingFramesKeepingRoiRef.current = false;
+      setIsRefreshingFramesKeepingRoi(false);
+      sendReferenceForGroupsRef.current?.([autoSubmitCameraIds]);
+    }, 0);
+    return () => window.clearTimeout(timerId);
+  }, [autoSubmitCameraIds, imageUrlsByCameraId, referenceFrames.framesByCameraId]);
+
   const handleSelectCamera = (cameraId: number) => {
     referenceRoi.setSelectedCameraId(cameraId);
 
@@ -558,11 +651,13 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
     replacementCameraIds,
     isFullReferenceReplacement,
     isRoiOnlyEditMode,
+    isRefreshingFramesKeepingRoi,
     referenceName,
     setReferenceName,
     referenceSubmission,
     handleCaptureNewReferenceFrames,
     handleCreateNewReference,
+    handleRefreshFramesKeepingRoi,
     handleToggleCameraReplacement,
     handleSendAllReferences,
     handleSelectCamera,

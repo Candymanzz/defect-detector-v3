@@ -36,11 +36,13 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     replacementCameraIds,
     isFullReferenceReplacement,
     isRoiOnlyEditMode,
+    isRefreshingFramesKeepingRoi,
     referenceName,
     setReferenceName,
     referenceSubmission,
     handleCaptureNewReferenceFrames,
     handleCreateNewReference,
+    handleRefreshFramesKeepingRoi,
     handleToggleCameraReplacement,
     handleSendAllReferences,
     handleSelectCamera,
@@ -90,7 +92,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
   const hasSetupError = /не получен|не задан|не отправлен|ошиб|отклон/i.test(message);
   const shouldStartNewReference = hasAnyStoredReferenceForActiveGroup && !isNewReferenceMode;
   const primaryReferenceLabel = shouldStartNewReference
-    ? "Задать новый эталон"
+    ? "Новый эталон с новым контуром"
     : isNewReferenceMode
       ? isFullReferenceReplacement
         ? "Подтвердить новый эталон →"
@@ -203,6 +205,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     }
                     role="tab"
                     type="button"
+                    disabled={isRefreshingFramesKeepingRoi}
                     onClick={() => setActiveGroupIndex(groupIndex)}
                   >
                     Группа {groupIndex + 1}
@@ -264,6 +267,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               {!isRoiOnlyEditMode && (
                 <Button
                   className="reference-setup__button reference-setup__refresh"
+                  disabled={isRefreshingFramesKeepingRoi}
                   onClick={() => {
                     if (isNewReferenceMode && hasAnyStoredReferenceForActiveGroup) {
                       if (isFullReferenceReplacement) {
@@ -361,7 +365,9 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                       ? isFullReferenceReplacement
                         ? "Создаётся полностью новый эталон. Кадры анализа предыдущего эталона не переносятся."
                         : isRoiOnlyEditMode
-                          ? "Редактирование ROI текущих кадров. После изменений нажмите «Подтвердить изменения»."
+                          ? isRefreshingFramesKeepingRoi
+                            ? "Получение новых кадров с сохранением текущего ROI. Эталон будет отправлен автоматически."
+                            : "Редактирование ROI текущих кадров. После изменений нажмите «Подтвердить изменения»."
                         : replacementCameraIds.length > 0
                         ? `Изменяются камеры: ${replacementCameraIds.join(", ")}. Остальные останутся прежними.`
                         : "Выберите камеры для изменения. Текущие кадры уже отображаются."
@@ -469,8 +475,8 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   title={message}
                   role={hasSetupError ? "alert" : undefined}
                 >
-                  {shouldStartNewReference
-                    ? "Откройте редактирование и выберите камеры, которые нужно изменить."
+                  {shouldStartNewReference && !hasSetupError
+                    ? "Выберите: сохранить прежний ROI или задать новый контур."
                     : message}
                 </p>
                 <div className="reference-setup__footer-actions">
@@ -493,6 +499,15 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   >
                     Отмена
                   </button>
+                  {shouldStartNewReference && (
+                    <Button
+                      className="reference-setup__button reference-setup__refresh"
+                      disabled={isRefreshingFramesKeepingRoi}
+                      onClick={() => void handleRefreshFramesKeepingRoi()}
+                    >
+                      Новый эталон с прежним ROI
+                    </Button>
+                  )}
                   <Button
                     className="reference-setup__button reference-setup__save"
                     disabled={!shouldStartNewReference && !canSendAllReferences}
