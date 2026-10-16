@@ -4,6 +4,5 @@ python-multipart
 opencv-python
 numpy
 pillow
-anomalib
 httpx
 pyyaml
