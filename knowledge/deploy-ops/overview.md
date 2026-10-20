@@ -7,12 +7,12 @@ Current hardware context **[owner: 2026-10-20]**: **six CPU cores and RT**. Read
 ## 1. Scripts at repo root
 | Script | What it does (exact) |
 |---|---|
-| `rebuild-and-run.sh [-c|--skip-camera-worker] [-o|--skip-orchestrator] [-f|--skip-frontend] [--restart-frontend]` | **build only.** Orchestrator: `mvn --batch-mode package -Dmaven.test.skip=true` → `orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar` (Maven found in PATH/`MAVEN_HOME`/wrapper/IntelliJ; override `MAVEN_CMD`). Camera-worker: CMake Release in `camera-worker/build-linux` with `-DMVS_ROOT=${MVS_ROOT:-/opt/MVS}`, binary replaced **atomically** in `camera-worker/build/camera_worker`. Frontend: `npm ci` if needed, `npm run build`, then copy `dist/`, `electron/`, `package.json` into `FRONTEND_INSTALL_DIR` (default `/opt/defect-detector-ui`; old hashed assets kept); `--restart-frontend` calls `sudo -n /usr/local/sbin/defect-detector-restart-ui`. Legacy flags (`-r`, `--build-only`, `--config`, `--rt-interval`) accepted and ignored with a message. Python/geometry/positioning are *not* rebuilt (geometry/positioning JARs are built by Maven separately: `mvn -f java-geometry-service/pom.xml package`) |
+| `rebuild-and-run.sh [-c|--skip-camera-worker] [-o|--skip-orchestrator] [-f|--skip-frontend] [--restart-frontend]` | **build only.** Orchestrator: `mvn --batch-mode package -Dmaven.test.skip=true` → `orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar` (Maven found in PATH/`MAVEN_HOME`/wrapper/IntelliJ; override `MAVEN_CMD`). Cameras: CMake Release in `camera-worker/build-linux`, `CAMERA_BUILD_JNI=ON`, `MVS_ROOT` default `/opt/MVS`, target **`camera_jni`** → atomic install of **`camera-worker/build/libcamera_jni.so`**, not the standalone executable. JDK headers required; JVM restart loads the new library. Frontend: `npm ci` if needed, `npm run build`, then copy `dist/`, `electron/`, `package.json` into `FRONTEND_INSTALL_DIR` (default `/opt/defect-detector-ui`; old hashed assets kept); `--restart-frontend` calls `sudo -n /usr/local/sbin/defect-detector-restart-ui`. Legacy flags (`-r`, `--build-only`, `--config`, `--rt-interval`) accepted and ignored with a message. Python/geometry/positioning are *not* rebuilt; separate Java-service JARs still need their own Maven build (e.g. `mvn -f java-geometry-service/pom.xml package`) |
 | `run-supervised.sh [-f] [-r] [--rt-interval N]` | stops the previous stack (`stop-dev.sh --skip-kiosk`), creates `IML_LOG_SESSION_DIR=logs/<date>-<ns>-<pid>`, honours `IML_FRONTEND_AUTOSTART`; if `.kiosk-paused.json` exists resumes the kiosk and disables the dev frontend; exports `IML_ORCHESTRATOR_JAR`; runs `java -cp <jar> …supervisor.StackSupervisorMain $CONFIG` and traps INT/TERM/EXIT → `stop-dev.sh --processes-only --skip-kiosk`. `CONFIG` default `config/config.yaml` |
 | `run-rt.sh` | validates `IML_CPUSET` (default `2-5,8-11`, regex-checked) is available (`taskset … python3 -c sched_getaffinity`), then `exec taskset -c $IML_CPUSET bash run-supervised.sh "$@"`; `-r` delegates to `rt-logs.sh` |
 | `rt-logs.sh` | runs `deploy/linux/rt_diagnostics.py` (read-only) |
 | `stop-dev.sh` | `python3 deploy/linux/stop_stack.py --root <repo> [--processes-only] [--skip-kiosk] [--resume-kiosk]` |
-| `run-all-tests.sh [integration]` | `mvn -q test` in orchestrator and geometry; pytest in `analisSurface/backend` (venv or system python; `-m "not integration"` unless argument given); `npm test` in front-end; C tests are run separately |
+| `run-all-tests.sh [integration]` | If CMake is available, build test `camera_jni` and `cw_config_tests` without MVS/Aravis, run CTest and pass the library path to Java tests. Then `mvn -q test` in orchestrator and geometry; pytest in `analisSurface/backend` (venv or system python; `-m "not integration"` unless argument given); `npm test` in front-end. This does not validate real hardware capture |
 | `test-timer6.sh` (orchestrator-java) | bench script for Timer6/DO6 |
 Docs: `RUN.md`, `RT-LINUX.md`, `LOGGING.md`, `ЗАПУСК.md` (long Russian runbook incl. ports, flags, errors; includes a prompt for another chat), `deploy/linux/README.md`, `deploy/remote-access/README.md`.
 
@@ -36,12 +36,14 @@ systemd unit `defect-detector.service` is **not in git** (exported by `system-pr
 ## 5. Config templates (`config.exemple/`)
 `config.yaml` imports `blocks/01-core, 10-cameras, 20-detectors, 30-ui-and-client, 45-plc-fins, 50-lighting, 51-light-hardware, 52-io`; `config.json` (camera-worker); `data/{camera_runtime_settings,geometry_runtime_settings,light_brightness_settings}.json`. Production `config/` must be created from it (**not versioned**): set camera IPs in *both* `10-cameras.yaml` and `config.json`, flash `com_port_linux` (e.g. `COM_Port#ttyUSB0`), IO `port_linux` (`COM_Port#ttyS4`) and `serial`, PLC host. The YAML aggregator is also read by Python (`ANALIS_SURFACE_CONFIG[_DIR]`) for `python_detector.file_logging`.
 
+**JNI migration [code: `testlinux` / `e466367f`]:** `integration.camera_native_library` or `-Diml.camera.native.library=…` can override the native library path; `integration.worker_config_json` still selects the C camera JSON. Legacy `worker_ipc_mode`/`worker_named_pipe_*` do not select the integration transport. Geometry launch commands/pool remain active in the template; only Java positioning is template-disabled. [Current branch status](../current_branch_architecture.md).
+
 ## 6. Logging (`LOGGING.md`)
 Per-launch directory; Java `java-requests/responses.log`, `pipeline.log`, `orchestrator-runtime.log`, `supervisor-runtime.log`, `geometry-runtime.log`, `positioning-runtime.log`; Python `python-*-<pid>.log`; frontend `frontend-*.log`; plus PLC/lighting/trigger/startup logs; `logs/pipeline-stages.jsonl` timing; RT folder `logs/<ts>-rt-<pid>/`. Writes are async via bounded queues (overflow drops diagnostics, never blocks the pipeline); HTTP logs carry metadata only (no bodies/images).
 
 ## 7. Current update and launch commands
 
-Reviewed 2026-10-20 against `rebuild-and-run.sh`, `run-supervised.sh`, `run-rt.sh`, `RUN.md` and `deploy/linux/setup-frontend-updates.sh`. Run application commands **on Linux, from the repository root**. Stop inspection/the line before stopping or updating production services. The installed `defect-detector.service` must point to the intended checkout; the unit itself is machine-specific and not in git.
+Reviewed 2026-10-20 at `testlinux` / `e466367f` against `rebuild-and-run.sh`, `run-supervised.sh`, `run-rt.sh`, `RUN.md` and `deploy/linux/setup-frontend-updates.sh`. Run application commands **on Linux, from the repository root**. Stop inspection/the line before stopping or updating production services. The installed `defect-detector.service` must point to the intended checkout; the unit itself is machine-specific and not in git.
 
 ### Full rebuild and systemd launch
 
@@ -80,7 +82,7 @@ For the ROI-preserving reference button, only the frontend changed:
 bash ./rebuild-and-run.sh -c -o --restart-frontend
 ```
 
-Here `-c` skips camera-worker, `-o` skips orchestrator; both together build/install only the frontend. `-f` skips frontend build/installation and cannot be combined with `--restart-frontend`. Frontend installation alone does not reload an already running Electron. The helper restarts the installed `/opt/defect-detector-ui` kiosk, not the backend or a custom installation directory.
+Here `-c` skips the camera **JNI library**, `-o` skips orchestrator; both together build/install only the frontend. Do not use `-c` for the first migration to this branch unless a compatible `camera_jni` library already exists; preflight requires it. `-f` skips frontend build/installation and cannot be combined with `--restart-frontend`. Frontend installation alone does not reload an already running Electron. The helper restarts the installed `/opt/defect-detector-ui` kiosk, not the backend or a custom installation directory.
 
 ### Python-only changes, manual launch and diagnostics
 

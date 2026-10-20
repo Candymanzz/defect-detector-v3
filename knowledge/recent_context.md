@@ -4,13 +4,15 @@ Back to [global architecture](./global_architecture.md) · [performance evidence
 
 For a new developer/ChatGPT conversation start with [README](./README.md) and [PROJECT_CONTEXT](./PROJECT_CONTEXT.md). Current owner context as of 2026-10-20: **six cores, RT environment, 500 ms trigger-to-verdict requirement**.
 
-Implementation notes were reviewed against `testlinux` source `c9944af8`; the shared-context revision uses documentation baseline `9d8a4b66`. These documentation revisions do not establish the deployed version or implement a C++ detector.
+Current topology was reviewed against `testlinux` HEAD `e466367f` on 2026-10-20; earlier implementation notes used `c9944af8` and documentation baseline `9d8a4b66`. These documentation revisions do not establish the deployed version or implement a C++ detector. See [current branch service status](./current_branch_architecture.md) before assuming a service was removed.
 
 Evidence labels: **[code]** verified implementation; **[logs: 2026-10-16]** observations from the exported machine journal; **[proposal]** discussed work, not implemented or benchmarked. Historical observations are not a claim about the machine's current configuration.
 
 ## 0. Camera acquisition inside the JVM
 
 **Status: implemented in source, 2026-10-20; deployment/hardware validation pending.** Cameras now run through JNI inside the orchestrator, reusing C capture/settings/streaming and the existing SHM ring. MVS lifetime is shared with IO/lights, and cancellation precedes native close/reopen. The build script produces `libcamera_jni.so`; old worker IPC settings no longer select the working transport. See [CAMERA-JNI](../orchestrator-java/CAMERA-JNI.md). This change alone does not establish a new latency measurement.
+
+**This is not a removal of every other Java service.** Geometry still starts as a separate JVM pool (template: 10); its inspection stage can be skipped per camera/reference. Java positioning sources and launch commands remain, but `enabled: false` prevents pool creation in the template. IO/light helpers were superseded earlier by in-process JNA modules. Python remains a separate HTTP service pool. Python X/Y alignment runs after the geometry stage, not before both detectors. Native camera faults now share the orchestrator's process boundary. [Status matrix and source evidence](./current_branch_architecture.md).
 
 ## 1. Small bucket movements: translation only
 

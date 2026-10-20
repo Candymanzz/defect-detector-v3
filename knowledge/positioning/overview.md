@@ -1,4 +1,4 @@
-# positioning (`java-positioning-service/`) — **currently disabled**
+# positioning (`java-positioning-service/`) — retained, template-disabled
 
 Back to [global_architecture.md](../global_architecture.md) · [API](./api_contracts.md) · [Why](./architecture_why.md) · `P:` = `java-positioning-service/src/main/java/com/example/iml/positioning/`
 
@@ -6,6 +6,8 @@ Back to [global_architecture.md](../global_architecture.md) · [API](./api_contr
 Normalises the pose of the bucket against the reference so that geometry and the Python detector see a registered frame: ORB feature matching + RANSAC homography on a downscaled ROI, optional coarse/ECC/polish stages (**all disabled by constants**), then warps the full frame and writes it into a new SHM `iml_pos_cam_<id>` (BGR8). `overallPass` = alignment found and frame written; shift magnitude does **not** reject (“Большая разбежка положений ожидаема” — README).
 **Status:** `config.exemple/blocks/20-detectors.yaml` → `java_positioning.enabled: false`; comment: *“Позиционирование выполняется внутри Python analisSurface (PY_POSITIONING=1). Java-сервис позиционирования … отключены.”* The Python equivalent is `analisSurface/backend/app/services/inspection_positioning.py` (`FramePositioner`, phase correlation, translation only) — see [analis-surface](../analis-surface/overview.md#pipeline-_inspect_frame_unlocked).
 The module, its pool (`positioning_pool_size 10`, `positioning_command_*`) and the orchestrator stage `InspectPositioningExecutor` are kept so the stage can be re-enabled by config.
+
+**Verified 2026-10-20, `testlinux` / `e466367f`:** `DefaultIntegrationServicePoolFactory.createPositioningPool` returns an empty pool when `enabled: false`; this is a configuration decision, not removed source. An omitted flag defaults to **true** in the factory, so old/machine-specific configs must be checked separately. Python translation happens inside surface inspection **after** the geometry stage, not as a shared replacement for Java's pre-geometry transform. [Current service boundaries](../current_branch_architecture.md).
 
 ## 2. Code map
 | File | Role |

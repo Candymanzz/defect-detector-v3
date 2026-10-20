@@ -8,12 +8,28 @@ The orchestrator owns one native state per camera inside its JVM through **JNI**
 
 Updated 2026-10-20. Historical line references in the code map below predate this extraction; locate functions by name.
 
+Verified source baseline: `testlinux` / `e466367f`. **Embedded does not mean rewritten in Java:** capture remains C, called through JNI. Java geometry/Python remain separate services. Native faults now share the orchestrator's process; see [current topology and consequences](../current_branch_architecture.md).
+
 ## 2. Stack & build
 C11, single translation unit `W:main.c` (2 901 lines) + `W:cw_config.c` (parsers for trigger mode / pixel format / big-endian helpers) + `include/cw_config.h` + vendored `deps/jsmn.h` (`JSMN_STATIC`, token pool `TOK_POOL 2048`).
 CMake (`camera-worker/CMakeLists.txt`): optional **Aravis** backend (`HAVE_ARAVIS` via pkg-config `arv-0.8`), **MVS** backend (`HAVE_HIK_MVS`, found from `MVS_ROOT`, default `/opt/MVS`; Linux build links `libMvCameraControl.so`). The JNI target adds `W:camera_jni.c` and `include/cw_runtime.h`. `rebuild-and-run.sh` atomically installs `camera-worker/build/libcamera_jni.so`; Windows builds `camera_jni.dll`. JDK headers are required unless `CAMERA_BUILD_JNI=OFF`.
 Tests: `camera-worker/tests/test_cw_config.c`, `test_capture_window.c` (includes `main.c` with fake `MV_CC_ClearImageBuffer/GetOneFrameTimeout`, verifies window cancellation semantics: window closed ⇒ 0 SDK calls; gate flipped to 0 during wait ⇒ stops).
 
-## 3. Code map (`W:main.c`)
+## 3. Code map
+
+Current JNI entry/lifecycle map (older `main.c` line ranges below are historical):
+
+| File | Role |
+|---|---|
+| `W:camera_jni.c`, `camera-worker/include/cw_runtime.h` | JNI bridge and `cw_camera_*` lifecycle/command API over the existing C runtime |
+| `O:camera/NativeCameraClient.java`, `NativeCameraBindings.java` | per-camera native handle, serialized commands, cancellation/close, SDK lease and library loading |
+| `O:bootstrap/service/CameraWorkerBootstrapService.java` | opens native states; checks response and `capture_backend_ready`; no worker executable |
+| `O:bootstrap/service/IntegrationPreflightService.java`, `O:config/CameraWorkerPaths.java` | require native library and camera JSON, resolve configurable library path |
+| `O:camera/WorkerProcessSupervisor.java` | retained name; working integration constructor reopens native state; process constructor is diagnostic |
+
+Here `O:` is `orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/`.
+
+Historical function map in `W:main.c`:
 | Lines | Function / struct | Purpose |
 |---|---|---|
 | 47-51 | `RING_SLOTS 8`, `STREAM_FPS_{DEFAULT 20, MIN 1, MAX 30}` | constants |

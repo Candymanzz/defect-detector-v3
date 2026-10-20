@@ -6,17 +6,19 @@ Path shorthand: `O:` = `orchestrator-java/src/main/java/com/example/iml/orchestr
 ## 1. Purpose
 The single control process of the line (≈40.5 kLOC, 1 JVM, started as `java -Xms256m -Xmx1024m -XX:+ExitOnOutOfMemoryError -jar orchestrator-0.1.0-SNAPSHOT.jar config/config.yaml`
 by `StackSupervisorMain`, `R:supervisor/StackSupervisorMain.java:~318`). It:
-1. loads layered YAML and boots/supervises every other process;
+1. loads layered YAML, opens embedded camera states and boots/supervises configured child services;
 2. converts IO-controller DI edges into numbered inspection cycles (`triggerSequence`);
 3. synchronises capture on 10 cameras and runs the per-camera pipeline (geometry + surface);
 4. aggregates camera verdicts per line (bucket group) and drives PLC outputs (DO + FINS);
 5. serves HTTP (:8099) and WebSocket (:8765) to the UI;
 6. owns lighting (5 MV‑LE controllers) and the IO controller (DI/DO/timers) **in-process through JNA** — LightServer.v3/IoInputMonitor were merged in (`e58636e1`).
 
+**Current branch review [code: 2026-10-20, `testlinux` / `e466367f`]:** camera capture is also in-process, through **C/JNI** (not JNA). This does not remove Java geometry: `ChildProcessStartupService` still creates its separate JVM pool (template: 10). Java positioning is retained but template-disabled. `StackSupervisorMain` is a separate supervisory JVM when used. See [service status and actual stage order](../current_branch_architecture.md).
+
 ## 2. Stack & build
 Java 17 · Maven (`orchestrator-java/pom.xml`, shaded JAR) · Log4j2 · Jackson · JNA (`libMvCameraControl.so` Linux `/opt/MVS/lib/64`, Windows `native/mvs/win64/MvCameraControl.dll`) ·
 `org.java_websocket` (WS server) · JDK `HttpServer` (UI) · `java.net.http` (analisSurface client). No DB. Tests: `src/test/**` (~358).
-Build: `bash ./rebuild-and-run.sh -c` (skip camera-worker) → `-Dmaven.test.skip=true`.
+Build: `bash ./rebuild-and-run.sh` builds the orchestrator JAR and camera JNI library (also frontend unless `-f`). `-c` skips **JNI-library** rebuilding and is appropriate only when a compatible library already exists. Maven uses `-Dmaven.test.skip=true`; this script does not start the backend. Geometry/positioning JARs are still built separately. See [build/run commands](../deploy-ops/overview.md#7-current-update-and-launch-commands).
 
 ## 3. Code map (package `com.example.iml.orchestrator`)
 

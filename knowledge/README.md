@@ -2,7 +2,7 @@
 
 Эта база передаёт контекст проекта разработчикам и ChatGPT без истории предыдущего чата. Она хранится вместе с исходниками и также открывается как хранилище Obsidian.
 
-Обновлено: **2026-10-20**. Исходная ветка этой редакции: `testlinux`, HEAD перед правкой документации: `9d8a4b66`. Это версия описания; версия приложения на станке отдельно не проверялась.
+Обновлено: **2026-10-20**. Проверенная ветка: `testlinux`, HEAD перед правкой документации: `e466367f`. Это версия описания; версия приложения на станке отдельно не проверялась. [Состав сервисов этой ветки](./current_branch_architecture.md): камеры встроены через JNI, но Java-геометрия не удалена.
 
 ## Порядок чтения
 
@@ -13,6 +13,7 @@
 | Задача | Что читать после контекста |
 |---|---|
 | Понять архитектуру и путь инспекции | [Global architecture](./global_architecture.md), затем [orchestrator](./orchestrator/overview.md) |
+| Что удалено, встроено или только отключено в текущей ветке | [Состав сервисов `testlinux` / `e466367f`](./current_branch_architecture.md) |
 | Уложиться в 500 мс | [Требование к задержке](./performance/latency_requirements.md), [замеры](./performance/2026-10-16-log-review.md), [план оптимизации](./analis-surface/optimization_plan.md) |
 | Учесть 6 ядер, RT, процессы и потоки | [Контекст станка](./deploy-ops/production_environment.md), [Python](./analis-surface/overview.md) |
 | Позиционирование, дефекты, обученные нормы и FP | [Принятые решения](./recent_context.md), [Python](./analis-surface/overview.md), [Python API](./analis-surface/api_contracts.md) |

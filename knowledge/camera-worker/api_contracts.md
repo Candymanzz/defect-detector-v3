@@ -24,9 +24,11 @@ off  size  field
 16+H P     payload bytes (always 0 in current traffic; frames travel via SHM)
 ```
 Worker-specific rules: header buffer is bounded (`header_len >= sizeof(header_buf)` ⇒ ERROR `header_too_large` after draining the payload); payload of a command is read and **discarded** (`:2570-2582`); non-COMMAND type ⇒ ERROR `unexpected_msg_type`; no `op` ⇒ `missing_op`; unknown op ⇒ `unknown_op`.
-Transports: stdio of the child process (default on Linux, flag `--binary-stdio`) or Unix domain socket/pipe `--named-pipe <path>` (`worker_named_pipe_template_linux: /tmp/iml-camera-%d.pipe`). On Linux+MVS the protocol uses a **dup'ed copy of stdout** and stdout is redirected to stderr, since MVS may print to stdout (`run_binary_loop:2764-2781`).
+Standalone diagnostic transports only: child-process stdio (`--binary-stdio`) or Unix domain socket/pipe `--named-pipe <path>` (`worker_named_pipe_template_linux: /tmp/iml-camera-%d.pipe`). On Linux+MVS the protocol uses a **dup'ed copy of stdout** and stdout is redirected to stderr, since MVS may print to stdout (`run_binary_loop:2764-2781`). These do not select the working camera transport in `testlinux` / `e466367f`; it always uses JNI.
 
 ## 2. Operations
+
+The table preserves standalone response semantics. Production JNI shares normal capture/settings/health operations, but **does not expose `inject_*`**; those return `unknown_op`. JNI `stop` marks the state for cancellation, with resource release by `NativeCameraClient.close`, rather than exiting a child process.
 
 | `op` | Request header fields | Success response | Errors |
 |---|---|---|---|
@@ -44,7 +46,7 @@ Transports: stdio of the child process (default on Linux, flag `--binary-stdio`)
 | `inject_broken_response` | – | raw bytes `BROKEN_RESPONSE` (invalid frame) | test hook |
 
 ## 3. Behavioural contract the orchestrator relies on
-1. **Single in-flight command** per worker (the loop is sequential; stream thread shares a lock `stream_lock_enter/leave`).
+1. **Single in-flight command** per native camera (`NativeCameraClient.calls` lock); the standalone loop is also sequential. The stream thread shares `stream_lock_enter/leave` with capture. This does not serialize different cameras.
 2. `frame_id` starts at 1 and increments only on success; `slot_index = (frame_id-1) % 8`; the frame stays valid only until 8 further captures — consumers must pin/copy (orchestrator: `LineFramePinService`).
 3. `wait_frame` drops everything buffered before the call (`ClearImageBuffer`) and, if a window path+token is given, aborts when the token file no longer equals the token (`DirectionCaptureWindow.close()` writes `0`).
 4. `timestamp_ns` is `CLOCK_REALTIME` ns at **after** copy; `capture_started_ns` at call start; `capture_latency_ns` their difference — used for `capture_frame_to_inspection_end_ms` in orchestrator logs.

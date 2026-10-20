@@ -6,13 +6,13 @@ Evidence: **[doc]**, **[code]**, `⚠️ [GUESS/CONJECTURE]`.
 ## 1. Why native acquisition inside the orchestrator JVM
 - **[code: 2026-10-20]** The camera path now calls the existing C acquisition code through JNI. `NativeCameraClient` owns each camera state, settings and stream within the JVM; metadata crosses JNI and pixels stay in SHM. This removes camera subprocesses and stdio transport. `WorkerProcessSupervisor` reopens a native camera after command failure. Native crashes now affect the JVM; the outer stack supervisor handles JVM restart.
 - SDK initialization/finalization is shared with IO and lights via `MvsSdkLease`, keyed by the actual loaded vendor library. Enumeration/open uses the same SDK enumeration lock; frame capture remains per camera. Cancellation precedes close so an SDK wait cannot use freed camera memory. See [CAMERA-JNI](../../orchestrator-java/CAMERA-JNI.md).
-- No cross-camera locks: commit `bb80fcbd` (2026‑06‑18) “убрал глобальную синхронизацию на воркерах” **[doc]**. Per-camera state is private; only the stream thread shares a mutex with the command loop.
+- No global frame-capture lock: per-camera command/capture state is private; stream and commands share a per-camera mutex. **Do not generalize this to no cross-camera locks:** current JNI loading, SDK leases and enumeration/open have shared synchronization. Historical commit `bb80fcbd` (2026‑06‑18) “убрал глобальную синхронизацию на воркерах” **[doc]** predates the JNI integration.
 - Startup: the orchestrator opens cameras with the configured startup stagger (`worker_startup_stagger_ms`) and 30 s command timeout — parallel `MV_CC_OpenDevice` for ten GigE cameras caused false “startup timeout” failures **[doc: `01-core.yaml` comments]**.
 - `MV_CC_OpenDevice` is retried 4× at 250 ms and the camera is selected by **IP** (`nCurrentIp`) rather than enumeration order — enumeration order is not stable across boots, while IPs map to physical positions **[code]** `W:main.c:1696-1735`.
 
 ## 2. Why BGR8 in SHM and no analysis in the worker
 - Colour needed by the UI and the detector; conversion once in the worker (`hik_copy_frame_to_bgr`) so every consumer reads the same bytes. Mono8 would cut GigE traffic 3× but loses colour (config comment suggests it as an option) **[doc]**.
-- SHM instead of pipe payloads: the orchestrator, geometry (Java) and analisSurface (Python) all read the same pixels with zero copies; `IMLB` payload length is always 0 **[code]**.
+- SHM instead of image RPC payloads: JNI transfers metadata, while the orchestrator, geometry (Java) and analisSurface (Python) access SHM **[code]**. This avoids shipping full images through pipes/HTTP; it is not end-to-end zero-copy (capture writes BGR and the orchestrator pins/copies the selected slot).
 - Ring of 8 slots: prevents overwriting a frame still being read when the next trigger arrives; the orchestrator additionally copies to a per-cycle pin (`iml_line_pin_*`) so the guarantee does not depend on the 8‑slot lifetime **[doc: `LineFramePinService` javadoc]**.
 
 ## 3. Hardware trigger & buffer discipline

@@ -11,6 +11,12 @@ Legend of service links: [orchestrator](./orchestrator/overview.md) · [camera-w
 
 ## 0. Knowledge-base era
 
+### 2026-10-20 — Verify current branch service boundaries (`testlinux` / `e466367f`)
+
+- **What changed:** added a [current-branch status matrix and source map](./current_branch_architecture.md); refreshed the shared handoff, topology, camera/orchestrator/service status notes and JNI build/test instructions.
+- **Why:** distinguish an embedded camera backend from deleted services. Geometry remains a separate Java pool; Java positioning is retained but template-disabled; legacy IO/light helpers were superseded earlier. Python alignment follows geometry and does not pre-align its input.
+- **Impact:** documentation only. Corrected the outdated rebuild artifact (`camera_worker` → `libcamera_jni.so`) and made JVM restart/native-crash implications explicit. No application code, running services or settings changed; no new hardware timing or 500 ms guarantee is claimed. Existing note paths and historical measurements are preserved.
+
 ### 2026-10-20 — Camera acquisition moved into the orchestrator through JNI
 
 - **What changed:** added `camera_jni`, a shared C camera runtime API, `NativeCameraClient`/bindings, native bootstrap/preflight, SDK leases shared with IO/lights, cancellation before close, native integration tests and build-script support. The standalone worker remains available for diagnostics.

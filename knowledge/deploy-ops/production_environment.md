@@ -2,7 +2,7 @@
 
 Back to [project context](../PROJECT_CONTEXT.md) · [deployment runbook](./overview.md) · [latency requirement](../performance/latency_requirements.md)
 
-Updated **2026-10-20**, documentation baseline `testlinux` / `9d8a4b66`. No remote hardware inspection or configuration change was performed.
+Updated **2026-10-20**, source baseline `testlinux` / `e466367f`. No remote hardware inspection or configuration change was performed. Cameras now run as native states/threads inside the orchestrator JVM; Java geometry and Python remain separate process pools. This changes process ownership, not the owner-confirmed six-core/RT requirement. [Service boundaries](../current_branch_architecture.md).
 
 ## 1. Current owner-provided context
 

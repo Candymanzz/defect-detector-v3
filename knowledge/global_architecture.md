@@ -12,15 +12,18 @@
 > `P:` = `java-positioning-service/src/main/java/com/example/iml/positioning/` ·
 > `A:` = `analisSurface/backend/app/` · `W:` = `camera-worker/src/` · `F:` = `front-end/`.
 
-Latest documentation review: **2026-10-20**, source HEAD before this edit `9d8a4b66`. Current owner context: **six CPU cores, RT environment and a 500 ms trigger-to-verdict requirement**; see [production environment](./deploy-ops/production_environment.md) and [latency boundaries](./performance/latency_requirements.md). [Recent decisions](./recent_context.md), [machine measurements](./performance/2026-10-16-log-review.md) and the [optimisation plan](./analis-surface/optimization_plan.md) distinguish implementation, dated observations and proposals. This review changed documentation only.
+Latest documentation review: **2026-10-20**, branch `testlinux`, source HEAD `e466367f`. The [current-branch status matrix](./current_branch_architecture.md) distinguishes embedded cameras, retained Java geometry, template-disabled Java positioning and legacy hardware helpers. Current owner context: **six CPU cores, RT environment and a 500 ms trigger-to-verdict requirement**; see [production environment](./deploy-ops/production_environment.md) and [latency boundaries](./performance/latency_requirements.md). [Recent decisions](./recent_context.md), [machine measurements](./performance/2026-10-16-log-review.md) and the [optimisation plan](./analis-surface/optimization_plan.md) distinguish implementation, dated observations and proposals. This review changed documentation only.
 
 ## 1. What the system is
 
 An industrial visual-inspection line for a **plastic/steel bucket with handle and glued label**. Ten GigE cameras photograph each product when a
-hardware trigger arrives from the line (PLC/photo-eye). Each frame is:
-1. positioned against a golden reference (translation by phase correlation, in Python),
-2. checked for **geometry** (label seam/joint width & parallelism, rim skew vs. yellow rim, concentricity, wrinkles, shift/rotation) in Java/OpenCV,
-3. checked for **surface defects** by a classical difference-map pipeline in Python (no ML since `db7e2961`).
+hardware trigger arrives from the line (PLC/photo-eye). The current stage order is:
+
+1. capture through C/JNI and pin the frame in SHM;
+2. optionally run separate Java positioning (**template-disabled**), then check **geometry** (label seam/joint, rim skew, concentricity, wrinkles, shift/rotation) in Java/OpenCV when not skipped;
+3. in Python, position against the reference (X/Y translation by phase correlation), then check **surface defects** with a classical difference-map pipeline (no ML since `db7e2961`).
+
+Python alignment does not run before the Java geometry stage. Geometry retains its own alignment logic; do not describe all detectors as consuming one Python-aligned frame.
 
 Per-camera verdicts are aggregated per **line/bucket group** (cams 0–4 → line 1, cams 5–9 → line 2) and the reject is driven to the PLC through
 IO-controller digital outputs (DO3/DO4, “hold” levels), with Omron FINS used for ready/timeouts/telemetry. An Electron kiosk UI (React) shows results,
@@ -36,7 +39,7 @@ Windows code paths still exist (`*_windows`/`*_linux` config keys, `StackSupervi
 | **orchestrator** | `orchestrator-java/` | Java 17, Maven, JNA, Log4j2, java-websocket, JDK HttpServer | Brain: boot/supervise children, DI triggers → capture → per-camera pipeline → bucket verdict → DO/FINS/WS; also lighting & IO controller in-process | [overview](./orchestrator/overview.md) · [api](./orchestrator/api_contracts.md) · [why](./orchestrator/architecture_why.md) |
 | **camera-worker** | `camera-worker/` | C11, CMake, MVS SDK | JNI state/camera inside orchestrator JVM: grab → BGR8 → SHM ring | [overview](./camera-worker/overview.md) · [api](./camera-worker/api_contracts.md) · [why](./camera-worker/architecture_why.md) |
 | **geometry** | `java-geometry-service/` | Java 17 + OpenCV | Seam/rim-skew/concentricity/wrinkle/alignment checks (IMLB over stdio) | [overview](./geometry/overview.md) · [api](./geometry/api_contracts.md) · [why](./geometry/architecture_why.md) |
-| **positioning** (off) | `java-positioning-service/` | Java 17 + OpenCV | ORB+RANSAC pose normalisation; **disabled**, replaced by Python phase correlation | [overview](./positioning/overview.md) · [api](./positioning/api_contracts.md) · [why](./positioning/architecture_why.md) |
+| **positioning** (template off, retained) | `java-positioning-service/` | Java 17 + OpenCV | ORB+RANSAC pose normalisation; not deleted, pool disabled by template; Python performs surface X/Y alignment | [overview](./positioning/overview.md) · [api](./positioning/api_contracts.md) · [why](./positioning/architecture_why.md) |
 | **analis-surface** | `analisSurface/backend/` | Python, FastAPI/uvicorn ×6, OpenCV, NumPy | Surface defects, references/ROI/FP/learned-normals store, analysis settings, heat-maps | [overview](./analis-surface/overview.md) · [api](./analis-surface/api_contracts.md) · [why](./analis-surface/architecture_why.md) |
 | **front-end** | `front-end/` | React 19, TS, Vite, Electron | Operator/engineer kiosk UI | [overview](./front-end/overview.md) · [api](./front-end/api_contracts.md) · [why](./front-end/architecture_why.md) |
 | **legacy hardware** | `LightServer.v3/`, `IoInputMonitor/`, `mvs-io-service/` | C# .NET, Python | Pre‑merge light/DI services & Linux DO6 bench tool; not in production path | [overview](./legacy-hardware/overview.md) · [why](./legacy-hardware/architecture_why.md) |
@@ -60,7 +63,7 @@ Windows code paths still exist (`*_windows`/`*_linux` config keys, `StackSupervi
  └──┬───────────────┬───────────────────────┬─────────────────────────────┬─────────────────────┘
     │JNI (same JVM) │IMLB stdio             │IMLB stdio (disabled)        │HTTP/JSON :8000‥ (6 uvicorn)
     ▼               ▼                       ▼                             ▼
- JNI cameras×10  geometry×10 JVM         positioning×10 JVM        analisSurface ×6 procs (configurable threads)
+ JNI states×10  geometry pool×10 JVM     positioning OFF (0 JVM)   analisSurface ×6 procs (configurable threads)
     │ writes                ▲ reads SHM            ▲ reads SHM               ▲ reads SHM (mmap)
     └──► /dev/shm/iml_cam_<id>_frame (8-slot BGR8 ring) ──► pinned copies iml_line_pin_cam<id>_f<seq> ──┘
  Supervisor above all: StackSupervisorMain (health :8099/health + :8000/detector/health) ◄ run-supervised.sh / systemd
@@ -69,11 +72,13 @@ Windows code paths still exist (`*_windows`/`*_linux` config keys, `StackSupervi
 
 The checked-in launcher template sets `analis_surface.inspect_workers: 3` per Python process; `AnalisSurfaceLauncher` passes `ANALIS_INSPECT_WORKERS`. Without that environment variable Python defaults to **10** (clamped 1–32). The six-process topology is the template/reviewed deployment, not a hard-coded universal count. See [configuration distinctions](./recent_context.md#5-configuration-versus-observed-deployment).
 
+Counts above are template capacities, not a process census: JNI cameras are states **inside** the orchestrator; geometry remains a separate pool of up to 10 JVMs; positioning launches **zero** members with the template flag off. `StackSupervisorMain` is an additional JVM in supervised mode. Geometry-pool startup does not imply every frame uses geometry (camera IDs 2/7 and references without joint ROI skip it). No current deployed configuration was inspected in this review.
+
 ## 4. Data stores & shared memory (who owns what)
 
 | Name / path | Owner (writer) | Readers | Lifetime | Notes |
 |---|---|---|---|---|
-| `/dev/shm/iml_cam_<id>_frame` | camera-worker `W:main.c:2336` | orchestrator, geometry, python | process | 8 slots (`RING_SLOTS`, `W:main.c:47`) × `stride*height`; slot = `(frame_id-1)%8` |
+| `/dev/shm/iml_cam_<id>_frame` | C camera runtime inside orchestrator (`W:main.c`) | orchestrator, geometry, python | native camera state / JVM | 8 slots (`RING_SLOTS`) × `stride*height`; slot = `(frame_id-1)%8`; per-cycle pin still copies the selected slot |
 | `iml_line_pin_cam<id>_f<seq>` | orchestrator `O:capture/LineFramePinService` | pipeline, UI sidecar | one cycle (TTL 45 s) | copy of ring slot so the next trigger can overwrite the ring |
 | `iml_ref_cam<id>` | orchestrator `O:pipeline/reference/PipelineReferenceRegistry.java:114` | geometry, python | until next reference bundle | durable copy of the reference frame (not a ring slot) |
 | `iml_py_ds_cur/ref_cam<id>` | orchestrator `PythonInspectDownscaleSupport` | python | cached | legacy pre-downscale path; replaced by `inspect_scale` inside Python |
@@ -92,7 +97,7 @@ The checked-in launcher template sets `analis_surface.inspect_workers: 3` per Py
 |---|---|---|
 | orch ⇄ camera native code | **JNI inside the same JVM**; [lifecycle/build](../orchestrator-java/CAMERA-JNI.md) | ops `health, capture{wait_frame\|trigger_only\|sync}, start/stop_stream, stream_poll, get/set_settings, stop` → [camera-worker/api_contracts.md](./camera-worker/api_contracts.md) |
 | orch ⇄ geometry | IMLB stdio | `health, inspect_shm` (frame by SHM name) → [geometry/api_contracts.md](./geometry/api_contracts.md) |
-| orch ⇄ positioning | IMLB stdio | `health, position_shm` → [positioning/api_contracts.md](./positioning/api_contracts.md) |
+| orch ⇄ positioning (template off) | IMLB stdio, retained optional path | `health, position_shm` → [positioning/api_contracts.md](./positioning/api_contracts.md) |
 | orch ⇄ analisSurface | HTTP/JSON; `AnalisSurfaceHttpBinaryRpcSupervisor` **emulates IMLB ops over HTTP** | `inspect_shm→POST /inspect-shm`, `set_reference_shm→/upload-ref-shm`, … → [analis-surface/api_contracts.md](./analis-surface/api_contracts.md) |
 | orch ⇄ UI | REST + MJPEG on :8099, WS on :8765 (single client) | → [orchestrator/api_contracts.md](./orchestrator/api_contracts.md) |
 | orch ⇄ PLC | FINS/UDP + IO-controller DO | → [orchestrator/api_contracts.md#plc](./orchestrator/api_contracts.md#plc-fins) |
@@ -140,7 +145,7 @@ Capture arming depends on mode: step 2 describes the DI3-gated path. With `direc
 - **Session state** (`O:clientws/session/ClientWsSessionState`): `NO_REFERENCE → READY → OPERATIONAL` after `client.reference_bundle`; `TEST` entered via `POST /api/client/mode/test` (inspection by DI3 suspended, UI runs test-analyze). PLC `vision_ready = referenceActive(state ∉ {NO_REFERENCE,TEST}) ∧ healthy` (`FanOutCoordinator.refreshPlcLevels:284-304`).
 - **Per-camera inspection gate** (`PerCameraInspectionGate`): `enabled` (soft stop), `inFlight`, `cancelRequested`, `systemBlocked` (set by health pause), sequence counters, `armInspectionAfter` (resume only after a given trigger sequence).
 - **Health**: `ServiceHealthGate` (set of unhealthy keys) ← `CriticalServiceWatchdog` (poll 2 s, retry 10 s) → `CriticalServiceInspectionPause` (clears queues, disables & cancels all cameras, restores snapshot on recovery) → `FanOutCoordinator.refreshPlcLevels` (ready=0, fault via DO2 timer).
-- **Process supervision**: worker/geometry/positioning supervisors retry commands 3× with restart (`WorkerProcessSupervisor.command:65-84`); watchdog restarts analisSurface pool; outer `StackSupervisorMain` restarts the whole orchestrator on health failure (6 misses × 5 s) and may schedule a Windows reboot after 3 failed recoveries.
+- **Supervision boundaries**: `WorkerProcessSupervisor` retries commands up to 3× and reopens native camera state (not a worker process). Geometry/optional positioning still have process supervisors; the watchdog manages analisSurface. Outer `StackSupervisorMain` restarts the orchestrator on health failure (6 misses × 5 s) and may schedule a Windows reboot after 3 failed recoveries. A crash in camera C/SDK code can now terminate the whole application JVM.
 
 ## 9. Failure-mode matrix
 
@@ -153,6 +158,7 @@ Capture arming depends on mode: step 2 describes the DI3-gated path. With `direc
 | IO controller disconnects | `MvsIoTransport` reconnect loop (1 s) | outputs raise `IllegalStateException`; session reset event clears direction/work state | log `io event=connection_failed` |
 | PLC FINS unreachable | UDP timeout 1000 ms | publisher queue (64) drops jobs, counter `droppedTotal` | PLC panel |
 | Frontend (Electron) exits | `ExternalServiceProcess.onUnexpectedExit` | `OrchestratorStopSignal("frontend_exited")` → full shutdown, `vision_ready=0` | kiosk loop restarts UI after 5 s |
+| Native camera/SDK crashes JVM | process exit / outer supervisor | restart the orchestrator stack in supervised mode; no separate camera process to isolate the crash | stack/device interruption, logs after restart |
 | DI4=1 | `DiShutdownController` | `LightsShutdown`, stop signal | – |
 | Orchestrator crash/hang | `StackSupervisorMain` health probe | kill process tree, free ports (8000‑8009, 8099, 8765, 5173, 8088), respawn | – |
 
@@ -161,7 +167,7 @@ Capture arming depends on mode: step 2 describes the DI3-gated path. With `direc
 - Cameras: 10 × Hikrobot/Hikvision GigE; 5 switches × 2 cameras (egress buffer 448 KB); frame 1224×1024 (binning 2×2 on camera), BGR8.
 - Lights: MV‑LE controllers — 4 Ethernet (`169.254.220.{1,2,22,23}`, 4 ch) + 1 COM (2 ch, cams 3 & 8).
 - IO: MV‑VC3704H (`DA8813541`, `COM_Port#ttyS4`), PLC Omron at `169.254.220.232:9600` (node 231/254), network `169.254.0.0/16` link-local.
-- Toolchain: JDK 17+, Maven; CMake + MVS SDK at `/opt/MVS`; Node ≥20.19; Python venv `analisSurface/backend/.venv`.
+- Toolchain: JDK 17+ including JNI headers, Maven; CMake/C compiler + MVS SDK at `/opt/MVS`; Node ≥20.19; Python venv `analisSurface/backend/.venv`. The loaded `camera_jni` library is an external build artifact, not replaced by rebuilding only the JAR; a new native library requires JVM restart.
 - Tests: orchestrator ≈358 JUnit (355 pass, 3 skipped at 2026‑10‑15), geometry 46, Python ≈384 pass / 11 skip, front-end 45 Vitest (2026‑10‑08), camera-worker C tests, `deploy/linux/test_*.py`.
 
 ## 11. Index: “where do I look for …”
@@ -169,6 +175,7 @@ Capture arming depends on mode: step 2 describes the DI3-gated path. With `direc
 | Question | Go to |
 |---|---|
 | Shared context for a new developer or ChatGPT conversation | [README](./README.md) → [PROJECT_CONTEXT](./PROJECT_CONTEXT.md) |
+| Did this branch remove Java services or embed camera workers? | [Current branch service status and source map](./current_branch_architecture.md) |
 | Current 500 ms requirement and exact timing boundaries | [performance/latency_requirements.md](./performance/latency_requirements.md) |
 | Six-core RT machine versus historical affinity profile | [deploy-ops/production_environment.md](./deploy-ops/production_environment.md) |
 | What exactly triggers a capture? | [orchestrator/overview.md#trigger-subsystem](./orchestrator/overview.md#trigger-subsystem) |

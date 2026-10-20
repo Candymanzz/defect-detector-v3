@@ -3,10 +3,10 @@
 Back to [overview](./overview.md) · [api](./api_contracts.md) · [global_changelog](../global_changelog.md)
 Evidence: **[doc]** repo docs/comments/commit message · **[code]** verified in code · `⚠️ [GUESS/CONJECTURE]` inferred.
 
-## 1. Process-per-concern joined by IMLB + shared memory
-- Cameras (C), geometry (Java/OpenCV), surface analysis (Python) are separate OS processes; the JVM only moves *descriptors* of frames (`shm_name, offset, stride`). **[code]** `ShmFrameRequest`, `inspect_shm`; **[doc]** `ShmMatReader` comment, commit `8dc6cc8e` “оптимизация памяти”.
-  Trade-off: no per-request image copy (3.7 MB × 10 per cycle) but readers depend on file-backed SHM semantics and the ring never being overwritten while read → that is why pins exist (§3).
-- ⚠️ [GUESS/CONJECTURE]: isolation of native crashes (MVS SDK, OpenCV) and ability to pin processes to isolated CPUs on the RT kernel (commit `0da1c38e` “6 процессов и шесть ядер”).
+## 1. Embedded cameras, separate analysis services, shared memory
+- **[code: `testlinux` / `e466367f`, reviewed 2026-10-20]** Cameras remain C but now run inside the application JVM through JNI. Geometry (Java/OpenCV) and surface analysis (Python) remain separate OS processes. Metadata (`shm_name, offset, stride`) crosses service boundaries; frame bytes stay in SHM. See [current topology](../current_branch_architecture.md).
+  Trade-off: no full-image RPC transfer (3.7 MB × 10 per cycle), but this is not end-to-end zero-copy: `LineFramePinService` copies the selected slot so analysis is independent of later ring writes (§3).
+- Historical process-per-concern isolation no longer applies to camera C/MVS failures: a native crash can terminate the entire orchestrator JVM. Geometry/Python retain their process boundary. JNI removes camera process/stdio overhead; its measured latency benefit and current CPU allocation are not established by the change itself.
 - The binary protocol (IMLB) is hand-rolled and duplicated in three languages (`BinaryProtocol.java` ×3, `main.c`) instead of gRPC/JSON-RPC: **[code]** header JSON + opaque payload keeps frame transport out-of-band. ⚠️ [GUESS/CONJECTURE]: chosen from the first “java moment” commit (`4ecab6b9`, 2026‑05‑29) to avoid native deps in C and to share a format with Python; analisSurface was later converted to HTTP (commit `9ad1bded`, 2026‑05‑18: removed `orchestrator_stdio_runner.py`) while the Java side kept the IMLB abstraction by emulating it (`AnalisSurfaceHttpBinaryRpcSupervisor`) so executors did not change.
 
 ## 2. Merging LightServer.v3 and IoInputMonitor into the JVM

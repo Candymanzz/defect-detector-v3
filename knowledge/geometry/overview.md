@@ -2,6 +2,8 @@
 
 Back to [global_architecture.md](../global_architecture.md) · [API](./api_contracts.md) · [Why](./architecture_why.md) · `G:` = `java-geometry-service/src/main/java/com/example/iml/geometry/`
 
+**Current branch status [code: 2026-10-20, `testlinux` / `e466367f`]: retained as a separate Java service, not removed or embedded.** `ChildProcessStartupService` → `DefaultIntegrationServicePoolFactory.createGeometryPool` launches configured `java -jar` workers; the template pool size is 10. Camera embedding through JNI did not change that boundary. Per-frame skip rules below are not service deletion. Python X/Y positioning runs later and does not pre-align geometry input. [Verified service matrix](../current_branch_architecture.md).
+
 **Customer requirement, recorded 2026-10-20:** adjustable seam tolerance in mm (2 mm is an example), independent horizontal/vertical label-placement tolerances, geometry rejection when a required valid measurement exceeds its limit, and desired display of the actual deviations. See [requirements and implementation gaps](./customer_requirements.md). This is not a claim that the existing image-alignment shifts already measure label placement relative to the bucket.
 
 ## 1. Purpose
