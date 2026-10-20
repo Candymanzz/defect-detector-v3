@@ -13,3 +13,7 @@ Back to [overview](./overview.md) · Evidence tags as in other files.
 9. **Concentricity deviation ≤2 px treated as 0 and no-circle ⇒ pass**: avoids rejects from Hough instability; threshold fixed 0.2 mm (not configurable) ⚠️ [GUESS/CONJECTURE: low priority metric].
 10. **Failure value 9999** for failed alignment: ensures any missing homography is a definite FAIL rather than a silent 0 mm shift **[code]** `FALLBACK_FAIL_MM`.
 11. **One JVM per pool slot with 10 slots** – isolation and parallel capacity (`geometry_pool_size 10`, `geometrySlots` semaphore); JVM warm-up cost accepted ⚠️ [GUESS/CONJECTURE].
+
+## Customer requirement recorded 2026-10-20
+
+Geometry QC must distinguish whole-bucket image motion from label placement relative to the bucket. The customer requests flexible seam tolerance in mm (2 mm is an example), separate horizontal/vertical placement limits and geometry rejection outside those limits; displaying actual measured deviations is desired. Alignment intended to stabilise surface comparison must not hide a truly misplaced label. The [requirements note](./customer_requirements.md) records calibration, reporting and acceptance questions separately from the implemented image-alignment/seam algorithms. No implementation change is implied.

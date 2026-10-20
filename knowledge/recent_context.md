@@ -71,3 +71,7 @@ The observed heavy interval is learned-normal application plus FP rechecks, foll
 `rebuild-and-run.sh` now builds/installs only. Backend startup and kiosk restart are separate operations; use the [current command runbook](./deploy-ops/overview.md#7-current-update-and-launch-commands).
 
 The performance figures and limitations are included inside `knowledge/`, not only in the ignored `.verification/` directory. Internal Markdown links work when this folder is copied to an Obsidian vault. Links to repository-root documentation still require the corresponding files; source-code paths are navigation hints, not bundled source code. Keep these notes updated alongside future code/config changes.
+
+## 7. Customer geometry requirements — recorded, not implemented
+
+On 2026-10-20 the customer requirement was added for flexible label-seam tolerance in millimetres (2 mm as an example), independently adjustable horizontal/vertical label-placement limits, and geometry rejection when a required valid measurement is outside its limit. Showing the actual displacement and the applied tolerance is desired. The seam metric, numerical X/Y limits and physical reference still need agreement. Whole-bucket jitter compensation must not erase actual label-to-bucket displacement. See [geometry requirements and current gaps](./geometry/customer_requirements.md); recording this request changed no application code or settings.

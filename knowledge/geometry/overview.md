@@ -2,6 +2,8 @@
 
 Back to [global_architecture.md](../global_architecture.md) · [API](./api_contracts.md) · [Why](./architecture_why.md) · `G:` = `java-geometry-service/src/main/java/com/example/iml/geometry/`
 
+**Customer requirement, recorded 2026-10-20:** adjustable seam tolerance in mm (2 mm is an example), independent horizontal/vertical label-placement tolerances, geometry rejection when a required valid measurement exceeds its limit, and desired display of the actual deviations. See [requirements and implementation gaps](./customer_requirements.md). This is not a claim that the existing image-alignment shifts already measure label placement relative to the bucket.
+
 ## 1. Purpose
 Classical-CV **geometry QC of the labelled bucket** per frame against the reference: pose shift/rotation (when it aligns itself), **concentricity** of cap/label circles, **label seam (joint)** width / parallelism / taper / visibility, **rim skew** and **gap asymmetry** against the yellow rim, and **wrinkles** (abs-diff score). Returns pass flags used by `DefaultInspectionDecisionAggregator`.
 Runs as a JVM per slot (`geometry_pool_size 10`) reading frames from SHM; ~3.7 kLOC; fat JAR `target/java-geometry-service-0.1.0-SNAPSHOT.jar` (Maven, Java 17, OpenCV Java bindings loaded by `opencv/OpenCvNativeLoader`, Jackson, Log4j2).

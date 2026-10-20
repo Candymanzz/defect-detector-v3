@@ -171,6 +171,7 @@ Capture arming depends on mode: step 2 describes the DI3-gated path. With `direc
 | What exactly triggers a capture? | [orchestrator/overview.md#trigger-subsystem](./orchestrator/overview.md#trigger-subsystem) |
 | Why hold‑mode DO instead of FINS pulses? | [orchestrator/architecture_why.md#reject-signalling](./orchestrator/architecture_why.md#reject-signalling) |
 | What does geometry measure and thresholds? | [geometry/overview.md](./geometry/overview.md) |
+| Customer's seam tolerance and horizontal/vertical label-placement requirements | [geometry/customer_requirements.md](./geometry/customer_requirements.md) — requirements, not an implemented feature claim |
 | How is a Python verdict computed (steps, files, lines)? | [analis-surface/overview.md#pipeline](./analis-surface/overview.md#pipeline-_inspect_frame_unlocked) |
 | Which knobs exist & how 0..100 % maps? | [analis-surface/overview.md#analysis-settings](./analis-surface/overview.md#analysis-settings) |
 | IMLB wire format | [camera-worker/api_contracts.md#imlb-framing](./camera-worker/api_contracts.md#imlb-framing) |

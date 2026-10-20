@@ -33,3 +33,7 @@ The orchestrator post-processes this header: `applyPoseQcFromPositioning` (`Insp
 ## Failure semantics
 - Alignment failure (<8 matches / no homography) ⇒ shift/rot = 9999 ⇒ `alignmentPass=false` ⇒ FAIL (unless `pose_locked`).
 - Exceptions from OpenCV or SHM read ⇒ IMLB ERROR ⇒ orchestrator `command()` retries up to 3× with restart; persistent failure ⇒ health gate unhealthy.
+
+## Customer placement/tolerance requirement, not a new API
+
+The [2026-10-20 customer requirement](./customer_requirements.md) calls for independently adjustable label X/Y placement tolerances, a configurable seam tolerance (2 mm is an example), geometry rejection outside the agreed limits and desired reporting of actual deviations in mm. Existing `shiftXmm`/`shiftYmm` describe alignment and must not be relabelled as verified label-to-bucket placement without validating the measurement reference. This note adds no request/response fields or runtime behavior; reporting and configuration gaps remain to be assessed.

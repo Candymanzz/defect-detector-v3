@@ -11,6 +11,12 @@ Legend of service links: [orchestrator](./orchestrator/overview.md) · [camera-w
 
 ## 0. Knowledge-base era
 
+### 2026-10-20 — Customer geometry tolerance and label-placement requirements
+
+- **What changed:** added [geometry customer requirements](./geometry/customer_requirements.md) and linked them from geometry overview/API/rationale, recent context and the global index.
+- **Why:** record the customer's need for flexible seam tolerance in mm (2 mm is an example), independent horizontal/vertical label-placement limits, geometry rejection outside agreed limits and desired display of actual deviations. Distinguish label-to-bucket placement from global image alignment; retain open questions about seam meaning, calibration, limits and technical-failure policy.
+- **Impact:** documentation only, source inspected at `dc98c9be` on `testlinux`. No Java/Python/frontend code, API, runtime configuration or saved tolerances changed. The requirement is not represented as an already completed feature; 2 mm is not installed as a default.
+
 ### 2026-10-20 — Recent decisions, machine measurements and operational handoff
 
 - **What changed:** added [recent context](./recent_context.md), the self-contained [2026-10-16 log review](./performance/2026-10-16-log-review.md) and the [Python/C++ optimisation plan](./analis-surface/optimization_plan.md). Updated the global index, Python/frontend notes and deployment runbook; corrected the description of `43ec2a9a` below and distinguished the configured three Python threads from the fallback default of ten.
