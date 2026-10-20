@@ -245,7 +245,7 @@
   },
   "integration": {
     "geometry_pool_size": 10,
-    "python_parallelism": 1,
+    "python_parallelism": 10,
     "python_request_parallelism": 10,
     "python_server_pool_size": 1,
     "stage_queue_size": 20,

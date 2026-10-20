@@ -86,7 +86,7 @@ python_detector:
 
 `config/blocks/01-core.yaml` (см. `config.exemple`): `analis_surface_autostart.working_dir: cppAnalisSurface`,
 `analis_surface_command_windows/linux` (путь к exe, `--port`, `--data-dir data`),
-`python_parallelism: 1`, `python_server_pool_size: 1`, `python_request_parallelism: 10`.
+`python_parallelism: 10` (потоков стадии детектора = камер одновременно; НЕ 1), `python_server_pool_size: 1`, `python_request_parallelism: 10`.
 
 ## HTTP API
 

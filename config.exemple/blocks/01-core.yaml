@@ -62,8 +62,8 @@ integration:
     immediate_prefire: false
   geometry_pool_size: 10
   positioning_pool_size: 10
-  # cpp: один HTTP-клиент на один процесс; параллелизм задаёт python_detector.server_concurrency.
-  python_parallelism: 1
+  # Число потоков стадии детектора = сколько камер обрабатывается ОДНОВРЕМЕННО (10 камер = 10). Значение 1 заставит камеры идти по очереди.
+  python_parallelism: 10
   # Один процесс uvicorn; 10 HTTP-клиентов к :8000. Без этого — 10 uvicorn × модели ≈ ×10 RAM.
   python_server_pool_size: 1
   # HTTP-запросы параллельны внутри одного uvicorn, независимо от числа процессов.
