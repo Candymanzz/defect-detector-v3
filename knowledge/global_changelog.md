@@ -4,12 +4,18 @@ Back to [global_architecture.md](./global_architecture.md)
 
 Source: `git log` of branch `testlinux` (615 commits, 2026‑05‑14 → 2026‑10‑16) plus code reading. Commit messages are terse Russian; each entry below uses the mandatory protocol format:
 **What changed** (files / lines) · **Why it was done** (architectural reason, trade-offs, why this pattern; **[doc]** = from commit message, repo docs or code comments; `⚠️ [GUESS/CONJECTURE]` = inferred) · **Impact** (other services / global state).
-Newest first. Entries marked *(reconstructed)* summarise multi-commit work. Hash anchors can be inspected with `git show <hash>`.
+Newest first. Entries marked *(reconstructed)* summarise multi-commit work. Hash anchors can be inspected with `git show <hash>`. Documentation reviews after that historical range are dated separately and do not imply a deployed runtime change.
 Legend of service links: [orchestrator](./orchestrator/overview.md) · [camera-worker](./camera-worker/overview.md) · [geometry](./geometry/overview.md) · [positioning](./positioning/overview.md) · [analis-surface](./analis-surface/overview.md) · [front-end](./front-end/overview.md) · [legacy-hardware](./legacy-hardware/overview.md) · [deploy-ops](./deploy-ops/overview.md).
 
 ---
 
 ## 0. Knowledge-base era
+
+### 2026-10-20 — Recent decisions, machine measurements and operational handoff
+
+- **What changed:** added [recent context](./recent_context.md), the self-contained [2026-10-16 log review](./performance/2026-10-16-log-review.md) and the [Python/C++ optimisation plan](./analis-surface/optimization_plan.md). Updated the global index, Python/frontend notes and deployment runbook; corrected the description of `43ec2a9a` below and distinguished the configured three Python threads from the fallback default of ten.
+- **Why:** preserve the latest investigation/decisions in the versioned knowledge base and an Obsidian-friendly Markdown tree, rather than only in chat and ignored local analysis artifacts. Separate implemented features, dated log observations and unimplemented proposals; keep physical-trigger, frame-arrival and software-output timing distinct.
+- **Impact:** documentation only, reviewed against source `c9944af8` on `testlinux`. No code, runtime configuration, deployed services, saved references/learning data or build scripts changed. C++ migration and learning-snapshot redesign remain proposals. The existing ROI-refresh operation and deferred artifacts are documented, not newly implemented by this entry.
 
 ### 2026‑10‑18 — Knowledge base created and deepened
 - **What changed:** new directory `knowledge/` (this tree). No source files touched.
@@ -32,8 +38,8 @@ Legend of service links: [orchestrator](./orchestrator/overview.md) · [camera-w
 
 ### 2026‑10‑16 · `43ec2a9a` — “save roi”
 - **What changed:** `F:components/ReferenceSetup/ReferenceController.ts` (+95), `ReferenceSetup.tsx` (+23).
-- **Why:** ⚠️ [GUESS/CONJECTURE] ROI edits were not persisted across reference commits; controller now persists contours with the staged bundle (`stageReferenceBundleContours`).
-- **Impact:** front-end only (IndexedDB library).
+- **Why:** **[code, operator requirement]** add a dedicated **«Новый эталон с прежним ROI»** action (`handleRefreshFramesKeepingRoi`): capture fresh frames for the selected group, retain normalised ROI/joint/perspective/FP geometry, then auto-submit after the fresh React frame state is ready. This is not merely a fix to contour persistence.
+- **Impact:** frontend workflow only; existing bundle/ACK and learned-case inheritance mechanisms are reused. Missing ROI, closed connection, partial capture and duplicate capture are guarded; successful server ACK is required for confirmation. A rebuilt kiosk frontend is required. See [current behavior and validation limits](./recent_context.md#3-replace-reference-frames-while-keeping-roi).
 
 ### 2026‑10‑16 · `db7e2961` — Remove ML branch (anomalib/PatchCore)
 - **What changed:** `analisSurface/backend/requirements.txt` (−`anomalib`), `S:inspection_service.py` (−30: `_load_anomalib_engine`, `_anomaly_engine`, the `use_patchcore` branch in `_run_anomaly_model`).

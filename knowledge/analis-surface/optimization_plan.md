@@ -1,0 +1,52 @@
+# Optimisation plan — learned normals, FP and selective C++
+
+Back to [Python overview](./overview.md) · [recent decisions](../recent_context.md) · [measured evidence](../performance/2026-10-16-log-review.md)
+
+**Status: analysis/proposals, 2026-10-20, source HEAD `c9944af8`.** No C++ module, full Python replacement, new cache-publication mechanism or measured C++ speedup is implemented by this documentation update. Historical timings below are from 2026-10-16, not a new benchmark.
+
+## 1. What is already implemented
+
+- Reference preprocessing and positioner caches (`reference_preparation.py`, `inspection_positioning.py`).
+- Translation-only positioning; no rotation fit or exclusion strips in that path.
+- Configurable inspection workers, OpenCV internal threads limited to one, deferred heatmaps/history with a foreground-priority workload gate.
+- Reference/learning consistency across processes using generation markers. This exists, but its refresh cost is still on the inspection path.
+
+Do not propose these existing features as if missing. The next work concerns measured tail latency and how state is prepared/published.
+
+## 2. Verified hot paths and remaining uncertainty
+
+**[code]** `learned_normals.py::AcceptedNormalMemory.apply` calls `_refresh_from_disk_if_changed` under its lock. A changed generation calls `_load`, which clears `_cases`, walks all case JSON files and reads NPZ arrays, including saved source frames/crops. This is a full accepted-normal store refresh before filtering by product/reference, not just an incremental update for the current camera.
+
+**[code]** Candidate matching loops over candidates and saved cases (`apply`, `_best_matching_case`, `candidate_similarity`). The polygon-gap fallback has nested loops over points and segments (`_polygon_gap`). Multiple small NumPy/Python operations are performed during each comparison.
+
+**[code]** `inspection_service.py::_recheck_fp_zones` loops through FP zones, measures their activity and recomputes local differences for triggered mini-references. Several helpers convert maps to grayscale and allocate/copy arrays; determine which can be shared/reused without changing semantics.
+
+**[logs]** The compound learned-normal/FP interval reached 1019.541 ms per camera, and Java-side queuing reached 1155 ms. Positioning averaged 29.200 ms; `py_diff` 73.389 ms. Existing timings do not isolate how much of the compound interval is disk loading versus matching versus FP recomputation.
+
+## 3. Proposed sequence of work
+
+1. **Measure separately.** Add bounded stage timings for generation check/reload, candidate extraction, case preselection/matching, residual verification and FP mini-reference comparison. Test before/after learning updates and during simultaneous ten-camera requests.
+2. **Prepare state outside the critical path.** Investigate incremental updates and immutable, fully prepared snapshots. Publish only a complete consistent version; retain the last valid version on failure. A generation change during loading must not silently publish mixed data. Preserve reference/product/camera isolation and define when an operator update becomes active.
+3. **Reduce unnecessary comparisons and allocations.** Precompute invariant template/geometry data, preselect nearby cases without changing the exact matching gate, share grayscale maps where safe, and process only the required crop plus real context. Preserve unknown-component residuals and overlap protections.
+4. **Prototype one native kernel.** Start with batched candidate/template/geometry matching if profiling confirms Python orchestration dominates there. Keep the API and the rest of the detector unchanged for a controlled comparison.
+5. **Consider larger image kernels only after measurement.** Combining successive operations and reusing buffers may help; translating each existing OpenCV call one-for-one is not itself an algorithmic speedup.
+
+## 4. Why selective C++ instead of an immediate full rewrite
+
+OpenCV's Python interface already calls C++ algorithms; many NumPy operations are native and release the GIL. A whole-service rewrite would also require reproducing settings expansion, ROI/FP contracts, learned-case persistence, SHM lifetime, reference replay, history and deferred UI behavior. It creates more compatibility work than replacing a measured CPU kernel.
+
+**[proposal]** A C++ extension exposed through `pybind11` could accept existing image/template buffers in batches, minimise copying and explicitly release the GIL while running code that does not access Python objects. GIL release is not automatic. Array shape, dtype, stride and ownership/lifetime need validation. Independent buffers/state or synchronisation are required for concurrent calls.
+
+Reference documentation: [OpenCV Python bindings](https://docs.opencv.org/4.x/da/d49/tutorial_py_bindings_basics.html), [NumPy thread safety](https://numpy.org/doc/stable/reference/thread_safety.html), [pybind11 buffers/NumPy](https://pybind11.readthedocs.io/en/stable/advanced/pycpp/numpy.html), [pybind11 GIL management](https://pybind11.readthedocs.io/en/stable/advanced/misc.html#global-interpreter-lock-gil).
+
+A native module would need explicit Linux/Windows build and deployment support; the current `rebuild-and-run.sh` does not build such an extension. More native threads do not create more CPU cores. Recheck process/thread limits on the actual machine, especially a four-core target, and avoid nested OpenCV/native worker oversubscription.
+
+## 5. Acceptance gates before enabling any optimisation
+
+- Use the same pinned images, references, settings, ROI/FP geometry and learning-store snapshot for baseline/candidate runs. Separate cold-cache, warm-cache and update-during-inspection tests.
+- Compare intermediate maps/masks, candidate matches, main/sub-zone scores and final verdicts; define numerical tolerances before accepting differences near thresholds.
+- Include real unknown defects inside/overlapping learned normals and FP zones, small X/Y shifts, glare/text, missing data and concurrent state updates. Faster suppression must not hide new defects.
+- Measure ten-camera wall time, queues, CPU/RAM and P95/P99/max, not only average per-function time. Verify software output timing versus the relevant DI2 window; assess physical output timing separately.
+- Record host CPU, process/thread settings and analysis scales. The historical 600 ms target is not proven by a fast isolated kernel.
+
+No percentage speedup or guarantee of a 600 ms trigger-to-output deadline can be claimed before those comparisons. C++ does not by itself remove the observed pre-frame waiting interval.

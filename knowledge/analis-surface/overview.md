@@ -1,6 +1,8 @@
 # analis-surface (`analisSurface/backend/`)
 
 Back to [global_architecture.md](../global_architecture.md) · [API](./api_contracts.md) · [Why](./architecture_why.md)
+
+Latest handoff: [implemented decisions](../recent_context.md) · [machine timing evidence](../performance/2026-10-16-log-review.md) · [optimisation/C++ proposals](./optimization_plan.md). Source review: 2026-10-20; machine measurements: 2026-10-16. These dates are not interchangeable.
 `A:` = `analisSurface/backend/app/` · `S:` = `analisSurface/backend/app/services/`.
 (Directory renamed from `kopcheniservice` in `e5ef57f0`, 2026‑05‑14; YAML keys still say `kopcheni_base_url`, WS error `kopcheni_sync_failed`.)
 
@@ -9,7 +11,7 @@ Compares the current frame with a stored **reference** per camera-scoped product
 
 ## 2. Stack & runtime
 Python 3, FastAPI + uvicorn (`A:main.py`), OpenCV (`opencv-python`), NumPy, Pillow, httpx, PyYAML (`requirements.txt`; **no anomalib/PatchCore any more**, removed `db7e2961`). Tests: pytest (`pytest.ini`, marker `integration`), ~384 pass.
-Launched by the orchestrator as **6 processes** on ports 8000‥8005 (`AnalisSurfaceLauncher`, command from `analis_surface_command_linux`: `tools/run-analis-isolated.sh -m uvicorn app.main:app --host 127.0.0.1 --port N` — wrapper script is not in git). Env: `ANALIS_INSPECT_WORKERS` (=3, thread pool size, default 10 if unset, clamp 1‥32; `A:api/dependencies.py:~20`), `PY_POSITIONING` (default on), `PYTHON_APP_ID`/`DETECTOR_ID`.
+The checked-in configuration launches **6 processes** on ports 8000‥8005 (`AnalisSurfaceLauncher`, command from `analis_surface_command_linux`: `tools/run-analis-isolated.sh -m uvicorn app.main:app --host 127.0.0.1 --port N` — wrapper script is not in git). This count is configurable. Env: `ANALIS_INSPECT_WORKERS` (the launcher template requests 3; Python fallback is 10 if unset, clamp 1‥32; `A:api/dependencies.py:~20`), `PY_POSITIONING` (default on), `PYTHON_APP_ID`/`DETECTOR_ID`.
 `cv2.setNumThreads(1); cv2.ocl.setUseOpenCL(False)` (`dependencies.py`): parallelism comes from the process pool, not from OpenCV teams (avoids oversubscription when 10 cameras arrive together).
 
 ## 3. Code map

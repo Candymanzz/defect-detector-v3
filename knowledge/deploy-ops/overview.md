@@ -36,3 +36,73 @@ systemd unit `defect-detector.service` is **not in git** (exported by `system-pr
 
 ## 6. Logging (`LOGGING.md`)
 Per-launch directory; Java `java-requests/responses.log`, `pipeline.log`, `orchestrator-runtime.log`, `supervisor-runtime.log`, `geometry-runtime.log`, `positioning-runtime.log`; Python `python-*-<pid>.log`; frontend `frontend-*.log`; plus PLC/lighting/trigger/startup logs; `logs/pipeline-stages.jsonl` timing; RT folder `logs/<ts>-rt-<pid>/`. Writes are async via bounded queues (overflow drops diagnostics, never blocks the pipeline); HTTP logs carry metadata only (no bodies/images).
+
+## 7. Current update and launch commands
+
+Reviewed 2026-10-20 against `rebuild-and-run.sh`, `run-supervised.sh`, `run-rt.sh`, `RUN.md` and `deploy/linux/setup-frontend-updates.sh`. Run application commands **on Linux, from the repository root**. Stop inspection/the line before stopping or updating production services. The installed `defect-detector.service` must point to the intended checkout; the unit itself is machine-specific and not in git.
+
+### Full rebuild and systemd launch
+
+Despite its name, `rebuild-and-run.sh` does not stop/start the backend. For an already provisioned systemd/kiosk host:
+
+```bash
+sudo systemctl stop defect-detector.service &&
+bash ./rebuild-and-run.sh --restart-frontend &&
+sudo systemctl start defect-detector.service
+```
+
+The `&&` chain starts the backend only after successful build/installation. A failed build leaves it stopped; inspect the error before deciding how to recover. Do not run the entire build as root just to avoid a service-control password prompt.
+
+Verify the service and readiness after starting:
+
+```bash
+sudo systemctl status defect-detector.service --no-pager
+curl --fail http://127.0.0.1:8099/health
+```
+
+A running supervisor/service is not proof that every camera, reference, light or reject mechanism is operational; confirm application/device readiness before resuming production.
+
+### Kiosk restart setup and frontend-only refresh
+
+`--restart-frontend` requires the installed kiosk and the restricted helper. If not configured, an administrator runs this **once** for deployment user `o`:
+
+```bash
+sudo bash deploy/linux/setup-frontend-updates.sh o
+```
+
+This changes only the documented UI asset permissions and grants passwordless access to the fixed kiosk-restart helper; it does not grant passwordless backend service control.
+
+For the ROI-preserving reference button, only the frontend changed:
+
+```bash
+bash ./rebuild-and-run.sh -c -o --restart-frontend
+```
+
+Here `-c` skips camera-worker, `-o` skips orchestrator; both together build/install only the frontend. `-f` skips frontend build/installation and cannot be combined with `--restart-frontend`. Frontend installation alone does not reload an already running Electron. The helper restarts the installed `/opt/defect-detector-ui` kiosk, not the backend or a custom installation directory.
+
+### Python-only changes, manual launch and diagnostics
+
+- Python source changes are loaded after restarting its processes; changing branches while processes run does not reliably activate the new code. For the supervised machine stack use `sudo systemctl restart defect-detector.service` after stopping inspection. Source-only Python changes do not require Maven/CMake rebuilding; changed dependencies may require a separate venv update.
+- For an intentional interactive launch instead of systemd: `bash ./run-supervised.sh`. It stops the previous managed stack first; do not try to maintain a second competing stack. Ctrl+C/terminal disconnection can end the foreground launch, so prefer systemd for normal SSH operation.
+- `bash ./run-rt.sh -r` or `bash ./run-supervised.sh -r --rt-interval 2` collects metrics from the existing system **only**; `-r` does not start the application. Without `-r`, `run-rt.sh` applies/validates the configured affinity before starting; do not assume its default CPU set is valid on another host.
+- Legacy rebuild flags `-r`, `--build-only`, `--config`, `--rt-interval` are accepted but ignored by the rebuild script. `--restart-frontend` is the explicitly supported kiosk-only restart exception to build-only behavior.
+
+## 8. Export machine logs to Windows
+
+Shell redirection is local to the shell where it is written. At a Linux prompt such as `o@o:~$`, `> C:\Users\...` does not save into Windows Downloads. `sudo` grants journal access; it does not change where redirection writes the file. No `cd` to the project is needed to read the systemd journal.
+
+On the Linux machine, export with precise timestamps and without a pager:
+
+```bash
+sudo journalctl -u defect-detector.service --since '10 min ago' --no-pager -o short-iso-precise > /home/o/defect_detector.log
+```
+
+Then in a **local Windows PowerShell** prompt (`PS C:\...`), download it:
+
+```powershell
+scp o@100.122.121.36:/home/o/defect_detector.log "C:\Users\ShablinskiyM\Downloads\defect_detector.log"
+```
+
+The host/account/path are examples from the reviewed installation. Use a timestamped filename for each archived experiment: these simple commands overwrite the previous export at that filename, not the original systemd journal. Never infer which experiment a file contains solely from its reusable name; record the journal interval, size, host/config and cycle range.
+
+Analysis rules and the latest retained figures: [machine log review](../performance/2026-10-16-log-review.md). They distinguish DI2-window opening, frame availability, final writes and early reject writes; none alone establishes the exact mechanical-actuation time.

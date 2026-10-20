@@ -28,6 +28,9 @@ React 19 + TypeScript (strict, `tsc --noEmit` in build) · Vite renderer (`npm r
 | `scripts/dev.mjs` | dev launcher |
 
 ## 4. Key flows
+
+Reference-frame refresh: **«Новый эталон с прежним ROI»**, implemented in `43ec2a9a`, is available for an active group with a stored reference. It captures new frames, retains existing geometry and auto-submits; confirmation waits for server ACK. The separate **«Новый эталон с новым контуром»** starts the contour workflow. [Details and local-test limits](../recent_context.md#3-replace-reference-frames-while-keeping-roi). A Python restart cannot update this UI; rebuild/install and restart the kiosk frontend.
+
 - **Boot**: `orchestratorWs.connect()` → `server.hello{session_state}`; `GET /api/client/inspection/status`, `GET /api/cameras`; reference images are restored from IndexedDB; counters reset by `inspectionResetVersion`.
 - **Reference**: preview frames over WS (`server.preview_batch` while the line is idle/`preview_images_enable`), engineer draws ROI/joint/perspective/FP on each of 5 views, `createReferenceBundleFromCameraFrames` → `orchestratorWs.sendReferenceBundle` → wait `server.reference_bundle_ack` (message_id correlation) → commit images/contours to the library, `disableReferencePreviewImages` (stop heavy previews) → `server.state OPERATIONAL`.
 - **Run**: results arrive as `server.inspect_result` per camera (+ `server.inspect_bucket_result` per line). UI shows card images from `/api/inspection-artifacts/{bundle}/…` (immutable) and heat-map by artifact id. Out-of-order protection via frame-id comparison and per-camera enable timestamps (`inspectionAcceptedAfterMsByCameraIdRef`, `…FromFrameId…`).

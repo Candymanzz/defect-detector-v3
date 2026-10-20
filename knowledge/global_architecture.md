@@ -12,6 +12,8 @@
 > `P:` = `java-positioning-service/src/main/java/com/example/iml/positioning/` ·
 > `A:` = `analisSurface/backend/app/` · `W:` = `camera-worker/src/` · `F:` = `front-end/`.
 
+Latest documentation review: **2026-10-20**, source HEAD `c9944af8`. Start with [recent decisions and operating context](./recent_context.md) for implemented ROI/positioning/heatmap behavior, [machine measurements](./performance/2026-10-16-log-review.md) for the dated evidence, and the [optimisation plan](./analis-surface/optimization_plan.md) for work that is **not implemented**. No application code was changed by this review.
+
 ## 1. What the system is
 
 An industrial visual-inspection line for a **plastic/steel bucket with handle and glued label**. Ten GigE cameras photograph each product when a
@@ -58,12 +60,14 @@ Windows code paths still exist (`*_windows`/`*_linux` config keys, `StackSupervi
  └──┬───────────────┬───────────────────────┬─────────────────────────────┬─────────────────────┘
     │IMLB stdio     │IMLB stdio             │IMLB stdio (disabled)        │HTTP/JSON :8000‥ (6 uvicorn)
     ▼               ▼                       ▼                             ▼
- camera-worker×10  geometry×10 JVM         positioning×10 JVM        analisSurface ×6 procs (3 threads each)
+ camera-worker×10  geometry×10 JVM         positioning×10 JVM        analisSurface ×6 procs (configurable threads)
     │ writes                ▲ reads SHM            ▲ reads SHM               ▲ reads SHM (mmap)
     └──► /dev/shm/iml_cam_<id>_frame (8-slot BGR8 ring) ──► pinned copies iml_line_pin_cam<id>_f<seq> ──┘
  Supervisor above all: StackSupervisorMain (health :8099/health + :8000/detector/health) ◄ run-supervised.sh / systemd
  UI: Electron (kiosk) ──REST/MJPEG/WS──► orchestrator
 ```
+
+The checked-in launcher template sets `analis_surface.inspect_workers: 3` per Python process; `AnalisSurfaceLauncher` passes `ANALIS_INSPECT_WORKERS`. Without that environment variable Python defaults to **10** (clamped 1–32). The six-process topology is the template/reviewed deployment, not a hard-coded universal count. See [configuration distinctions](./recent_context.md#5-configuration-versus-observed-deployment).
 
 ## 4. Data stores & shared memory (who owns what)
 
@@ -129,6 +133,8 @@ and re-sends ROI per request (`ensureRoiPolygon`, `roi_polygon_norm` in `ShmFram
 11. **Fan-out** `FanOutCoordinator.publishBuckets` (`O:fanout/FanOutCoordinator.java:150-177`): health gate → `IoRejectPublisher.publishBatch` (one FIFO task, one SDK critical section; `levels[port] = (!pass)==activeHigh`) → WS `server.inspect_bucket_result`; **after PLC**, deferred UI work (`pendingUi`) runs.
 12. **Post-verdict (non-blocking)**: UI artifacts (`UiArtifactsSidecar.scheduleAfterInspection`), deferred heat-map render (`/render-heatmap` by token), deferred learning review, frame archive, pinned SHM release (`releaseCycleShm`).
 
+Capture arming depends on mode: step 2 describes the DI3-gated path. With `directionWindowCapture`, `IoInputTriggerTransport` opens the frame window and dispatches capture at DI2↑, then closes it at DI2↓. The reviewed 2026-10-16 exports show this DI2-window path; do not equate window opening with the camera's electrical trigger or image-availability time. [Measurement boundaries](./performance/2026-10-16-log-review.md#2-correlation-rules).
+
 ## 8. State machines (cross-cutting)
 
 - **Session state** (`O:clientws/session/ClientWsSessionState`): `NO_REFERENCE → READY → OPERATIONAL` after `client.reference_bundle`; `TEST` entered via `POST /api/client/mode/test` (inspection by DI3 suspended, UI runs test-analyze). PLC `vision_ready = referenceActive(state ∉ {NO_REFERENCE,TEST}) ∧ healthy` (`FanOutCoordinator.refreshPlcLevels:284-304`).
@@ -171,6 +177,9 @@ and re-sends ROI per request (`ensureRoiPolygon`, `roi_polygon_norm` in `ShmFram
 | WS messages & reference bundle schema | [orchestrator/api_contracts.md](./orchestrator/api_contracts.md) |
 | PLC register map | [orchestrator/api_contracts.md#plc-fins](./orchestrator/api_contracts.md#plc-fins) |
 | Build/run/RT/kiosk | [deploy-ops/overview.md](./deploy-ops/overview.md) |
+| Latest implemented decisions: X/Y positioning, preserved ROI, deferred artifacts | [recent_context.md](./recent_context.md) |
+| Latest machine latency, DI2 deadlines and learning spikes | [2026-10-16 log review](./performance/2026-10-16-log-review.md) |
+| What to optimise next; is C++ already implemented? | [Python optimisation plan](./analis-surface/optimization_plan.md) |
 | What changed when, and why | [global_changelog.md](./global_changelog.md) |
 
 ## 12. Maintenance protocol for future changes
