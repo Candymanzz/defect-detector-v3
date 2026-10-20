@@ -17,7 +17,7 @@ import {
 import { CameraSettingsModal } from "../CameraSettingsModal";
 import { ReferenceSetup } from "../ReferenceSetup";
 import { ServerStream } from "../ServerStream";
-import { AnalysisSettingsPanel } from "./AnalysisSettingsPanel";
+import { DetectorSettingsPanel } from "./DetectorSettingsPanel";
 import { orchestratorApi } from "../../shared/api";
 import benchmarkIconUrl from "../../shared/assets/images/benchmark.svg";
 import camerasIconUrl from "../../shared/assets/images/cameras.svg";
@@ -717,7 +717,7 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
               <h3>Настройки анализа</h3>
               <strong>{analysisScopeText}</strong>
             </summary>
-            <AnalysisSettingsPanel
+            <DetectorSettingsPanel
               selectedCameraId={selectedCameraId}
               profile={settingData.analysisProductTypes[0]}
             />

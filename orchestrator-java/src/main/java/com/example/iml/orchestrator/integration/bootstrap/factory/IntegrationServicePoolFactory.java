@@ -19,6 +19,15 @@ public interface IntegrationServicePoolFactory {
             IntegrationBootConfig cfg
     );
 
+    /** Backend-aware overload: cppBackend=true creates clients of the C++ detector (cppAnalisSurface). */
+    default List<BinaryRpcSupervisor> createPythonHttpPool(
+            List<String> serverBaseUrls,
+            IntegrationBootConfig cfg,
+            boolean cppBackend
+    ) {
+        return createPythonHttpPool(serverBaseUrls, cfg);
+    }
+
     List<ServiceProcessSupervisor> createGeometryPool(
             List<String> geometryCommand,
             Path projectRoot,

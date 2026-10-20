@@ -62,11 +62,12 @@ integration:
     immediate_prefire: false
   geometry_pool_size: 10
   positioning_pool_size: 10
-  python_parallelism: 10
+  # cpp: один HTTP-клиент на один процесс; параллелизм задаёт python_detector.server_concurrency.
+  python_parallelism: 1
   # Один процесс uvicorn; 10 HTTP-клиентов к :8000. Без этого — 10 uvicorn × модели ≈ ×10 RAM.
   python_server_pool_size: 1
   # HTTP-запросы параллельны внутри одного uvicorn, независимо от числа процессов.
-  python_request_parallelism: 4
+  python_request_parallelism: 10
   stage_queue_size: 20
   # Таймаут RPC к camera-worker (health/capture/inspect). Для 10 камер увеличен, чтобы избежать ложных startup timeout.
   worker_command_timeout_ms: 30000
@@ -147,31 +148,33 @@ integration:
     directory: "testimage"
     jpeg_quality: 0.92
   # Автозапуск uvicorn (как LightServer). Один раз: pip install в analisSurface/backend/.venv
+  # Автозапуск детектора. python_detector.backend: cpp -> cppAnalisSurface (C++, один процесс, пул потоков inspect);
+  # python -> старый Python analisSurface (команды ниже в комментариях).
   analis_surface_autostart:
     enabled: true
-    # Потоков inspect в одном uvicorn (10 кадров с 10 камер параллельно).
-    inspect_workers: 10
-    working_dir: "analisSurface/backend"
+    # Потоков inspect в процессе cppAnalisSurface (10 кадров с 10 камер параллельно; для 6 ядер / 12 потоков — 12).
+    inspect_workers: 12
+    working_dir: "cppAnalisSurface"
     startup_timeout_ms: 180000
     health_path: "/health"
+  # cppAnalisSurface: один процесс; оркестратор подставляет --port N. Данные (настройки) — рядом с процессом.
   analis_surface_command_windows:
-    - "analisSurface/backend/.venv/Scripts/python.exe"
-    - "-m"
-    - "uvicorn"
-    - "app.main:app"
+    - "cppAnalisSurface/build/Release/cpp_analis_surface.exe"
     - "--host"
     - "127.0.0.1"
     - "--port"
     - "8000"
+    - "--data-dir"
+    - "data"
   analis_surface_command_linux:
-    - "analisSurface/backend/.venv/bin/python"
-    - "-m"
-    - "uvicorn"
-    - "app.main:app"
+    - "cppAnalisSurface/build/cpp_analis_surface"
     - "--host"
     - "127.0.0.1"
     - "--port"
     - "8000"
+    - "--data-dir"
+    - "data"
+  # Python (старый): [analisSurface/backend/.venv/Scripts/python.exe, -m, uvicorn, app.main:app, --host, 127.0.0.1, --port, 8000]
   geometry_command_windows:
     - "java"
     - "-jar"

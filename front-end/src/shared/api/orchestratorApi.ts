@@ -4,6 +4,8 @@ import type {
   AnalysisSettingsResponse,
   AnalysisSettingsUpdateRequest,
   AnalysisPresetResponse,
+  DetectorSettingsResponse,
+  DetectorSettingsUpdate,
   SimpleAnalysisKnobs,
   ProAnalysisKnobs,
   StrengthKnobs,
@@ -44,6 +46,7 @@ const http = new HttpClient(appEnv.apiRequestBaseUrl);
 const LIGHT_BRIGHTNESS_PATH = "/api/orchestrator/light/brightness";
 const LIGHT_MODE_PATH = "/api/orchestrator/light/mode";
 const ANALYSIS_SETTINGS_PATH = "/api/orchestrator/analysis-settings";
+const DETECTOR_SETTINGS_PATH = "/api/orchestrator/detector-settings";
 
 export const orchestratorApi = {
   url: (path: string) => http.url(path),
@@ -272,6 +275,28 @@ export const orchestratorApi = {
     });
   },
 
+  /** Настройки C++ анализатора (cppAnalisSurface) камеры: чувствительность, порог, допуск сдвига, мин. площадь, масштаб. */
+  async getCameraDetectorSettings(cameraId: number) {
+    return http.json<DetectorSettingsResponse>(`${DETECTOR_SETTINGS_PATH}/camera/${cameraId}`);
+  },
+
+  async setCameraDetectorSettings(cameraId: number, update: DetectorSettingsUpdate) {
+    return http.json<DetectorSettingsResponse>(`${DETECTOR_SETTINGS_PATH}/camera/${cameraId}`, {
+      method: "PUT",
+      body: update,
+    });
+  },
+
+  async resetCameraDetectorSettings(cameraId: number) {
+    return http.json<DetectorSettingsResponse>(`${DETECTOR_SETTINGS_PATH}/camera/${cameraId}`, {
+      method: "DELETE",
+    });
+  },
+
+  async getDefaultDetectorSettings() {
+    return http.json<DetectorSettingsResponse>(`${DETECTOR_SETTINGS_PATH}/defaults`);
+  },
+
   async getJson<T>(path: string) {
     return http.json<T>(path);
   },
@@ -427,6 +452,8 @@ export const orchestratorApi = {
         simple?: Record<string, number>;
         detailed?: Record<string, number>;
         pro?: Record<string, number>;
+        /** cppAnalisSurface: временные настройки анализа (sensitivity, threshold, shift_tolerance, min_blob_area, inspect_scale). */
+        settings?: Record<string, number>;
       };
     },
   ) {
@@ -445,6 +472,7 @@ export const orchestratorApi = {
               ...(analysis.simple ? { simple: analysis.simple } : {}),
               ...(analysis.detailed ? { detailed: analysis.detailed } : {}),
               ...(analysis.pro ? { pro: analysis.pro } : {}),
+              ...(analysis.settings ? { settings: analysis.settings } : {}),
             }
           : undefined,
       },

@@ -42,6 +42,20 @@ public final class DefaultIntegrationServicePoolFactory implements IntegrationSe
     }
 
     @Override
+    public List<BinaryRpcSupervisor> createPythonHttpPool(
+            List<String> serverBaseUrls,
+            IntegrationBootConfig cfg,
+            boolean cppBackend
+    ) {
+        return servicePools.startAnalisSurfaceHttpPool(
+                serverBaseUrls,
+                cfg.pythonParallelism(),
+                cfg.serviceCommandTimeoutMs(),
+                cppBackend
+        );
+    }
+
+    @Override
     public List<ServiceProcessSupervisor> createGeometryPool(
             List<String> geometryCommand,
             Path projectRoot,

@@ -27,9 +27,9 @@ public final class InspectPythonExecutor implements PythonInspectStage {
     private final Logger log;
     private final GeometryRuntimeConfig inspectionRuntimeConfig;
     /**
-     * One fair FIFO lane per Python process/client.  Letting two inspections enter the
-     * same FastAPI process at once makes both CPU-bound OpenCV pipelines slower and
-     * produces large tail-latency spikes.  Different pool members still run in parallel.
+     * One fair FIFO lane per detector client. Python (GIL, CPU-bound OpenCV): 1 request at a time, parallelism comes
+     * from the process pool. cppAnalisSurface is one multi-threaded process: {@code python_detector.server_concurrency}
+     * sets how many requests a client sends at once (default 1). Different pool members still run in parallel.
      */
     private final Map<BinaryRpcSupervisor, Semaphore> pythonFifoLanes = new ConcurrentHashMap<>();
 
@@ -200,7 +200,8 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                     pyHeader.put("inspect_scale", inspectScale);
                 }
             }
-            Semaphore fifoLane = pythonFifoLanes.computeIfAbsent(python, ignored -> new Semaphore(1, true));
+            int laneConcurrency = com.example.iml.orchestrator.integration.config.DetectorBackend.serverConcurrency(pythonCfg);
+            Semaphore fifoLane = pythonFifoLanes.computeIfAbsent(python, ignored -> new Semaphore(laneConcurrency, true));
             long tQueue0 = System.nanoTime();
             fifoLane.acquire();
             try {

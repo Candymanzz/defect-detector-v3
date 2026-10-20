@@ -64,8 +64,14 @@ java_positioning:
   max_rotation_deg: 9999.0
 
 python_detector:
+  # Какой детектор: cpp -> cppAnalisSurface (C++, настройки анализа хранит сам сервис: чувствительность, порог,
+  # допуск на сдвиг, мин. площадь, масштаб; редактируются в UI), python -> старый analisSurface.
+  backend: cpp
+  # Сколько запросов инспекции клиент шлёт в многопоточный cpp-сервис одновременно (10 камер = 10).
+  server_concurrency: 10
   # FastAPI analisSurface — оркестратор поднимает uvicorn сам (integration.analis_surface_*).
   base_url: "http://127.0.0.1:8000"
+  # Для backend: cpp игнорируется: масштаб анализа (inspect_scale) и порог — в настройках детектора (UI).
   # Масштаб анализа после выравнивания: 0.75 по каждой оси (56.25% пикселей).
   inspect_scale: 0.75
   rois:

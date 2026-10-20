@@ -184,6 +184,8 @@
   },
   "python_detector": {
     "base_url": "http://127.0.0.1:8000",
+    "backend": "cpp",
+    "server_concurrency": 10,
     "rois": [
       {
         "name": "main",
@@ -243,9 +245,9 @@
   },
   "integration": {
     "geometry_pool_size": 10,
-    "python_parallelism": 10,
-    "python_request_parallelism": 6,
-    "python_server_pool_size": 3,
+    "python_parallelism": 1,
+    "python_request_parallelism": 10,
+    "python_server_pool_size": 1,
     "stage_queue_size": 20,
     "worker_command_timeout_ms": 30000,
     "worker_startup_stagger_ms": 20,

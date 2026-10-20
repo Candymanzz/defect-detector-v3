@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.python;
 
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.clientapi.AnalisSurfaceHttpBinaryRpcSupervisor;
+import com.example.iml.orchestrator.integration.clientapi.CppAnalisSurfaceHttpSupervisor;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -28,6 +29,8 @@ public final class AnalisSurfacePoolSupport {
             }
             String key = supervisor instanceof AnalisSurfaceHttpBinaryRpcSupervisor http
                     ? http.baseUrl()
+                    : supervisor instanceof CppAnalisSurfaceHttpSupervisor cpp
+                    ? cpp.baseUrl()
                     : supervisor.supervisorLabel();
             byKey.putIfAbsent(key, supervisor);
         }

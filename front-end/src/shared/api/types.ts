@@ -522,3 +522,25 @@ export type PlcTimeoutsResponse = {
   timeouts: PlcTimeoutState[];
   signals?: PlcSignalState[];
 };
+
+export type DetectorSettings = {
+  /** 0..1, выше — строже (мельче отличия считаются дефектом). */
+  sensitivity: number;
+  /** (0..1], брак при anomaly_score >= threshold (score = доля аномальной площади ROI / 5%). */
+  threshold: number;
+  /** Допуск на микросдвиг кадра, px исходного кадра. */
+  shift_tolerance: number;
+  /** Минимальная площадь дефекта, px исходного кадра. */
+  min_blob_area: number;
+  /** (0..1], во сколько раз кадр уменьшается перед анализом. */
+  inspect_scale: number;
+};
+
+export type DetectorSettingsResponse = {
+  analysis_profile?: string;
+  settings: DetectorSettings;
+  defaults: DetectorSettings;
+  saved?: boolean;
+};
+
+export type DetectorSettingsUpdate = Partial<DetectorSettings>;
