@@ -3,11 +3,11 @@
 Пересборка из корня проекта:
 
 ```bash
-bash ./rebuild-and-run.sh       # Оркестратор, camera-worker и фронт с установкой в /opt
+bash ./rebuild-and-run.sh       # Оркестратор, JNI камер и фронт с установкой в /opt
 bash ./rebuild-and-run.sh -c    # Оркестратор и фронт
-bash ./rebuild-and-run.sh -o    # camera-worker и фронт
+bash ./rebuild-and-run.sh -o    # JNI камер и фронт
 bash ./rebuild-and-run.sh -c -o # Только фронт с установкой
-bash ./rebuild-and-run.sh -f    # Оркестратор и camera-worker, без фронта
+bash ./rebuild-and-run.sh -f    # Оркестратор и JNI камер, без фронта
 ```
 
 Скрипт только собирает выбранные компоненты и завершает работу. Он не
@@ -40,7 +40,8 @@ Python, geometry и positioning не пересобираются.
 Старые параметры `-r`, `--build-only`, `--config`, `--rt-interval`
 принимаются для совместимости, но на сборку не влияют; скрипт сообщает об этом.
 
-Для оркестратора нужны JDK 17+ и Maven; для camera-worker — CMake и C-компилятор.
+Для оркестратора нужны JDK 17+ и Maven; для JNI камер — тот же JDK, CMake и C-компилятор.
+Камеры работают внутри JVM; сборка и настройка описаны в [CAMERA-JNI.md](orchestrator-java/CAMERA-JNI.md).
 Для фронта нужны Node.js >=20.19.0 и npm; скрипт обнаруживает установки NVM.
 Если TypeScript/Vite ещё не установлены, он выполняет `npm ci`. При изменении
 зависимостей выполните `npm ci` в `front-end` перед пересборкой.

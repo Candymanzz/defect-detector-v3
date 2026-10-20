@@ -8,6 +8,10 @@ Implementation notes were reviewed against `testlinux` source `c9944af8`; the sh
 
 Evidence labels: **[code]** verified implementation; **[logs: 2026-10-16]** observations from the exported machine journal; **[proposal]** discussed work, not implemented or benchmarked. Historical observations are not a claim about the machine's current configuration.
 
+## 0. Camera acquisition inside the JVM
+
+**Status: implemented in source, 2026-10-20; deployment/hardware validation pending.** Cameras now run through JNI inside the orchestrator, reusing C capture/settings/streaming and the existing SHM ring. MVS lifetime is shared with IO/lights, and cancellation precedes native close/reopen. The build script produces `libcamera_jni.so`; old worker IPC settings no longer select the working transport. See [CAMERA-JNI](../orchestrator-java/CAMERA-JNI.md). This change alone does not establish a new latency measurement.
+
 ## 1. Small bucket movements: translation only
 
 **Status: implemented [code].** `analisSurface/backend/app/services/inspection_positioning.py`, `FramePositioner.position`; invoked from `InspectionService._inspect_frame_unlocked` in `inspection_service.py`.

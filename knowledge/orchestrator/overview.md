@@ -36,9 +36,9 @@ Build: `bash ./rebuild-and-run.sh -c` (skip camera-worker) → `-Dmaven.test.ski
 ### 3.2 Camera & capture
 | File | Role |
 |---|---|
-| `O:camera/WorkerProcessSupervisor.java:17-100` | per-camera `camera_worker <config.json> <id> --binary-stdio`; `command()` = ≤3 attempts, `restart()` between; `reportUnhealthy()` on failure |
+| `O:camera/WorkerProcessSupervisor.java:17-100` | per-camera JNI state (`NativeCameraClient`, no child process); `command()` = ≤3 attempts, `restart()` between; `reportUnhealthy()` on failure |
 | `O:binaryrpc/AbstractBinaryRpcSupervisor` | shared: timeout executor, `commandNoRetry`, `restart`, `restartCount`, health listener |
-| `O:camera/BinaryProcessClient` / `NamedPipeBinaryClient` / `WorkerIpcMode` | stdio vs named pipe/UDS transports for IMLB |
+| `O:camera/BinaryProcessClient` / `NamedPipeBinaryClient` / `WorkerIpcMode` | legacy diagnostic transports; integration uses `NativeCameraClient`/`NativeCameraBindings` through JNI |
 | `O:camera/CameraSettingsService`, `CameraSettingsStore` | PATCH keys → worker `set_settings`; persisted to `config/data/camera_runtime_settings.json`, re-applied at boot (excluding `capture_trigger_mode` when hardware trigger) |
 | `O:capture/LineSynchronizedCaptureCoordinator.java` (909) | per-sequence `Round`; `captureForLine` (barrier → leader fires → each camera `wait_frame`), `collectWaitFrames[Parallel]` (waves, `transfer_wave_gap_ms`), late-join (Stop→Start), first-frame callback; `lineCaptureExecutor` threads priority MAX |
 | `O:capture/DirectionCaptureWindow.java` | token file shared with workers; `open()` at DI2↑, `close()` at DI2↓, `bind(seq)`, `command(token)` adds `capture_window_path/token` to `capture` |

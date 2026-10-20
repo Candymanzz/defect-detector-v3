@@ -3,7 +3,7 @@ package com.example.iml.orchestrator.integration.io.mvs;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Process-wide MvCameraControl lifetime shared by IO and lights. */
+/** Process-wide MvCameraControl lifetime shared by JNI cameras, IO and lights. */
 public final class MvsSdkLease implements AutoCloseable {
     public static final Object ENUMERATION_LOCK = new Object();
     private static final java.util.Set<String> serialPorts = new java.util.LinkedHashSet<>();

@@ -41,6 +41,7 @@ LightServer/obj/
 /IoInputMonitor/bin/
 /IoInputMonitor/obj/
 camera-worker/build/
+camera-worker/build-linux/
 camera-worker/build-mvs/
 camera-worker/build-test/
 

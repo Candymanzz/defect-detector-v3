@@ -2,6 +2,12 @@
 
 Back to [overview](./overview.md) · `W:` = `camera-worker/src/`
 
+## 0. Current JNI transport (2026-10-20)
+
+The working pipeline uses `NativeCameraClient` → `NativeCameraBindings` → `cw_camera_*`. JSON command metadata is passed directly as UTF-8 bytes; JNI returns a response-type byte followed by JSON. There are no IMLB prefixes, pipes or image payloads on this path. The operations and SHM layout below are retained. `inject_*` returns `unknown_op` in JNI; `stop` marks the client stopped and resources are released by `close`. Frame waits poll at 20 ms and can be cancelled before releasing the native state.
+
+The IMLB framing and fault hooks below describe the retained standalone diagnostic executable and the external analysis services. Build and lifecycle: [CAMERA-JNI](../../orchestrator-java/CAMERA-JNI.md).
+
 ## 1. IMLB framing
 <a id="imlb-framing"></a>
 Shared by camera-worker (`W:main.c:624-641 write_message`, reader at `:2536+`), geometry, positioning (`BinaryProtocol.java` — `G:protocol/BinaryProtocol.java:25-72`) and the orchestrator (`orchestrator/protocol/BinaryProtocol`). **Big-endian.**

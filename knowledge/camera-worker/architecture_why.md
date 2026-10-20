@@ -3,10 +3,11 @@
 Back to [overview](./overview.md) · [orchestrator why](../orchestrator/architecture_why.md)
 Evidence: **[doc]**, **[code]**, `⚠️ [GUESS/CONJECTURE]`.
 
-## 1. Why a native C process per camera
-- **[code]** The vendor SDK is native (`libMvCameraControl.so`); the worker sits directly on the grab path and writes into SHM; per-frame latency is measured in-process (`capture_latency_ns`, metrics JSONL). ⚠️ [GUESS/CONJECTURE] C chosen for deterministic latency/footprint ×10 under isolated CPUs; SDK crashes then kill one camera, not the JVM (`WorkerProcessSupervisor` restarts: 3 attempts per command).
+## 1. Why native acquisition inside the orchestrator JVM
+- **[code: 2026-10-20]** The camera path now calls the existing C acquisition code through JNI. `NativeCameraClient` owns each camera state, settings and stream within the JVM; metadata crosses JNI and pixels stay in SHM. This removes camera subprocesses and stdio transport. `WorkerProcessSupervisor` reopens a native camera after command failure. Native crashes now affect the JVM; the outer stack supervisor handles JVM restart.
+- SDK initialization/finalization is shared with IO and lights via `MvsSdkLease`, keyed by the actual loaded vendor library. Enumeration/open uses the same SDK enumeration lock; frame capture remains per camera. Cancellation precedes close so an SDK wait cannot use freed camera memory. See [CAMERA-JNI](../../orchestrator-java/CAMERA-JNI.md).
 - No cross-camera locks: commit `bb80fcbd` (2026‑06‑18) “убрал глобальную синхронизацию на воркерах” **[doc]**. Per-camera state is private; only the stream thread shares a mutex with the command loop.
-- Startup: the orchestrator launches workers with a 20 ms stagger (`worker_startup_stagger_ms`) and 30 s command timeout — parallel `MV_CC_OpenDevice` for ten GigE cameras caused false “startup timeout” failures **[doc: `01-core.yaml` comments]**.
+- Startup: the orchestrator opens cameras with the configured startup stagger (`worker_startup_stagger_ms`) and 30 s command timeout — parallel `MV_CC_OpenDevice` for ten GigE cameras caused false “startup timeout” failures **[doc: `01-core.yaml` comments]**.
 - `MV_CC_OpenDevice` is retried 4× at 250 ms and the camera is selected by **IP** (`nCurrentIp`) rather than enumeration order — enumeration order is not stable across boots, while IPs map to physical positions **[code]** `W:main.c:1696-1735`.
 
 ## 2. Why BGR8 in SHM and no analysis in the worker

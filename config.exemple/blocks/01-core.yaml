@@ -59,16 +59,14 @@ integration:
   python_request_parallelism: 10
   python_server_pool_size: 6
   stage_queue_size: 20
-  # Таймаут RPC к camera-worker (health/capture/inspect). Для 10 камер увеличен, чтобы избежать ложных startup timeout.
+  # Таймаут команд камер внутри JVM через JNI (health/capture/settings).
   worker_command_timeout_ms: 30000
-  # Пауза только между запуском процессов камер (health идёт параллельно). 0 = почти одновременно.
+  # Пауза между открытием камер через JNI (health идёт параллельно).
   worker_startup_stagger_ms: 20
   # Таймаут health/check для внешних сервисов (geometry/python bridge).
   service_command_timeout_ms: 15000
-  worker_ipc_mode: "stdio"
-  worker_named_pipe_template: "\\\\.\\pipe\\iml-camera-%d-binary"
-  worker_named_pipe_template_linux: "/tmp/iml-camera-%d.pipe"
-  worker_named_pipe_connect_timeout_ms: 3000
+  # Необязательно: camera_native_library: "camera-worker/build/libcamera_jni.so"
+  # Камеры всегда работают через JNI; старые worker_ipc_mode/worker_named_pipe_* не используются.
   # Готовность встроенных вспышек ждём через awaitEndpointsReady — искусственная пауза не нужна.
   light_server_startup_delay_ms: 0
   # Целевой SLA: 10 кадров параллельно ≤ 3.5 с (GigE stagger + downscale 0.5 + параллельный python).

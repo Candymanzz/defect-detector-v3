@@ -11,6 +11,12 @@ Legend of service links: [orchestrator](./orchestrator/overview.md) · [camera-w
 
 ## 0. Knowledge-base era
 
+### 2026-10-20 — Camera acquisition moved into the orchestrator through JNI
+
+- **What changed:** added `camera_jni`, a shared C camera runtime API, `NativeCameraClient`/bindings, native bootstrap/preflight, SDK leases shared with IO/lights, cancellation before close, native integration tests and build-script support. The standalone worker remains available for diagnostics.
+- **Why:** the orchestrator should own camera acquisition and call native code directly without separate worker processes or IPC. Existing trigger modes, runtime settings, streaming and SHM frame layout are retained.
+- **Impact:** requires building the JNI library with JDK headers and restarting the JVM. Native faults now belong to the JVM process. No deployed services, camera configuration or CPU/RT settings were changed; hardware timing remains to be validated. See [CAMERA-JNI](../orchestrator-java/CAMERA-JNI.md).
+
 ### 2026-10-20 — Shared developer/ChatGPT entry point, six-core RT context and 500 ms target
 
 - **What changed:** added [README](./README.md) with reading routes and handoff instructions, [PROJECT_CONTEXT](./PROJECT_CONTEXT.md) with the compact shared brief, [production environment](./deploy-ops/production_environment.md) and [latency requirements](./performance/latency_requirements.md). Updated architecture, recent decisions, deployment rationale and optimisation links; preserved existing service-note paths and historical measurements.

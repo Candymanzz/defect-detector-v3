@@ -21,7 +21,7 @@ public abstract class AbstractBinaryRpcSupervisor {
 
     protected final ExecutorService callExecutor;
     protected final int commandTimeoutMs;
-    protected BinaryClient client;
+    protected volatile BinaryClient client;
     protected int restartCount;
     private volatile Consumer<Boolean> healthListener;
 
@@ -91,9 +91,10 @@ public abstract class AbstractBinaryRpcSupervisor {
     protected abstract void ensureAlive() throws IOException;
 
     protected final BinaryProtocol.Message awaitCommandOnClient(Map<String, Object> header) throws IOException {
+        BinaryClient commandClient = client;
         CompletableFuture<BinaryProtocol.Message> future = CompletableFuture.supplyAsync(() -> {
             try {
-                return client.command(header);
+                return commandClient.command(header);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -118,7 +119,7 @@ public abstract class AbstractBinaryRpcSupervisor {
     protected final void closeClientOnly() {
         if (client != null) {
             try {
-                client.command(Map.of("op", "stop"));
+                client.requestStop();
             } catch (Exception ignored) {
             }
             client.close();

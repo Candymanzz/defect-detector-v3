@@ -12,7 +12,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Процесс camera-worker на камеру: перезапуск при обрыве, таймауты команд.
+ * Camera lifecycle and command deadlines. Integration uses JNI; the process
+ * constructor remains available for standalone worker diagnostics.
  */
 public final class WorkerProcessSupervisor extends AbstractBinaryRpcSupervisor implements BinaryRpcSupervisor {
 
@@ -24,6 +25,24 @@ public final class WorkerProcessSupervisor extends AbstractBinaryRpcSupervisor i
     private final WorkerIpcMode ipcMode;
     private final String namedPipePath;
     private final int namedPipeConnectTimeoutMs;
+    private final Path nativeLibrary;
+    private final Path nativeConfig;
+
+    public WorkerProcessSupervisor(int cameraId, Path nativeLibrary, Path nativeConfig, int commandTimeoutMs) {
+        super(commandTimeoutMs, r -> {
+            Thread thread = new Thread(r, "camera-jni-call-" + cameraId);
+            thread.setDaemon(true);
+            return thread;
+        });
+        this.cameraId = cameraId;
+        this.nativeLibrary = nativeLibrary;
+        this.nativeConfig = nativeConfig;
+        this.command = List.of();
+        this.workingDir = null;
+        this.ipcMode = null;
+        this.namedPipePath = null;
+        this.namedPipeConnectTimeoutMs = 0;
+    }
 
     public WorkerProcessSupervisor(
             int cameraId,
@@ -40,6 +59,8 @@ public final class WorkerProcessSupervisor extends AbstractBinaryRpcSupervisor i
             return t;
         });
         this.cameraId = cameraId;
+        this.nativeLibrary = null;
+        this.nativeConfig = null;
         this.command = command;
         this.workingDir = workingDir;
         this.ipcMode = ipcMode;
@@ -53,12 +74,22 @@ public final class WorkerProcessSupervisor extends AbstractBinaryRpcSupervisor i
     }
 
     @Override
-    public void start() throws IOException {
+    public synchronized void start() throws IOException {
         if (client != null && client.isAlive()) {
             return;
         }
         this.client = createClient();
-        log.info("worker supervisor started camera={} ipc_mode={}", cameraId, ipcMode);
+        log.info("camera supervisor started camera={} backend={}", cameraId, nativeLibrary == null ? ipcMode : "jni");
+    }
+
+    @Override
+    public synchronized void restart() throws IOException {
+        super.restart();
+    }
+
+    @Override
+    public synchronized void close() {
+        super.close();
     }
 
     @Override
@@ -84,7 +115,7 @@ public final class WorkerProcessSupervisor extends AbstractBinaryRpcSupervisor i
     }
 
     @Override
-    protected void ensureAlive() throws IOException {
+    protected synchronized void ensureAlive() throws IOException {
         if (client == null || !client.isAlive()) {
             log.warn("worker camera={} is not alive; restarting", cameraId);
             restart();
@@ -92,6 +123,7 @@ public final class WorkerProcessSupervisor extends AbstractBinaryRpcSupervisor i
     }
 
     private BinaryClient createClient() throws IOException {
+        if (nativeLibrary != null) return new NativeCameraClient(cameraId, nativeLibrary, nativeConfig);
         return switch (ipcMode) {
             case STDIO -> new BinaryProcessClient(command, workingDir);
             case NAMED_PIPE -> new NamedPipeBinaryClient(command, workingDir, namedPipePath, namedPipeConnectTimeoutMs);

@@ -34,7 +34,7 @@ Windows code paths still exist (`*_windows`/`*_linux` config keys, `StackSupervi
 | Service | Dir | Stack | Role | KB |
 |---|---|---|---|---|
 | **orchestrator** | `orchestrator-java/` | Java 17, Maven, JNA, Log4j2, java-websocket, JDK HttpServer | Brain: boot/supervise children, DI triggers → capture → per-camera pipeline → bucket verdict → DO/FINS/WS; also lighting & IO controller in-process | [overview](./orchestrator/overview.md) · [api](./orchestrator/api_contracts.md) · [why](./orchestrator/architecture_why.md) |
-| **camera-worker** | `camera-worker/` | C11, CMake, MVS SDK | 1 process/camera: grab → BGR8 → SHM ring; IMLB command server | [overview](./camera-worker/overview.md) · [api](./camera-worker/api_contracts.md) · [why](./camera-worker/architecture_why.md) |
+| **camera-worker** | `camera-worker/` | C11, CMake, MVS SDK | JNI state/camera inside orchestrator JVM: grab → BGR8 → SHM ring | [overview](./camera-worker/overview.md) · [api](./camera-worker/api_contracts.md) · [why](./camera-worker/architecture_why.md) |
 | **geometry** | `java-geometry-service/` | Java 17 + OpenCV | Seam/rim-skew/concentricity/wrinkle/alignment checks (IMLB over stdio) | [overview](./geometry/overview.md) · [api](./geometry/api_contracts.md) · [why](./geometry/architecture_why.md) |
 | **positioning** (off) | `java-positioning-service/` | Java 17 + OpenCV | ORB+RANSAC pose normalisation; **disabled**, replaced by Python phase correlation | [overview](./positioning/overview.md) · [api](./positioning/api_contracts.md) · [why](./positioning/architecture_why.md) |
 | **analis-surface** | `analisSurface/backend/` | Python, FastAPI/uvicorn ×6, OpenCV, NumPy | Surface defects, references/ROI/FP/learned-normals store, analysis settings, heat-maps | [overview](./analis-surface/overview.md) · [api](./analis-surface/api_contracts.md) · [why](./analis-surface/architecture_why.md) |
@@ -58,9 +58,9 @@ Windows code paths still exist (`*_windows`/`*_linux` config keys, `StackSupervi
  │  BucketInspectionAggregator ─► FanOutCoordinator ─► IoRejectPublisher / PlcFinsPublisher / WS │
  │  HTTP :8099 (UiHttpServer)   WS :8765 (ClientWebSocketServer)   CriticalServiceWatchdog       │
  └──┬───────────────┬───────────────────────┬─────────────────────────────┬─────────────────────┘
-    │IMLB stdio     │IMLB stdio             │IMLB stdio (disabled)        │HTTP/JSON :8000‥ (6 uvicorn)
+    │JNI (same JVM) │IMLB stdio             │IMLB stdio (disabled)        │HTTP/JSON :8000‥ (6 uvicorn)
     ▼               ▼                       ▼                             ▼
- camera-worker×10  geometry×10 JVM         positioning×10 JVM        analisSurface ×6 procs (configurable threads)
+ JNI cameras×10  geometry×10 JVM         positioning×10 JVM        analisSurface ×6 procs (configurable threads)
     │ writes                ▲ reads SHM            ▲ reads SHM               ▲ reads SHM (mmap)
     └──► /dev/shm/iml_cam_<id>_frame (8-slot BGR8 ring) ──► pinned copies iml_line_pin_cam<id>_f<seq> ──┘
  Supervisor above all: StackSupervisorMain (health :8099/health + :8000/detector/health) ◄ run-supervised.sh / systemd
@@ -90,7 +90,7 @@ The checked-in launcher template sets `analis_surface.inspect_workers: 3` per Py
 
 | Link | Transport | Message |
 |---|---|---|
-| orch ⇄ camera-worker | IMLB over child **stdio** (`--binary-stdio`) or named pipe | ops `health, capture{wait_frame\|trigger_only\|sync}, start/stop_stream, stream_poll, get/set_settings, stop` → [camera-worker/api_contracts.md](./camera-worker/api_contracts.md) |
+| orch ⇄ camera native code | **JNI inside the same JVM**; [lifecycle/build](../orchestrator-java/CAMERA-JNI.md) | ops `health, capture{wait_frame\|trigger_only\|sync}, start/stop_stream, stream_poll, get/set_settings, stop` → [camera-worker/api_contracts.md](./camera-worker/api_contracts.md) |
 | orch ⇄ geometry | IMLB stdio | `health, inspect_shm` (frame by SHM name) → [geometry/api_contracts.md](./geometry/api_contracts.md) |
 | orch ⇄ positioning | IMLB stdio | `health, position_shm` → [positioning/api_contracts.md](./positioning/api_contracts.md) |
 | orch ⇄ analisSurface | HTTP/JSON; `AnalisSurfaceHttpBinaryRpcSupervisor` **emulates IMLB ops over HTTP** | `inspect_shm→POST /inspect-shm`, `set_reference_shm→/upload-ref-shm`, … → [analis-surface/api_contracts.md](./analis-surface/api_contracts.md) |
@@ -108,12 +108,12 @@ Entry: `OrchestratorMain.main` (`O:../OrchestratorMain.java`) → `OrchestratorA
 
 | # | Step | Class (line) | What happens |
 |---|---|---|---|
-| 1 | preflight | `IntegrationPreflightService.run` (:32-69) | enabled cameras; `ImlShmJanitor.purgeStaleFiles`; locate `camera_worker` binary & `config/config.json`; `IntegrationBootConfig.load` |
+| 1 | preflight | `IntegrationPreflightService.run` (:32-69) | enabled cameras; `ImlShmJanitor.purgeStaleFiles`; locate `camera_jni` shared library & `config/config.json`; `IntegrationBootConfig.load` |
 | 2 | child services (parallel, 6 threads `svc-boot`) | `ChildProcessStartupService.start` (:57-127) | analisSurface uvicorn pool, geometry pool, positioning pool, frontend (`npm run dev`, skipped if `IML_FRONTEND_AUTOSTART=false` or kiosk owns UI); builds `pythonPool` of HTTP clients; empty pool ⇒ abort |
 | 3 | `assembleCoreCollaborators` | same class (:129-175) | UI sidecar, geometry snapshot cache, `GeometryRuntimeStore` (`config/data/geometry_runtime_settings.json`), `PerCameraInspectionGate`, `ManualLineDirectionService`, `ClientApiMount`, `WorkerCaptureCoordinator` |
 | 4 | pipeline + lights | `LightingBootstrapService.assemblePipelineAndEngageLights` (:42-118) | positioning/geometry/python executors, `DefaultInspectionDecisionAggregator`; `LightTriggerClient` + `awaitEndpointsReady` + `startupEngage` |
 | 5 | UI runtime | `UiRuntimeBootstrapService.bootstrap` (:26-86) | camera settings store, `FrameArchiveService`, `UiHttpServer` :8099, `ClientWebSocketServer` :8765, test-analyze service |
-| 6 | runtime & block | `PipelineCameraRuntimeService.runBlocking` (:54-147) | SHM janitor (15 s), timing log, `FanOutCoordinator.fromConfig`, `ServiceHealthGate`, stop-signal, **camera workers** (10, 20 ms stagger, health each), `CriticalServiceWatchdog`, `LivePreviewPublisher`, stage executors, `TriggerRuntimeBootstrapService.wire`, `CriticalServiceInspectionPause`, DI4 shutdown, bind IO reject outputs, **`activateNativeIo()`**, then one `processCamera` task per camera blocks forever (`awaitCameraTasksOrStop`) |
+| 6 | runtime & block | `PipelineCameraRuntimeService.runBlocking` (:54-147) | SHM janitor (15 s), timing log, `FanOutCoordinator.fromConfig`, `ServiceHealthGate`, stop-signal, **JNI camera states** (one per enabled camera, configured startup stagger, health each), `CriticalServiceWatchdog`, `LivePreviewPublisher`, stage executors, `TriggerRuntimeBootstrapService.wire`, `CriticalServiceInspectionPause`, DI4 shutdown, bind IO reject outputs, **`activateNativeIo()`**, then one `processCamera` task per camera blocks forever (`awaitCameraTasksOrStop`) |
 
 Reference replay: python RAM is empty after (re)start → orchestrator sends `set_reference_shm` itself the first time (`uploadInspectionReference`, signature cache `SHARED_REFERENCE_SIGNATURES`)
 and re-sends ROI per request (`ensureRoiPolygon`, `roi_polygon_norm` in `ShmFrameRequest`).

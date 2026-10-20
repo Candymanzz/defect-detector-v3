@@ -5,9 +5,9 @@
 Из корня проекта:
 
 ```bash
-bash ./rebuild-and-run.sh       # Оркестратор, camera-worker и установка нового фронта
+bash ./rebuild-and-run.sh       # Оркестратор, JNI камер и установка нового фронта
 bash ./rebuild-and-run.sh -c    # Оркестратор и фронт
-bash ./rebuild-and-run.sh -o    # camera-worker и фронт
+bash ./rebuild-and-run.sh -o    # JNI камер и фронт
 bash ./rebuild-and-run.sh -c -o # Только фронт
 bash ./rebuild-and-run.sh -f    # Без сборки и установки фронта
 ```
@@ -16,7 +16,7 @@ bash ./rebuild-and-run.sh -f    # Без сборки и установки фр
 в `/opt/defect-detector-ui` (`dist/`, `electron/`, `package.json`), с запросом `sudo`
 при необходимости. Electron/node_modules киоска должны быть установлены заранее.
 Python, geometry и positioning не пересобираются. Для оркестратора нужны
-JDK 17+ и Maven; для camera-worker — CMake и C-компилятор; для фронта — Node.js и npm.
+JDK 17+ и Maven; для JNI камер — тот же JDK, CMake и C-компилятор; для фронта — Node.js и npm.
 `MVS_ROOT` задаёт каталог SDK (по умолчанию `/opt/MVS`).
 Старые параметры запуска принимаются, но игнорируются.
 

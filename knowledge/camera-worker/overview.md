@@ -4,12 +4,13 @@ Back to [global_architecture.md](../global_architecture.md) · [API](./api_contr
 `W:` = `camera-worker/src/`.
 
 ## 1. Purpose
-One OS process per camera (10 total). Opens a GigE camera through the Hikvision/Hikrobot **MVS SDK**, receives frames, converts them to **BGR8**, writes them into a POSIX **shared-memory ring** and answers IMLB commands from the orchestrator over **child stdio**
-(or a named pipe). It performs no image analysis. Command line: `camera_worker <config.json> <camera_id> --binary-stdio | --named-pipe <path>` (`W:main.c:2835-2901`).
+The orchestrator owns one native state per camera inside its JVM through **JNI**. The existing C code opens MVS/Aravis cameras, converts frames to **BGR8**, and writes the same eight-slot **shared-memory ring**. Capture, settings and streaming use direct JNI commands; no camera subprocess is launched. The standalone `camera_worker` executable remains a diagnostic tool. See [CAMERA-JNI](../../orchestrator-java/CAMERA-JNI.md) for build, lifecycle and tests.
+
+Updated 2026-10-20. Historical line references in the code map below predate this extraction; locate functions by name.
 
 ## 2. Stack & build
 C11, single translation unit `W:main.c` (2 901 lines) + `W:cw_config.c` (parsers for trigger mode / pixel format / big-endian helpers) + `include/cw_config.h` + vendored `deps/jsmn.h` (`JSMN_STATIC`, token pool `TOK_POOL 2048`).
-CMake (`camera-worker/CMakeLists.txt`): optional **Aravis** backend (`HAVE_ARAVIS` via pkg-config `arv-0.8`), **MVS** backend (`HAVE_HIK_MVS`, found from `MVS_ROOT`, default `/opt/MVS`; Linux build links `libMvCameraControl.so`). Output binary copied atomically to `camera-worker/build/camera_worker` by `rebuild-and-run.sh` (inode replaced because a running executable can't be overwritten).
+CMake (`camera-worker/CMakeLists.txt`): optional **Aravis** backend (`HAVE_ARAVIS` via pkg-config `arv-0.8`), **MVS** backend (`HAVE_HIK_MVS`, found from `MVS_ROOT`, default `/opt/MVS`; Linux build links `libMvCameraControl.so`). The JNI target adds `W:camera_jni.c` and `include/cw_runtime.h`. `rebuild-and-run.sh` atomically installs `camera-worker/build/libcamera_jni.so`; Windows builds `camera_jni.dll`. JDK headers are required unless `CAMERA_BUILD_JNI=OFF`.
 Tests: `camera-worker/tests/test_cw_config.c`, `test_capture_window.c` (includes `main.c` with fake `MV_CC_ClearImageBuffer/GetOneFrameTimeout`, verifies window cancellation semantics: window closed ⇒ 0 SDK calls; gate flipped to 0 during wait ⇒ stops).
 
 ## 3. Code map (`W:main.c`)
@@ -30,7 +31,7 @@ Tests: `camera-worker/tests/test_cw_config.c`, `test_capture_window.c` (includes
 | 1228-1450 | GigE shaping: `hik_effective_frame_transfer_delay_step`, `hik_frame_transfer_slot_index`, `hik_effective_inter_packet_delay`, `hik_apply_gige_frame_transfer_delay`, `hik_apply_gige_inter_packet_delay`, `hik_disable_auto_white_balance` | GevSCPD/GevSCFTD logic (§5) |
 | 1452-1632 | `hik_verify_frame_size`, `hik_try_set_binning_factor`, `hik_apply_roi_center_crop`, `hik_apply_frame_geometry` | binning 2×2 (mode `Sum`), fallback center-crop ROI 1224×1024 when SDK returns 0x80000109 |
 | 1633-1673 | `hik_apply_pixel_format` | `BGR8Packed` default → fallback `RGB8Packed` (then converted to BGR in `hik_copy_frame_to_bgr`); `Mono8` only if configured (on failure falls back to colour); result in `hik_pixel_format_active` |
-| 1675-1827 | `init_hik_mvs` | `MV_CC_Initialize` → enum GigE+USB → open the camera whose `nCurrentIp == config.ip` (two passes, 4 open attempts with 250 ms pauses, `MV_ACCESS_Exclusive`) → `GevSCPSPacketSize = OptimalPacketSize` → geometry → pixel format → AWB off → exposure → WB → trigger mode → `PayloadSize` → GigE tuning → `StartGrabbing` → frame-transfer delay |
+| 1675-1827 | `init_hik_mvs` | `MV_CC_Initialize` → enum GigE+USB → open the camera whose `nCurrentIp == config.ip` (matching IP only, 4 open attempts with 250 ms pauses, `MV_ACCESS_Exclusive`) → `GevSCPSPacketSize = OptimalPacketSize` → geometry → pixel format → AWB off → exposure → WB → trigger mode → `PayloadSize` → GigE tuning → `StartGrabbing` → frame-transfer delay |
 | 1845-1915 | Aravis init/shutdown | mono8 → BGR for compatibility |
 | 1918-1940 | `fire_software_trigger_only` | requires `source==hik` and `TRIGGER_MODE_SOFTWARE`; flush + trigger; stores `pending_trigger_fired_ns` |
 | 1942-1951 | `capture_window_open` | reads token file; `"0"`/missing ⇒ closed |

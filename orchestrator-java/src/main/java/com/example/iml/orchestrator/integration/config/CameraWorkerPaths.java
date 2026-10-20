@@ -14,6 +14,21 @@ public final class CameraWorkerPaths {
     private CameraWorkerPaths() {
     }
 
+    /** Optional explicit path, otherwise resolve the CMake JNI artifact. */
+    public static Path resolveCameraNativeLibrary(Path projectRoot, Map<String, Object> integration) {
+        String configured = System.getProperty("iml.camera.native.library", "").trim();
+        if (configured.isEmpty() && integration != null && integration.get("camera_native_library") != null)
+            configured = String.valueOf(integration.get("camera_native_library")).trim();
+        if (!configured.isEmpty()) return projectRoot.resolve(configured).toAbsolutePath().normalize();
+        String filename = System.mapLibraryName("camera_jni");
+        for (String directory : List.of("camera-worker/build", "camera-worker/build/Release",
+                "camera-worker/build/RelWithDebInfo", "camera-worker/build/Debug", "camera-worker/build-linux")) {
+            Path candidate = projectRoot.resolve(directory).resolve(filename);
+            if (Files.isRegularFile(candidate)) return candidate.toAbsolutePath().normalize();
+        }
+        return projectRoot.resolve("camera-worker/build").resolve(filename).toAbsolutePath().normalize();
+    }
+
     public static Path resolveCameraWorkerExecutable(Path projectRoot) {
         Path base = projectRoot.resolve("camera-worker").resolve("build");
         String[] candidates = {

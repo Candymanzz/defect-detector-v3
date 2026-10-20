@@ -5,7 +5,6 @@ import com.example.iml.orchestrator.integration.bootstrap.context.IntegrationRun
 import com.example.iml.orchestrator.integration.camera.CameraSettingsService;
 import com.example.iml.orchestrator.integration.camera.CameraSettingsStore;
 import com.example.iml.orchestrator.integration.camera.CameraWorkersHolder;
-import com.example.iml.orchestrator.integration.camera.WorkerIpcMode;
 import com.example.iml.orchestrator.integration.camera.WorkerProcessSupervisor;
 import com.example.iml.orchestrator.integration.config.ConfiguredCameras;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;
@@ -24,8 +23,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Запуск camera-worker процессов, persisted settings, client stream.
- * Процессы стартуют с коротким stagger между launch; health ждётся параллельно.
+ * Opens cameras inside the orchestrator through JNI, restores settings and attaches streams.
  */
 public final class CameraWorkerBootstrapService {
 
@@ -60,18 +58,7 @@ public final class CameraWorkerBootstrapService {
             for (int i = 0; i < cameras.size(); i++) {
                 Map<String, Object> camera = cameras.get(i);
                 int cameraId = ((Number) camera.get("id")).intValue();
-                List<String> cmd = new ArrayList<>();
-                cmd.add(ctx.workerBin().toString());
-                cmd.add(ctx.workerConfigPath().toString());
-                cmd.add(String.valueOf(cameraId));
-                if (cfg.workerIpcMode() == WorkerIpcMode.STDIO) {
-                    cmd.add("--binary-stdio");
-                } else {
-                    cmd.add("--named-pipe");
-                    cmd.add(String.format(cfg.workerPipeTemplate(), cameraId));
-                }
-                String workerPipePath = String.format(cfg.workerPipeTemplate(), cameraId);
-                futures.add(boot.submit(() -> startOneWorker(cameraId, camera, cmd, workerPipePath, cfg, ctx)));
+                futures.add(boot.submit(() -> startOneWorker(cameraId, camera, cfg, ctx)));
                 // Только пауза между launch; health уже крутится в пуле потоков.
                 if (i + 1 < cameras.size()) {
                     sleepWorkerStartupStagger(cfg.workerStartupStaggerMs());
@@ -117,26 +104,24 @@ public final class CameraWorkerBootstrapService {
     private StartedWorker startOneWorker(
             int cameraId,
             Map<String, Object> camera,
-            List<String> cmd,
-            String workerPipePath,
             com.example.iml.orchestrator.integration.bootstrap.config.IntegrationBootConfig cfg,
             IntegrationRuntimeContext ctx
     ) {
-        try {
-            WorkerProcessSupervisor worker = new WorkerProcessSupervisor(
+        WorkerProcessSupervisor worker = new WorkerProcessSupervisor(
                     cameraId,
-                    cmd,
-                    ctx.projectRoot(),
-                    cfg.workerIpcMode(),
-                    workerPipePath,
-                    cfg.workerPipeConnectTimeoutMs(),
+                    ctx.cameraNativeLibrary(),
+                    ctx.workerConfigPath(),
                     cfg.workerCommandTimeoutMs()
             );
+        try {
             worker.start();
             BinaryProtocol.Message health = worker.health();
+            if (health.type() != BinaryProtocol.MSG_RESPONSE || !Boolean.TRUE.equals(health.header().get("capture_backend_ready")))
+                throw new java.io.IOException("Native camera backend is not ready: " + health.header());
             log.info("worker cam={} health type={} header={}", cameraId, health.type(), health.header());
             return new StartedWorker(cameraId, camera, worker);
         } catch (Exception e) {
+            worker.close();
             log.error(
                     "worker cam={} failed to start/health; skipping this camera and continuing with others: {}",
                     cameraId,
