@@ -21,6 +21,8 @@ Correlate by process/session and inspection sequence; resolve camera `frame_id` 
 
 ## 3. Proposed work order
 
+Implementation update, 2026-10-20: bulk normal/FP preparation, pinned state and parts of comparison/allocation reduction are now implemented; see [local validation](./2026-10-20-learning-optimization.md). The six-core concurrency configuration and production deadline have not been validated by that local change.
+
 1. Resolve the trigger/frame timeline and separately time acquisition, queues, geometry, positioning, diff, learned-state refresh/matching, FP checks, aggregation and output. Keep telemetry bounded.
 2. Prepare consistent learned-normal/FP updates outside the critical path; apply a complete version at an agreed cycle boundary. Existing logs show the compound learned-normal/FP interval reaching 1020 ms, not the isolated reload cost.
 3. Reduce repeated comparisons and image conversions, then benchmark process/thread combinations against the actual CPU allocation of the six-core RT host. Existing reference caches and deferred artifacts should be retained.

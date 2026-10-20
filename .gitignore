@@ -66,6 +66,11 @@ c_capture/camera_server
 /test-pr-ph
 defect-detector-v3
 analisSurface/backend/app/data/analysis_settings.json
+# Prepared learning publication/locks are runtime state, not source code.
+/analisSurface/backend/app/data/.accepted_normals.lock
+/analisSurface/backend/app/data/accepted_normals/.snapshot
+/analisSurface/backend/app/data/fp_zones.lock
+/analisSurface/backend/app/data/fp_zones.snapshot.json
 analisSurface/test-analysis.html
 /.pdf_pages
 LightServer.v3/logs

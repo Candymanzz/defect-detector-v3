@@ -11,6 +11,12 @@ Legend of service links: [orchestrator](./orchestrator/overview.md) · [camera-w
 
 ## 0. Knowledge-base era
 
+### 2026-10-20 — Prepared normal/FP state and exact matching preselection
+
+- **What changed:** Python `learning_snapshot.py`, `learned_normals.py`, `inspection_service.py`, learning/FP route handlers; added optimisation regression tests and a reproducible baseline benchmark. Updated the shared context, Python overview/plan and [implementation report](./performance/2026-10-20-learning-optimization.md).
+- **Why:** remove bulk learning-store reloads from camera inspection, reuse unchanged data, avoid exhaustive expensive normal comparisons and repeated full-frame FP grayscale conversions, and keep blocking learning I/O off the HTTP event loop. Preserve original similarity gates, residual safeguards and per-frame state consistency.
+- **Impact:** implementation in `fix-time-fp-zone` from baseline `e466367f`; no Java/geometry/positioning or process/thread-count changes. Existing saved formats are retained with additional publication metadata. New cases become effective after preparation; valid old members remain available and deleted members are excluded. Validation is local, not proof of the production 500 ms requirement; operator product locks and distributed activation remain limitations.
+
 ### 2026-10-20 — Camera acquisition moved into the orchestrator through JNI
 
 - **What changed:** added `camera_jni`, a shared C camera runtime API, `NativeCameraClient`/bindings, native bootstrap/preflight, SDK leases shared with IO/lights, cancellation before close, native integration tests and build-script support. The standalone worker remains available for diagnostics.

@@ -14,9 +14,11 @@ from app.api.schemas import FPZoneCreateRequest, FPZoneListResponse, FPZoneRespo
 
 router = APIRouter()
 
+# PNG/JSON persistence must not block the event loop serving inspections.
+
 
 @router.post("/fp-zones", response_model=FPZoneResponse)
-async def add_fp_zone(payload: FPZoneCreateRequest) -> FPZoneResponse:
+def add_fp_zone(payload: FPZoneCreateRequest) -> FPZoneResponse:
     """POST /fp-zones — сохранить зону ложного срабатывания как мини-эталон.
 
     Нужна предыдущая инспекция того же product_type: из выровненного кадра
@@ -37,7 +39,7 @@ async def add_fp_zone(payload: FPZoneCreateRequest) -> FPZoneResponse:
 
 
 @router.get("/fp-zones/{product_type}", response_model=FPZoneListResponse)
-async def get_fp_zones(product_type: str) -> FPZoneListResponse:
+def get_fp_zones(product_type: str) -> FPZoneListResponse:
     """GET /fp-zones/{product_type} — список FP-зон (может быть пустым)."""
     zones = inspection_service.get_fp_zones(product_type)
     return FPZoneListResponse(
@@ -47,7 +49,7 @@ async def get_fp_zones(product_type: str) -> FPZoneListResponse:
 
 
 @router.get("/fp-zones/{zone_id}/crop")
-async def get_fp_zone_crop(zone_id: str) -> Response:
+def get_fp_zone_crop(zone_id: str) -> Response:
     """GET /fp-zones/{zone_id}/crop — PNG мини-эталона зоны."""
     png = inspection_service.get_fp_zone_crop_png(zone_id)
     if png is None:
@@ -56,14 +58,14 @@ async def get_fp_zone_crop(zone_id: str) -> Response:
 
 
 @router.delete("/fp-zones")
-async def delete_all_fp_zones() -> dict:
+def delete_all_fp_zones() -> dict:
     """DELETE /fp-zones — удалить все FP-зоны и их мини-эталоны."""
     deleted_count = inspection_service.delete_all_fp_zones()
     return {"deleted": True, "zones_count": deleted_count}
 
 
 @router.delete("/fp-zones/{zone_id}")
-async def delete_fp_zone(zone_id: str) -> dict:
+def delete_fp_zone(zone_id: str) -> dict:
     """DELETE /fp-zones/{zone_id} — удалить зону по UUID."""
     deleted = inspection_service.delete_fp_zone(zone_id)
     if not deleted:

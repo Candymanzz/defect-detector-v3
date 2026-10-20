@@ -3,6 +3,7 @@
 Эта база передаёт контекст проекта разработчикам и ChatGPT без истории предыдущего чата. Она хранится вместе с исходниками и также открывается как хранилище Obsidian.
 
 Обновлено: **2026-10-20**. Исходная ветка этой редакции: `testlinux`, HEAD перед правкой документации: `9d8a4b66`. Это версия описания; версия приложения на станке отдельно не проверялась.
+Последняя реализация Python: `fix-time-fp-zone`, baseline `e466367f` — [оптимизация норм/FP и локальные проверки](./performance/2026-10-20-learning-optimization.md). Общие старые описания сервисов не считаются автоматически перепроверенными этой узкой правкой.
 
 ## Порядок чтения
 
@@ -14,6 +15,7 @@
 |---|---|
 | Понять архитектуру и путь инспекции | [Global architecture](./global_architecture.md), затем [orchestrator](./orchestrator/overview.md) |
 | Уложиться в 500 мс | [Требование к задержке](./performance/latency_requirements.md), [замеры](./performance/2026-10-16-log-review.md), [план оптимизации](./analis-surface/optimization_plan.md) |
+| Что уже ускорено в нормах/FP и как проверено | [Реализация и локальные замеры 2026-10-20](./performance/2026-10-20-learning-optimization.md) |
 | Учесть 6 ядер, RT, процессы и потоки | [Контекст станка](./deploy-ops/production_environment.md), [Python](./analis-surface/overview.md) |
 | Позиционирование, дефекты, обученные нормы и FP | [Принятые решения](./recent_context.md), [Python](./analis-surface/overview.md), [Python API](./analis-surface/api_contracts.md) |
 | Геометрия, шов и смещение этикетки | [Требования заказчика](./geometry/customer_requirements.md), [реализация](./geometry/overview.md), [API](./geometry/api_contracts.md) |

@@ -2,7 +2,7 @@
 
 Back to [Python overview](./overview.md) · [recent decisions](../recent_context.md) · [measured evidence](../performance/2026-10-16-log-review.md)
 
-**Status: analysis/proposals, 2026-10-20, source HEAD `c9944af8`.** No C++ module, full Python replacement, new cache-publication mechanism or measured C++ speedup is implemented by this documentation update. Historical timings below are from 2026-10-16, not a new benchmark.
+**Status: partially implemented, 2026-10-20.** Original analysis used `c9944af8`; Python learning optimisations now use baseline `e466367f` on `fix-time-fp-zone`. Prepared normal/FP versions, exact spatial preselection, spatial-feature caching, reused FP grayscale maps and nonblocking HTTP handling are implemented; see [local validation and remaining limits](../performance/2026-10-20-learning-optimization.md). No C++ module or full Python replacement has been implemented. Historical machine timings below remain dated 2026-10-16.
 
 Current owner context: **six CPU cores, RT environment and a 500 ms trigger-to-verdict requirement**. See [machine/allocation distinctions](../deploy-ops/production_environment.md) and [acceptance boundaries](../performance/latency_requirements.md); these supersede the earlier four-core assumption and 600 ms target.
 
@@ -11,11 +11,14 @@ Current owner context: **six CPU cores, RT environment and a 500 ms trigger-to-v
 - Reference preprocessing and positioner caches (`reference_preparation.py`, `inspection_positioning.py`).
 - Translation-only positioning; no rotation fit or exclusion strips in that path.
 - Configurable inspection workers, OpenCV internal threads limited to one, deferred heatmaps/history with a foreground-priority workload gate.
-- Reference/learning consistency across processes using generation markers. This exists, but its refresh cost is still on the inspection path.
+- Generation-marked learning stores now prepare bulk updates off the inspection path. Ready data is pinned for one frame; a lightweight membership filter removes deleted exceptions while additions are prepared. See [publication semantics](../performance/2026-10-20-learning-optimization.md#1-prepared-state-instead-of-synchronous-image-reloads).
+- Exact spatial normal preselection and cached spatial geometry; shared grayscale maps for FP activity. Further FP image recomputation remains a profiling target.
 
 Do not propose these existing features as if missing. The next work concerns measured tail latency and how state is prepared/published.
 
 ## 2. Verified hot paths and remaining uncertainty
+
+The following full-reload/per-case baseline observations describe the source before the new learning optimisation. They explain the motivation; they must not be read as an unchanged description of `apply()` today.
 
 **[code]** `learned_normals.py::AcceptedNormalMemory.apply` calls `_refresh_from_disk_if_changed` under its lock. A changed generation calls `_load`, which clears `_cases`, walks all case JSON files and reads NPZ arrays, including saved source frames/crops. This is a full accepted-normal store refresh before filtering by product/reference, not just an incremental update for the current camera.
 
@@ -28,8 +31,8 @@ Do not propose these existing features as if missing. The next work concerns mea
 ## 3. Proposed sequence of work
 
 1. **Measure separately.** Add bounded stage timings for generation check/reload, candidate extraction, case preselection/matching, residual verification and FP mini-reference comparison. Test before/after learning updates and during simultaneous ten-camera requests.
-2. **Prepare state outside the critical path.** Investigate incremental updates and immutable, fully prepared snapshots. Publish only a complete consistent version; retain the last valid version on failure. A generation change during loading must not silently publish mixed data. Preserve reference/product/camera isolation and define when an operator update becomes active.
-3. **Reduce unnecessary comparisons and allocations.** Precompute invariant template/geometry data, preselect nearby cases without changing the exact matching gate, share grayscale maps where safe, and process only the required crop plus real context. Preserve unknown-component residuals and overlap protections.
+2. **Prepared state: implemented; verify on the machine.** Bulk arrays prepare in the auxiliary lane, unchanged files are reused and frame reads are pinned. Validated membership keeps unchanged old exceptions and drops deleted ones. New versions are not synchronously acknowledged by all processes; continuous load and existing operator product locks still need production timing checks.
+3. **Comparison/allocation reduction: partially implemented.** Exact spatial preselection, spatial caches and shared FP activity grayscale maps preserve matching gates and residual safeguards. Profile remaining FP mini-reference recomputation and full-frame allocations before changing crop/context semantics.
 4. **Prototype one native kernel.** Start with batched candidate/template/geometry matching if profiling confirms Python orchestration dominates there. Keep the API and the rest of the detector unchanged for a controlled comparison.
 5. **Consider larger image kernels only after measurement.** Combining successive operations and reusing buffers may help; translating each existing OpenCV call one-for-one is not itself an algorithmic speedup.
 

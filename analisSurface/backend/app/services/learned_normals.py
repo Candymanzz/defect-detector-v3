@@ -24,6 +24,8 @@ from typing import Optional
 import cv2
 import numpy as np
 
+from app.services.learning_snapshot import LearningSnapshot, learning_store_lock, replace_learning_file
+
 
 logger = logging.getLogger(__name__)
 
@@ -239,6 +241,7 @@ class DefectCandidate:
     matched_case_id: Optional[str] = None
     similarity: Optional[float] = None
     _geometry_cache: Optional["_MaskGeometry"] = field(default=None, repr=False, compare=False)
+    _spatial_cache: dict = field(default_factory=dict, repr=False, compare=False)
 
     def to_public_dict(self) -> dict:
         x, y, width, height = self.bbox
@@ -294,6 +297,7 @@ class AcceptedNormalCase:
     coordinate_width: int = 0
     coordinate_height: int = 0
     _geometry_cache: Optional["_MaskGeometry"] = field(default=None, repr=False, compare=False)
+    _spatial_cache: dict = field(default_factory=dict, repr=False, compare=False)
     _template_cache: Optional[tuple[np.ndarray, np.ndarray, np.ndarray]] = field(
         default=None,
         repr=False,
@@ -832,6 +836,97 @@ class InspectionReviewStore:
             self._order[inspection_id] = summary
 
 
+class _NormalScope:
+    """Exact broad phase: sorted X centroids, then the existing position gate.
+
+    No top-k/approximation: every case that can pass the original spatial gate
+    remains eligible. Original case order is retained for equal similarities.
+    """
+    def __init__(self, cases):
+        self.cases = tuple(cases)
+        self.by_id = {case.id: case for case in self.cases}
+        self._indexed = True
+        centers = []
+        for case in self.cases:
+            try:
+                mask, _, _ = _case_templates(case)
+                spatial = _cached_spatial_geometry(case, mask, (1.0, 1.0))
+            except (ValueError, cv2.error, np.linalg.LinAlgError):
+                # A malformed unrelated product must not make eager index
+                # preparation take down the whole service. Keep the original
+                # exhaustive path for this scope instead of dropping cases.
+                self._indexed = False
+                spatial = None
+            x, y, w, h = case.bbox_norm
+            centers.append(spatial[0] if spatial is not None else (x + w / 2, y + h / 2))
+        self.centers = np.asarray(centers, dtype=np.float64).reshape(-1, 2)
+        self.sizes = np.asarray([case.bbox_norm[2:] for case in self.cases], dtype=np.float64).reshape(-1, 2)
+        self._indexed = self._indexed and bool(np.isfinite(self.centers).all() and np.isfinite(self.sizes).all())
+        self.order = np.argsort(self.centers[:, 0], kind="stable")
+        self.sorted_x = self.centers[self.order, 0]
+
+    def retained(self, allowed):
+        indices = np.asarray([i for i, case in enumerate(self.cases) if case.id in allowed], dtype=np.intp)
+        result = copy.copy(self)
+        result.cases = tuple(self.cases[i] for i in indices)
+        result.by_id = {case.id: case for case in result.cases}
+        result.centers, result.sizes = self.centers[indices], self.sizes[indices]
+        result.order = np.argsort(result.centers[:, 0], kind="stable")
+        result.sorted_x = result.centers[result.order, 0]
+        return result
+
+    def _position(self, candidate):
+        _, _, cw, ch = candidate.bbox_norm
+        _, _, width, height = candidate.bbox
+        if cw <= 1e-9 or ch <= 1e-9 or width <= 0 or height <= 0:
+            return None
+        scale = (width / cw, height / ch)
+        if not all(math.isfinite(v) and v > 0 for v in scale):
+            return None
+        spatial = _cached_spatial_geometry(candidate, candidate.mask_template, scale)
+        x, y, _, _ = candidate.bbox_norm
+        center = spatial[0] if spatial is not None else np.array(((x + cw / 2) * scale[0], (y + ch / 2) * scale[1]))
+        return scale, center
+
+    def nearby(self, candidate):
+        if not self._indexed:
+            return np.arange(len(self.cases))
+        position = self._position(candidate)
+        if position is None:
+            return np.arange(len(self.cases))
+        scale, center = position
+        # Expanded bound covers floating-point differences between normalized
+        # index centroids and the original full-coordinate mean calculation.
+        radius = max(POSITION_TOLERANCE_PX, POSITION_TOLERANCE_LARGE_MAX_PX) + 1e-6
+        left = np.searchsorted(self.sorted_x, (center[0] - radius) / scale[0], side="left")
+        right = np.searchsorted(self.sorted_x, (center[0] + radius) / scale[0], side="right")
+        indices = self.order[left:right]
+        delta = self.centers[indices] * scale - center
+        diagonal = np.hypot(*(self.sizes[indices] * scale).T)
+        tolerance = np.maximum(
+            np.minimum(POSITION_TOLERANCE_PX, np.maximum(POSITION_JITTER_FLOOR_PX, diagonal * 0.12)),
+            np.minimum(POSITION_TOLERANCE_LARGE_MAX_PX, diagonal * POSITION_TOLERANCE_LARGE_FRACTION),
+        )
+        return np.sort(indices[np.hypot(delta[:, 0], delta[:, 1]) <= tolerance + 1e-6])
+
+    def closest_position_rejections(self, candidate, selected):
+        if not self._indexed:
+            return ()
+        position = self._position(candidate)
+        if position is None:
+            return ()
+        scale, center = position
+        delta = self.centers * scale - center
+        distances = np.hypot(delta[:, 0], delta[:, 1])
+        distances[selected] = np.inf
+        minimum = np.min(distances, initial=np.inf)
+        if not math.isfinite(float(minimum)):
+            return ()
+        # Re-run the original comparison for nearest/tied rejected cases so
+        # operator diagnostics remain the same as exhaustive matching.
+        return np.flatnonzero(distances <= minimum + 2e-6)
+
+
 class AcceptedNormalMemory:
     """Память фрагментов, подтверждённых оператором как ложный БРАК.
 
@@ -839,19 +934,72 @@ class AcceptedNormalMemory:
     очищается (session_wipe): свет, эталон и установка уже другие.
     """
 
-    def __init__(self, storage_dir: Path, session_wipe: bool = True) -> None:
+    def __init__(self, storage_dir: Path, session_wipe: bool = True, workload=None) -> None:
         self.storage_dir = Path(storage_dir)
         self._cases: dict[str, AcceptedNormalCase] = {}
         self._lock = threading.RLock()
         self._storage_generation: Optional[str] = None
+        self._file_cache = {}
         if session_wipe:
             wipe_directory(self.storage_dir)
         else:
             self.storage_dir.mkdir(parents=True, exist_ok=True)
             self._load()
+        self._prepared = LearningSnapshot(
+            "normals", self._disk_version, self._prepare_snapshot,
+            self._build_snapshot(), self._local_version(), workload, self._pending_snapshot,
+        )
+
+    def _local_version(self):
+        return str(self.storage_dir), self._storage_generation
+
+    def _disk_version(self):
+        return str(self.storage_dir), self._read_storage_generation()
+
+    def _build_snapshot(self):
+        groups, counts = {}, {}
+        for case in self._cases.values():
+            if case.enabled:
+                groups.setdefault((case.product_type, case.reference_hash), []).append(case)
+                counts[case.product_type] = counts.get(case.product_type, 0) + 1
+        return {key: _NormalScope(cases) for key, cases in groups.items()}, counts
+
+    def _publish_snapshot(self):
+        prepared = self._build_snapshot()
+        if self._local_version() == self._disk_version():
+            self._prepared.publish(prepared, self._local_version())
+
+    def _prepare_snapshot(self):
+        with self._lock, self._writer_lock():
+            if self._read_storage_generation() != self._storage_generation:
+                self._load()
+            self._publish_snapshot()
+
+    def inspection_snapshot(self):
+        return self._prepared.pin()
+
+    def _pending_snapshot(self, previous, version):
+        if version[0] != str(self.storage_dir):
+            return None
+        manifest = json.loads((self.storage_dir / ".snapshot").read_text(encoding="utf-8"))
+        if manifest.get("generation") != version[1]:
+            return None
+        # Accepted-case IDs are immutable in the API: edits replace a case with
+        # a new ID. Keep only committed members; never retain deleted normals.
+        allowed = set(manifest["case_ids"])
+        scopes, counts = {}, {}
+        for key, scope in previous[0].items():
+            retained = scope.retained(allowed)
+            if retained.cases:
+                scopes[key] = retained
+                counts[key[0]] = counts.get(key[0], 0) + len(retained.cases)
+        return scopes, counts
+
+    def _writer_lock(self):
+        return learning_store_lock(self.storage_dir.parent / f".{self.storage_dir.name}.lock")
 
     def list(self, product_type: Optional[str] = None) -> list[dict]:
-        with self._lock:
+        with self._lock, self._writer_lock():
             self._refresh_from_disk_if_changed()
             cases = list(self._cases.values())
             if product_type:
@@ -861,19 +1009,35 @@ class AcceptedNormalMemory:
 
 
     def get(self, case_id: str) -> Optional[AcceptedNormalCase]:
-        with self._lock:
+        if self._prepared.pinned:
+            snapshot = self._prepared.get()
+            if snapshot is not None:
+                for scope in snapshot[0].values():
+                    case = scope.by_id.get(case_id)
+                    if case is not None:
+                        return case
+            return None
+        with self._lock, self._writer_lock():
             self._refresh_from_disk_if_changed()
             return self._cases.get(case_id)
 
     def image(self, case_id: str) -> Optional[tuple[bytes, str]]:
         """Наглядный crop сохранённого фрагмента с подсвеченной маской."""
-        with self._lock:
+        with self._lock, self._writer_lock():
             self._refresh_from_disk_if_changed()
             case = self._cases.get(case_id)
             if case is None:
                 return None
-            if case.source_frame is not None:
-                preview = case.source_frame.copy()
+            source_frame = case.source_frame
+            if source_frame is None:
+                arrays_path = self.storage_dir / f"{case.id}.npz"
+                if arrays_path.exists():
+                    with np.load(arrays_path, allow_pickle=False) as arrays:
+                        source = arrays["source_frame"] if "source_frame" in arrays.files else None
+                        if source is not None and source.size:
+                            source_frame = source
+            if source_frame is not None:
+                preview = source_frame.copy()
                 height, width = preview.shape[:2]
                 if case.polygon:
                     scale_x = (
@@ -972,7 +1136,7 @@ class AcceptedNormalMemory:
             coordinate_width=coordinate_width,
             coordinate_height=coordinate_height,
         )
-        with self._lock:
+        with self._lock, self._writer_lock():
             self._refresh_from_disk_if_changed()
             self._cases[case.id] = case
             try:
@@ -980,6 +1144,7 @@ class AcceptedNormalMemory:
                 self._publish_storage_generation()
             except Exception:
                 self._cases.pop(case.id, None)
+                self._file_cache.pop(str(self.storage_dir / f"{case.id}.json"), None)
                 # A failed generation write can happen after both artifacts
                 # were installed. Do not resurrect this failed add on reload.
                 for suffix in (".json", ".npz", ".json.tmp", ".npz.tmp"):
@@ -991,11 +1156,12 @@ class AcceptedNormalMemory:
         return case
 
     def delete(self, case_id: str) -> bool:
-        with self._lock:
+        with self._lock, self._writer_lock():
             self._refresh_from_disk_if_changed()
             case = self._cases.pop(case_id, None)
             if case is None:
                 return False
+            self._file_cache.pop(str(self.storage_dir / f"{case_id}.json"), None)
             for suffix in (".json", ".npz"):
                 try:
                     (self.storage_dir / f"{case_id}{suffix}").unlink(missing_ok=True)
@@ -1006,10 +1172,11 @@ class AcceptedNormalMemory:
 
     def clear(self) -> int:
         """Удалить все сохранённые нормы текущей сессии."""
-        with self._lock:
+        with self._lock, self._writer_lock():
             self._refresh_from_disk_if_changed()
             deleted_count = len(self._cases)
             self._cases.clear()
+            self._file_cache.clear()
             wipe_directory(self.storage_dir)
             self._publish_storage_generation()
             return deleted_count
@@ -1033,14 +1200,10 @@ class AcceptedNormalMemory:
            не похож → брак.
         """
         candidates = extract_defect_candidates(aligned, diff_map, segmentation_mask)
-        with self._lock:
-            self._refresh_from_disk_if_changed()
-            product_cases = [
-                case
-                for case in self._cases.values()
-                if case.enabled and case.product_type == product_type
-            ]
-            cases = [case for case in product_cases if case.reference_hash == reference_hash]
+        prepared = self._prepared.get()
+        scopes, counts = prepared if prepared is not None else ({}, {})
+        scope = scopes.get((product_type, reference_hash))
+        cases = scope.cases if scope is not None else ()
 
         important_candidate_ids = {
             candidate.id for candidate in filter_review_candidates(candidates)
@@ -1057,7 +1220,7 @@ class AcceptedNormalMemory:
         color_residuals: list[tuple[tuple[int, int, int, int], np.ndarray]] = []
         rejections: list[dict] = []
         for candidate in candidates:
-            best_case, best_similarity, best_rejection = self._best_matching_case(candidate, cases)
+            best_case, best_similarity, best_rejection = self._best_matching_case(candidate, cases, scope)
             if best_case is None:
                 if best_rejection is not None and candidate.id in important_candidate_ids:
                     rejections.append(_describe_rejection(candidate, best_rejection))
@@ -1117,19 +1280,22 @@ class AcceptedNormalMemory:
             original_max_candidate_impact=original_max_candidate_impact,
             rejections=rejections,
             usable_cases=len(cases),
-            foreign_reference_cases=len(product_cases) - len(cases),
+            foreign_reference_cases=counts.get(product_type, 0) - len(cases),
         )
 
     @staticmethod
     def _best_matching_case(
         candidate: DefectCandidate,
         cases: list[AcceptedNormalCase],
+        scope: Optional[_NormalScope] = None,
     ) -> tuple[Optional[AcceptedNormalCase], float, Optional[dict]]:
         """Best case, its similarity and, if nothing matched, the closest rejection."""
         best_case: Optional[AcceptedNormalCase] = None
         best_similarity = 0.0
         closest: Optional[dict] = None
-        for case in cases:
+        selected = scope.nearby(candidate) if scope is not None else range(len(cases))
+        for index in selected:
+            case = cases[index]
             diag: dict = {}
             similarity = candidate_similarity(candidate, case, diag)
             if similarity is not None:
@@ -1139,6 +1305,13 @@ class AcceptedNormalMemory:
             elif _rejection_is_closer(diag, closest):
                 diag["case_id"] = case.id
                 closest = diag
+        if best_case is None and scope is not None and (closest is None or closest.get("reason") == "position"):
+            for index in scope.closest_position_rejections(candidate, selected):
+                diag = {}
+                candidate_similarity(candidate, cases[index], diag)
+                if _rejection_is_closer(diag, closest):
+                    diag["case_id"] = cases[index].id
+                    closest = diag
         return best_case, best_similarity, (None if best_case is not None else closest)
 
     @staticmethod
@@ -1258,8 +1431,12 @@ class AcceptedNormalMemory:
                 source_crop=case.source_crop if case.source_crop is not None else np.empty((0, 0, 3), dtype=np.uint8),
                 source_frame=case.source_frame if case.source_frame is not None else np.empty((0, 0, 3), dtype=np.uint8),
             )
-        temp_json.replace(json_path)
-        temp_npz.replace(npz_path)
+        replace_learning_file(temp_json, json_path)
+        replace_learning_file(temp_npz, npz_path)
+        json_stat, arrays_stat = json_path.stat(), npz_path.stat()
+        self._file_cache[str(json_path)] = (
+            (json_stat.st_mtime_ns, json_stat.st_size, arrays_stat.st_mtime_ns, arrays_stat.st_size), case,
+        )
 
     def _read_storage_generation(self) -> Optional[str]:
         try:
@@ -1270,25 +1447,61 @@ class AcceptedNormalMemory:
     def _publish_storage_generation(self) -> None:
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         generation = uuid.uuid4().hex
+        # Commit membership with the generation. A reader must not pick up a
+        # half-finished add merely because its .json appeared during a scan.
+        manifest = self.storage_dir / ".snapshot"
+        temporary_manifest = self.storage_dir / f".snapshot.{generation}.tmp"
+        temporary_manifest.write_text(json.dumps({
+            "generation": generation, "case_ids": list(self._cases),
+        }), encoding="utf-8")
+        replace_learning_file(temporary_manifest, manifest)
         marker = self.storage_dir / ".generation"
         temporary_marker = self.storage_dir / f".generation.{generation}.tmp"
         temporary_marker.write_text(generation, encoding="ascii")
-        temporary_marker.replace(marker)
+        replace_learning_file(temporary_marker, marker)
         self._storage_generation = generation
+        self._publish_snapshot()
 
     def _refresh_from_disk_if_changed(self) -> None:
         current_generation = self._read_storage_generation()
         if current_generation == self._storage_generation:
             return
         self._load()
+        if hasattr(self, "_prepared"):
+            self._publish_snapshot()
 
     def _load(self) -> None:
-        self._cases.clear()
+        generation = self._read_storage_generation()
+        loaded_cases, file_cache = {}, {}
         if not self.storage_dir.exists():
+            self._cases = {}
+            self._file_cache = {}
             self._storage_generation = None
             return
-        for json_path in self.storage_dir.glob("*.json"):
+        manifest = self.storage_dir / ".snapshot"
+        if manifest.exists():
+            publication = json.loads(manifest.read_text(encoding="utf-8"))
+            if publication.get("generation") != generation:
+                return  # Writer has not committed this manifest yet; retry.
+            case_ids = publication["case_ids"]
+            if any(Path(str(case_id)).name != str(case_id) for case_id in case_ids):
+                raise ValueError("invalid accepted-normal snapshot member")
+            allowed_names = {f"{case_id}.json" for case_id in case_ids}
+            # Preserve legacy directory iteration order, including tie breaks.
+            paths = [path for path in self.storage_dir.glob("*.json") if path.name in allowed_names]
+        else:
+            paths = [path for path in self.storage_dir.glob("*.json") if not path.name.startswith(".")]
+        for json_path in paths:
             try:
+                arrays_path = json_path.with_suffix(".npz")
+                signature = (json_path.stat().st_mtime_ns, json_path.stat().st_size,
+                             arrays_path.stat().st_mtime_ns, arrays_path.stat().st_size)
+                cached = self._file_cache.get(str(json_path))
+                if cached is not None and cached[0] == signature:
+                    case = cached[1]
+                    loaded_cases[case.id] = case
+                    file_cache[str(json_path)] = cached
+                    continue
                 payload = json.loads(json_path.read_text(encoding="utf-8"))
                 case_id = str(payload["id"])
                 arrays_path = self.storage_dir / f"{case_id}.npz"
@@ -1301,16 +1514,18 @@ class AcceptedNormalMemory:
                         float(bbox.get("width", 0.0)),
                         float(bbox.get("height", 0.0)),
                     )
-                    source_frame = (
-                        arrays["source_frame"].copy()
-                        if "source_frame" in arrays.files and arrays["source_frame"].size > 0
-                        else None
-                    )
+                    # Full source frames belong to UI/history, not matching.
+                    # Legacy records without dimensions still need the fallback.
+                    source_frame = None
                     coordinate_space = payload.get("coordinate_space")
                     if not isinstance(coordinate_space, dict):
                         coordinate_space = {}
                     coordinate_width = int(coordinate_space.get("width", 0))
                     coordinate_height = int(coordinate_space.get("height", 0))
+                    if not (coordinate_width > 0 and coordinate_height > 0) and "source_frame" in arrays.files:
+                        legacy_source = arrays["source_frame"]
+                        if legacy_source.size:
+                            source_frame = legacy_source
                     if source_frame is not None and source_frame.ndim >= 2:
                         coordinate_width = coordinate_width or int(source_frame.shape[1])
                         coordinate_height = coordinate_height or int(source_frame.shape[0])
@@ -1361,21 +1576,32 @@ class AcceptedNormalMemory:
                         mask_template=arrays["mask_template"].copy(),
                         diff_template=arrays["diff_template"].copy(),
                         appearance_template=arrays["appearance_template"].copy(),
-                        source_crop=(
-                            arrays["source_crop"].copy()
-                            if "source_crop" in arrays.files and arrays["source_crop"].size > 0
-                            else None
-                        ),
+                        source_crop=(arrays["source_crop"] if "source_crop" in arrays.files else None),
                         source_frame=source_frame,
                         bbox=pixel_bbox,
                         polygon=pixel_polygon,
                         coordinate_width=coordinate_width,
                         coordinate_height=coordinate_height,
                     )
-                self._cases[case.id] = case
+                loaded_cases[case.id] = case
+                file_cache[str(json_path)] = (signature, case)
             except Exception:
                 logger.exception("failed to load accepted-normal case metadata=%s", json_path)
-        self._storage_generation = self._read_storage_generation()
+        self._cases = loaded_cases
+        self._file_cache = file_cache
+        self._storage_generation = generation
+
+
+def _cached_spatial_geometry(item, mask, scale):
+    cached = item._spatial_cache
+    value = cached.get(scale, False)
+    if value is not False:
+        return value
+    value = _spatial_mask_geometry(mask, item.bbox_norm, scale)
+    if len(cached) >= 4:
+        cached.clear()
+    cached[scale] = value
+    return value
 
 
 # Rejection reasons in the order candidate_similarity checks them: the later the
@@ -1837,12 +2063,8 @@ def candidate_similarity(
         else float(case.coordinate_height or 1)
     )
     coordinate_scale = (frame_width, frame_height)
-    candidate_spatial = _spatial_mask_geometry(
-        candidate.mask_template, candidate.bbox_norm, coordinate_scale,
-    )
-    sample_spatial = _spatial_mask_geometry(
-        case_mask_template, case.bbox_norm, coordinate_scale,
-    )
+    candidate_spatial = _cached_spatial_geometry(candidate, candidate.mask_template, coordinate_scale)
+    sample_spatial = _cached_spatial_geometry(case, case_mask_template, coordinate_scale)
     candidate_center = np.array(
         ((cx + cw * 0.5) * frame_width, (cy + ch * 0.5) * frame_height),
         dtype=np.float64,

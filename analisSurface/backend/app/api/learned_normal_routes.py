@@ -15,18 +15,21 @@ from app.api.dependencies import inspection_service
 
 router = APIRouter()
 
+# Learning loads/compresses images and touches disk. Plain handlers run in
+# FastAPI's worker pool instead of blocking the inspection HTTP event loop.
+
 
 class AcceptDefectAsNormalRequest(BaseModel):
     note: str = ""
 
 
 @router.get("/learning/reviews")
-async def list_learning_reviews(product_type: Optional[str] = Query(None)) -> dict:
+def list_learning_reviews(product_type: Optional[str] = Query(None)) -> dict:
     return {"reviews": inspection_service.list_learning_reviews(product_type=product_type)}
 
 
 @router.get("/learning/reviews/{inspection_id}")
-async def get_learning_review(inspection_id: str) -> dict:
+def get_learning_review(inspection_id: str) -> dict:
     review = inspection_service.get_learning_review(inspection_id)
     if review is None:
         raise HTTPException(status_code=404, detail="Inspection review not found or expired")
@@ -34,7 +37,7 @@ async def get_learning_review(inspection_id: str) -> dict:
 
 
 @router.get("/learning/reviews/{inspection_id}/image/{kind}")
-async def get_learning_review_image(inspection_id: str, kind: str) -> Response:
+def get_learning_review_image(inspection_id: str, kind: str) -> Response:
     image = inspection_service.get_learning_review_image(inspection_id, kind)
     if image is None:
         raise HTTPException(status_code=404, detail="Review image not found")
@@ -43,7 +46,7 @@ async def get_learning_review_image(inspection_id: str, kind: str) -> Response:
 
 
 @router.post("/learning/reviews/{inspection_id}/defects/{defect_id}/accept-as-normal")
-async def accept_defect_as_normal(
+def accept_defect_as_normal(
     inspection_id: str,
     defect_id: str,
     payload: AcceptDefectAsNormalRequest,
@@ -62,7 +65,7 @@ async def accept_defect_as_normal(
 
 
 @router.post("/learning/reviews/{inspection_id}/accept-all-as-normal")
-async def accept_all_defects_as_normal(
+def accept_all_defects_as_normal(
     inspection_id: str,
     payload: AcceptDefectAsNormalRequest,
 ) -> dict:
@@ -80,19 +83,19 @@ async def accept_all_defects_as_normal(
 
 
 @router.get("/learning/accepted-cases")
-async def list_accepted_cases(product_type: Optional[str] = Query(None)) -> dict:
+def list_accepted_cases(product_type: Optional[str] = Query(None)) -> dict:
     return {"cases": inspection_service.list_accepted_normal_cases(product_type=product_type)}
 
 
 @router.delete("/learning/accepted-cases")
-async def delete_all_accepted_cases() -> dict:
+def delete_all_accepted_cases() -> dict:
     """Сбросить все выученные ложняки текущей сессии, по всем камерам."""
     deleted_count = inspection_service.delete_all_accepted_normal_cases()
     return {"deleted": True, "cases_count": deleted_count}
 
 
 @router.get("/learning/accepted-cases/{case_id}/image")
-async def get_accepted_case_image(case_id: str) -> Response:
+def get_accepted_case_image(case_id: str) -> Response:
     image = inspection_service.get_accepted_normal_case_image(case_id)
     if image is None:
         raise HTTPException(status_code=404, detail="Accepted-normal case not found")
@@ -101,7 +104,7 @@ async def get_accepted_case_image(case_id: str) -> Response:
 
 
 @router.delete("/learning/accepted-cases/{case_id}")
-async def delete_accepted_case(case_id: str) -> dict:
+def delete_accepted_case(case_id: str) -> dict:
     if not inspection_service.delete_accepted_normal_case(case_id):
         raise HTTPException(status_code=404, detail="Accepted-normal case not found")
     return {"deleted": True, "case_id": case_id}

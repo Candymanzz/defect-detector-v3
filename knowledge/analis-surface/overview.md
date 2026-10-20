@@ -3,6 +3,7 @@
 Back to [global_architecture.md](../global_architecture.md) · [API](./api_contracts.md) · [Why](./architecture_why.md)
 
 Latest handoff: [implemented decisions](../recent_context.md) · [machine timing evidence](../performance/2026-10-16-log-review.md) · [optimisation/C++ proposals](./optimization_plan.md). Source review: 2026-10-20; machine measurements: 2026-10-16. These dates are not interchangeable.
+Latest Python implementation: [prepared learning state, exact spatial matching and FP reuse](../performance/2026-10-20-learning-optimization.md), branch `fix-time-fp-zone`, baseline `e466367f`; local validation is separate from historical machine timings.
 `A:` = `analisSurface/backend/app/` · `S:` = `analisSurface/backend/app/services/`.
 (Directory renamed from `kopcheniservice` in `e5ef57f0`, 2026‑05‑14; YAML keys still say `kopcheni_base_url`, WS error `kopcheni_sync_failed`.)
 
@@ -34,6 +35,7 @@ The checked-in configuration launches **6 processes** on ports 8000‥8005 (`Ana
 | `S:inspection_curvature.py` (315) | `CurvatureModel` (cap-circle cross-section hypothesis), `SurfaceWeights` / `GeometryWeights`, `estimate_curvature` |
 | `S:inspection_evidence.py` (220) | `compact_residual_evidence`, `pre_normalization_compact_signal` |
 | `S:learned_normals.py` (2 200) | `InspectionReviewStore`, `AcceptedNormalMemory`, `extract_defect_candidates`, `candidate_similarity` (§6) |
+| `S:learning_snapshot.py` | Prepared versions, pinned per-frame reads, bounded auxiliary preparation and cross-process store locks; see the [current implementation note](../performance/2026-10-20-learning-optimization.md) |
 | `S:analysis_settings.py` (108), `analysis_settings_presets.py` (245) | parameter dataclass + knob expansion (§5) |
 | `S:inspection_workload.py` (107) | `InspectionWorkload` (foreground/background gate), `InspectionExecutor`, `BackgroundExecutor` |
 | `S:deferred_heatmaps.py` (54) | token → frozen result for post-verdict heat-map render |

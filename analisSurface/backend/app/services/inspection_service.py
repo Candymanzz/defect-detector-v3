@@ -45,6 +45,7 @@ from app.services.inspection_geometry import (
 )
 from app.services.inspection_positioning import FramePositioner
 from app.services.inspection_workload import InspectionWorkload
+from app.services.learning_snapshot import LearningSnapshot, learning_store_lock, replace_learning_file
 from app.services.reference_preparation import ReferencePreparationCache, prepare_features, prepare_illumination
 from app.services.inspection_models import FPZone, FPZoneScore, InspectionResult, RoiSubZone, RoiSubZoneScore
 from app.services.learned_normals import (
@@ -244,19 +245,24 @@ class InspectionService:
         self._last_aligned: Dict[str, np.ndarray] = {}
         self._last_aligned_ref_hash: Dict[str, str] = {}
         data_dir = Path(__file__).resolve().parent.parent / "data"
+        self._workload = InspectionWorkload()
         self._accepted_normals = AcceptedNormalMemory(
             learned_normals_dir if learned_normals_dir is not None else data_dir / "accepted_normals",
             session_wipe=session_wipe if learned_normals_session_wipe is None else learned_normals_session_wipe,
+            workload=self._workload,
         )
         self._learning_reviews = InspectionReviewStore(
             max_items=review_limit,
             storage_dir=reviews_dir if reviews_dir is not None else data_dir / "learning_reviews",
             session_wipe=session_wipe,
         )
-        self._workload = InspectionWorkload()
         self._deferred_learning_reviews = _DeferredLearningReviewWriter(self._learning_reviews, self._workload)
 
         self._load_fp_zones()
+        self._fp_snapshot = LearningSnapshot(
+            "fp", self._fp_disk_version, self._prepare_fp_snapshot,
+            self._fp_snapshot_value(), self._fp_local_version(), self._workload, self._pending_fp_snapshot,
+        )
         self._load_roi_sub_zones()
         self._load_analysis_settings()
         self._stamp_analysis_settings_mtime()
@@ -904,7 +910,7 @@ class InspectionService:
             source_inspection_id=source_inspection_id,
             source_defect_id=source_defect_id,
         )
-        with self._fp_zones_lock:
+        with self._fp_zones_lock, self._fp_writer_lock():
             self._refresh_fp_zones_if_changed()
             self.fp_zones.setdefault(product_type, []).append(zone)
             self._save_fp_crop(zone)
@@ -947,7 +953,7 @@ class InspectionService:
     def _delete_fp_zones_for_source(self, source_defect_id: str, source_inspection_id: str) -> None:
         if not source_defect_id and not source_inspection_id:
             return
-        with self._fp_zones_lock:
+        with self._fp_zones_lock, self._fp_writer_lock():
             self._refresh_fp_zones_if_changed()
             changed = False
             for product_type, zones in list(self.fp_zones.items()):
@@ -968,7 +974,7 @@ class InspectionService:
                 self._save_fp_zones()
 
     def _delete_auto_fp_zones(self) -> None:
-        with self._fp_zones_lock:
+        with self._fp_zones_lock, self._fp_writer_lock():
             self._refresh_fp_zones_if_changed()
             changed = False
             for product_type, zones in list(self.fp_zones.items()):
@@ -984,6 +990,9 @@ class InspectionService:
                 self._save_fp_zones()
 
     def get_fp_zones(self, product_type: str) -> list[FPZone]:
+        if self._fp_snapshot.pinned:
+            snapshot = self._fp_snapshot.get()
+            return list(snapshot.get(product_type, ())) if snapshot is not None else []
         with self._fp_zones_lock:
             self._refresh_fp_zones_if_changed()
             return list(self.fp_zones.get(product_type, []))
@@ -1007,7 +1016,7 @@ class InspectionService:
         return buffer.tobytes()
 
     def delete_fp_zone(self, zone_id: str) -> bool:
-        with self._fp_zones_lock:
+        with self._fp_zones_lock, self._fp_writer_lock():
             self._refresh_fp_zones_if_changed()
             for product_type, zones in self.fp_zones.items():
                 retained = [zone for zone in zones if zone.id != zone_id]
@@ -1019,7 +1028,7 @@ class InspectionService:
         return False
 
     def delete_all_fp_zones(self) -> int:
-        with self._fp_zones_lock:
+        with self._fp_zones_lock, self._fp_writer_lock():
             self._refresh_fp_zones_if_changed()
             deleted_count = sum(len(zones) for zones in self.fp_zones.values())
             self.fp_zones = {}
@@ -1053,7 +1062,8 @@ class InspectionService:
         """Inspect against one atomic camera-scoped configuration snapshot."""
         lock = self._product_lock(product_type)
         waiting_ns = time.perf_counter_ns()
-        with self._workload.foreground(), lock:
+        with (self._workload.foreground(), lock,
+              self._accepted_normals.inspection_snapshot(), self._fp_snapshot.pin()):
             lock_wait_ms = (time.perf_counter_ns() - waiting_ns) / 1_000_000
             try:
                 return self._inspect_frame_unlocked(product_type, frame, *args, **kwargs)
@@ -1964,16 +1974,34 @@ class InspectionService:
         self._roi_sub_zones_file.write_text(json.dumps(entries, ensure_ascii=True, indent=2), encoding="utf-8")
 
     def _load_fp_zones(self) -> None:
-        self.fp_zones = {}
+        generation = self._read_fp_zones_generation()
+        loaded_zones, entry_cache = {}, {}
         if not self._fp_zones_file.exists():
-            self._fp_zones_generation = self._read_fp_zones_generation()
+            self.fp_zones = {}
+            self._fp_zones_generation = generation
             return
         try:
-            raw_payload = json.loads(self._fp_zones_file.read_text(encoding="utf-8"))
+            snapshot_file = self._fp_zones_file.with_suffix(".snapshot.json")
+            if snapshot_file.exists():
+                publication = json.loads(snapshot_file.read_text(encoding="utf-8"))
+                if publication.get("generation") != generation:
+                    return
+                raw_payload = publication["entries"]
+            else:
+                raw_payload = json.loads(self._fp_zones_file.read_text(encoding="utf-8"))
             entries = raw_payload if isinstance(raw_payload, list) else []
             for entry in entries:
                 product_type = str(entry.get("product_type", "")).strip()
                 if not product_type:
+                    continue
+                crop_path = self._fp_crop_path(str(entry.get("id", "")))
+                crop_stat = crop_path.stat() if crop_path.exists() else None
+                signature = (str(crop_path), crop_stat.st_mtime_ns, crop_stat.st_size) if crop_stat else None
+                cached = getattr(self, "_fp_entry_cache", {}).get(str(entry.get("id", "")))
+                if cached is not None and cached[0] == entry and cached[1] == signature:
+                    zone = cached[2]
+                    loaded_zones.setdefault(product_type, []).append(zone)
+                    entry_cache[zone.id] = cached
                     continue
                 bbox_raw = entry.get("crop_bbox") or [0, 0, 0, 0]
                 zone = FPZone(
@@ -1992,10 +2020,55 @@ class InspectionService:
                     source_defect_id=str(entry.get("source_defect_id", "")),
                 )
                 if len(zone.points_norm_ref) >= 3:
-                    self.fp_zones.setdefault(product_type, []).append(zone)
+                    loaded_zones.setdefault(product_type, []).append(zone)
+                    entry_cache[zone.id] = (entry, signature, zone)
         except Exception:
-            self.fp_zones = {}
-        self._fp_zones_generation = self._read_fp_zones_generation()
+            logger.exception("failed to prepare FP snapshot")
+            return
+        self.fp_zones = loaded_zones
+        self._fp_entry_cache = entry_cache
+        self._fp_zones_generation = generation
+        if hasattr(self, "_fp_snapshot"):
+            self._publish_fp_snapshot()
+
+    def _fp_local_version(self):
+        return str(self._fp_zones_file), str(self._fp_crops_dir), self._fp_zones_generation
+
+    def _fp_writer_lock(self):
+        return learning_store_lock(self._fp_zones_file.with_suffix(".lock"))
+
+    def _fp_disk_version(self):
+        return str(self._fp_zones_file), str(self._fp_crops_dir), self._read_fp_zones_generation()
+
+    def _fp_snapshot_value(self):
+        return {product: tuple(zones) for product, zones in self.fp_zones.items()}
+
+    def _pending_fp_snapshot(self, previous, version):
+        if version[:2] != self._fp_local_version()[:2]:
+            return None
+        publication = json.loads(self._fp_zones_file.with_suffix(".snapshot.json").read_text(encoding="utf-8"))
+        if publication.get("generation") != version[2]:
+            return None
+        entries = {entry["id"]: entry for entry in publication["entries"]}
+        retained = {}
+        for product, zones in previous.items():
+            for zone in zones:
+                entry = entries.get(zone.id)
+                if (entry is not None and entry.get("product_type") == product
+                        and entry.get("reference_hash", "") == zone.reference_hash
+                        and tuple(entry.get("crop_bbox", ())) == zone.crop_bbox
+                        and [tuple(p) for p in entry.get("points_norm_ref", ())] == zone.points_norm_ref):
+                    retained.setdefault(product, []).append(zone)
+        return {product: tuple(zones) for product, zones in retained.items()}
+
+    def _publish_fp_snapshot(self):
+        if self._fp_local_version() == self._fp_disk_version():
+            self._fp_snapshot.publish(self._fp_snapshot_value(), self._fp_local_version())
+
+    def _prepare_fp_snapshot(self):
+        with self._fp_zones_lock, self._fp_writer_lock():
+            self._refresh_fp_zones_if_changed()
+            self._publish_fp_snapshot()
 
     def _fp_zones_generation_file(self) -> Path:
         return self._fp_zones_file.with_suffix(".generation")
@@ -2033,15 +2106,21 @@ class InspectionService:
                     }
                 )
         payload = json.dumps(entries, ensure_ascii=True, indent=2)
+        generation = uuid.uuid4().hex
         temporary = self._fp_zones_file.with_name(f"{self._fp_zones_file.name}.{uuid.uuid4().hex}.tmp")
         temporary.write_text(payload, encoding="utf-8")
-        temporary.replace(self._fp_zones_file)
-        generation = uuid.uuid4().hex
+        replace_learning_file(temporary, self._fp_zones_file)
+        snapshot_file = self._fp_zones_file.with_suffix(".snapshot.json")
+        temporary_snapshot = snapshot_file.with_name(f"{snapshot_file.name}.{generation}.tmp")
+        temporary_snapshot.write_text(json.dumps({"generation": generation, "entries": entries}), encoding="utf-8")
+        replace_learning_file(temporary_snapshot, snapshot_file)
         marker = self._fp_zones_generation_file()
         temporary_marker = marker.with_name(f"{marker.name}.{generation}.tmp")
         temporary_marker.write_text(generation, encoding="ascii")
-        temporary_marker.replace(marker)
+        replace_learning_file(temporary_marker, marker)
         self._fp_zones_generation = generation
+        if hasattr(self, "_fp_snapshot"):
+            self._publish_fp_snapshot()
 
     def _fp_crop_path(self, zone_id: str) -> Path:
         return self._fp_crops_dir / f"{zone_id}.png"
@@ -2080,6 +2159,7 @@ class InspectionService:
         diff_map: np.ndarray,
         segmentation_mask: np.ndarray,
         points: list[Tuple[float, float]],
+        gray_maps: Optional[tuple[np.ndarray, np.ndarray]] = None,
     ) -> dict[str, float]:
         """Сводные метрики активности внутри полигона — для FP-recheck и score по ROI."""
         h, w = diff_map.shape[:2]
@@ -2087,8 +2167,10 @@ class InspectionService:
         if not np.any(zone_mask):
             return {"diff_q90": 0.0, "diff_max": 0.0, "active_ratio": 0.0, "score": 0.0}
 
-        diff_gray = cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY)
-        seg_gray = cv2.cvtColor(segmentation_mask, cv2.COLOR_BGR2GRAY)
+        diff_gray, seg_gray = gray_maps if gray_maps is not None else (
+            cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY),
+            cv2.cvtColor(segmentation_mask, cv2.COLOR_BGR2GRAY),
+        )
         zone_diff = diff_gray[zone_mask]
         zone_active = seg_gray[zone_mask] > 0
         # q90 diff — типичная «энергия» отличия; active_ratio — доля пикселей в маске дефекта.
@@ -2342,6 +2424,8 @@ class InspectionService:
         pending_residuals: list[tuple[FPZone, list]] = []
         suppression_zones: list[FPZone] = []
         checked_residuals: list[tuple[FPZone, dict]] = []
+        gray_maps = (cv2.cvtColor(diff_map, cv2.COLOR_BGR2GRAY),
+                     cv2.cvtColor(segmentation_mask, cv2.COLOR_BGR2GRAY))
 
         for zone in zones:
             points = zone.points_norm_ref
@@ -2372,7 +2456,7 @@ class InspectionService:
                 )
                 continue
 
-            activity = self._measure_zone_activity(diff_map, segmentation_mask, points)
+            activity = self._measure_zone_activity(diff_map, segmentation_mask, points, gray_maps)
             triggered = (
                 activity["diff_q90"] >= settings.fp_trigger_diff_q90
                 or activity["active_ratio"] > 0.01

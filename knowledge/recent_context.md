@@ -63,7 +63,9 @@ The current owner requirement is **500 ms from trigger to final verdict** (2026-
 
 The observed heavy interval is learned-normal application plus FP rechecks, followed by Java-side waiting for the busy Python server. Positioning stayed near 28–29 ms per camera. Full knowledge-base reload after a generation change is a verified code path, but the logs do not separately measure its contribution to each spike.
 
-**[proposal]** Priorities: finer timings; prepare/publish consistent learning snapshots outside the critical path; optimise candidate matching and repeated image work; only then prototype selected C++ kernels. No C++ implementation or measured C++ speedup exists in this update.
+**[original proposal, before the implementation below]** Priorities were finer timings, off-path learning snapshots, reduced matching/repeated image work, then selective C++ kernels. No C++ implementation or measured C++ speedup exists.
+
+**[code: 2026-10-20, `fix-time-fp-zone`, baseline `e466367f`]** Bulk normal/FP refresh now prepares off-path, per-frame snapshots are pinned, exact spatial indexing reduces comparisons and FP activity reuses grayscale maps. Learning/FP HTTP handlers execute their blocking work in the framework worker pool. See [implementation and local measurements](./performance/2026-10-20-learning-optimization.md); production timing, live-learning product locks and broader concurrency tuning remain open. The dated 2026-10-16 figures above are unchanged historical evidence.
 
 ## 5. Configuration versus observed deployment
 
