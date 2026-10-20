@@ -13,6 +13,8 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = $PSScriptRoot
 Set-Location $RepoRoot
 
+. (Join-Path $RepoRoot "detector-backend.ps1")
+
 $OrchestratorJar = Join-Path $RepoRoot "orchestrator-java\target\orchestrator-0.1.0-SNAPSHOT.jar"
 $GeometryJar = Join-Path $RepoRoot "java-geometry-service\target\java-geometry-service-0.1.0-SNAPSHOT.jar"
 $PythonExe = Join-Path $RepoRoot "analisSurface\backend\.venv\Scripts\python.exe"
@@ -22,6 +24,9 @@ $CameraWorker = Join-Path $RepoRoot "camera-worker\build\Debug\camera_worker.exe
 $CameraWorkerAlt = Join-Path $RepoRoot "camera-worker\build\Release\camera_worker.exe"
 $FrontEndDir = Join-Path $RepoRoot "front-end"
 $ConfigPath = Join-Path $RepoRoot $Config
+# python_detector.backend: cpp -> C++ detector (cppAnalisSurface); Python and its venv are not needed
+$UseCpp = Test-CppDetectorBackend $ConfigPath
+$CppDetectorExe = Join-Path $RepoRoot "cppAnalisSurface\build\Release\cpp_analis_surface.exe"
 $PidFile = Join-Path $RepoRoot ".dev-stack.pids.json"
 $NpmCmd = "C:\Program Files\nodejs\npm.cmd"
 
@@ -76,7 +81,11 @@ if (-not (Test-Path $OrchestratorJar)) {
 if (-not (Test-Path $GeometryJar)) {
     throw "Geometry JAR missing. Run: .\rebuild-and-run.ps1"
 }
-if (-not (Test-Path $PythonExe)) {
+if ($UseCpp) {
+    if (-not (Test-Path $CppDetectorExe)) {
+        throw "cpp_analis_surface.exe missing. Run: .\rebuild-and-run.ps1  (or cppAnalisSurface\rebuild-and-run.ps1 -NoRun)"
+    }
+} elseif (-not (Test-Path $PythonExe)) {
     throw "Python venv missing. Run: .\rebuild-and-run.ps1"
 }
 if (-not (Test-Path $LightServerDll)) {
@@ -107,7 +116,8 @@ Write-Host "  WS  : ws://127.0.0.1:8765" -ForegroundColor Gray
 if (-not $NoFrontend) {
     Write-Host "  UI  : http://localhost:5173 (autostart by orchestrator)" -ForegroundColor Gray
 }
-Write-Host "  IoInputMonitor + LightServer + analisSurface - autostart by orchestrator" -ForegroundColor Gray
+$detectorName = if ($UseCpp) { "cppAnalisSurface (C++)" } else { "analisSurface (Python)" }
+Write-Host "  IoInputMonitor + LightServer + $detectorName - autostart by orchestrator" -ForegroundColor Gray
 Write-Host ""
 
 try {

@@ -17,6 +17,10 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = $PSScriptRoot
 Set-Location $RepoRoot
 
+. (Join-Path $RepoRoot "detector-backend.ps1")
+# python_detector.backend: cpp -> C++ detector (cppAnalisSurface); Python and its venv are not needed
+$UseCpp = Test-CppDetectorBackend (Join-Path $RepoRoot $Config)
+
 $OrchestratorJar = Join-Path $RepoRoot "orchestrator-java\target\orchestrator-0.1.0-SNAPSHOT.jar"
 $GeometryJar = Join-Path $RepoRoot "java-geometry-service\target\java-geometry-service-0.1.0-SNAPSHOT.jar"
 $PositioningJar = Join-Path $RepoRoot "java-positioning-service\target\java-positioning-service-0.1.0-SNAPSHOT.jar"
@@ -88,7 +92,7 @@ Write-Step "Check build tools"
 Initialize-Env
 Test-Tool "java"
 Test-Tool "mvn"
-Test-Tool "python"
+if (-not $UseCpp) { Test-Tool "python" }
 Test-Tool "dotnet"
 
 Invoke-BuildStep "Build orchestrator-java" {
@@ -112,11 +116,22 @@ Invoke-BuildStep "Build java-positioning-service" {
 }
 if (-not (Test-Path $PositioningJar)) { throw "Build failed: $PositioningJar" }
 
-Invoke-BuildStep "Python venv + pip" {
-    if (-not (Test-Path $PythonVenv)) {
-        python -m venv $PythonVenv
+if ($UseCpp) {
+    # checks and installs compiler / CMake / vcpkg / libraries only when missing, then builds the detector
+    Invoke-BuildStep "Build cppAnalisSurface (C++ detector)" {
+        & (Join-Path $RepoRoot "cppAnalisSurface\rebuild-and-run.ps1") -NoRun
+        if ($LASTEXITCODE -ne 0) { throw "cppAnalisSurface build failed (exit $LASTEXITCODE)" }
     }
-    & $PythonExe -m pip install -q -r (Join-Path $PythonBackend "requirements.txt")
+    if (-not (Test-Path (Join-Path $RepoRoot "cppAnalisSurface\build\Release\cpp_analis_surface.exe"))) {
+        throw "Build failed: cpp_analis_surface.exe"
+    }
+} else {
+    Invoke-BuildStep "Python venv + pip" {
+        if (-not (Test-Path $PythonVenv)) {
+            python -m venv $PythonVenv
+        }
+        & $PythonExe -m pip install -q -r (Join-Path $PythonBackend "requirements.txt")
+    }
 }
 
 if (-not $SkipLightServer) {
