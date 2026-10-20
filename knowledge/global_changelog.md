@@ -11,6 +11,12 @@ Legend of service links: [orchestrator](./orchestrator/overview.md) · [camera-w
 
 ## 0. Knowledge-base era
 
+### 2026-10-20 — Shared developer/ChatGPT entry point, six-core RT context and 500 ms target
+
+- **What changed:** added [README](./README.md) with reading routes and handoff instructions, [PROJECT_CONTEXT](./PROJECT_CONTEXT.md) with the compact shared brief, [production environment](./deploy-ops/production_environment.md) and [latency requirements](./performance/latency_requirements.md). Updated architecture, recent decisions, deployment rationale and optimisation links; preserved existing service-note paths and historical measurements.
+- **Why:** let different developers and their ChatGPT sessions recover the same context without previous chat history. Record the owner's current six-core/RT statement and 500 ms trigger-to-verdict requirement; distinguish them from the historical four-app-core affinity profile, previous 600 ms criterion and measured implementation.
+- **Impact:** documentation only, baseline `testlinux` / `9d8a4b66`. No code, scripts, CPU/RT configuration, runtime settings or services changed. Current machine affinity and per-thread RT policies were not measured; the deadline is a requirement, not a certified result. Existing English service notes were retained; the entry point and compact handoff are Russian for the developer audience.
+
 ### 2026-10-20 — Customer geometry tolerance and label-placement requirements
 
 - **What changed:** added [geometry customer requirements](./geometry/customer_requirements.md) and linked them from geometry overview/API/rationale, recent context and the global index.

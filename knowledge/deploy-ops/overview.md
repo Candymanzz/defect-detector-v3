@@ -2,6 +2,8 @@
 
 Back to [global_architecture.md](../global_architecture.md) · [Why](./architecture_why.md)
 
+Current hardware context **[owner: 2026-10-20]**: **six CPU cores and RT**. Read [production environment](./production_environment.md) before using older CPU masks below; current per-service allocation is not verified by those defaults. The current [pipeline target](../performance/latency_requirements.md) is 500 ms from trigger to verdict.
+
 ## 1. Scripts at repo root
 | Script | What it does (exact) |
 |---|---|
@@ -25,7 +27,7 @@ Docs: `RUN.md`, `RT-LINUX.md`, `LOGGING.md`, `ЗАПУСК.md` (long Russian run
 Kiosk: `deploy/kiosk/session.sh` (`IML_KIOSK=1`, `IML_ELECTRON_LOG_PATH`, xset dpms off, loop: `electron --ozone-platform=x11 --password-store=basic .` then `sleep 5`), `defect-detector.desktop` (xsession). Remote screen: `deploy/remote-access/*` (Tailscale + OpenSSH tunnel + x11vnc/TigerVNC to `100.122.121.36:5900`; `connect-kiosk.cmd/.ps1`, `kiosk-vnc.service`, `kiosk.tigervnc`, `ssh-config.example`).
 
 ## 3. Linux/RT environment
-Ubuntu 24.04, kernel `6.8.1-1015-realtime`, CPUs 0/6,1/7,… are SMT siblings; app on `2-5,8-11`; boot parameters in `tools/90-iml-cpu-isolation.cfg` (not in git, `/tools/` ignored) → `/etc/default/grub.d` (flags: `isolcpus` without `domain`, `nohz_full=2-5,8-11`, `rcu_nocbs`, IRQ default affinity and kthreads to `0,1,6,7`); irqbalance `IRQBALANCE_BANNED_CPULIST=2-5,8-11`. Details and rollback: `RT-LINUX.md`. Verify: `/proc/cmdline`, `/sys/devices/system/cpu/{isolated,nohz_full}`, `taskset -apc PID`.
+**Recorded profile [doc], not a fresh production measurement:** Ubuntu 24.04, kernel `6.8.1-1015-realtime`, CPUs 0/6,1/7,… as SMT siblings; app mask `2-5,8-11` (= four physical cores on that topology). Boot parameters in `tools/90-iml-cpu-isolation.cfg` (not in git, `/tools/` ignored) → `/etc/default/grub.d` (flags: `isolcpus` without `domain`, `nohz_full=2-5,8-11`, `rcu_nocbs`, IRQ default affinity and kthreads to `0,1,6,7`); irqbalance `IRQBALANCE_BANNED_CPULIST=2-5,8-11`. The owner-confirmed machine has six cores and RT, but its effective current allocation must be checked; see [production environment](./production_environment.md). Historical setup/rollback: `RT-LINUX.md`. Verify: `/proc/cmdline`, `/sys/devices/system/cpu/{isolated,nohz_full}`, `taskset -apc PID`.
 systemd unit `defect-detector.service` is **not in git** (exported by `system-profile.py`).
 
 ## 4. PLC register map (`plk/`)

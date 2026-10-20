@@ -4,6 +4,8 @@ Back to [global architecture](../global_architecture.md) · [recent context](../
 
 **Status: historical measurements, documented on 2026-10-20.** No new machine run was performed for this knowledge-base update. Times are Europe/Minsk, UTC+03:00. These are observed software events, not oscilloscope measurements or confirmation of mechanical reject actuation.
 
+The current owner requirement is [500 ms from trigger to verdict](./latency_requirements.md), with a [six-core RT host](../deploy-ops/production_environment.md). The 600 ms statistics below retain the earlier analysis criterion; they are not a current compliance result, and the hardware allocation in these exports must not be inferred from the new owner context.
+
 ## 1. Exports and sample boundaries
 
 Both exports were downloaded to the same local filename, `Downloads/defect_detector.log`, which was overwritten between analyses. File size, time interval and cycle ranges distinguish them:

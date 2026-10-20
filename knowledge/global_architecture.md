@@ -1,8 +1,8 @@
 # Global Architecture — Defect Detector v3
 
-> **Entry point of the knowledge base.** Always read this file first, then follow the links to the service you need.
-> Never scan the whole repository: use the **Code map** tables (file + line ranges) in each service's `overview.md`.
-> Language: English (sources are Russian). Maintenance rules: see [§12](#12-maintenance-protocol-for-future-changes).
+> **Detailed architecture map.** Start at [README](./README.md) and [PROJECT_CONTEXT](./PROJECT_CONTEXT.md) for the shared developer/ChatGPT context, then use this map when architecture detail is needed.
+> Navigate through the **Code map** tables in each service's `overview.md`, then verify relevant source files; recorded line ranges can drift.
+> Service notes are English (sources are Russian); the shared handoff is Russian. Maintenance rules: see [§12](#12-maintenance-protocol-for-future-changes).
 > Initialised by reverse engineering on 2026‑10‑18 from branch `testlinux` (HEAD `3fcb91c3`). Tags:
 > **[doc]** = stated in repo docs/comments/commits, **[code]** = verified in code at the cited place,
 > `⚠️ [GUESS/CONJECTURE]` = inferred reasoning without historical evidence.
@@ -12,7 +12,7 @@
 > `P:` = `java-positioning-service/src/main/java/com/example/iml/positioning/` ·
 > `A:` = `analisSurface/backend/app/` · `W:` = `camera-worker/src/` · `F:` = `front-end/`.
 
-Latest documentation review: **2026-10-20**, source HEAD `c9944af8`. Start with [recent decisions and operating context](./recent_context.md) for implemented ROI/positioning/heatmap behavior, [machine measurements](./performance/2026-10-16-log-review.md) for the dated evidence, and the [optimisation plan](./analis-surface/optimization_plan.md) for work that is **not implemented**. No application code was changed by this review.
+Latest documentation review: **2026-10-20**, source HEAD before this edit `9d8a4b66`. Current owner context: **six CPU cores, RT environment and a 500 ms trigger-to-verdict requirement**; see [production environment](./deploy-ops/production_environment.md) and [latency boundaries](./performance/latency_requirements.md). [Recent decisions](./recent_context.md), [machine measurements](./performance/2026-10-16-log-review.md) and the [optimisation plan](./analis-surface/optimization_plan.md) distinguish implementation, dated observations and proposals. This review changed documentation only.
 
 ## 1. What the system is
 
@@ -26,7 +26,7 @@ Per-camera verdicts are aggregated per **line/bucket group** (cams 0–4 → lin
 IO-controller digital outputs (DO3/DO4, “hold” levels), with Omron FINS used for ready/timeouts/telemetry. An Electron kiosk UI (React) shows results,
 sets references/ROI/FP-zones/analysis settings, and manages PLC parameters.
 
-Runtime today: **Ubuntu 24.04, PREEMPT_RT kernel 6.8, CPU isolation 2‑5,8‑11, systemd + Electron kiosk** ([deploy-ops](./deploy-ops/overview.md)).
+Production context **[owner: 2026-10-20]: six CPU cores and RT**. The recorded stack uses Ubuntu 24.04, PREEMPT_RT, systemd and Electron kiosk. The checked-in default affinity `2-5,8-11` describes an older four-app-core allocation on the documented SMT topology; it is not a fresh measurement of the current machine. See [CPU facts and verification](./deploy-ops/production_environment.md).
 Windows code paths still exist (`*_windows`/`*_linux` config keys, `StackSupervisorMain` reboot escalation).
 
 ## 2. Service map
@@ -168,6 +168,9 @@ Capture arming depends on mode: step 2 describes the DI3-gated path. With `direc
 
 | Question | Go to |
 |---|---|
+| Shared context for a new developer or ChatGPT conversation | [README](./README.md) → [PROJECT_CONTEXT](./PROJECT_CONTEXT.md) |
+| Current 500 ms requirement and exact timing boundaries | [performance/latency_requirements.md](./performance/latency_requirements.md) |
+| Six-core RT machine versus historical affinity profile | [deploy-ops/production_environment.md](./deploy-ops/production_environment.md) |
 | What exactly triggers a capture? | [orchestrator/overview.md#trigger-subsystem](./orchestrator/overview.md#trigger-subsystem) |
 | Why hold‑mode DO instead of FINS pulses? | [orchestrator/architecture_why.md#reject-signalling](./orchestrator/architecture_why.md#reject-signalling) |
 | What does geometry measure and thresholds? | [geometry/overview.md](./geometry/overview.md) |
@@ -185,11 +188,12 @@ Capture arming depends on mode: step 2 describes the DI3-gated path. With `direc
 
 ## 12. Maintenance protocol for future changes
 
-1. **Locate & navigate** — start here, follow the link to the service, use its *Code map* to find file/lines **before** editing.
+1. **Locate & navigate** — start at [README](./README.md) and [PROJECT_CONTEXT](./PROJECT_CONTEXT.md), follow the service link and verify the relevant files before editing.
 2. **Implement & explain** — after the code change add a changelog entry in the mandatory format:
    *What changed* (files+lines) / *Why it was done* (architecture reason, trade‑offs, why this pattern) / *Impact* (other services, global state).
 3. **Update MD files** — update the affected `overview/api_contracts/architecture_why` and this file if a link, contract, port, key or flow changed;
    keep `⚠️ [GUESS/CONJECTURE]` only where no evidence exists, and replace it when the author explains the reason.
+4. **Keep the shared handoff current** — update `PROJECT_CONTEXT.md` for cross-service decisions/requirements. Date and attribute owner facts, code baselines, runtime measurements and proposals separately. Preserve historical measurements and old links; do not turn a requested feature into an implementation claim.
 
 ## 13. Known gaps & open risks
 

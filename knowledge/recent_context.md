@@ -2,7 +2,9 @@
 
 Back to [global architecture](./global_architecture.md) · [performance evidence](./performance/2026-10-16-log-review.md) · [optimisation plan](./analis-surface/optimization_plan.md) · [deployment commands](./deploy-ops/overview.md#7-current-update-and-launch-commands)
 
-Reviewed against branch `testlinux`, source HEAD `c9944af8`. This is a documentation update, not a new runtime release. The last commit added the knowledge base; it did not implement a C++ detector.
+For a new developer/ChatGPT conversation start with [README](./README.md) and [PROJECT_CONTEXT](./PROJECT_CONTEXT.md). Current owner context as of 2026-10-20: **six cores, RT environment, 500 ms trigger-to-verdict requirement**.
+
+Implementation notes were reviewed against `testlinux` source `c9944af8`; the shared-context revision uses documentation baseline `9d8a4b66`. These documentation revisions do not establish the deployed version or implement a C++ detector.
 
 Evidence labels: **[code]** verified implementation; **[logs: 2026-10-16]** observations from the exported machine journal; **[proposal]** discussed work, not implemented or benchmarked. Historical observations are not a claim about the machine's current configuration.
 
@@ -51,7 +53,7 @@ Historical local validation: 13 controller/frame/bundle scenarios passed using m
 
 ## 4. Timing target and remaining bottleneck
 
-The operator's working target is approximately **600 ms**, but every measurement must state its start/end events. Time from image availability is not time from DI2↑ or from the camera's physical trigger.
+The current owner requirement is **500 ms from trigger to final verdict** (2026-10-20), superseding the earlier 600 ms target. Every measurement must state its start/end events. Time from image availability is not time from DI2↑ or from the camera's physical trigger. See [current latency requirement](./performance/latency_requirements.md).
 
 **[logs: 2026-10-16]** The latest two reviewed exports measured 268.113 ms and 448.900 ms mean last-frame-to-both-outputs time. The second contained five 837–1341 ms outliers during the learning-update period. See the [standalone log review](./performance/2026-10-16-log-review.md) for counts, boundaries and limits.
 
@@ -64,7 +66,7 @@ The observed heavy interval is learned-normal application plus FP rechecks, foll
 - The checked-in template requests six Python servers and `analis_surface.inspect_workers: 3`. `AnalisSurfaceLauncher` passes the worker count through `ANALIS_INSPECT_WORKERS`.
 - `api/dependencies.py` defaults to **10** inspection threads when that environment variable is absent, clamped to 1–32. “Always three threads” is incorrect. OpenCV's internal thread count is explicitly one.
 - The reviewed logs show six Python processes and scales `0.2` for zero-based camera IDs 2/7, `0.7` for the other cameras. The checked-in detector template instead has `0.5` for 2/7 and global `0.75`.
-- Production `config/` is not versioned. The configured CPU affinity/RT profile must be checked on the actual host; it must not be assumed valid for every four-core machine.
+- Production `config/` is not versioned. The owner now confirms **six cores and RT**; actual CPU affinity, SMT and per-thread policy still require host checks. The older default `2-5,8-11` is not proof of six cores allocated to the app. See [production environment](./deploy-ops/production_environment.md).
 
 ## 6. Operator commands and portable notes
 

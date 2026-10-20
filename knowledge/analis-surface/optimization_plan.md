@@ -4,6 +4,8 @@ Back to [Python overview](./overview.md) · [recent decisions](../recent_context
 
 **Status: analysis/proposals, 2026-10-20, source HEAD `c9944af8`.** No C++ module, full Python replacement, new cache-publication mechanism or measured C++ speedup is implemented by this documentation update. Historical timings below are from 2026-10-16, not a new benchmark.
 
+Current owner context: **six CPU cores, RT environment and a 500 ms trigger-to-verdict requirement**. See [machine/allocation distinctions](../deploy-ops/production_environment.md) and [acceptance boundaries](../performance/latency_requirements.md); these supersede the earlier four-core assumption and 600 ms target.
+
 ## 1. What is already implemented
 
 - Reference preprocessing and positioner caches (`reference_preparation.py`, `inspection_positioning.py`).
@@ -39,7 +41,7 @@ OpenCV's Python interface already calls C++ algorithms; many NumPy operations ar
 
 Reference documentation: [OpenCV Python bindings](https://docs.opencv.org/4.x/da/d49/tutorial_py_bindings_basics.html), [NumPy thread safety](https://numpy.org/doc/stable/reference/thread_safety.html), [pybind11 buffers/NumPy](https://pybind11.readthedocs.io/en/stable/advanced/pycpp/numpy.html), [pybind11 GIL management](https://pybind11.readthedocs.io/en/stable/advanced/misc.html#global-interpreter-lock-gil).
 
-A native module would need explicit Linux/Windows build and deployment support; the current `rebuild-and-run.sh` does not build such an extension. More native threads do not create more CPU cores. Recheck process/thread limits on the actual machine, especially a four-core target, and avoid nested OpenCV/native worker oversubscription.
+A native module would need explicit Linux/Windows build and deployment support; the current `rebuild-and-run.sh` does not build such an extension. More native threads do not create more CPU cores. Recheck process/thread limits against the effective CPU allocation on the six-core RT machine, and avoid nested OpenCV/native worker oversubscription.
 
 ## 5. Acceptance gates before enabling any optimisation
 
@@ -47,6 +49,6 @@ A native module would need explicit Linux/Windows build and deployment support; 
 - Compare intermediate maps/masks, candidate matches, main/sub-zone scores and final verdicts; define numerical tolerances before accepting differences near thresholds.
 - Include real unknown defects inside/overlapping learned normals and FP zones, small X/Y shifts, glare/text, missing data and concurrent state updates. Faster suppression must not hide new defects.
 - Measure ten-camera wall time, queues, CPU/RAM and P95/P99/max, not only average per-function time. Verify software output timing versus the relevant DI2 window; assess physical output timing separately.
-- Record host CPU, process/thread settings and analysis scales. The historical 600 ms target is not proven by a fast isolated kernel.
+- Record host CPU, process/thread settings and analysis scales. A fast isolated kernel does not establish the current 500 ms full-pipeline requirement; 600 ms belongs to historical comparisons.
 
-No percentage speedup or guarantee of a 600 ms trigger-to-output deadline can be claimed before those comparisons. C++ does not by itself remove the observed pre-frame waiting interval.
+No percentage speedup or guarantee of the 500 ms trigger-to-verdict deadline can be claimed before those comparisons. Track output timing separately. C++ does not by itself remove the observed pre-frame waiting interval.
