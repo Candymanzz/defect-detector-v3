@@ -199,14 +199,8 @@ public final class LightTriggerClient {
                     postOffWithRetriesLocked();
                 }
                 constantFlashMode = false;
-                // Сразу зажечь снова для hold/interval idle — иначе capture идёт в темноте.
-                try {
-                    postJson(flashBankUrl, Map.of("state", "on"), "interval-mode re-engage bank-On");
-                    constantLightingEngaged = holdMode;
-                } catch (RuntimeException e) {
-                    constantLightingEngaged = false;
-                    LOG.warn("interval-mode re-engage bank-On failed: {}", e.getMessage());
-                }
+                // Интервальный режим начинается с выключенного света; следующий DI-импульс включит банк.
+                constantLightingEngaged = false;
             }
             LOG.info("light flash mode changed to {}", constant ? "constant" : "interval");
         }

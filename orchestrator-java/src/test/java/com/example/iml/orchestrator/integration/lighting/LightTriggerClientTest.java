@@ -15,6 +15,45 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class LightTriggerClientTest {
 
     @Test
+    void switchingFromConstantToIntervalLeavesBankOffUntilNextCycle() throws Exception {
+        for (boolean holdMode : List.of(false, true)) {
+            var states = new java.util.concurrent.CopyOnWriteArrayList<String>();
+            var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+            server.createContext("/", exchange -> {
+                var body = new com.fasterxml.jackson.databind.ObjectMapper().readTree(exchange.getRequestBody());
+                if (exchange.getRequestURI().getPath().equals("/api/camera-flash/bank")) {
+                    states.add(body.path("state").asText());
+                }
+                byte[] response = "{\"success\":true}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(200, response.length);
+                try (var output = exchange.getResponseBody()) { output.write(response); }
+            });
+            server.start();
+            try {
+                var root = Map.<String, Object>of("light_servers", Map.of(
+                        "enabled", true, "hold_mode", holdMode,
+                        "base_url", "http://127.0.0.1:" + server.getAddress().getPort(),
+                        "cameras", List.of(Map.of("camera_id", 0, "mode", "pair"))));
+                var client = new LightTriggerClient(LightServersConfig.fromRootYaml(root));
+                client.setConstantFlashMode(true);
+                assertTrue(client.isConstantFlashMode());
+                assertEquals(List.of("on"), states);
+
+                client.setConstantFlashMode(false);
+                assertFalse(client.isConstantFlashMode());
+                assertEquals(List.of("on", "off"), states);
+                client.setBrightnessPercent(51);
+                assertEquals(List.of("on", "off"), states);
+
+                assertTrue(client.bankAllOn("interval_flash"));
+                assertEquals(List.of("on", "off", "on"), states);
+                client.bankAllOff();
+                assertEquals(List.of("on", "off", "on", "off"), states);
+            } finally { server.stop(0); }
+        }
+    }
+
+    @Test
     void globalBrightnessUpdateChangesDefaultPercent() {
         LightTriggerClient client = new LightTriggerClient(LightServersConfig.disabled());
 
