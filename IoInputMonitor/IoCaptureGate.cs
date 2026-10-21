@@ -20,6 +20,7 @@ internal enum IoLineDirection
 
 /// <summary>
 /// Съёмка по DI3↑ после направления DI2.
+/// При RequireDirection=false каждый DI3↑ разрешён независимо от DI1/DI2 и выбранного направления.
 /// При DirectionLatch: первый DI2=1 вооружает; снятие — DI work↓ (если disarm_on_work_low) или Disarm().
 /// </summary>
 internal sealed class IoCaptureGate
@@ -172,7 +173,7 @@ internal sealed class IoCaptureGate
                 {
                     decision = IoCaptureDecision.SkipAlreadyFired;
                 }
-                else if (di2High && _captureFiredThisDi2Window)
+                else if (_requireDirection && di2High && _captureFiredThisDi2Window)
                 {
                     // DI2 ещё 1, а DI3 пришёл повторно — холостой проход.
                     decision = IoCaptureDecision.SkipAlreadyFired;
@@ -180,7 +181,7 @@ internal sealed class IoCaptureGate
                 else
                 {
                     _captureFiredThisPulse = true;
-                    if (di2High)
+                    if (_requireDirection && di2High)
                         _captureFiredThisDi2Window = true;
                     decision = IoCaptureDecision.FireDo;
                 }

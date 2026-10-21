@@ -116,18 +116,18 @@ integration:
       shutdown_port: 4
       direction_latch_on_work: false
       di3_only: true
-      # Съёмка только при DI2=1: DI3↑ → wait_frame; без DI2 — skip.
+      # Каждый DI3↑ → wait_frame; DI1/DI2 не запускают и не блокируют съёмку.
       repeat_di3_capture: true
       direction_latch: false
       capture_delay_ms: 0
       trigger_edge: rising
       payload_format: json
       debounce_ms: 0
-      require_direction: true
+      require_direction: false
       require_work: false
       external_hardware_capture: true
       direction_poll_ms: 1
-  # UI «Прямой/Обратный» не фильтрует; гейт съёмки — уровень DI2.
+  # UI «Прямой/Обратный» и уровень DI2 не фильтруют съёмку по DI3.
   io_input_monitor_direction_url: "http://127.0.0.1:9101"
   # Видеопоток: WS client.stream_start/stop; кадры — GET /api/camera/{id}/stream.mjpeg (MJPEG).
   client_stream:

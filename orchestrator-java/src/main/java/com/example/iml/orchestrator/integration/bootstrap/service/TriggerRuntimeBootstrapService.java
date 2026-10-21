@@ -44,9 +44,10 @@ public final class TriggerRuntimeBootstrapService {
                         : IntegrationFeatureConfig.resolveInspectionTriggerMode(ctx.integration());
         if (inspectionTriggerConfig.ioInput().di3Only()) {
             log.info(
-                    "inspection_trigger di3_only=true — съёмка по фронту DI{}, направление по текущему DI{}",
+                    "inspection_trigger di3_only=true — съёмка по фронту DI{}, require_direction={} require_work={}",
                     inspectionTriggerConfig.ioInput().triggerPort(),
-                    inspectionTriggerConfig.ioInput().directionPort()
+                    inspectionTriggerConfig.ioInput().requireDirection(),
+                    inspectionTriggerConfig.ioInput().requireWork()
             );
             if (IntegrationFeatureConfig.parseDevAutoTriggerStub(ctx.integration()).enabled()) {
                 log.warn("di3_only=true: dev_auto_trigger_stub включён в конфиге, но игнорируется");

@@ -56,7 +56,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
     private volatile boolean directionInitialized;
     private volatile boolean triggerActive;
     private volatile boolean captureFiredThisPulse;
-    /** Один кадр на окно DI2=1: повторный DI3↑ при DI2=1 — холостой. */
+    /** При require_direction=true: один кадр на окно выбранного направления DI2. */
     private volatile boolean captureFiredThisDi2Window;
     private volatile ScheduledFuture<?> delayedCaptureTask;
     private volatile long di3RiseEpochMs;
@@ -430,7 +430,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
                                 "io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source={}",
                                 directionSourceLabel()
                         );
-                    } else if (directionMatchesSelected() && captureFiredThisDi2Window) {
+                    } else if (ioInputConfig.requireDirection() && directionMatchesSelected() && captureFiredThisDi2Window) {
                         log.info(
                                 "io_input_trigger skip DI3↑: холостой (уже сняли при DI2=1), source={}",
                                 directionSourceLabel()
@@ -693,7 +693,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         if (captureFiredThisPulse) {
             return;
         }
-        if (directionMatchesSelected() && captureFiredThisDi2Window) {
+        if (ioInputConfig.requireDirection() && directionMatchesSelected() && captureFiredThisDi2Window) {
             log.info("io_input_trigger skip: холостой DI3 (уже сняли в выбранном направлении)");
             return;
         }
@@ -721,7 +721,7 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
         int published = publishLineCapture(targetCameras);
         if (published > 0) {
             captureFiredThisPulse = true;
-            if (directionMatchesSelected()) {
+            if (ioInputConfig.requireDirection() && directionMatchesSelected()) {
                 captureFiredThisDi2Window = true;
             }
             long dispatchMs = System.currentTimeMillis() - triggerReceivedMs;

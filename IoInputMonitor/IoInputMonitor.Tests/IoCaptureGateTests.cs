@@ -148,6 +148,41 @@ public class IoCaptureGateTests
         Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DirectionNotRequired_EveryDi3FiresAtEitherDi2Level(bool di2High)
+    {
+        var gate = CreateGate(requireDirection: false, directionLatch: false);
+        gate.SeedDirection(di2High);
+        for (int i = 0; i < 5; i++)
+            Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
+    }
+
+    [Fact]
+    public void DirectionNotRequired_UiReverseDoesNotSuppressRepeatedDi3()
+    {
+        var gate = CreateGate(requireDirection: false, directionLatch: false);
+        gate.SetSelectedDirection("reverse");
+        gate.SeedDirection(false);
+        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
+        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
+        gate.Evaluate(2, true, risingEdge: true);
+        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
+    }
+
+    [Fact]
+    public void DirectionNotRequired_Di1AndDi2DoNotStartCapture()
+    {
+        var gate = CreateGate(requireDirection: false, directionLatch: false, disarmOnWorkLow: true);
+        Assert.NotEqual(IoCaptureDecision.FireDo, gate.Evaluate(1, true, risingEdge: true));
+        Assert.NotEqual(IoCaptureDecision.FireDo, gate.Evaluate(2, true, risingEdge: true));
+        Assert.NotEqual(IoCaptureDecision.FireDo, gate.Evaluate(1, false, risingEdge: false));
+        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
+        Assert.Equal(IoCaptureDecision.None, gate.Evaluate(3, false, risingEdge: false));
+        Assert.Equal(IoCaptureDecision.FireDo, gate.Evaluate(3, true, risingEdge: true));
+    }
+
     [Fact]
     public void Di2High_SecondDi3IsIdle()
     {
