@@ -3,6 +3,7 @@ package com.example.iml.orchestrator.integration.fanout;
 import com.example.iml.orchestrator.integration.clientws.ClientWebSocketServer;
 import com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState;
 import com.example.iml.orchestrator.integration.health.ServiceHealthGate;
+import com.example.iml.orchestrator.integration.logging.PerformanceTrace;
 import com.example.iml.orchestrator.integration.pipeline.session.PerCameraInspectionGate;
 import com.example.iml.orchestrator.integration.plc.PlcBcd;
 import com.example.iml.orchestrator.integration.plc.PlcFinsApi;
@@ -118,8 +119,13 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
 
     @Override
     public void publishBucket(BucketFanOutResult result) {
+        long publicationStarted = System.nanoTime();
+        PerformanceTrace.cycle(result.triggerSequence(), -1, -1, "bucket_delivery_started",
+                PerformanceTrace.values("group_id", result.groupId(), "pass", result.overallPass()));
         ServiceHealthGate gate = healthGate;
         if (gate != null && !gate.healthyForVision()) {
+            PerformanceTrace.cycle(result.triggerSequence(), -1, -1, "bucket_delivery_skipped",
+                    PerformanceTrace.values("group_id", result.groupId(), "reason", "services unhealthy"));
             log.warn(
                     "inspect bucket publish skipped seq={} group={} — services unhealthy {}",
                     result.triggerSequence(),
@@ -152,6 +158,10 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
         if (clientWsServer != null) {
             clientWsServer.notifyInspectBucketResult(effectiveResult);
         }
+        PerformanceTrace.cycle(result.triggerSequence(), -1, -1, "bucket_delivery_returned",
+                PerformanceTrace.values("group_id", result.groupId(), "duration_ms", PerformanceTrace.elapsedMs(publicationStarted),
+                        "plc_enabled", plcPublisher != null, "inspection_enabled", inspectionEnabled(),
+                        "note", "successful FINS edge has its own plc_output_confirmed event"));
     }
 
     @Override
@@ -178,6 +188,7 @@ public final class FanOutCoordinator implements AutoCloseable, BucketFanOutSink,
     @Override
     public void finishSequence(long triggerSequence) {
         earlyPlasticRejectSequences.remove(triggerSequence);
+        PerformanceTrace.cycle(triggerSequence, -1, -1, "cycle_fanout_complete", Map.of());
     }
 
     /**

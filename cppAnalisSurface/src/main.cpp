@@ -3,6 +3,7 @@
 // Logs go to <app root>/logs by default (see core/logger.h).
 // The orchestrator appends/replaces "--port N" when it starts a pool of instances.
 #include "core/logger.h"
+#include "core/performance_log.h"
 #include "service/service.h"
 #include "web/routes.h"
 #include <opencv2/core/utility.hpp>
@@ -45,6 +46,14 @@ int main(int argc, char** argv) {
 
     auto& log = cas::Logger::instance();
     log.init(logDir.empty() ? cas::defaultLogDir(argv[0]) : std::filesystem::u8path(logDir));
+    const char* performance = std::getenv("CAS_PERFORMANCE_LOG");
+    if (!performance || std::string(performance) != "0") {
+        try {
+            const char* performanceDir = std::getenv("CAS_PERFORMANCE_LOG_DIR");
+            cas::PerformanceLog::instance().init(performanceDir && *performanceDir
+                ? std::filesystem::u8path(performanceDir) : log.dir());
+        } catch (const std::exception& error) { std::cerr << "[performance] init failed: " << error.what() << '\n'; }
+    }
 
     cas::Service service(dataDir, workers);
     httplib::Server svr;

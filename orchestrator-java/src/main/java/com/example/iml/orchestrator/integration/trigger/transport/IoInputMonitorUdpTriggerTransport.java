@@ -201,7 +201,9 @@ public final class IoInputMonitorUdpTriggerTransport implements TriggerTransport
             while (running.get() && !socket.isClosed()) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
-                handlePacket(packet);
+                com.example.iml.orchestrator.integration.logging.PerformanceTrace.receivedSignal();
+                try { handlePacket(packet); }
+                finally { com.example.iml.orchestrator.integration.logging.PerformanceTrace.clearSignal(); }
             }
         } catch (Exception e) {
             if (running.get()) {

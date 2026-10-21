@@ -1,4 +1,5 @@
 #include "service.h"
+#include "core/request_timing.h"
 #include "core/seam.h"
 #include "core/shm_io.h"
 #include <opencv2/imgproc.hpp>
@@ -139,6 +140,7 @@ nlohmann::json Service::clearContext() {
 }
 
 Inspected Service::run(const InspectJob& job, const cv::Mat& frame, bool keepVisuals) {
+    const auto setupStarted = std::chrono::steady_clock::now();
     auto ref = reference(job.product);
     if (!ref) throw NoReference(job.product);
     if (job.roi) ref->setRoi(validated(*job.roi));
@@ -148,8 +150,12 @@ Inspected Service::run(const InspectJob& job, const cv::Mat& frame, bool keepVis
     job.patch.applyTo(r.settings);
     r.roi = ref->roi();
     r.frameSize = frame.size();
+    requestTiming.add("service_setup_ms", msSince(setupStarted));
     r.out = inspectFrame(*ref, frame, r.settings, keepVisuals);
-    applySeam(frame, r.settings.seam, r.out);
+    {
+        TimingPhase seamTiming("seam_ms");
+        applySeam(frame, r.settings.seam, r.out);
+    }
     return r;
 }
 
@@ -157,10 +163,14 @@ Inspected Service::inspectShm(const InspectJob& job, const ShmFrame& frame, bool
     const auto tWait = std::chrono::steady_clock::now();
     Slot slot(*this);
     const double waitMs = msSince(tWait);
+    requestTiming.add("wait_ms", waitMs);
+    const auto checkStarted = std::chrono::steady_clock::now();
     if (!reference(job.product)) throw NoReference(job.product);
+    requestTiming.add("reference_check_ms", msSince(checkStarted));
     const auto tRead = std::chrono::steady_clock::now();
     cv::Mat bgr = readBgrFrame(frame.name, frame.width, frame.height, frame.stride, frame.offset);
     const double readMs = msSince(tRead);
+    requestTiming.add("read_ms", readMs);
     Inspected r = run(job, bgr, keepVisuals);
     r.waitMs = waitMs;
     r.readMs = readMs;
@@ -171,6 +181,7 @@ Inspected Service::inspectMat(const InspectJob& job, const cv::Mat& frame, bool 
     const auto tWait = std::chrono::steady_clock::now();
     Slot slot(*this);
     const double waitMs = msSince(tWait);
+    requestTiming.add("wait_ms", waitMs);
     Inspected r = run(job, frame, keepVisuals);
     r.waitMs = waitMs;
     return r;
@@ -178,6 +189,7 @@ Inspected Service::inspectMat(const InspectJob& job, const cv::Mat& frame, bool 
 
 cv::Mat Service::loadTestFrame(const std::string& cacheKey, const std::string& path, const std::string& imageUrl,
                                const std::string& product) {
+    TimingPhase timing("test_frame_load_ms");
     std::error_code ec;
     fs::path p = fs::weakly_canonical(fs::u8path(path), ec);
     if (ec) p = fs::u8path(path);
@@ -203,11 +215,15 @@ cv::Mat Service::loadTestFrame(const std::string& cacheKey, const std::string& p
 }
 
 Service::Written Service::writeVisuals(const Inspected& r, const VisualOutputs& o) {
+    TimingPhase timing("visuals_ms");
     Written w;
     if (!o.heatmapPath.empty()) {
         const auto t = std::chrono::steady_clock::now();
         cv::Mat heat = buildHeatmap(r.out, r.roi, o.heatmapMaxWidth);
+        requestTiming.add("heatmap_render_ms", msSince(t));
+        const auto writeStarted = std::chrono::steady_clock::now();
         w.heatmap = writeU8Image(o.heatmapPath, heat);
+        requestTiming.add("heatmap_write_ms", msSince(writeStarted));
         w.heatmapMs = msSince(t);
     }
     if (!o.alignedPath.empty()) w.aligned = writeU8Image(o.alignedPath, fullAligned(r.out));

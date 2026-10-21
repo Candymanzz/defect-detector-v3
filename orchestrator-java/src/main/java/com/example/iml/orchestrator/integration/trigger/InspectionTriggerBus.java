@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.trigger;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import com.example.iml.orchestrator.integration.logging.PerformanceTrace;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -85,7 +86,9 @@ public final class InspectionTriggerBus implements AutoCloseable {
         if (raw.broadcast()) {
             return publishBroadcast(raw) > 0;
         }
-        return offerToCamera(raw.cameraId(), raw.receivedAt(), raw.source(), sequence.incrementAndGet());
+        long seq = sequence.incrementAndGet();
+        PerformanceTrace.trigger(seq, raw.source(), List.of(raw.cameraId()));
+        return offerToCamera(raw.cameraId(), raw.receivedAt(), raw.source(), seq);
     }
 
     public long prefireLineBroadcast(String source) {
@@ -95,6 +98,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
     public long prefireLineBroadcast(String source, List<Integer> cameraIds) {
         long seq = sequence.incrementAndGet();
         Instant receivedAt = Instant.now();
+        PerformanceTrace.trigger(seq, source, cameraIds);
         LineTriggerListener listener = lineTriggerListener;
         if (listener != null) {
             listener.onLineTrigger(seq, receivedAt, cameraIds);
@@ -188,6 +192,7 @@ public final class InspectionTriggerBus implements AutoCloseable {
             return 0;
         }
         List<Integer> targets = resolveTargetCameras(cameraIds);
+        PerformanceTrace.trigger(seq, source, targets);
         lastDispatchedSequence.set(seq);
         if (captureTriggerStaggerMs <= 0 || staggerScheduler == null) {
             LOG.info(
@@ -243,7 +248,10 @@ public final class InspectionTriggerBus implements AutoCloseable {
             return false;
         }
         InspectionTriggerEvent event = new InspectionTriggerEvent(cameraId, seq, receivedAt, source, false);
-        return queue.offer(event);
+        boolean offered = queue.offer(event);
+        PerformanceTrace.cycle(seq, cameraId, -1, offered ? "trigger_enqueued" : "trigger_queue_full",
+                PerformanceTrace.values("queue_depth", queue.size()));
+        return offered;
     }
 
     public InspectionTriggerEvent take(int cameraId) throws InterruptedException {

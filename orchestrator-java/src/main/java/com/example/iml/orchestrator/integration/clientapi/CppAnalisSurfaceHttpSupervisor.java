@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import com.example.iml.orchestrator.integration.logging.PerformanceTrace;
 
 import java.io.IOException;
 import java.net.URI;
@@ -267,7 +268,7 @@ public final class CppAnalisSurfaceHttpSupervisor implements BinaryRpcSupervisor
         if (resp.statusCode() / 100 != 2) {
             return httpError(resp, "inspect-shm");
         }
-        return inspectResponse(header, readJson(resp.body()));
+        return decodeInspectionResponse(header, resp);
     }
 
     /** UI «Проверить»: JPEG с диска + временные настройки (не сохраняются на сервисе). */
@@ -285,6 +286,7 @@ public final class CppAnalisSurfaceHttpSupervisor implements BinaryRpcSupervisor
         putProfile(body, header, cameraId);
         copy(body, header, "detector_id");
         copy(body, header, "roi_polygon_norm");
+        PerformanceTrace.copyContext(header, body);
         copy(body, header, "heatmap_u8_output_path");
         copy(body, header, "heatmap_max_width");
         Map<String, Object> settings = ephemeralSettings(header);
@@ -302,7 +304,7 @@ public final class CppAnalisSurfaceHttpSupervisor implements BinaryRpcSupervisor
         if (resp.statusCode() / 100 != 2) {
             return httpError(resp, "inspect-test-frame");
         }
-        return inspectResponse(header, readJson(resp.body()));
+        return decodeInspectionResponse(header, resp);
     }
 
     // ------------------------------------------------------------------ reference handling
@@ -401,6 +403,7 @@ public final class CppAnalisSurfaceHttpSupervisor implements BinaryRpcSupervisor
         copy(body, header, "shm_offset");
         copy(body, header, "detector_id");
         copy(body, header, "roi_polygon_norm");
+        PerformanceTrace.copyContext(header, body);
         copy(body, header, "heatmap_u8_output_path");
         copy(body, header, "heatmap_max_width");
         Map<String, Object> settings = ephemeralSettings(header);
@@ -456,6 +459,18 @@ public final class CppAnalisSurfaceHttpSupervisor implements BinaryRpcSupervisor
         }
         if (!profile.isEmpty()) {
             body.put("analysis_profile", profile);
+        }
+    }
+
+    private BinaryProtocol.Message decodeInspectionResponse(Map<String, Object> header, HttpResponse<byte[]> response) throws IOException {
+        long started = System.nanoTime();
+        try { return inspectResponse(header, readJson(response.body())); }
+        finally {
+            Map<String, Object> fields = PerformanceTrace.context(header);
+            fields.put("parent_request_id", fields.get("request_id"));
+            fields.put("request_id", response.headers().firstValue("X-Request-Id").orElse("unknown"));
+            fields.put("duration_ms", PerformanceTrace.elapsedMs(started));
+            PerformanceTrace.emit("cpp_http_client", "response_decode", fields);
         }
     }
 
@@ -679,14 +694,46 @@ public final class CppAnalisSurfaceHttpSupervisor implements BinaryRpcSupervisor
     }
 
     private HttpResponse<byte[]> post(String path, Map<String, Object> jsonBody) throws IOException {
+        long started = System.nanoTime();
+        jsonBody = new LinkedHashMap<>(jsonBody);
+        Map<String, Object> fields = PerformanceTrace.context(jsonBody);
+        fields.put("parent_request_id", jsonBody.get("request_id"));
+        String requestId = PerformanceTrace.requestId();
+        fields.put("request_id", requestId);
+        jsonBody.put("request_id", requestId);
+        long serializeStarted = System.nanoTime();
         byte[] json = MAPPER.writeValueAsBytes(jsonBody);
-        HttpRequest req = HttpRequest.newBuilder(URI.create(baseUrl + path))
+        fields.put("request_serialize_ms", PerformanceTrace.elapsedMs(serializeStarted));
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(baseUrl + path))
                 .timeout(Duration.ofMillis(commandTimeoutMs))
                 .header("Content-Type", "application/json; charset=utf-8")
                 .header("Accept", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofByteArray(json))
-                .build();
-        HttpResponse<byte[]> resp = send(req);
+                .header("X-Request-Id", requestId)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(json));
+        for (String key : List.of("cycle_id", "trigger_sequence", "camera_id", "frame_id")) {
+            Object value = fields.get(key);
+            if (value != null) builder.header("X-" + key.replace('_', '-'), String.valueOf(value));
+        }
+        HttpRequest req = builder.build();
+        long rpcStarted = System.nanoTime();
+        fields.put("path", path);
+        fields.put("server", baseUrl);
+        PerformanceTrace.emit("cpp_http_client", "http_request_started", fields);
+        HttpResponse<byte[]> resp;
+        try {
+            resp = send(req);
+            fields.put("status_code", resp.statusCode());
+            fields.put("response_bytes", resp.body() == null ? 0 : resp.body().length);
+        } catch (IOException error) {
+            fields.put("error", error.getClass().getSimpleName());
+            throw error;
+        } finally {
+            fields.put("path", path);
+            fields.put("server", baseUrl);
+            fields.put("rpc_ms", PerformanceTrace.elapsedMs(rpcStarted));
+            fields.put("total_ms", PerformanceTrace.elapsedMs(started));
+            PerformanceTrace.emit("cpp_http_client", "http_request", fields);
+        }
         if (resp.statusCode() / 100 != 2) {
             LOG.warn("{} HTTP POST {} failed status={} response={}", name, path, resp.statusCode(),
                     new String(resp.body() == null ? new byte[0] : resp.body(), StandardCharsets.UTF_8));

@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.pipeline.stages;
 
 import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.logging.PerformanceTrace;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
@@ -201,6 +202,7 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                 }
             }
             int laneConcurrency = com.example.iml.orchestrator.integration.config.DetectorBackend.serverConcurrency(pythonCfg);
+            PerformanceTrace.copyContext(state.capture().header(), pyHeader);
             Semaphore fifoLane = pythonFifoLanes.computeIfAbsent(python, ignored -> new Semaphore(laneConcurrency, true));
             long tQueue0 = System.nanoTime();
             fifoLane.acquire();
@@ -208,6 +210,10 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                 pythonSlots.acquire();
                 try {
                     long tCommand0 = System.nanoTime();
+                    Map<String, Object> traceFields = PerformanceTrace.context(pyHeader);
+                    traceFields.put("queue_ms", (tCommand0 - tQueue0) / 1_000_000.0);
+                    traceFields.put("server", python.supervisorLabel());
+                    PerformanceTrace.emit("detector", "detector_queue_released", traceFields);
                     BinaryProtocol.Message rawResp = python.command(pyHeader);
                     long commandMs = YamlScalars.nanosToMs(System.nanoTime() - tCommand0);
                     long queueMs = YamlScalars.nanosToMs(tCommand0 - tQueue0);
@@ -216,6 +222,11 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                     );
                     responseHeader.put("python_queue_ms", queueMs);
                     responseHeader.put("python_rpc_ms", commandMs);
+                    traceFields.put("rpc_ms", PerformanceTrace.elapsedMs(tCommand0));
+                    traceFields.put("status", responseHeader.get("status"));
+                    traceFields.put("service_reported_ms", responseHeader.get("py_total_ms"));
+                    traceFields.put("service_heatmap_ms", responseHeader.get("py_heatmap_ms"));
+                    PerformanceTrace.emit("detector", "detector_rpc_complete", traceFields);
                     BinaryProtocol.Message pyResp = rawResp == null
                             ? new BinaryProtocol.Message(BinaryProtocol.MSG_ERROR, responseHeader, new byte[0])
                             : new BinaryProtocol.Message(rawResp.type(), Map.copyOf(responseHeader), rawResp.payload());

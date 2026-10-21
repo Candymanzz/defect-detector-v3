@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.pipeline.stages;
 
 import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.logging.PerformanceTrace;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
@@ -134,6 +135,7 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
             long t0 = System.nanoTime();
             Map<String, Object> gHeader = BinaryInspectHeaders.geometryInspectHeader(
                     cameraId, state.capture(), activeReference, geometryCfg, pythonCfg);
+            PerformanceTrace.copyContext(state.capture().header(), gHeader);
             String analysisProfile = CameraAnalysisProfiles.resolve(cameraId, productType);
             BinaryInspectHeaders.applyGeometryProfileOverrides(
                     gHeader,
@@ -151,7 +153,11 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
                 Object seamSensitivity = temporary.get("joint_seam_segmentation_sensitivity");
                 if (seamSensitivity != null) gHeader.put("jointSeamSegmentationSensitivity", seamSensitivity);
             }
+            long queueStarted = System.nanoTime();
             geometrySlots.acquire();
+            long rpcStarted = System.nanoTime();
+            Map<String, Object> traceFields = PerformanceTrace.context(gHeader);
+            traceFields.put("queue_ms", (rpcStarted - queueStarted) / 1_000_000.0);
             try {
                 BinaryProtocol.Message geomResp = geometry.command(gHeader);
                 geomResp = applyPoseQcFromPositioning(geomResp, state.capture(), gHeader);
@@ -219,6 +225,8 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
                 );
             } finally {
                 geometrySlots.release();
+                traceFields.put("rpc_ms", PerformanceTrace.elapsedMs(rpcStarted));
+                PerformanceTrace.emit("geometry", "geometry_rpc_complete", traceFields);
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -226,6 +234,10 @@ public final class InspectGeometryExecutor implements GeometryInspectStage {
     }
 
     private static PipelineState withSkippedGeometryPass(PipelineState state, int cameraId, String reason) {
+        Map<String, Object> fields = PerformanceTrace.context(state.capture() == null ? Map.of() : state.capture().header());
+        fields.put("camera_id", cameraId);
+        fields.put("reason", reason);
+        PerformanceTrace.emit("geometry", "geometry_skipped", fields);
         Map<String, Object> header = new java.util.LinkedHashMap<>();
         header.put("status", "SKIPPED");
         header.put("overallPass", true);

@@ -1,5 +1,7 @@
 #include "routes.h"
+#include "performance_http.h"
 #include "core/logger.h"
+#include "core/request_timing.h"
 #include "core/shm_io.h"
 #include "service/service.h"
 #include <opencv2/imgcodecs.hpp>
@@ -24,9 +26,12 @@ double round3(double v) { return std::round(v * 1000.0) / 1000.0; }
 // ---------- responses ----------
 
 void sendJson(httplib::Response& res, json body, Service& svc, int status = 200) {
+    const auto serializeStarted = Clock::now();
     if (body.is_object() && !body.contains("detector_id")) body["detector_id"] = svc.detectorId();
     res.status = status;
     res.set_content(body.dump(-1, ' ', false, json::error_handler_t::replace), "application/json");
+    requestTiming.add("response_serialize_ms", msSince(serializeStarted));
+    requestTiming.responseReady = Clock::now();
 }
 
 void sendError(httplib::Response& res, Service& svc, int status, const std::string& detail, const std::string& code = "") {
@@ -59,8 +64,13 @@ void guarded(httplib::Response& res, Service& svc, F&& f) {
 // ---------- request parsing ----------
 
 json parseBody(const httplib::Request& req) {
+    TimingPhase timing("request_parse_ms");
     json b = json::parse(req.body, nullptr, false);
     if (!b.is_object()) throw std::invalid_argument("request body must be a JSON object");
+    if (requestTiming.active) {
+        for (const char* key : {"product_type", "analysis_profile", "cycle_id", "trigger_sequence", "camera_id", "frame_id", "request_id"})
+            if (b.contains(key) && b[key].is_primitive()) requestTiming.context[key] = b[key];
+    }
     return b;
 }
 
@@ -142,6 +152,7 @@ json imageJson(const std::optional<ImageInfo>& i) {
 
 // Same field set as the Python InspectResponse (unsupported features report empty/zero), plus native fields.
 json inspectJson(const std::string& product, const Inspected& r, const Service::Written* w, double totalMs) {
+    TimingPhase timing("response_build_ms");
     const auto& o = r.out;
     json j;
     j["product_type"] = product;
@@ -199,6 +210,7 @@ json settingsJson(Service& svc, const std::string& profile) {
 }
 
 void logSlow(const char* what, const std::string& product, double ms) {
+    TimingPhase timing("legacy_slow_logging_ms");
     if (ms > 400.0) {
         std::cerr << "[slow] " << what << " product=" << product << " ms=" << ms << std::endl;
         Logger::instance().warn(std::string("slow ") + what + " product=" + product + " ms=" + std::to_string(ms));
@@ -246,6 +258,15 @@ void flushSummary(std::map<std::string, ProductStats>& stats) {
 // One JSONL record per (selected) inspection: everything needed to judge/tune the analysis offline.
 void logInspection(const char* endpoint, const InspectJob& job, const Inspected& r, double totalMs,
                    const std::string& note = "") {
+    TimingPhase timing("legacy_inspection_logging_ms");
+    if (requestTiming.active) {
+        requestTiming.context["product_type"] = job.product;
+        requestTiming.context["analysis_profile"] = job.profile;
+        requestTiming.context["verdict"] = r.out.reject ? "reject" : "ok";
+        requestTiming.context["reason"] = r.out.reason;
+        requestTiming.context["shift_raw"] = {r.out.rawShift.x, r.out.rawShift.y};
+        requestTiming.context["shift_response"] = r.out.shiftResponse;
+    }
     const auto& o = r.out;
     bool full = o.reject || o.anomalyScore >= 0.5 * r.settings.threshold || totalMs > 400.0 || endpoint != std::string("inspect-shm");
     {
@@ -320,6 +341,7 @@ void logInspection(const char* endpoint, const InspectJob& job, const Inspected&
 } // namespace
 
 void registerRoutes(httplib::Server& svr, Service& svc) {
+    installPerformanceTracing(svr, svc.detectorId());
     svr.Get("/health", [&](const httplib::Request&, httplib::Response& res) {
         sendJson(res, {{"status", "ok"}, {"service", "cppAnalisSurface"}}, svc);
     });

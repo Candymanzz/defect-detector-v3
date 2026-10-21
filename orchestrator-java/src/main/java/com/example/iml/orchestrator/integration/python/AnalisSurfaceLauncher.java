@@ -112,11 +112,19 @@ public final class AnalisSurfaceLauncher {
             List<String> command = withPort(resolvedTemplate, port);
             String processName = size == 1 ? PROCESS_LABEL : (PROCESS_LABEL + "-" + i);
             try {
+                Map<String, String> environment = new java.util.LinkedHashMap<>();
+                environment.put("ANALIS_INSPECT_WORKERS", String.valueOf(settings.inspectWorkers()));
+                if (integration != null && integration.get("performance_log") instanceof Map<?, ?> performance) {
+                    environment.put("CAS_PERFORMANCE_LOG", Boolean.FALSE.equals(performance.get("enabled")) ? "0" : "1");
+                    Object directory = performance.get("directory");
+                    if (directory != null) environment.put("CAS_PERFORMANCE_LOG_DIR",
+                            projectRoot.resolve(String.valueOf(directory)).normalize().toString());
+                }
                 ExternalServiceProcess process = ExternalServiceProcess.start(
                         processName,
                         command,
                         settings.workingDir(),
-                        Map.of("ANALIS_INSPECT_WORKERS", String.valueOf(settings.inspectWorkers()))
+                        environment
                 );
                 waitForHealth(healthUrl, settings.startupTimeoutMs(), process);
                 processes.add(process);

@@ -5,6 +5,7 @@ import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.capture.LineSynchronizedCaptureCoordinator;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.logging.PerformanceTrace;
 import com.example.iml.orchestrator.integration.diagnostics.CaptureSyncDiagnostics;
 import com.example.iml.orchestrator.integration.lighting.LightTriggerClient;
 import com.example.iml.orchestrator.integration.stream.CameraStreamService;
@@ -127,6 +128,8 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
             long triggerSequence,
             String debugLogSuffix
     ) {
+        long traceStart = System.nanoTime();
+        boolean traceSuccess = false;
         try {
             if (activeReference == null || activeReference.header() == null) {
                 if (!captureWithoutReference) {
@@ -208,6 +211,17 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
                 log.debug("worker cam={} {} header={}", cameraId, debugLogSuffix, capture.header());
             }
             capture = maybeDownscaleInspectionCapture(capture, cameraId);
+            Map<String, Object> tracedHeader = new java.util.LinkedHashMap<>(capture.header());
+            long tracedFrame = YamlScalars.toLong(tracedHeader.get("frame_id"), -1L);
+            PerformanceTrace.attach(tracedHeader, triggerSequence, cameraId, tracedFrame);
+            capture = new BinaryProtocol.Message(capture.type(), tracedHeader, capture.payload());
+            PerformanceTrace.cycle(triggerSequence, cameraId, tracedFrame, "camera_capture_response",
+                    PerformanceTrace.values("camera_metrics", PerformanceTrace.values(
+                            "capture_latency_ns", tracedHeader.get("capture_latency_ns"),
+                            "capture_wait_ns", tracedHeader.get("capture_wait_ns"),
+                            "capture_copy_ns", tracedHeader.get("capture_copy_ns")),
+                            "response_type", capture.type(), "request_id", tracedHeader.get("request_id")));
+            traceSuccess = true;
             return new PipelineState(capture, null, null, YamlScalars.nanosToMs(System.nanoTime() - t0), 0L, 0L);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -216,6 +230,10 @@ public final class WorkerCaptureCoordinator implements CameraCaptureStage {
             throw e;
         } catch (Exception e) {
             throw new RuntimeException(e);
+        } finally {
+            PerformanceTrace.cycle(triggerSequence, cameraId, -1, "camera_capture_service",
+                    PerformanceTrace.values("duration_ms", PerformanceTrace.elapsedMs(traceStart),
+                            "status", traceSuccess ? "completed" : "error"));
         }
     }
 

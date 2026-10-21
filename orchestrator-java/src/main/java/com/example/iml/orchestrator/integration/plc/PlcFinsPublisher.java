@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.plc;
 
 import com.example.iml.orchestrator.integration.fanout.BucketFanOutResult;
 import com.example.iml.orchestrator.integration.plc.fins.OmronFinsClient;
+import com.example.iml.orchestrator.integration.logging.PerformanceTrace;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
@@ -75,6 +76,17 @@ public final class PlcFinsPublisher implements AutoCloseable {
   private final Thread worker;
   private final AtomicBoolean running = new AtomicBoolean(true);
   private final AtomicLong droppedJobs = new AtomicLong();
+  private static final class JobTiming {
+    final long enqueued = System.nanoTime();
+    final long sequence;
+    final int group;
+    final boolean output;
+    long dequeued;
+    int writes;
+    JobTiming(long sequence, int group, boolean output) { this.sequence = sequence; this.group = group; this.output = output; }
+  }
+  private final Map<PlcJob, JobTiming> jobTimings = java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
+  private final ThreadLocal<JobTiming> currentTiming = new ThreadLocal<>();
   private final java.util.concurrent.ConcurrentHashMap<String, Boolean> lastSignalValues =
       new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -136,6 +148,8 @@ public final class PlcFinsPublisher implements AutoCloseable {
     // ready держится отдельно (sticky HIGH); здесь только вердикт reject.
     Optional<PlcSignalDefinition> signalOpt = registerMap.rejectSignalForGroup(result.groupId());
     if (signalOpt.isEmpty()) {
+      PerformanceTrace.cycle(result.triggerSequence(), -1, -1, "plc_output_unavailable",
+          PerformanceTrace.values("group_id", result.groupId(), "reason", "no reject signal mapping"));
       log.warn("plc fins: no reject signal for bucket group={}", result.groupId());
       return;
     }
@@ -146,27 +160,29 @@ public final class PlcFinsPublisher implements AutoCloseable {
       // Plastic-handle mode is a state level, not a per-cycle pulse:
       // PASS->PASS and FAIL->FAIL must not create any PLC activity.
       if (holdRejectUntilPass && Boolean.FALSE.equals(last)) {
+        traceNoop(result, false);
         if (edge != null) {
           edge.complete(null);
         }
-      } else if (!enqueue(new WriteBitJob(signal, false, edge)) && edge != null) {
+      } else if (!enqueue(new WriteBitJob(signal, false, edge), result.triggerSequence(), result.groupId(), true) && edge != null) {
         edge.completeExceptionally(new IOException("plc fins queue full"));
       }
     } else if (holdRejectUntilPass && config.pulseMs() > 0) {
       Boolean last = lastSignalValues.get(signal.name());
       if (Boolean.TRUE.equals(last)) {
+        traceNoop(result, true);
         if (edge != null) {
           edge.complete(null);
         }
-      } else if (!enqueue(new WriteBitJob(signal, true, edge)) && edge != null) {
+      } else if (!enqueue(new WriteBitJob(signal, true, edge), result.triggerSequence(), result.groupId(), true) && edge != null) {
         edge.completeExceptionally(new IOException("plc fins queue full"));
       }
     } else if (config.pulseMs() > 0) {
-      if (!enqueue(new PulseBitJob(signal, true, config.pulseMs(), edge)) && edge != null) {
+      if (!enqueue(new PulseBitJob(signal, true, config.pulseMs(), edge), result.triggerSequence(), result.groupId(), true) && edge != null) {
         edge.completeExceptionally(new IOException("plc fins queue full"));
       }
     } else {
-      if (!enqueue(new WriteBitJob(signal, true, edge)) && edge != null) {
+      if (!enqueue(new WriteBitJob(signal, true, edge), result.triggerSequence(), result.groupId(), true) && edge != null) {
         edge.completeExceptionally(new IOException("plc fins queue full"));
       }
     }
@@ -174,6 +190,8 @@ public final class PlcFinsPublisher implements AutoCloseable {
       try {
         await(edge);
       } catch (IOException | InterruptedException | TimeoutException e) {
+        PerformanceTrace.cycle(result.triggerSequence(), -1, -1, "plc_output_await_failed",
+            PerformanceTrace.values("group_id", result.groupId(), "error", e.getClass().getSimpleName()));
         log.warn(
                 "plc fins await edge failed seq={} group={}: {}",
                 result.triggerSequence(),
@@ -187,6 +205,12 @@ public final class PlcFinsPublisher implements AutoCloseable {
     }
   }
 
+  private static void traceNoop(BucketFanOutResult result, boolean value) {
+    PerformanceTrace.cycle(result.triggerSequence(), -1, -1, "plc_output_unchanged",
+        PerformanceTrace.values("group_id", result.groupId(), "transport", "FINS", "value", value,
+            "reason", "hold mode; level already applied; no new write"));
+  }
+
   /** Raises every configured bucket reject line and waits for the PLC acknowledgements. */
   public void publishRejectAllGroupsAndAwait(long triggerSequence) {
     List<PlcSignalDefinition> signals = registerMap.signals().stream()
@@ -198,7 +222,8 @@ public final class PlcFinsPublisher implements AutoCloseable {
         continue;
       }
       CompletableFuture<Void> edge = new CompletableFuture<>();
-      if (!enqueue(new WriteBitJob(signal, true, edge))) {
+      if (!enqueue(new WriteBitJob(signal, true, edge), triggerSequence,
+          signal.bucketGroupId() == null ? -1 : signal.bucketGroupId(), true)) {
         edge.completeExceptionally(new IOException("plc fins queue full"));
       }
       try {
@@ -351,7 +376,16 @@ public final class PlcFinsPublisher implements AutoCloseable {
   }
 
   private boolean enqueue(PlcJob job) {
+    return enqueue(job, 0L, -1, false);
+  }
+
+  private boolean enqueue(PlcJob job, long sequence, int group, boolean output) {
+    JobTiming timing = new JobTiming(sequence, group, output);
+    jobTimings.put(job, timing);
     if (!queue.offer(job)) {
+      jobTimings.remove(job);
+      PerformanceTrace.cycle(sequence, -1, -1, "plc_queue_full",
+          PerformanceTrace.values("group_id", group, "job", job.getClass().getSimpleName()));
       droppedJobs.incrementAndGet();
       log.warn("plc fins queue full, job dropped total={}", droppedJobs.get());
       if (job instanceof ReadWordsJob read) {
@@ -375,7 +409,19 @@ public final class PlcFinsPublisher implements AutoCloseable {
         if (job == null) {
           continue;
         }
-        processJob(job);
+        JobTiming timing = jobTimings.remove(job);
+        if (timing != null) timing.dequeued = System.nanoTime();
+        currentTiming.set(timing);
+        long started = System.nanoTime();
+        try {
+          processJob(job);
+        } finally {
+          PerformanceTrace.cycle(timing == null ? 0 : timing.sequence, -1, -1, "plc_job_complete",
+              PerformanceTrace.values("group_id", timing == null ? -1 : timing.group,
+                  "job", job.getClass().getSimpleName(), "duration_ms", PerformanceTrace.elapsedMs(started),
+                  "queue_ms", timing == null ? null : (timing.dequeued - timing.enqueued) / 1_000_000.0));
+          currentTiming.remove();
+        }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
       } catch (Exception e) {
@@ -411,11 +457,17 @@ public final class PlcFinsPublisher implements AutoCloseable {
         }
         long waitMs = Math.max(0L, pulse.pulseMs());
         if (waitMs > 0) {
+          long holdStarted = System.nanoTime();
           try {
             Thread.sleep(waitMs);
           } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return;
+          } finally {
+            JobTiming timing = currentTiming.get();
+            PerformanceTrace.cycle(timing == null ? 0 : timing.sequence, -1, -1, "plc_pulse_hold",
+                PerformanceTrace.values("group_id", timing == null ? -1 : timing.group,
+                    "duration_ms", PerformanceTrace.elapsedMs(holdStarted), "requested_ms", waitMs));
           }
         }
         writeBit(pulse.signal(), false);
@@ -449,7 +501,24 @@ public final class PlcFinsPublisher implements AutoCloseable {
   }
 
   private void writeBit(PlcSignalDefinition signal, boolean value) throws IOException {
-    client.signals().writeBit(signal.area(), signal.address(), value, signal.name());
+    long started = System.nanoTime();
+    boolean success = false;
+    try {
+      client.signals().writeBit(signal.area(), signal.address(), value, signal.name());
+      success = true;
+    } finally {
+      JobTiming timing = currentTiming.get();
+      boolean firstWrite = timing == null || timing.writes++ == 0;
+      String event = timing != null && timing.output && firstWrite
+          ? (success ? "plc_output_confirmed" : "plc_output_failed") : "plc_bit_write";
+      PerformanceTrace.cycle(timing == null ? 0 : timing.sequence, -1, -1, event,
+          PerformanceTrace.values("group_id", timing == null ? -1 : timing.group,
+              "transport", "FINS", "signal", signal.name(), "value", value,
+              "write_ms", PerformanceTrace.elapsedMs(started), "success", success,
+              "pulse_reset", !firstWrite,
+              "queue_ms", timing == null ? null : (timing.dequeued - timing.enqueued) / 1_000_000.0,
+              "boundary", "FINS response received; not physical rejector movement"));
+    }
     lastSignalValues.put(signal.name(), value);
     log.info(
             "plc fins write signal={} area={} address={}.{} value={}",
@@ -476,5 +545,6 @@ public final class PlcFinsPublisher implements AutoCloseable {
     } catch (Exception e) {
       log.debug("plc fins close: {}", e.getMessage());
     }
+    jobTimings.clear();
   }
 }
