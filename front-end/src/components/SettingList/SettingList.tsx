@@ -7,7 +7,6 @@ import {
   loadSettingData,
   saveBrightnessData,
   saveLightMode,
-  saveMaxShiftData,
   saveSavedFramesData,
   saveSettingData,
   SAVING_SETTING_STATUS,
@@ -420,34 +419,6 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
       });
   };
 
-  const handleMaxShiftSave = () => {
-    if (!canEditSettings) {
-      return;
-    }
-
-    const { form, analysisProductTypes } = settingData;
-    const requestId = ++requestIdRef.current;
-    setSaveFeedback({ state: "saving", text: "Сохранение...", cameraId: selectedCameraId });
-    setSettingData((currentSettingData) => ({
-      ...currentSettingData,
-      status: SAVING_SETTING_STATUS,
-    }));
-
-    saveMaxShiftData(form, analysisProductTypes, selectedCameraId)
-      .catch((error) => ({
-        ...createSettingErrorData(error, form),
-        analysisProductTypes,
-      }))
-      .then((nextSettingData) => {
-        if (requestId === requestIdRef.current) {
-          setSettingData(nextSettingData);
-          setSaveFeedback(
-            resolveSaveFeedback(nextSettingData.status.state, nextSettingData.status.text, selectedCameraId),
-          );
-        }
-      });
-  };
-
   const handleSavedFramesSave = () => {
     if (!canEditSettings) {
       return;
@@ -671,45 +642,6 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
               {saveFeedback.text}
             </strong>
           )}
-          <details className="setting-list__collapsible-setting">
-            <summary className="setting-list__section-header">
-              <h3>Геометрия / стык</h3>
-            </summary>
-            <div className="setting-list__vertical-setting">
-              <label>
-                <span>Задать максимальное смещение, мм</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={settingData.form.maxShiftMm}
-                  disabled={!canEditSettings}
-                  onChange={handleFieldChange("maxShiftMm")}
-                />
-              </label>
-              <label>
-                <span>Чувствительность сегментации стыка</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={settingData.form.jointSeamSegmentationSensitivity}
-                  disabled={!canEditSettings}
-                  onChange={handleFieldChange("jointSeamSegmentationSensitivity")}
-                />
-              </label>
-              <Button
-                className="setting-list__inline-save"
-                disabled={!canEditSettings}
-                onClick={handleMaxShiftSave}
-              >
-                Сохранить
-              </Button>
-            </div>
-          </details>
-
           <details className="setting-list__collapsible-setting">
             <summary className="setting-list__section-header">
               <h3>Количество кадров</h3>
