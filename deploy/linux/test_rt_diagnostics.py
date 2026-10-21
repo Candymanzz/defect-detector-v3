@@ -42,6 +42,12 @@ class ProcessTests(unittest.TestCase):
         excluded = stack.ancestors(entries, 16)
         self.assertEqual(set(stack.select_services(entries, "/project", excluded)), {10, 11, 12})
 
+    def test_cpp_detector_belongs_to_its_checkout_even_without_parent(self):
+        own = process(10, 1, [ROOT + "/cppAnalisSurface/build/cpp_analis_surface", "--port", "8000"], ROOT + "/cppAnalisSurface")
+        other = process(11, 1, ["/other/cppAnalisSurface/build/cpp_analis_surface"], "/other/cppAnalisSurface")
+        self.assertTrue(stack.is_service(own, ROOT))
+        self.assertFalse(stack.is_service(other, ROOT))
+
     def test_supervisor_stops_before_children_and_force_stop_is_available(self):
         supervisor = process(10, 1, ["java", "StackSupervisorMain"])
         worker = process(11, 10, ["camera_worker"])

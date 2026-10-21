@@ -182,8 +182,10 @@ export function commitReferenceBundleImages(
         jointRoiPoints:
           cameraId === jointCameraId && jointRoiPoints
             ? copyRoiPoints(jointRoiPoints)
-            : viewIndex === bundle.joint_view_index && view.joint_roi
-              ? createNormalizedRoiPolygon(view.joint_roi, view.frame.width, view.frame.height)
+            : viewIndex === bundle.joint_view_index && isValidJointRoiPolygon(view.joint_roi_polygon_norm)
+              ? copyRoiPoints(view.joint_roi_polygon_norm ?? [])
+              : viewIndex === bundle.joint_view_index && view.joint_roi
+                ? createNormalizedRoiPolygon(view.joint_roi, view.frame.width, view.frame.height)
               : undefined,
         perspectiveLine: isValidPerspectiveLine(view.perspective_line_norm)
           ? copyRoiPoints(view.perspective_line_norm ?? [])

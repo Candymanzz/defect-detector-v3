@@ -61,7 +61,7 @@ def is_service(entry, root):
             "java-positioning-service", "GeometryRunnerMain", "PositioningRunnerMain"))
     if executable.startswith("python") or executable == "uvicorn":
         return "uvicorn" in args or "app.main:app" in command
-    if executable in {"camera_worker", "camera_worker.exe"}:
+    if executable in {"camera_worker", "camera_worker.exe", "cpp_analis_surface", "cpp_analis_surface.exe"}:
         return True
     if executable in {"node", "electron", "npm", "npm run dev", "npm run start"}:
         return "/front-end" in entry["cwd"] or "/front-end/" in command

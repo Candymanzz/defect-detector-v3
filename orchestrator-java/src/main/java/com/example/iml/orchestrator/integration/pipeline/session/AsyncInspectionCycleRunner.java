@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.pipeline.session;
 
 import com.example.iml.orchestrator.integration.capture.LineFramePinService;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.logging.PerformanceTrace;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipelineServices;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
@@ -37,9 +38,15 @@ public final class AsyncInspectionCycleRunner {
             return;
         }
         if (isCaptureOnly(in)) {
+            PerformanceTrace.cycle(in.triggerSequence(), in.cameraId(), -1, "camera_capture_only", Map.of());
             runCaptureOnly(svc, in, timeoutMs, inspectionGate);
             return;
         }
+        PerformanceTrace.cycle(in.triggerSequence(), in.cameraId(), -1, "camera_cycle_started", Map.of());
+        java.util.concurrent.atomic.AtomicLong captureReady = new java.util.concurrent.atomic.AtomicLong(System.nanoTime());
+        java.util.concurrent.atomic.AtomicLong geometryReady = new java.util.concurrent.atomic.AtomicLong();
+        java.util.concurrent.atomic.AtomicLong detectorReady = new java.util.concurrent.atomic.AtomicLong();
+        long captureSubmitted = System.nanoTime();
         CompletableFuture<PipelineState> captureFuture = svc.captureStage().scheduleCapture(
                 in.projectRoot(),
                 in.saveCaptures(),
@@ -51,7 +58,12 @@ public final class AsyncInspectionCycleRunner {
                 in.captureStageExecutor(),
                 in.triggerSequence(),
                 "current capture"
-        );
+        ).whenComplete((state, error) -> {
+            captureReady.set(System.nanoTime());
+            PerformanceTrace.cycle(in.triggerSequence(), in.cameraId(), -1, "capture_stage_complete",
+                    PerformanceTrace.values("scheduled_to_complete_ms", PerformanceTrace.elapsedMs(captureSubmitted),
+                            "status", error == null ? "completed" : "error"));
+        });
         if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
             captureFuture.cancel(true);
             svc.log().info("integration cam={}: inspection cycle cancelled during capture stage", in.cameraId());
@@ -59,7 +71,7 @@ public final class AsyncInspectionCycleRunner {
         }
 
         CompletableFuture<PipelineState> geometryFuture = captureFuture.thenApplyAsync(
-                state -> svc.geometryStage().apply(
+                state -> timedStage(in, state, "geometry_stage", captureReady.get(), geometryReady, () -> svc.geometryStage().apply(
                         state,
                         in.cameraId(),
                         in.productType(),
@@ -69,7 +81,7 @@ public final class AsyncInspectionCycleRunner {
                         in.geometryPool(),
                         in.geometrySlots(),
                         in.geometryRoundRobin()
-                ),
+                )),
                 in.geometryStageExecutor()
         );
         if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
@@ -79,7 +91,7 @@ public final class AsyncInspectionCycleRunner {
         }
 
         CompletableFuture<PipelineState> pythonFuture = geometryFuture.thenApplyAsync(
-                state -> svc.pythonStage().apply(
+                state -> timedStage(in, state, "detector_stage", geometryReady.get(), detectorReady, () -> svc.pythonStage().apply(
                         state,
                         in.cameraId(),
                         in.productType(),
@@ -89,7 +101,7 @@ public final class AsyncInspectionCycleRunner {
                         in.pythonPool(),
                         in.pythonSlots(),
                         in.pythonRoundRobin()
-                ),
+                )),
                 in.pythonStageExecutor()
         );
         if (inspectionGate != null && inspectionGate.isCancelRequested(in.cameraId())) {
@@ -104,6 +116,8 @@ public final class AsyncInspectionCycleRunner {
                 return;
             }
             long tDecision0 = System.nanoTime();
+            PerformanceTrace.cycle(in.triggerSequence(), in.cameraId(), -1, "decision_stage_started",
+                    PerformanceTrace.values("queue_ms", (tDecision0 - detectorReady.get()) / 1_000_000.0));
             long captureFrameTimestampNs = YamlScalars.toLong(
                     state.capture() == null || state.capture().header() == null
                             ? null
@@ -123,6 +137,9 @@ public final class AsyncInspectionCycleRunner {
             InspectionDecision decision = svc.decisionPolicy().decide(
                     in.cameraId(), state.capture(), state.py(), state.geom());
             long tDecisionDone = System.nanoTime();
+            PerformanceTrace.cycle(in.triggerSequence(), in.cameraId(), decision.frameId(), "camera_verdict",
+                    PerformanceTrace.values("action", String.valueOf(decision.action()),
+                            "decision_ms", (tDecisionDone - tDecision0) / 1_000_000.0));
             boolean resultPublished = publishIfAllowed(inspectionGate, in.cameraId(), () -> {
                 Runnable publishUi = () -> {
                     try {
@@ -173,6 +190,9 @@ public final class AsyncInspectionCycleRunner {
                 return;
             }
             long tFanoutDone = System.nanoTime();
+            PerformanceTrace.cycle(in.triggerSequence(), in.cameraId(), decision.frameId(), "camera_cycle_complete",
+                    PerformanceTrace.values("camera_cycle_ms", (tFanoutDone - in.tCameraStartNanos()) / 1_000_000.0,
+                            "publication_ms", (tFanoutDone - tDecisionDone) / 1_000_000.0));
             long totalMs = YamlScalars.nanosToMs(tFanoutDone - in.tCameraStartNanos());
             long captureFrameToInspectionEndMs = captureFrameTimestampNs > 0
                     ? YamlScalars.nanosToMs(System.nanoTime() - captureFrameTimestampNs)
@@ -276,6 +296,24 @@ public final class AsyncInspectionCycleRunner {
                     pythonFuture,
                     decisionFuture
             );
+        }
+    }
+
+    private static PipelineState timedStage(AsyncInspectionCycleInput in, PipelineState state, String event,
+            long queuedAt, java.util.concurrent.atomic.AtomicLong completedAt,
+            java.util.function.Supplier<PipelineState> operation) {
+        long started = System.nanoTime();
+        boolean success = false;
+        try {
+            PipelineState result = operation.get();
+            success = true;
+            return result;
+        } finally {
+            completedAt.set(System.nanoTime());
+            long frame = state.capture() == null ? -1 : YamlScalars.toLong(state.capture().header().get("frame_id"), -1L);
+            PerformanceTrace.cycle(in.triggerSequence(), in.cameraId(), frame, event,
+                    PerformanceTrace.values("queue_ms", queuedAt > 0 ? (started - queuedAt) / 1_000_000.0 : null,
+                            "duration_ms", PerformanceTrace.elapsedMs(started), "status", success ? "completed" : "error"));
         }
     }
 

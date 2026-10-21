@@ -2,6 +2,7 @@ package com.example.iml.orchestrator.integration.binaryrpc;
 
 import com.example.iml.orchestrator.integration.camera.BinaryClient;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
+import com.example.iml.orchestrator.integration.logging.PerformanceTrace;
 
 import java.io.IOException;
 import java.util.Map;
@@ -92,11 +93,31 @@ public abstract class AbstractBinaryRpcSupervisor {
 
     protected final BinaryProtocol.Message awaitCommandOnClient(Map<String, Object> header) throws IOException {
         BinaryClient commandClient = client;
+        long enqueued = System.nanoTime();
+        Map<String, Object> queuedFields = PerformanceTrace.context(header);
+        queuedFields.put("operation", header.get("op"));
+        PerformanceTrace.emit(supervisorLabel(), "binary_rpc_queued", queuedFields);
         CompletableFuture<BinaryProtocol.Message> future = CompletableFuture.supplyAsync(() -> {
+            long started = System.nanoTime();
+            BinaryProtocol.Message response = null;
             try {
-                return commandClient.command(header);
+                response = commandClient.command(header);
+                return response;
             } catch (IOException e) {
                 throw new RuntimeException(e);
+            } finally {
+                Map<String, Object> fields = PerformanceTrace.context(header);
+                if (response != null) PerformanceTrace.copyContext(response.header(), fields);
+                fields.put("operation", header.get("op"));
+                fields.put("queue_ms", (started - enqueued) / 1_000_000.0);
+                fields.put("transport_ms", PerformanceTrace.elapsedMs(started));
+                fields.put("response_type", response == null ? "exception" : response.type());
+                Map<String, Object> service = new java.util.LinkedHashMap<>();
+                if (response != null) response.header().forEach((key, value) -> {
+                    if ((key.startsWith("stage_ms_") || key.startsWith("capture_")) && value instanceof Number) service.put(key, value);
+                });
+                fields.put("service_metrics", service);
+                PerformanceTrace.emit(supervisorLabel(), "binary_rpc", fields);
             }
         }, callExecutor);
         try {

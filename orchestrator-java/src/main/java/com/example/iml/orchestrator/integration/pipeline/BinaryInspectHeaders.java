@@ -523,6 +523,12 @@ public final class BinaryInspectHeaders {
     @SuppressWarnings("unchecked")
     static void putEphemeralTestKnobs(Map<String, Object> pyHeader, Map<String, Object> captureHeader) {
         Object temporary = captureHeader.get("analysis_test_settings");
+        if (temporary instanceof Map<?, ?> nativeSettings && nativeSettings.get("settings") instanceof Map<?, ?> detectorSettings
+                && !detectorSettings.isEmpty()) {
+            // cppAnalisSurface: {sensitivity, threshold, shift_tolerance, min_blob_area, inspect_scale}
+            pyHeader.put("settings", copyStringObjectMap(detectorSettings));
+            return;
+        }
         if (!(temporary instanceof Map<?, ?> settings) || settings.isEmpty()) {
             pyHeader.put("simple", Map.of("threshold", 0.25, "sensitivity", 0.5));
             return;

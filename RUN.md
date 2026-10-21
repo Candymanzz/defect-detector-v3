@@ -1,13 +1,17 @@
 # Сборка и запуск на Linux
 
+Для ветки `линукс+кресты`: [сборка, конфигурация и тесты C++-бэкенда](deploy/linux/CPP-DETECTOR.md).
+Основная сборка теперь также включает C++-детектор и Java-геометрию;
+`-d` пропускает C++, `-g` — геометрию. Для сборки только фронта используйте `-c -o -d -g`.
+
 Пересборка из корня проекта:
 
 ```bash
-bash ./rebuild-and-run.sh       # Оркестратор, JNI камер и фронт с установкой в /opt
-bash ./rebuild-and-run.sh -c    # Оркестратор и фронт
-bash ./rebuild-and-run.sh -o    # JNI камер и фронт
-bash ./rebuild-and-run.sh -c -o # Только фронт с установкой
-bash ./rebuild-and-run.sh -f    # Оркестратор и JNI камер, без фронта
+bash ./rebuild-and-run.sh             # Оркестратор, геометрия, JNI камер, C++ и фронт
+bash ./rebuild-and-run.sh -c          # Без пересборки JNI камер
+bash ./rebuild-and-run.sh -o          # Без пересборки оркестратора
+bash ./rebuild-and-run.sh -c -o -g -d # Только фронт с установкой
+bash ./rebuild-and-run.sh -f          # Весь бэкенд, без фронта
 ```
 
 Скрипт только собирает выбранные компоненты и завершает работу. Он не
@@ -22,7 +26,7 @@ bash ./rebuild-and-run.sh -f    # Оркестратор и JNI камер, бе
 
 ```bash
 sudo bash deploy/linux/setup-frontend-updates.sh o
-bash ./rebuild-and-run.sh -c -o --restart-frontend
+bash ./rebuild-and-run.sh -c -o -g -d --restart-frontend
 ```
 
 Настройка передаёт `o` только `dist/`, `electron/` и `package.json`. Каталог
@@ -35,12 +39,14 @@ bash ./rebuild-and-run.sh -c -o --restart-frontend
 сохраняет сведения о прежних правах и копии существующего helper/sudoers в
 `/var/backups/defect-detector-frontend.*`.
 
-Python, geometry и positioning не пересобираются.
+Java-геометрия и C++-инспекция включены в сборку. Python и отключённое Java-позиционирование не пересобираются.
 `-f`, `--skip-frontend`, `--no-frontend` пропускают сборку и установку фронта.
 Старые параметры `-r`, `--build-only`, `--config`, `--rt-interval`
 принимаются для совместимости, но на сборку не влияют; скрипт сообщает об этом.
 
 Для оркестратора нужны JDK 17+ и Maven; для JNI камер — тот же JDK, CMake и C-компилятор.
+Для C++ нужны C++17-компилятор, pkg-config, OpenCV, cpp-httplib и nlohmann-json;
+команда установки пакетов Ubuntu приведена в [инструкции](deploy/linux/CPP-DETECTOR.md).
 Камеры работают внутри JVM; сборка и настройка описаны в [CAMERA-JNI.md](orchestrator-java/CAMERA-JNI.md).
 Для фронта нужны Node.js >=20.19.0 и npm; скрипт обнаруживает установки NVM.
 Если TypeScript/Vite ещё не установлены, он выполняет `npm ci`. При изменении

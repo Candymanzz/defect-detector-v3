@@ -327,6 +327,8 @@ export type AnalysisSettings = {
   diff_percentile: number;
   scratch_score_floor: number;
   scratch_aspect_floor: number;
+  /** false — не гасить отклик на стабильных краях детали. */
+  enable_edge_suppression: boolean;
   edge_suppress_factor: number;
   text_min_contrast: number;
   text_structure_threshold: number;
@@ -520,3 +522,42 @@ export type PlcTimeoutsResponse = {
   timeouts: PlcTimeoutState[];
   signals?: PlcSignalState[];
 };
+
+/** Контроль стыка этикетки: линия p0 -> p1 в долях кадра (0..1), допуски в px исходного кадра. */
+export type SeamSettings = {
+  enabled: boolean;
+  p0: [number, number];
+  p1: [number, number];
+  /** Полоса поиска стыка вокруг линии, ± px. */
+  band: number;
+  /** Допуск отклонения линии стыка в середине, px. */
+  tol_mid: number;
+  /** Допуск на концах стыка, px. */
+  tol_edge: number;
+  /** Доля длины стыка с каждого конца, считающаяся краем (0..0.5). */
+  edge_frac: number;
+};
+
+export type DetectorSettings = {
+  /** 0..1, выше — строже (мельче отличия считаются дефектом). */
+  sensitivity: number;
+  /** (0..1], брак при anomaly_score >= threshold (score = доля аномальной площади ROI / 5%). */
+  threshold: number;
+  /** Допуск на микросдвиг кадра, px исходного кадра. */
+  shift_tolerance: number;
+  /** Минимальная площадь дефекта, px исходного кадра. */
+  min_blob_area: number;
+  /** (0..1], во сколько раз кадр уменьшается перед анализом. */
+  inspect_scale: number;
+  /** Контроль стыка этикетки (настраивается для конкретной камеры). */
+  seam: SeamSettings;
+};
+
+export type DetectorSettingsResponse = {
+  analysis_profile?: string;
+  settings: DetectorSettings;
+  defaults: DetectorSettings;
+  saved?: boolean;
+};
+
+export type DetectorSettingsUpdate = Partial<DetectorSettings>;

@@ -3,6 +3,7 @@ package com.example.iml.orchestrator.integration.pipeline.stages;
 import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
 import com.example.iml.orchestrator.integration.config.InspectionScaleConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.logging.PerformanceTrace;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
@@ -16,7 +17,7 @@ import org.apache.logging.log4j.Logger;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import com.example.iml.orchestrator.integration.python.PythonWorkloadBalancer;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -27,7 +28,12 @@ public final class InspectPythonExecutor implements PythonInspectStage {
 
     private final Logger log;
     private final GeometryRuntimeConfig inspectionRuntimeConfig;
-    private final PythonWorkloadBalancer pythonWorkload = new PythonWorkloadBalancer();
+    /**
+     * One fair FIFO lane per detector client. Python (GIL, CPU-bound OpenCV): 1 request at a time, parallelism comes
+     * from the process pool. cppAnalisSurface is one multi-threaded process: {@code python_detector.server_concurrency}
+     * sets how many requests a client sends at once (default 1). Different pool members still run in parallel.
+     */
+    private final Map<BinaryRpcSupervisor, Semaphore> pythonFifoLanes = new ConcurrentHashMap<>();
 
     public InspectPythonExecutor(Logger log) {
         this(log, null);
@@ -114,6 +120,7 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                     state.geometryMs()
             );
         }
+        BinaryRpcSupervisor python = pythonPool.get(Math.floorMod(pythonRoundRobin.getAndIncrement(), pythonPool.size()));
         try {
             long t0 = System.nanoTime();
             Map<String, Object> pyHeader;
@@ -190,32 +197,33 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                     pyHeader.put("inspect_scale", inspectScale);
                 }
             }
+            int laneConcurrency = com.example.iml.orchestrator.integration.config.DetectorBackend.serverConcurrency(pythonCfg);
+            PerformanceTrace.copyContext(state.capture().header(), pyHeader);
+            Semaphore fifoLane = pythonFifoLanes.computeIfAbsent(python, ignored -> new Semaphore(laneConcurrency, true));
             long tQueue0 = System.nanoTime();
-            boolean weighted = !"round_robin".equals(String.valueOf(
-                    pythonCfg == null ? "weighted" : pythonCfg.getOrDefault("scheduling_strategy", "weighted")));
-            try (var reservation = pythonWorkload.reserve(pythonPool, cameraId + ":" + productType, weighted, pythonRoundRobin)) {
-                BinaryRpcSupervisor python = reservation.client();
-                log.info("python schedule cam={} frame={} server={} estimated_job_ms={} estimated_queue_ms={} inspect_scale={}",
-                        cameraId, state.capture().header().get("frame_id"), python.supervisorLabel(),
-                        reservation.expectedMs(), reservation.queuedWorkMs(),
-                        InspectionScaleConfig.resolve(pythonCfg, cameraId));
-                reservation.awaitTurn();
+            fifoLane.acquire();
+            try {
                 pythonSlots.acquire();
                 try {
                     long tCommand0 = System.nanoTime();
-                    reservation.started();
+                    Map<String, Object> traceFields = PerformanceTrace.context(pyHeader);
+                    traceFields.put("queue_ms", (tCommand0 - tQueue0) / 1_000_000.0);
+                    traceFields.put("server", python.supervisorLabel());
+                    PerformanceTrace.emit("detector", "detector_queue_released", traceFields);
                     BinaryProtocol.Message rawResp = python.command(pyHeader);
                     long commandMs = YamlScalars.nanosToMs(System.nanoTime() - tCommand0);
                     long queueMs = YamlScalars.nanosToMs(tCommand0 - tQueue0);
                     Map<String, Object> responseHeader = new LinkedHashMap<>(
                             rawResp == null || rawResp.header() == null ? Map.of() : rawResp.header()
                     );
-                    if (rawResp != null && rawResp.type() != BinaryProtocol.MSG_ERROR) {
-                        reservation.completed(YamlScalars.toDouble(responseHeader.get("py_total_ms"), commandMs));
-                    }
                     responseHeader.put("python_queue_ms", queueMs);
                     responseHeader.put("python_rpc_ms", commandMs);
                     responseHeader.put("python_server", python.supervisorLabel());
+                    traceFields.put("rpc_ms", PerformanceTrace.elapsedMs(tCommand0));
+                    traceFields.put("status", responseHeader.get("status"));
+                    traceFields.put("service_reported_ms", responseHeader.get("py_total_ms"));
+                    traceFields.put("service_heatmap_ms", responseHeader.get("py_heatmap_ms"));
+                    PerformanceTrace.emit("detector", "detector_rpc_complete", traceFields);
                     BinaryProtocol.Message pyResp = rawResp == null
                             ? new BinaryProtocol.Message(BinaryProtocol.MSG_ERROR, responseHeader, new byte[0])
                             : new BinaryProtocol.Message(rawResp.type(), Map.copyOf(responseHeader), rawResp.payload());
@@ -233,6 +241,8 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                 } finally {
                     pythonSlots.release();
                 }
+            } finally {
+                fifoLane.release();
             }
         } catch (Exception e) {
             if (e instanceof InterruptedException) Thread.currentThread().interrupt();

@@ -4,9 +4,9 @@ import type { Ref } from "react";
 import { ModalWrapper } from "../ModalWrapper";
 import { InspectionHistory } from "../InspectionHistory";
 import { ArchiveHistoryViewer } from "../ArchiveHistoryViewer/ArchiveHistoryViewer";
-import { AnalysisSettingsPanel } from "../SettingList/AnalysisSettingsPanel";
+import { DetectorSettingsPanel } from "../SettingList/DetectorSettingsPanel";
 import { notifyAnalysisSettingsChanged } from "../SettingList/analysisSettingsEvents";
-import type { AnalysisSettingsPanelHandle } from "../SettingList/AnalysisSettingsPanel";
+import type { DetectorSettingsPanelHandle } from "../SettingList/DetectorSettingsPanel";
 import { GeometryTestSettingsPanel } from "../SettingList/GeometryTestSettingsPanel";
 import type { GeometryTestSettingsPanelHandle } from "../SettingList/GeometryTestSettingsPanel";
 import { resolveInspectionResultState, isCaptureOnlyInspectResult } from "../../shared/inspectResult";
@@ -61,7 +61,7 @@ export function MainOverview({
     jobId: "",
     previousServerTs: 0,
   });
-  const analysisSettingsRef = useRef<AnalysisSettingsPanelHandle>(null);
+  const analysisSettingsRef = useRef<DetectorSettingsPanelHandle>(null);
   const geometrySettingsRef = useRef<GeometryTestSettingsPanelHandle>(null);
   const inspectionStateBeforeTestRef = useRef<InspectionStateResponse | null>(null);
   const cameraCards = createCameraCards(controller.cameraIds, controller.previewImageUrlsByCameraId);
@@ -181,8 +181,7 @@ export function MainOverview({
         analysisDraft == null
           ? undefined
           : {
-              simple: analysisDraft.simple as Record<string, number>,
-              detailed: analysisDraft.strengths as Record<string, number>,
+              settings: { ...analysisDraft.settings } as Record<string, unknown>,
             };
       controller.setPendingTestJob(null);
       const accepted = await orchestratorApi.testAnalyzePinnedFrame(snapshot.cameraId, pinId, frameId, {
@@ -386,8 +385,8 @@ export function MainOverview({
                     />
                   </details>
                   <section className="modal__test-settings-section">
-                    <h4>Python-анализ поверхности</h4>
-                    <AnalysisSettingsPanel
+                    <h4>Анализ поверхности</h4>
+                    <DetectorSettingsPanel
                       ref={analysisSettingsRef}
                       selectedCameraId={controller.modalSnapshot.cameraId}
                       testFrameId={testFrameId}

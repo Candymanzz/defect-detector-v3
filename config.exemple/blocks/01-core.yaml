@@ -52,10 +52,10 @@ integration:
     transfer_wave_gap_ms: 0
   geometry_pool_size: 10
   positioning_pool_size: 10
-  # Шесть Python-процессов на шести физических ядрах; по 3 обработчика на процесс.
-  python_parallelism: 12
+  # Один C++-процесс: Java отправляет все камеры, CPU-параллелизм ограничен inspect_workers.
+  python_parallelism: 10
   python_request_parallelism: 10
-  python_server_pool_size: 6
+  python_server_pool_size: 1
   stage_queue_size: 20
   # Таймаут команд камер внутри JVM через JNI (health/capture/settings).
   worker_command_timeout_ms: 30000
@@ -102,32 +102,34 @@ integration:
     enabled: false
     directory: "testimage"
     jpeg_quality: 0.92
-  # Автозапуск uvicorn. Один раз: pip install в analisSurface/backend/.venv
+  # Отдельный C++-сервис; все потоки наследуют доступный набор CPU оркестратора.
+  # Не использовать Python-обёртку с привязкой каждого процесса к одному CPU.
   analis_surface_autostart:
     enabled: true
-    # По 3 потока на процесс: 10 кадров распределяются между 6 CPU.
-    inspect_workers: 3
-    working_dir: "analisSurface/backend"
-    startup_timeout_ms: 180000
+    inspect_workers: 4
+    working_dir: "cppAnalisSurface"
+    startup_timeout_ms: 30000
     health_path: "/health"
   analis_surface_command_windows:
-    - "analisSurface/backend/.venv/Scripts/python.exe"
-    - "-m"
-    - "uvicorn"
-    - "app.main:app"
+    - "cppAnalisSurface/build/Release/cpp_analis_surface.exe"
     - "--host"
     - "127.0.0.1"
     - "--port"
     - "8000"
+    - "--data-dir"
+    - "data"
   analis_surface_command_linux:
-    - "tools/run-analis-isolated.sh"
-    - "-m"
-    - "uvicorn"
-    - "app.main:app"
+    - "cppAnalisSurface/build/cpp_analis_surface"
     - "--host"
     - "127.0.0.1"
     - "--port"
     - "8000"
+    - "--data-dir"
+    - "data"
+  performance_log:
+    enabled: true
+    directory: "logs/performance"
+    queue_capacity: 8192
   geometry_command_windows:
     - "java"
     - "-jar"

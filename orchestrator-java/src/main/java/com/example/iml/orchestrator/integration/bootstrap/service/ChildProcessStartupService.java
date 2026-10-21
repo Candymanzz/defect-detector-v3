@@ -133,9 +133,13 @@ public final class ChildProcessStartupService {
             ctx.setPositioningPool(positioningFuture.join());
             ctx.setFrontendProcess(frontendFuture.join());
 
+            boolean cppDetector = com.example.iml.orchestrator.integration.config.DetectorBackend
+                    .fromRootYaml(ctx.root()) == com.example.iml.orchestrator.integration.config.DetectorBackend.CPP;
+            log.info("detector backend: {}", cppDetector ? "cppAnalisSurface (C++)" : "analisSurface (Python)");
             ctx.setPythonPool(poolFactory.createPythonHttpPool(
                     analisSurfacePool.baseUrls(),
-                    ctx.bootConfig()
+                    ctx.bootConfig(),
+                    cppDetector
             ));
             if (ctx.pythonPool().isEmpty()) {
                 log.error(

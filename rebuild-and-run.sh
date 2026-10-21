@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# Rebuild orchestrator, camera-worker and the frontend; install the kiosk UI.
+# Build the Linux backend and frontend; install the kiosk UI.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKIP_CAMERA_WORKER=false
 SKIP_ORCHESTRATOR=false
 SKIP_FRONTEND=false
+SKIP_DETECTOR=false
+SKIP_GEOMETRY=false
+BUILD_JOBS="${IML_BUILD_JOBS:-2}"
 RESTART_FRONTEND=false
 FRONTEND_INSTALL_DIR="${FRONTEND_INSTALL_DIR:-/opt/defect-detector-ui}"
 FRONTEND_INSTALL_COMMAND=()
@@ -17,10 +20,13 @@ Usage: bash ./rebuild-and-run.sh [options]
   -c, --skip-camera-worker  Skip camera-worker rebuild
   -o, --skip-orchestrator   Skip orchestrator rebuild
   -f, --skip-frontend       Skip frontend build and kiosk installation
+  -d, --skip-detector       Skip C++ surface detector build
+  -g, --skip-geometry       Skip Java geometry service build
   --restart-frontend       Restart kiosk UI after installation, without a password
   -h, --help               Show this help
 
-Rebuild orchestrator, camera-worker and frontend; services are not stopped or started.
+Rebuild orchestrator, camera JNI, C++ detector, Java geometry and frontend.
+Services are not stopped or started. IML_BUILD_JOBS defaults to 2.
 Frontend: npm run build, then copy dist/, electron/ and package.json to
 /opt/defect-detector-ui (override with FRONTEND_INSTALL_DIR). Existing kiosk
 Electron/node_modules are reused. sudo is requested only for protected files.
@@ -152,6 +158,8 @@ while (($#)); do
     -c|-с|--skip-camera-worker) SKIP_CAMERA_WORKER=true; shift ;;
     -o|--skip-orchestrator) SKIP_ORCHESTRATOR=true; shift ;;
     -f|--skip-frontend|--no-frontend) SKIP_FRONTEND=true; shift ;;
+    -d|--skip-detector) SKIP_DETECTOR=true; shift ;;
+    -g|--skip-geometry) SKIP_GEOMETRY=true; shift ;;
     --restart-frontend) RESTART_FRONTEND=true; shift ;;
     -r|--rt-diagnostics|--build-only) LEGACY_OPTIONS=true; shift ;;
     --config|--rt-interval)
@@ -177,17 +185,20 @@ fi
 
 cd "$REPO_ROOT"
 step "Check build tools"
-if [[ -n "${JAVA_HOME:-}" && ( "$SKIP_ORCHESTRATOR" == false || "$SKIP_CAMERA_WORKER" == false ) ]]; then
+[[ "$BUILD_JOBS" =~ ^[1-9][0-9]*$ ]] || fail "IML_BUILD_JOBS must be a positive integer"
+if [[ -n "${JAVA_HOME:-}" && ( "$SKIP_ORCHESTRATOR" == false || "$SKIP_GEOMETRY" == false || "$SKIP_CAMERA_WORKER" == false ) ]]; then
   [[ -x "$JAVA_HOME/bin/java" ]] || fail "JAVA_HOME must contain bin/java"
   export PATH="$JAVA_HOME/bin:$PATH"
 fi
-if [[ "$SKIP_ORCHESTRATOR" == false ]]; then
+if [[ "$SKIP_ORCHESTRATOR" == false || "$SKIP_GEOMETRY" == false ]]; then
   for tool in java javac; do require_tool "$tool"; done
   resolve_maven
   echo "Maven: ${MAVEN_COMMAND[*]}"
 fi
 if [[ "$SKIP_CAMERA_WORKER" == false ]]; then
   require_tool javac
+fi
+if [[ "$SKIP_CAMERA_WORKER" == false || "$SKIP_DETECTOR" == false ]]; then
   resolve_cmake
   "$CMAKE_COMMAND" --version >/dev/null || fail "Cannot run CMake: $CMAKE_COMMAND"
   echo "CMake: $CMAKE_COMMAND"
@@ -202,6 +213,18 @@ if [[ "$SKIP_ORCHESTRATOR" == false ]]; then
   (cd "$REPO_ROOT/orchestrator-java" && "${MAVEN_COMMAND[@]}" --batch-mode --no-transfer-progress \
     -Dstyle.color=never package -Dmaven.test.skip=true)
   [[ -f "$REPO_ROOT/orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar" ]] || fail "Orchestrator build artifact missing"
+fi
+
+if [[ "$SKIP_GEOMETRY" == false ]]; then
+  step "Build java-geometry-service"
+  (cd "$REPO_ROOT/java-geometry-service" && "${MAVEN_COMMAND[@]}" --batch-mode --no-transfer-progress \
+    -Dstyle.color=never package -Dmaven.test.skip=true)
+  [[ -f "$REPO_ROOT/java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar" ]] || fail "Geometry build artifact missing"
+fi
+
+if [[ "$SKIP_DETECTOR" == false ]]; then
+  step "Build C++ surface detector"
+  CMAKE_CMD="$CMAKE_COMMAND" IML_BUILD_JOBS="$BUILD_JOBS" bash "$REPO_ROOT/cppAnalisSurface/build.sh"
 fi
 
 if [[ "$SKIP_CAMERA_WORKER" == false ]]; then

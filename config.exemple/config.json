@@ -7,7 +7,6 @@
     "binning_horizontal": 2,
     "binning_vertical": 2,
     "binning_mode": "Sum"
-    
   },
   "capture_source": "hik",
   "capture_trigger_mode": "line0",
@@ -183,22 +182,13 @@
     "max_wrinkles_score": 0.45
   },
   "python_detector": {
+    "backend": "cpp",
     "base_url": "http://127.0.0.1:8000",
-    "inspect_scale": 0.75,
-    "inspect_scale_by_camera": {
-      "2": 0.5,
-      "7": 0.5
-    },
-    "rois": [
-      {
-        "name": "main",
-        "x": 0,
-        "y": 0,
-        "width": 1224,
-        "height": 1024
-      }
-    ],
-    "fallback_threshold": 0.25
+    "server_concurrency": 10,
+    "defer_heatmap": false,
+    "defer_learning_review": false,
+    "heatmap_preview_max_width": 512,
+    "include_visuals": false
   },
   "client": {
     "url": "ws://127.0.0.1:8765",
@@ -249,8 +239,8 @@
   "integration": {
     "geometry_pool_size": 10,
     "python_parallelism": 10,
-    "python_request_parallelism": 6,
-    "python_server_pool_size": 3,
+    "python_request_parallelism": 10,
+    "python_server_pool_size": 1,
     "stage_queue_size": 20,
     "worker_command_timeout_ms": 30000,
     "worker_startup_stagger_ms": 0,
@@ -280,9 +270,9 @@
     },
     "analis_surface_autostart": {
       "enabled": true,
-      "inspect_workers": 10,
-      "working_dir": "analisSurface/backend",
-      "startup_timeout_ms": 180000,
+      "inspect_workers": 4,
+      "working_dir": "cppAnalisSurface",
+      "startup_timeout_ms": 30000,
       "health_path": "/health"
     },
     "save_captures": {
@@ -299,7 +289,29 @@
       "java",
       "-jar",
       "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
-    ]
+    ],
+    "analis_surface_command_linux": [
+      "cppAnalisSurface/build/cpp_analis_surface",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "8000",
+      "--data-dir",
+      "data"
+    ],
+    "analis_surface_command_windows": [
+      "cppAnalisSurface/build/Release/cpp_analis_surface.exe",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "8000",
+      "--data-dir",
+      "data"
+    ],
+    "performance_log": {
+      "enabled": true,
+      "directory": "logs/performance",
+      "queue_capacity": 8192
+    }
   }
 }
-

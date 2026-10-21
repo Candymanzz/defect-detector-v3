@@ -16,6 +16,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ProductionInspectionOrchestratorTest {
 
     @Test
+    void newTriggerResetsCycleTimingAndKeepsInspectionIdentity() {
+        AsyncInspectionCycleInput shared = minimalInput(2, null).withInspectionId(17L);
+        long before = System.nanoTime();
+        AsyncInspectionCycleInput cycle = shared.withTriggerSequence(23L);
+        long after = System.nanoTime();
+
+        assertTrue(cycle.tCameraStartNanos() >= before);
+        assertTrue(cycle.tCameraStartNanos() <= after);
+        assertTrue(cycle.triggerSequence() == 23L);
+        assertTrue(cycle.inspectionId() == 17L);
+        assertTrue(shared.triggerSequence() == 0L);
+    }
+
+    @Test
     void resolveCycleInputAllowsCaptureWithoutReference() {
         AsyncInspectionCycleInput in = minimalInput(0, new ReferenceSnapshot("bench", Map.of("shm_name", "stale")));
         Map<Integer, ReferenceSnapshot> refs = new HashMap<>();

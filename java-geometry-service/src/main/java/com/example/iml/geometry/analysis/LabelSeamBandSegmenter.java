@@ -63,6 +63,9 @@ public final class LabelSeamBandSegmenter {
         int minBandPixels = (int) Math.round(lerp(90.0, 20.0, s));
         int minEdgePoints = (int) Math.round(lerp(10.0, 4.0, s));
         double minGapPx = lerp(3.0, 1.2, s);
+        boolean validMask = roiMask8u != null && !roiMask8u.empty()
+                && roiMask8u.rows() == bgrRoi.rows() && roiMask8u.cols() == bgrRoi.cols();
+        int validArea = validMask ? Core.countNonZero(roiMask8u) : bgrRoi.cols() * bgrRoi.rows();
 
         Mat gray = new Mat();
         Mat blurred = new Mat();
@@ -76,6 +79,7 @@ public final class LabelSeamBandSegmenter {
         Mat component = new Mat();
         Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(3, 3));
         Mat bestBand = null;
+        Mat bestBinary = null;
         int bestArea = 0;
         double bestScore = Double.NEGATIVE_INFINITY;
         try {
@@ -92,8 +96,7 @@ public final class LabelSeamBandSegmenter {
                     Core.bitwise_not(binary, inverted);
                     inverted.copyTo(binary);
                 }
-                if (roiMask8u != null && !roiMask8u.empty()
-                        && roiMask8u.rows() == binary.rows() && roiMask8u.cols() == binary.cols()) {
+                if (validMask) {
                     Core.bitwise_and(binary, roiMask8u, masked);
                 } else {
                     binary.copyTo(masked);
@@ -107,12 +110,16 @@ public final class LabelSeamBandSegmenter {
                     if (area < minBandPixels) {
                         continue;
                     }
+                    // Complement/background can be larger than a real band
+                    // and otherwise wins both polarities, hiding interruptions.
+                    if (area > validArea * 0.80) continue;
                     int w = (int) stats.get(label, Imgproc.CC_STAT_WIDTH)[0];
                     int h = (int) stats.get(label, Imgproc.CC_STAT_HEIGHT)[0];
                     if (w < 3 || h < 3) {
                         continue;
                     }
                     double elong = elongationAlongAxis(w, h, axisDeg);
+                    if (w >= bgrRoi.cols() * 0.95 && h >= bgrRoi.rows() * 0.95) continue;
                     double score = area * (1.0 + elong);
                     if (score <= bestScore) {
                         continue;
@@ -122,7 +129,9 @@ public final class LabelSeamBandSegmenter {
                     if (bestBand != null) {
                         bestBand.release();
                     }
+                    if (bestBinary != null) bestBinary.release();
                     bestBand = component.clone();
+                    bestBinary = morph.clone();
                     bestScore = score;
                     bestArea = area;
                 }
@@ -150,10 +159,12 @@ public final class LabelSeamBandSegmenter {
             // seams and promote a sustained upper-tail width from the sampled component
             // edges. A single noisy sample cannot dominate because we use P90, not max.
             double localP90Px = pairedWidthPercentile(edges, 0.90);
-            double widthMm = Math.max(width.meanPx(), localP90Px) * safePixelsToMm;
+            double sustainedWidthPx = sustainedWidth(edges);
+            double widthMm = Math.max(width.meanPx(), Math.max(localP90Px, sustainedWidthPx)) * safePixelsToMm;
             double widthStartMm = width.startPx() * safePixelsToMm;
             double widthEndMm = width.endPx() * safePixelsToMm;
             double taperMm = Math.abs(widthStartMm - widthEndMm);
+            Continuity continuity = measureContinuity(bestBinary, lineA, lineB, axisDeg);
 
             double visibility = clamp01(bestArea / (double) (bgrRoi.cols() * bgrRoi.rows()) * 6.0);
             visibility = Math.max(visibility, clamp01(edges.sideA().size() / 20.0));
@@ -174,12 +185,16 @@ public final class LabelSeamBandSegmenter {
                     widthEndMm,
                     taperMm,
                     visibility,
-                    defectMm
+                    defectMm,
+                    continuity.pass(),
+                    continuity.missingPx() * safePixelsToMm,
+                    true
             );
         } finally {
             if (bestBand != null) {
                 bestBand.release();
             }
+            if (bestBinary != null) bestBinary.release();
             release(gray, blurred, binary, inverted, masked, morph, labels, stats, centroids, component, kernel);
         }
     }
@@ -311,6 +326,62 @@ public final class LabelSeamBandSegmenter {
         double p = Math.max(0.0, Math.min(1.0, percentile));
         int index = (int) Math.ceil(p * widths.size()) - 1;
         return widths.get(Math.max(0, Math.min(widths.size() - 1, index)));
+    }
+
+    // The broad fit and P90 can hide an opening occupying <10% of the seam.
+    // Three neighbouring measurements must support the larger local width.
+    private static double sustainedWidth(EdgePair edges) {
+        double maximum = 0.0;
+        for (int i = 0; i + 2 < edges.sideA().size(); i++) {
+            double minimum = Double.POSITIVE_INFINITY;
+            for (int j = i; j < i + 3; j++) {
+                Point a = edges.sideA().get(j), b = edges.sideB().get(j);
+                minimum = Math.min(minimum, Math.hypot(a.x - b.x, a.y - b.y));
+            }
+            maximum = Math.max(maximum, minimum);
+        }
+        return maximum;
+    }
+
+    private record Continuity(boolean pass, double missingPx) {}
+
+    private static Continuity measureContinuity(Mat binary, FittedLine a, FittedLine b, double axisDeg) {
+        double rad = Math.toRadians(axisDeg), ux = Math.cos(rad), uy = Math.sin(rad);
+        double px = -uy, py = ux;
+        double cx = (a.x0() + b.x0()) * 0.5, cy = (a.y0() + b.y0()) * 0.5;
+        double half = Math.hypot(binary.cols(), binary.rows()) * 0.55;
+        int samples = Math.max(32, (int) Math.ceil(half * 2.0 / 3.0));
+        double step = half * 2.0 / samples;
+        boolean[] present = new boolean[samples];
+        int first = -1, last = -1;
+        for (int i = 0; i < samples; i++) {
+            double t = -half + (i + 0.5) * step;
+            double x = cx + ux * t, y = cy + uy * t;
+            double width = pointToLineDistance(x, y, a) + pointToLineDistance(x, y, b);
+            if (width < 2.0) continue;
+            int support = 0, inside = 0;
+            // Check the central part of the fitted seam. This follows its
+            // orientation and avoids unrelated printing outside the band.
+            for (int j = 0; j < 9; j++) {
+                double offset = width * (j / 8.0 - 0.5) * 0.7;
+                int ix = (int) Math.round(x + px * offset), iy = (int) Math.round(y + py * offset);
+                if (ix < 0 || iy < 0 || ix >= binary.cols() || iy >= binary.rows()) continue;
+                inside++;
+                if (binary.get(iy, ix)[0] > 0) support++;
+            }
+            present[i] = inside >= 7 && support >= 3;
+            if (present[i]) { if (first < 0) first = i; last = i; }
+        }
+        int run = 0, longest = 0;
+        for (int i = first + 1; first >= 0 && i < last; i++) {
+            run = present[i] ? 0 : run + 1;
+            longest = Math.max(longest, run);
+        }
+        double missingPx = longest * step;
+        double span = Math.max(0, last - first) * step;
+        // Crop margins/single noisy samples abstain. A sustained interior
+        // break between visible sections is an independent geometric failure.
+        return new Continuity(longest < 3 || missingPx < Math.max(8.0, span * 0.04), missingPx);
     }
 
     private static double pointToLineDistance(double px, double py, FittedLine line) {

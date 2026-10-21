@@ -17,7 +17,7 @@ import {
 import { CameraSettingsModal } from "../CameraSettingsModal";
 import { ReferenceSetup } from "../ReferenceSetup";
 import { ServerStream } from "../ServerStream";
-import { AnalysisSettingsPanel } from "./AnalysisSettingsPanel";
+import { DetectorSettingsPanel } from "./DetectorSettingsPanel";
 import { orchestratorApi } from "../../shared/api";
 import { orchestratorWs } from "../../shared/ws";
 import benchmarkIconUrl from "../../shared/assets/images/benchmark.svg";
@@ -100,6 +100,12 @@ const ANALYSIS_SETTING_FIELDS: Array<{
     type: "number",
     min: 1,
     step: "0.1",
+  },
+  {
+    name: "enable_edge_suppression",
+    label: "Подавлять отклик на краях детали",
+    hint: "Выключите, чтобы тонкие царапины у кромки и границы этикетки не гасились. Может добавить ложные срабатывания от дрожания контура.",
+    type: "checkbox",
   },
   {
     name: "edge_suppress_factor",
@@ -736,7 +742,7 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
               <h3>Настройки анализа</h3>
               <strong>{analysisScopeText}</strong>
             </summary>
-            <AnalysisSettingsPanel
+            <DetectorSettingsPanel
               selectedCameraId={selectedCameraId}
               profile={settingData.analysisProductTypes[0]}
             />

@@ -163,6 +163,8 @@ public final class CriticalServiceWatchdog implements IntegrationComponent {
                     rpc.setHealthListener(ok -> applySupervisorHealth(key, ok));
                 } else if (supervisor instanceof com.example.iml.orchestrator.integration.clientapi.AnalisSurfaceHttpBinaryRpcSupervisor http) {
                     http.setHealthListener(ok -> applySupervisorHealth(key, ok));
+                } else if (supervisor instanceof com.example.iml.orchestrator.integration.clientapi.CppAnalisSurfaceHttpSupervisor cpp) {
+                    cpp.setHealthListener(ok -> applySupervisorHealth(key, ok));
                 }
             }
         }

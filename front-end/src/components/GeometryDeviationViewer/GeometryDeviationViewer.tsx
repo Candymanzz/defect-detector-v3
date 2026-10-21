@@ -1,4 +1,5 @@
 import type { GeometryInspectResponse } from "../../shared/api";
+import { geometrySkipReason } from "./geometrySkipReason";
 import "./GeometryDeviationViewer.css";
 
 type GeometryDeviationViewerProps = {
@@ -39,6 +40,15 @@ export function GeometryDeviationViewer({ geometry, loading, error }: GeometryDe
     );
   }
 
+  const skipped = geometrySkipReason(geometry);
+  if (skipped) {
+    return (
+      <figure className="geometry-deviation">
+        <figcaption>Геометрия</figcaption>
+        <div className="geometry-deviation__placeholder">{skipped}</div>
+      </figure>
+    );
+  }
   const shiftX = asFinite(geometry.shiftXmm);
   const shiftY = asFinite(geometry.shiftYmm);
   const deviationRadius = asFinite(geometry.deviationRadiusMm) ?? Math.hypot(shiftX ?? 0, shiftY ?? 0);
@@ -183,6 +193,14 @@ export function GeometryDeviationViewer({ geometry, loading, error }: GeometryDe
             <dt>Вердикт</dt>
             <dd data-pass={passed ? "true" : "false"}>{passed ? "Годен" : "Брак"}</dd>
           </div>
+          {geometry.joint_continuity_ran === true && (
+            <div>
+              <dt>Непрерывность шва</dt>
+              <dd>{geometry.joint_continuity_pass === false
+                ? `Разрыв ${formatMm(asFinite(geometry.joint_missing_run_mm))} мм`
+                : "Разрывов не обнаружено"}</dd>
+            </div>
+          )}
         </dl>
       </div>
     </figure>

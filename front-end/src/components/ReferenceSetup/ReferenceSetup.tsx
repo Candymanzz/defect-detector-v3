@@ -37,10 +37,12 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     isFullReferenceReplacement,
     isRoiOnlyEditMode,
     isRefreshingFramesKeepingRoi,
+    isRefreshingReferenceFrame,
     referenceName,
     setReferenceName,
     referenceSubmission,
     handleCaptureNewReferenceFrames,
+    handleRefreshReferenceFrame,
     handleCreateNewReference,
     handleRefreshFramesKeepingRoi,
     handleToggleCameraReplacement,
@@ -205,7 +207,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     }
                     role="tab"
                     type="button"
-                    disabled={isRefreshingFramesKeepingRoi}
+                    disabled={isRefreshingFramesKeepingRoi || isRefreshingReferenceFrame || referenceSubmission?.state === "pending"}
                     onClick={() => setActiveGroupIndex(groupIndex)}
                   >
                     Группа {groupIndex + 1}
@@ -264,11 +266,14 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 })}
               </div>
 
-              {!isRoiOnlyEditMode && (
                 <Button
                   className="reference-setup__button reference-setup__refresh"
-                  disabled={isRefreshingFramesKeepingRoi}
+                  disabled={isRefreshingFramesKeepingRoi || isRefreshingReferenceFrame || referenceSubmission?.state === "pending"}
                   onClick={() => {
+                    if (isRoiOnlyEditMode) {
+                      void handleRefreshReferenceFrame();
+                      return;
+                    }
                     if (isNewReferenceMode && hasAnyStoredReferenceForActiveGroup) {
                       if (isFullReferenceReplacement) {
                         void handleCreateNewReference();
@@ -280,7 +285,11 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     void handleCaptureNewReferenceFrames();
                   }}
                 >
-                  {isNewReferenceMode && hasAnyStoredReferenceForActiveGroup
+                  {isRefreshingReferenceFrame
+                    ? "Получение кадра..."
+                    : isRoiOnlyEditMode
+                    ? `↻ Обновить кадр камеры ${selectedCameraId}`
+                    : isNewReferenceMode && hasAnyStoredReferenceForActiveGroup
                     ? isFullReferenceReplacement
                       ? "Обновить все кадры ещё раз"
                       : replacementCameraIds.includes(selectedCameraId)
@@ -290,7 +299,6 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                       ? "Редактировать текущий эталон"
                       : "↻ Обновить кадры"}
                 </Button>
-              )}
               <div className="reference-setup__legend">
                 <span>
                   <i data-state="missing" /> Кадр не получен
@@ -450,7 +458,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                 </header>
                 <div className="reference-setup__object-row">
                   <i data-kind="joint" /> Камера {jointCameraId}
-                  <span>{hasJointRoi ? "ROI задан" : "не настроен"}</span>
+                  <span>{hasJointRoi ? "ROI задан" : "шов не проверяется: ROI не задан"}</span>
                 </div>
               </section>
               <p className="reference-setup__hint">
@@ -502,7 +510,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   {shouldStartNewReference && (
                     <Button
                       className="reference-setup__button reference-setup__refresh"
-                      disabled={isRefreshingFramesKeepingRoi}
+                      disabled={isRefreshingFramesKeepingRoi || isRefreshingReferenceFrame || referenceSubmission?.state === "pending"}
                       onClick={() => void handleRefreshFramesKeepingRoi()}
                     >
                       Новый эталон с прежним ROI

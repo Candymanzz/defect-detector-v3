@@ -1,0 +1,2 @@
+# Shell entrypoints are used directly by Linux and must retain LF on Windows checkouts too.
+*.sh text eol=lf

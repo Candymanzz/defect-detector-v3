@@ -1,6 +1,7 @@
 package com.example.iml.orchestrator.integration.services;
 
 import com.example.iml.orchestrator.integration.clientapi.AnalisSurfaceHttpBinaryRpcSupervisor;
+import com.example.iml.orchestrator.integration.clientapi.CppAnalisSurfaceHttpSupervisor;
 import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.python.AnalisSurfacePoolSupport;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
@@ -152,6 +153,18 @@ public final class ServicePoolLifecycle {
             int clientCount,
             int commandTimeoutMs
     ) {
+        return startAnalisSurfaceHttpPool(serverBaseUrls, clientCount, commandTimeoutMs, false);
+    }
+
+    /**
+     * @param cppBackend true: clients of the C++ detector (cppAnalisSurface), false: Python analisSurface
+     */
+    public List<BinaryRpcSupervisor> startAnalisSurfaceHttpPool(
+            List<String> serverBaseUrls,
+            int clientCount,
+            int commandTimeoutMs,
+            boolean cppBackend
+    ) {
         List<BinaryRpcSupervisor> pool = new ArrayList<>();
         List<String> clientUrls = AnalisSurfacePoolSupport.clientBaseUrls(serverBaseUrls, clientCount);
         if (clientUrls.isEmpty()) {
@@ -165,10 +178,11 @@ public final class ServicePoolLifecycle {
             }
             int serverIndex = servers <= 0 ? 0 : (i % servers);
             String name = clientUrls.size() == 1
-                    ? "analis-surface-http"
-                    : ("analis-surface-http-" + i + "->srv" + serverIndex);
-            AnalisSurfaceHttpBinaryRpcSupervisor supervisor =
-                    new AnalisSurfaceHttpBinaryRpcSupervisor(name, baseUrl, commandTimeoutMs);
+                    ? (cppBackend ? "cpp-analis-surface-http" : "analis-surface-http")
+                    : ((cppBackend ? "cpp-analis-surface-http-" : "analis-surface-http-") + i + "->srv" + serverIndex);
+            BinaryRpcSupervisor supervisor = cppBackend
+                    ? new CppAnalisSurfaceHttpSupervisor(name, baseUrl, commandTimeoutMs)
+                    : new AnalisSurfaceHttpBinaryRpcSupervisor(name, baseUrl, commandTimeoutMs);
             try {
                 supervisor.start();
                 BinaryProtocol.Message health = supervisor.health();
