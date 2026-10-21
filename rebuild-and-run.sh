@@ -177,7 +177,7 @@ fi
 
 cd "$REPO_ROOT"
 step "Check build tools"
-if [[ -n "${JAVA_HOME:-}" && "$SKIP_ORCHESTRATOR" == false ]]; then
+if [[ -n "${JAVA_HOME:-}" && ( "$SKIP_ORCHESTRATOR" == false || "$SKIP_CAMERA_WORKER" == false ) ]]; then
   [[ -x "$JAVA_HOME/bin/java" ]] || fail "JAVA_HOME must contain bin/java"
   export PATH="$JAVA_HOME/bin:$PATH"
 fi
@@ -187,6 +187,7 @@ if [[ "$SKIP_ORCHESTRATOR" == false ]]; then
   echo "Maven: ${MAVEN_COMMAND[*]}"
 fi
 if [[ "$SKIP_CAMERA_WORKER" == false ]]; then
+  require_tool javac
   resolve_cmake
   "$CMAKE_COMMAND" --version >/dev/null || fail "Cannot run CMake: $CMAKE_COMMAND"
   echo "CMake: $CMAKE_COMMAND"
@@ -204,19 +205,18 @@ if [[ "$SKIP_ORCHESTRATOR" == false ]]; then
 fi
 
 if [[ "$SKIP_CAMERA_WORKER" == false ]]; then
-  step "Build camera-worker"
+  step "Build camera JNI library"
   # Keep Linux and Windows CMake caches separate.
   CAMERA_BUILD="$REPO_ROOT/camera-worker/build-linux"
   "$CMAKE_COMMAND" -S "$REPO_ROOT/camera-worker" -B "$CAMERA_BUILD" \
-    -DCMAKE_BUILD_TYPE=Release "-DMVS_ROOT=${MVS_ROOT:-/opt/MVS}"
-  "$CMAKE_COMMAND" --build "$CAMERA_BUILD" --config Release --target camera_worker
-  [[ -x "$CAMERA_BUILD/camera_worker" ]] || fail "camera_worker binary missing"
+    -DCMAKE_BUILD_TYPE=Release -DCAMERA_BUILD_JNI=ON "-DMVS_ROOT=${MVS_ROOT:-/opt/MVS}"
+  "$CMAKE_COMMAND" --build "$CAMERA_BUILD" --config Release --target camera_jni
+  [[ -f "$CAMERA_BUILD/libcamera_jni.so" ]] || fail "libcamera_jni.so missing"
   mkdir -p "$REPO_ROOT/camera-worker/build"
-  # Existing configuration points to camera-worker/build/camera_worker.
-  worker_target="$REPO_ROOT/camera-worker/build/camera_worker"
-  # Replace the inode atomically: Linux disallows overwriting a running executable.
-  cp "$CAMERA_BUILD/camera_worker" "$worker_target.new.$$"
-  mv -f "$worker_target.new.$$" "$worker_target"
+  camera_library_target="$REPO_ROOT/camera-worker/build/libcamera_jni.so"
+  # Preserve the inode mapped by a running JVM until its next restart.
+  cp "$CAMERA_BUILD/libcamera_jni.so" "$camera_library_target.new.$$"
+  mv -f "$camera_library_target.new.$$" "$camera_library_target"
 fi
 
 if [[ "$SKIP_FRONTEND" == false ]]; then

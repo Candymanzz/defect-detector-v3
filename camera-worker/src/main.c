@@ -1,6 +1,7 @@
 #define JSMN_STATIC
 #include "jsmn.h"
 #include "cw_config.h"
+#include "cw_runtime.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -21,6 +22,7 @@
 #include <io.h>
 #else
 #include <pthread.h>
+#include <stdatomic.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -51,7 +53,7 @@
 #define STREAM_FPS_MAX 30
 typedef struct {
     int camera_id;
-    const char *detector;
+    char detector[64];
     char ip[64];
     int width;
     int height;
@@ -107,12 +109,21 @@ typedef struct {
     uint64_t started_ns;
     int capture_backend_ready;
     char capture_backend_info[128];
+#ifdef _WIN32
+    volatile LONG closing;
+#else
+    atomic_int closing;
+#endif
 #ifdef HAVE_HIK_MVS
     void *hik_handle;
     unsigned char *hik_raw_frame;
     unsigned int hik_raw_capacity;
 #endif
-    volatile int stream_active;
+#ifdef _WIN32
+    volatile LONG stream_active;
+#else
+    atomic_int stream_active;
+#endif
     int stream_fps;
     int stream_restore_trigger_mode;
     uint64_t stream_last_timestamp_ns;
@@ -1250,6 +1261,10 @@ static unsigned int hik_min_frame_transfer_delay_step(const worker_state_t *st) 
 }
 
 static unsigned int hik_effective_frame_transfer_delay_step(const worker_state_t *st) {
+    /* Explicit zero disables staggering; negative values retain automatic sizing. */
+    if (st->gige_frame_transfer_delay_step == 0) {
+        return 0u;
+    }
     unsigned int configured = st->gige_frame_transfer_delay_step > 0 ? (unsigned int)st->gige_frame_transfer_delay_step
                                                                        : 0u;
     unsigned int min_step = hik_min_frame_transfer_delay_step(st);
@@ -1290,6 +1305,9 @@ static unsigned int hik_frame_transfer_slot_index(const worker_state_t *st) {
 
 static int hik_effective_inter_packet_delay(const worker_state_t *st) {
     int delay = st->gige_inter_packet_delay;
+    if (delay <= 0) {
+        return delay;
+    }
     int per_link = st->gige_ftd_cameras_per_link > 0 ? st->gige_ftd_cameras_per_link : 2;
     if (hik_is_small_switch_buffer(st)) {
         int min_delay = (per_link == 2) ? 120000 : 80000;
@@ -1366,6 +1384,12 @@ static int hik_set_gige_int_value_clamped(void *handle, const char *node_name, u
                 sr);
         return sr;
     }
+    MVCC_INTVALUE applied;
+    memset(&applied, 0, sizeof(applied));
+    if (MV_CC_GetIntValue(handle, node_name, &applied) == MV_OK) {
+        fprintf(stderr, "hik: %s readback cam=%d value=%u requested=%u\n",
+                label, camera_id, applied.nCurValue, value);
+    }
     if (clamped != value) {
         fprintf(stderr,
                 "hik: %s=%u cam=%d (requested=%u clamped to range %u..%u)\n",
@@ -1388,9 +1412,6 @@ static void hik_apply_gige_frame_transfer_delay(worker_state_t *st) {
         return;
     }
     unsigned int step = hik_effective_frame_transfer_delay_step(st);
-    if (step == 0u) {
-        return;
-    }
     int per_link = st->gige_ftd_cameras_per_link > 0 ? st->gige_ftd_cameras_per_link : 2;
     unsigned int index = hik_frame_transfer_slot_index(st);
     unsigned int mult = hik_gige_ftd_delay_multiplier(st);
@@ -1419,7 +1440,7 @@ static void hik_apply_gige_frame_transfer_delay(worker_state_t *st) {
 }
 
 static void hik_apply_gige_inter_packet_delay(void *handle, int inter_packet_delay, int camera_id) {
-    if (inter_packet_delay <= 0) {
+    if (inter_packet_delay < 0) {
         return;
     }
     int r = hik_set_gige_int_value_clamped(handle, "GevSCPD", (unsigned int)inter_packet_delay, camera_id, "GevSCPD");
@@ -1672,8 +1693,22 @@ static int hik_apply_pixel_format(void *handle, int camera_id, int pixel_format_
     return -1;
 }
 
+static int hik_sdk_initialize(void) {
+#ifdef CW_EMBEDDED
+    return MV_OK;
+#else
+    return MV_CC_Initialize();
+#endif
+}
+
+static void hik_sdk_finalize(void) {
+#ifndef CW_EMBEDDED
+    (void)MV_CC_Finalize();
+#endif
+}
+
 static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
-    int nRet = MV_CC_Initialize();
+    int nRet = hik_sdk_initialize();
     if (nRet != MV_OK) {
         snprintf(err, err_len, "MV_CC_Initialize failed: 0x%x", nRet);
         return -1;
@@ -1684,7 +1719,7 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
     nRet = MV_CC_EnumDevices((unsigned int)(MV_GIGE_DEVICE | MV_USB_DEVICE), &devList);
     if (nRet != MV_OK || devList.nDeviceNum == 0) {
         snprintf(err, err_len, "MV_CC_EnumDevices failed or empty: ret=0x%x count=%u", nRet, devList.nDeviceNum);
-        MV_CC_Finalize();
+        hik_sdk_finalize();
         return -1;
     }
 
@@ -1692,48 +1727,43 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
     int haveWantedIp = parse_ipv4(st->ip, &wantedIp) == 0;
     unsigned int selected = 0;
     int opened = 0;
-    int preferredFirst = haveWantedIp ? 1 : 0;
-    for (int pass = 0; pass < 2 && !opened; pass++) {
-        for (unsigned int i = 0; i < devList.nDeviceNum && !opened; i++) {
-            MV_CC_DEVICE_INFO *info = devList.pDeviceInfo[i];
-            if (!info) continue;
-            int isPreferred = 0;
-            if (haveWantedIp && info->nTLayerType == MV_GIGE_DEVICE && info->SpecialInfo.stGigEInfo.nCurrentIp == wantedIp) {
-                isPreferred = 1;
+    /* Never substitute a different physical camera when the configured IP is offline. */
+    for (unsigned int i = 0; i < devList.nDeviceNum && !opened; i++) {
+        MV_CC_DEVICE_INFO *info = devList.pDeviceInfo[i];
+        if (!info) continue;
+        if (haveWantedIp && (info->nTLayerType != MV_GIGE_DEVICE || info->SpecialInfo.stGigEInfo.nCurrentIp != wantedIp)) {
+            continue;
+        }
+        nRet = MV_CC_CreateHandle(&st->hik_handle, info);
+        if (nRet != MV_OK || !st->hik_handle) {
+            st->hik_handle = NULL;
+            continue;
+        }
+        int openRet = -1;
+        for (int attempt = 0; attempt < 4; attempt++) {
+            openRet = MV_CC_OpenDevice(st->hik_handle, MV_ACCESS_Exclusive, 0);
+            nRet = openRet;
+            if (openRet == MV_OK) {
+                selected = i;
+                opened = 1;
+                nRet = openRet;
+                break;
             }
-            if ((pass == 0 && preferredFirst && !isPreferred) || (pass == 1 && preferredFirst && isPreferred)) {
-                continue;
-            }
-            nRet = MV_CC_CreateHandle(&st->hik_handle, info);
-            if (nRet != MV_OK || !st->hik_handle) {
-                st->hik_handle = NULL;
-                continue;
-            }
-            int openRet = -1;
-            for (int attempt = 0; attempt < 4; attempt++) {
-                openRet = MV_CC_OpenDevice(st->hik_handle, MV_ACCESS_Exclusive, 0);
-                if (openRet == MV_OK) {
-                    selected = i;
-                    opened = 1;
-                    nRet = openRet;
-                    break;
-                }
 #ifdef _WIN32
-                Sleep(250);
+            Sleep(250);
 #else
-                struct timespec retry_pause = {0, 250000000L};
-                nanosleep(&retry_pause, NULL);
+            struct timespec retry_pause = {0, 250000000L};
+            nanosleep(&retry_pause, NULL);
 #endif
-            }
-            if (!opened) {
-                MV_CC_DestroyHandle(st->hik_handle);
-                st->hik_handle = NULL;
-            }
+        }
+        if (!opened) {
+            MV_CC_DestroyHandle(st->hik_handle);
+            st->hik_handle = NULL;
         }
     }
     if (!opened) {
         snprintf(err, err_len, "MV_CC_OpenDevice failed: 0x%x", nRet);
-        MV_CC_Finalize();
+        hik_sdk_finalize();
         return -1;
     }
 
@@ -1748,7 +1778,7 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
         MV_CC_CloseDevice(st->hik_handle);
         MV_CC_DestroyHandle(st->hik_handle);
         st->hik_handle = NULL;
-        MV_CC_Finalize();
+        hik_sdk_finalize();
         return -1;
     }
     if (hik_apply_pixel_format(st->hik_handle, st->camera_id, st->pixel_format_pref, &st->hik_pixel_format_active) != 0) {
@@ -1756,7 +1786,7 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
         MV_CC_CloseDevice(st->hik_handle);
         MV_CC_DestroyHandle(st->hik_handle);
         st->hik_handle = NULL;
-        MV_CC_Finalize();
+        hik_sdk_finalize();
         return -1;
     }
     hik_disable_auto_white_balance(st->hik_handle);
@@ -1780,7 +1810,7 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
         MV_CC_CloseDevice(st->hik_handle);
         MV_CC_DestroyHandle(st->hik_handle);
         st->hik_handle = NULL;
-        MV_CC_Finalize();
+        hik_sdk_finalize();
         return -1;
     }
     st->gige_payload_bytes = (size_t)payload.nCurValue;
@@ -1800,7 +1830,7 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
         MV_CC_CloseDevice(st->hik_handle);
         MV_CC_DestroyHandle(st->hik_handle);
         st->hik_handle = NULL;
-        MV_CC_Finalize();
+        hik_sdk_finalize();
         return -1;
     }
 
@@ -1813,7 +1843,7 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
         MV_CC_CloseDevice(st->hik_handle);
         MV_CC_DestroyHandle(st->hik_handle);
         st->hik_handle = NULL;
-        MV_CC_Finalize();
+        hik_sdk_finalize();
         return -1;
     }
     if (devList.pDeviceInfo[selected]->nTLayerType == MV_GIGE_DEVICE) {
@@ -1831,7 +1861,7 @@ static void shutdown_hik_mvs(worker_state_t *st) {
         (void)MV_CC_CloseDevice(st->hik_handle);
         (void)MV_CC_DestroyHandle(st->hik_handle);
         st->hik_handle = NULL;
-        (void)MV_CC_Finalize();
+        (void)hik_sdk_finalize();
     }
     if (st->hik_raw_frame) {
         free(st->hik_raw_frame);
@@ -1939,7 +1969,16 @@ static int fire_software_trigger_only(worker_state_t *st, char *err, size_t err_
 #endif
 }
 
+static int camera_closing(worker_state_t *st) {
+#ifdef _WIN32
+    return InterlockedCompareExchange(&st->closing, 0, 0) != 0;
+#else
+    return atomic_load(&st->closing);
+#endif
+}
+
 static int capture_window_open(worker_state_t *st) {
+    if (camera_closing(st)) return 0;
     if (!st->capture_window_path[0]) return 1;
     if (!st->capture_window_token[0] || strcmp(st->capture_window_token, "0") == 0) return 0;
     FILE *f = fopen(st->capture_window_path, "r");
@@ -1952,6 +1991,10 @@ static int capture_window_open(worker_state_t *st) {
 
 static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t frame_id, int sync_capture, int wait_only,
                                char *err, size_t err_len) {
+    if (camera_closing(st)) {
+        snprintf(err, err_len, "camera_closing");
+        return -1;
+    }
     if (strcmp(st->capture_source, "hik") == 0) {
 #ifdef HAVE_HIK_MVS
         int use_sync = !wait_only && (sync_capture || st->trigger_mode == TRIGGER_MODE_SOFTWARE);
@@ -1978,15 +2021,21 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
                 return -1;
             }
         }
-        if (wait_only && st->capture_window_path[0]) {
+        int cancellable_wait = wait_only && st->capture_window_path[0];
+#ifdef CW_EMBEDDED
+        /* JNI calls cannot be interrupted by Thread.interrupt(). Poll the SDK
+         * so close/reconnect can cancel a frame wait before releasing memory. */
+        cancellable_wait = 1;
+#endif
+        if (cancellable_wait) {
             uint64_t deadline = now_ns() + (uint64_t)st->frame_timeout_ms * 1000000ull;
             do {
-                if (!capture_window_open(st)) {
+                if (camera_closing(st) || (wait_only && !capture_window_open(st))) {
                     snprintf(err, err_len, "capture_window_closed");
                     return -1;
                 }
                 nRet = MV_CC_GetOneFrameTimeout(st->hik_handle, st->hik_raw_frame, st->hik_raw_capacity, &info, 20);
-                if (!capture_window_open(st)) {
+                if (camera_closing(st) || (wait_only && !capture_window_open(st))) {
                     snprintf(err, err_len, "capture_window_closed");
                     return -1;
                 }
@@ -2029,7 +2078,11 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
     if (strcmp(st->capture_source, "aravis") == 0) {
 #ifdef HAVE_ARAVIS
         uint64_t timeout_us = (uint64_t)(st->frame_timeout_ms <= 0 ? 1000 : st->frame_timeout_ms) * 1000ull;
-        ArvBuffer *buffer = arv_stream_timeout_pop_buffer(st->arv_stream, timeout_us);
+        ArvBuffer *buffer = NULL;
+        uint64_t deadline = now_ns() + timeout_us * 1000ull;
+        do {
+            buffer = arv_stream_timeout_pop_buffer(st->arv_stream, timeout_us < 20000 ? timeout_us : 20000);
+        } while (!buffer && !camera_closing(st) && now_ns() < deadline);
         if (!buffer) {
             snprintf(err, err_len, "aravis timeout");
             return -1;
@@ -2073,8 +2126,8 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
 #endif
     }
     memcpy(frame, st->pattern_frame, st->frame_bytes);
-    frame[1] = (uint8_t)(frame_id & 0xFF);
-    frame[4] = (uint8_t)((frame_id >> 8) & 0xFF);
+    if (st->frame_bytes > 1) frame[1] = (uint8_t)(frame_id & 0xFF);
+    if (st->frame_bytes > 4) frame[4] = (uint8_t)((frame_id >> 8) & 0xFF);
     return 0;
 }
 
@@ -2200,7 +2253,7 @@ static DWORD WINAPI stream_thread_proc(LPVOID param) {
 static void *stream_thread_proc(void *param) {
 #endif
     worker_state_t *st = (worker_state_t *)param;
-    while (st->stream_active) {
+    while (st->stream_active && !camera_closing(st)) {
         int fps = st->stream_fps > 0 ? st->stream_fps : STREAM_FPS_DEFAULT;
         unsigned int sleep_ms = (unsigned int)(1000 / fps);
         if (sleep_ms < 1) {
@@ -2270,8 +2323,12 @@ static int start_stream_internal(worker_state_t *st, int fps, char *err, size_t 
 static int init_worker_state(worker_state_t *st, int camera_id, const char *detector, const worker_camera_config_t *cam_cfg,
                              const char *capture_source, int frame_timeout_ms) {
     memset(st, 0, sizeof(*st));
+#ifndef _WIN32
+    atomic_init(&st->closing, 0);
+    atomic_init(&st->stream_active, 0);
+#endif
     st->camera_id = camera_id;
-    st->detector = detector;
+    snprintf(st->detector, sizeof(st->detector), "%s", detector);
     if (cam_cfg && cam_cfg->ip[0] != '\0') {
         snprintf(st->ip, sizeof(st->ip), "%s", cam_cfg->ip);
     } else {
@@ -2343,6 +2400,7 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
     if (ftruncate(st->shm_fd, (off_t)st->shm_bytes) != 0) {
         fprintf(stderr, "ftruncate failed: %s\n", strerror(errno));
         close(st->shm_fd);
+        st->shm_fd = -1;
         shm_unlink(st->shm_name);
         return 1;
     }
@@ -2350,6 +2408,7 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
     if (st->shm_base == MAP_FAILED) {
         fprintf(stderr, "mmap failed: %s\n", strerror(errno));
         close(st->shm_fd);
+        st->shm_fd = -1;
         shm_unlink(st->shm_name);
         return 1;
     }
@@ -2533,6 +2592,239 @@ static void destroy_worker_state(worker_state_t *st) {
 #endif
 }
 
+static void set_response(cw_response *response, int type, const char *json) {
+    response->type = type;
+    snprintf(response->json, sizeof(response->json), "%s", json);
+}
+
+static int handle_camera_command(worker_state_t *st, const char *header_buf, cw_response *response) {
+    char op[64] = {0};
+    if (extract_op(header_buf, op, sizeof(op)) != 0) {
+        set_response(response, MSG_ERROR, "{\"error\":\"missing_op\"}");
+        return 0;
+    }
+
+    if (strcmp(op, "health") == 0) {
+        stream_lock_enter(st);
+        uint64_t avg_latency = st->capture_total > 0 ? st->latency_ns_sum / st->capture_total : 0;
+        double elapsed = (double)(now_ns() - st->started_ns) / 1e9;
+        double fps = elapsed > 0.0 ? (double)st->capture_total / elapsed : 0.0;
+        char out[1536];
+        snprintf(out, sizeof(out),
+                 "{\"status\":\"ok\",\"service\":\"camera-worker\",\"camera_id\":%d,\"detector\":\"%s\",\"ip\":\"%s\","
+                 "\"shm_name\":\"%s\",\"ring_slots\":%d,\"capture_total\":%llu,\"capture_dropped\":%llu,"
+                 "\"latency_ns_min\":%llu,\"latency_ns_avg\":%llu,\"latency_ns_max\":%llu,"
+                 "\"last_frame_id\":%llu,\"last_slot_index\":%d,"
+                 "\"capture_source\":\"%s\",\"capture_backend_ready\":%s,\"capture_backend_info\":\"%s\","
+                 "\"frame_timeout_ms\":%d,\"fps\":%.3f,"
+                 "\"detection\":\"analisSurface\"}",
+                 st->camera_id,
+                 st->detector,
+                 st->ip,
+                 st->shm_name,
+                 st->ring_slots,
+                 (unsigned long long)st->capture_total,
+                 (unsigned long long)st->capture_dropped,
+                 (unsigned long long)st->latency_ns_min,
+                 (unsigned long long)avg_latency,
+                 (unsigned long long)st->latency_ns_max,
+                 (unsigned long long)st->last_frame_id,
+                 st->last_slot_index,
+                 st->capture_source,
+                 st->capture_backend_ready ? "true" : "false",
+                 st->capture_backend_info,
+                 st->frame_timeout_ms,
+                 fps);
+        stream_lock_leave(st);
+        set_response(response, MSG_RESPONSE, out);
+    } else if (strcmp(op, "capture") == 0) {
+        if (st->stream_active) {
+            set_response(response, MSG_ERROR,
+                          "{\"error\":\"capture_rejected\",\"reason\":\"streaming_active_use_sync_inspection_after_stream_stop\"}");
+            return 0;
+        }
+        char cap_err[256] = {0};
+        int sync_capture = 0;
+        int trigger_only = 0;
+        int wait_frame = 0;
+        (void)json_find_bool(header_buf, (int)strlen(header_buf), "sync", &sync_capture);
+        (void)json_find_bool(header_buf, (int)strlen(header_buf), "trigger_only", &trigger_only);
+        (void)json_find_bool(header_buf, (int)strlen(header_buf), "wait_frame", &wait_frame);
+        st->capture_window_path[0] = st->capture_window_token[0] = '\0';
+        (void)json_find_string(header_buf, (int)strlen(header_buf), "capture_window_path", st->capture_window_path, sizeof(st->capture_window_path));
+        (void)json_find_string(header_buf, (int)strlen(header_buf), "capture_window_token", st->capture_window_token, sizeof(st->capture_window_token));
+        stream_lock_enter(st);
+        int cap_rc;
+        if (trigger_only) {
+            cap_rc = fire_software_trigger_only(st, cap_err, sizeof(cap_err));
+        } else {
+            cap_rc = capture_frame_to_shm(st, sync_capture, wait_frame, cap_err, sizeof(cap_err));
+        }
+        stream_lock_leave(st);
+        if (cap_rc != 0) {
+            char escaped[320];
+            json_escape(cap_err[0] ? cap_err : "capture_failed", escaped, sizeof(escaped));
+            char out_err[512];
+            snprintf(out_err, sizeof(out_err), "{\"error\":\"capture_failed\",\"reason\":\"%s\",\"source\":\"%s\"}",
+                     escaped, st->capture_source);
+            set_response(response, MSG_ERROR, out_err);
+            return 0;
+        }
+        char out[1200];
+        if (trigger_only) {
+            snprintf(out, sizeof(out),
+                     "{\"status\":\"triggered\",\"camera_id\":%d,\"trigger_fired_ns\":%llu}",
+                     st->camera_id, (unsigned long long)st->pending_trigger_fired_ns);
+        } else {
+            format_capture_json(st, out, sizeof(out));
+        }
+        set_response(response, MSG_RESPONSE, out);
+    } else if (strcmp(op, "start_stream") == 0) {
+        int fps = STREAM_FPS_DEFAULT;
+        (void)json_find_int(header_buf, (int)strlen(header_buf), "fps", &fps);
+        char stream_err[256] = {0};
+        if (start_stream_internal(st, fps, stream_err, sizeof(stream_err)) != 0) {
+            char escaped[320];
+            json_escape(stream_err[0] ? stream_err : "start_stream_failed", escaped, sizeof(escaped));
+            char out_err[512];
+            snprintf(out_err, sizeof(out_err), "{\"error\":\"start_stream_failed\",\"reason\":\"%s\"}", escaped);
+            set_response(response, MSG_ERROR, out_err);
+            return 0;
+        }
+        char out[256];
+        snprintf(out, sizeof(out), "{\"status\":\"streaming\",\"camera_id\":%d,\"fps\":%d}", st->camera_id, st->stream_fps);
+        set_response(response, MSG_RESPONSE, out);
+    } else if (strcmp(op, "stop_stream") == 0) {
+        stop_stream_internal(st);
+        char out[128];
+        snprintf(out, sizeof(out), "{\"status\":\"stream_stopped\",\"camera_id\":%d}", st->camera_id);
+        set_response(response, MSG_RESPONSE, out);
+    } else if (strcmp(op, "stream_poll") == 0) {
+        stream_lock_enter(st);
+        if (!st->stream_active) {
+            stream_lock_leave(st);
+            set_response(response, MSG_ERROR, "{\"error\":\"stream_not_active\"}");
+            return 0;
+        }
+        if (st->last_frame_id == 0) {
+            stream_lock_leave(st);
+            set_response(response, MSG_ERROR, "{\"error\":\"no_stream_frame_yet\"}");
+            return 0;
+        }
+        char out[1200];
+        format_capture_json(st, out, sizeof(out));
+        stream_lock_leave(st);
+        set_response(response, MSG_RESPONSE, out);
+    } else if (strcmp(op, "get_settings") == 0) {
+        char out[1024];
+        stream_lock_enter(st);
+        format_settings_json(st, out, sizeof(out));
+        stream_lock_leave(st);
+        set_response(response, MSG_RESPONSE, out);
+    } else if (strcmp(op, "set_settings") == 0) {
+        char settings_err[256] = {0};
+        int settings_rc = apply_settings_from_header(st, header_buf, settings_err, sizeof(settings_err));
+        if (settings_rc != 0) {
+            char escaped[320];
+            json_escape(settings_err[0] ? settings_err : "set_settings_failed", escaped, sizeof(escaped));
+            char out_err[512];
+            snprintf(out_err, sizeof(out_err), "{\"error\":\"set_settings_failed\",\"reason\":\"%s\"}", escaped);
+            set_response(response, MSG_ERROR, out_err);
+            return 0;
+        }
+        char out[1024];
+        stream_lock_enter(st);
+        format_settings_json(st, out, sizeof(out));
+        stream_lock_leave(st);
+        set_response(response, MSG_RESPONSE, out);
+    } else if (strcmp(op, "set_reference") == 0) {
+        set_response(response, MSG_ERROR,
+                      "{\"error\":\"set_reference_not_supported\",\"hint\":\"use analisSurface set_reference_shm\"}");
+    } else if (strcmp(op, "stop") == 0) {
+        stop_stream_internal(st);
+        log_metrics(st);
+        set_response(response, MSG_RESPONSE, "{\"status\":\"stopped\"}");
+        return 1;
+    } else {
+        set_response(response, MSG_ERROR, "{\"error\":\"unknown_op\"}");
+    }
+    return 0;
+}
+
+struct cw_camera { worker_state_t state; };
+
+cw_camera *cw_camera_open(const char *path, int camera_id, char *error, size_t error_size) {
+    char *js = NULL;
+    long jslen = 0;
+    if (read_file(path, &js, &jslen) != 0) {
+        snprintf(error, error_size, "Cannot read camera config: %s", path);
+        return NULL;
+    }
+    jsmn_parser parser;
+    jsmntok_t tokens[TOK_POOL];
+    jsmn_init(&parser);
+    int count = jsmn_parse(&parser, js, (size_t)jslen, tokens, TOK_POOL);
+    if (count < 1 || tokens[0].type != JSMN_OBJECT) {
+        snprintf(error, error_size, "Invalid camera config JSON: %s", path);
+        free(js);
+        return NULL;
+    }
+    char detector[64] = "v1";
+    char capture_source[32] = "fake";
+    int frame_timeout_ms = 1000;
+    worker_camera_config_t cfg;
+    (void)json_find_string(js, (int)jslen, "detector", detector, sizeof(detector));
+    (void)json_find_string(js, (int)jslen, "capture_source", capture_source, sizeof(capture_source));
+    (void)json_find_int(js, (int)jslen, "frame_timeout_ms", &frame_timeout_ms);
+    load_camera_config(js, (int)jslen, camera_id, &cfg);
+    load_runtime_wb_settings(path, camera_id, &cfg);
+    (void)json_find_int(js, (int)jslen, "gige_inter_packet_delay", &cfg.gige_inter_packet_delay);
+    (void)json_find_int(js, (int)jslen, "gige_frame_transfer_delay_step", &cfg.gige_frame_transfer_delay_step);
+    (void)json_find_int(js, (int)jslen, "gige_ftd_cameras_per_link", &cfg.gige_ftd_cameras_per_link);
+    (void)json_find_int(js, (int)jslen, "gige_switch_buffer_kb", &cfg.gige_switch_buffer_kb);
+    load_frame_config(js, (int)jslen, &cfg);
+    snprintf(cfg.trigger_activation, sizeof(cfg.trigger_activation), "RisingEdge");
+    (void)json_find_string(js, (int)jslen, "line0_trigger_activation", cfg.trigger_activation, sizeof(cfg.trigger_activation));
+    (void)json_find_bool(js, (int)jslen, "line0_line_inverter", &cfg.line_inverter);
+    free(js);
+    if (strcmp(capture_source, "fake") && strcmp(capture_source, "hik") && strcmp(capture_source, "aravis")) {
+        snprintf(error, error_size, "Unknown capture_source: %s", capture_source);
+        return NULL;
+    }
+    if (cfg.frame_width > 32768 || cfg.frame_height > 32768) {
+        snprintf(error, error_size, "Camera frame dimensions exceed 32768");
+        return NULL;
+    }
+    cw_camera *camera = calloc(1, sizeof(*camera));
+    if (!camera) { snprintf(error, error_size, "Cannot allocate camera state"); return NULL; }
+    if (init_worker_state(&camera->state, camera_id, detector, &cfg, capture_source, frame_timeout_ms) != 0) {
+        snprintf(error, error_size, "Camera %d initialization failed (source=%s); see native diagnostics", camera_id, capture_source);
+        destroy_worker_state(&camera->state);
+        free(camera);
+        return NULL;
+    }
+    return camera;
+}
+
+int cw_camera_command(cw_camera *camera, const char *header_json, cw_response *response) {
+    return handle_camera_command(&camera->state, header_json, response);
+}
+
+void cw_camera_close(cw_camera *camera) {
+    if (!camera) return;
+    destroy_worker_state(&camera->state);
+    free(camera);
+}
+
+void cw_camera_cancel(cw_camera *camera) {
+#ifdef _WIN32
+    InterlockedExchange(&camera->state.closing, 1);
+#else
+    atomic_store(&camera->state.closing, 1);
+#endif
+}
+
+#ifndef CW_EMBEDDED
 static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, const char *detector,
                               const worker_camera_config_t *cam_cfg, const char *capture_source, int frame_timeout_ms) {
     worker_state_t st;
@@ -2598,137 +2890,8 @@ static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, 
         }
 
         char op[64] = {0};
-        if (extract_op(header_buf, op, sizeof(op)) != 0) {
-            write_message(out_stream, MSG_ERROR, "{\"error\":\"missing_op\"}");
-            continue;
-        }
-
-        if (strcmp(op, "health") == 0) {
-            uint64_t avg_latency = st.capture_total > 0 ? st.latency_ns_sum / st.capture_total : 0;
-            double elapsed = (double)(now_ns() - st.started_ns) / 1e9;
-            double fps = elapsed > 0.0 ? (double)st.capture_total / elapsed : 0.0;
-            char out[1536];
-            snprintf(out, sizeof(out),
-                     "{\"status\":\"ok\",\"service\":\"camera-worker\",\"camera_id\":%d,\"detector\":\"%s\",\"ip\":\"%s\","
-                     "\"shm_name\":\"%s\",\"ring_slots\":%d,\"capture_total\":%llu,\"capture_dropped\":%llu,"
-                     "\"latency_ns_min\":%llu,\"latency_ns_avg\":%llu,\"latency_ns_max\":%llu,"
-                     "\"last_frame_id\":%llu,\"last_slot_index\":%d,"
-                     "\"capture_source\":\"%s\",\"capture_backend_ready\":%s,\"capture_backend_info\":\"%s\","
-                     "\"frame_timeout_ms\":%d,\"fps\":%.3f,"
-                     "\"detection\":\"analisSurface\"}",
-                     st.camera_id,
-                     st.detector,
-                     st.ip,
-                     st.shm_name,
-                     st.ring_slots,
-                     (unsigned long long)st.capture_total,
-                     (unsigned long long)st.capture_dropped,
-                     (unsigned long long)st.latency_ns_min,
-                     (unsigned long long)avg_latency,
-                     (unsigned long long)st.latency_ns_max,
-                     (unsigned long long)st.last_frame_id,
-                     st.last_slot_index,
-                     st.capture_source,
-                     st.capture_backend_ready ? "true" : "false",
-                     st.capture_backend_info,
-                     st.frame_timeout_ms,
-                     fps);
-            write_message(out_stream, MSG_RESPONSE, out);
-        } else if (strcmp(op, "capture") == 0) {
-            if (st.stream_active) {
-                write_message(out_stream, MSG_ERROR,
-                              "{\"error\":\"capture_rejected\",\"reason\":\"streaming_active_use_sync_inspection_after_stream_stop\"}");
-                continue;
-            }
-            char cap_err[256] = {0};
-            int sync_capture = 0;
-            int trigger_only = 0;
-            int wait_frame = 0;
-            (void)json_find_bool(header_buf, (int)strlen(header_buf), "sync", &sync_capture);
-            (void)json_find_bool(header_buf, (int)strlen(header_buf), "trigger_only", &trigger_only);
-            (void)json_find_bool(header_buf, (int)strlen(header_buf), "wait_frame", &wait_frame);
-            st.capture_window_path[0] = st.capture_window_token[0] = '\0';
-            (void)json_find_string(header_buf, (int)strlen(header_buf), "capture_window_path", st.capture_window_path, sizeof(st.capture_window_path));
-            (void)json_find_string(header_buf, (int)strlen(header_buf), "capture_window_token", st.capture_window_token, sizeof(st.capture_window_token));
-            stream_lock_enter(&st);
-            int cap_rc;
-            if (trigger_only) {
-                cap_rc = fire_software_trigger_only(&st, cap_err, sizeof(cap_err));
-            } else {
-                cap_rc = capture_frame_to_shm(&st, sync_capture, wait_frame, cap_err, sizeof(cap_err));
-            }
-            stream_lock_leave(&st);
-            if (cap_rc != 0) {
-                char escaped[320];
-                json_escape(cap_err[0] ? cap_err : "capture_failed", escaped, sizeof(escaped));
-                char out_err[512];
-                snprintf(out_err, sizeof(out_err), "{\"error\":\"capture_failed\",\"reason\":\"%s\",\"source\":\"%s\"}",
-                         escaped, st.capture_source);
-                write_message(out_stream, MSG_ERROR, out_err);
-                continue;
-            }
-            char out[1200];
-            if (trigger_only) {
-                snprintf(out, sizeof(out),
-                         "{\"status\":\"triggered\",\"camera_id\":%d,\"trigger_fired_ns\":%llu}",
-                         st.camera_id, (unsigned long long)st.pending_trigger_fired_ns);
-            } else {
-                format_capture_json(&st, out, sizeof(out));
-            }
-            write_message(out_stream, MSG_RESPONSE, out);
-        } else if (strcmp(op, "start_stream") == 0) {
-            int fps = STREAM_FPS_DEFAULT;
-            (void)json_find_int(header_buf, (int)strlen(header_buf), "fps", &fps);
-            char stream_err[256] = {0};
-            if (start_stream_internal(&st, fps, stream_err, sizeof(stream_err)) != 0) {
-                char escaped[320];
-                json_escape(stream_err[0] ? stream_err : "start_stream_failed", escaped, sizeof(escaped));
-                char out_err[512];
-                snprintf(out_err, sizeof(out_err), "{\"error\":\"start_stream_failed\",\"reason\":\"%s\"}", escaped);
-                write_message(out_stream, MSG_ERROR, out_err);
-                continue;
-            }
-            char out[256];
-            snprintf(out, sizeof(out), "{\"status\":\"streaming\",\"camera_id\":%d,\"fps\":%d}", st.camera_id, st.stream_fps);
-            write_message(out_stream, MSG_RESPONSE, out);
-        } else if (strcmp(op, "stop_stream") == 0) {
-            stop_stream_internal(&st);
-            char out[128];
-            snprintf(out, sizeof(out), "{\"status\":\"stream_stopped\",\"camera_id\":%d}", st.camera_id);
-            write_message(out_stream, MSG_RESPONSE, out);
-        } else if (strcmp(op, "stream_poll") == 0) {
-            if (!st.stream_active) {
-                write_message(out_stream, MSG_ERROR, "{\"error\":\"stream_not_active\"}");
-                continue;
-            }
-            if (st.last_frame_id == 0) {
-                write_message(out_stream, MSG_ERROR, "{\"error\":\"no_stream_frame_yet\"}");
-                continue;
-            }
-            char out[1200];
-            format_capture_json(&st, out, sizeof(out));
-            write_message(out_stream, MSG_RESPONSE, out);
-        } else if (strcmp(op, "get_settings") == 0) {
-            char out[1024];
-            format_settings_json(&st, out, sizeof(out));
-            write_message(out_stream, MSG_RESPONSE, out);
-        } else if (strcmp(op, "set_settings") == 0) {
-            char settings_err[256] = {0};
-            if (apply_settings_from_header(&st, header_buf, settings_err, sizeof(settings_err)) != 0) {
-                char escaped[320];
-                json_escape(settings_err[0] ? settings_err : "set_settings_failed", escaped, sizeof(escaped));
-                char out_err[512];
-                snprintf(out_err, sizeof(out_err), "{\"error\":\"set_settings_failed\",\"reason\":\"%s\"}", escaped);
-                write_message(out_stream, MSG_ERROR, out_err);
-                continue;
-            }
-            char out[1024];
-            format_settings_json(&st, out, sizeof(out));
-            write_message(out_stream, MSG_RESPONSE, out);
-        } else if (strcmp(op, "set_reference") == 0) {
-            write_message(out_stream, MSG_ERROR,
-                          "{\"error\":\"set_reference_not_supported\",\"hint\":\"use analisSurface set_reference_shm\"}");
-        } else if (strcmp(op, "inject_exit") == 0) {
+        (void)extract_op(header_buf, op, sizeof(op));
+        if (strcmp(op, "inject_exit") == 0) {
             fflush(out_stream);
             destroy_worker_state(&st);
             _exit(42);
@@ -2748,13 +2911,14 @@ static int run_binary_loop_io(FILE *in_stream, FILE *out_stream, int camera_id, 
             const char *broken = "BROKEN_RESPONSE";
             fwrite(broken, 1, strlen(broken), out_stream);
             fflush(out_stream);
-        } else if (strcmp(op, "stop") == 0) {
-            log_metrics(&st);
-            write_message(out_stream, MSG_RESPONSE, "{\"status\":\"stopped\"}");
-            break;
+
         } else {
-            write_message(out_stream, MSG_ERROR, "{\"error\":\"unknown_op\"}");
+            cw_response response;
+            int stopped = handle_camera_command(&st, header_buf, &response);
+            write_message(out_stream, (uint8_t)response.type, response.json);
+            if (stopped) break;
         }
+
     }
 
     destroy_worker_state(&st);
@@ -2899,3 +3063,5 @@ int main(int argc, char **argv) {
     printf("  detector=%s ip=%s\n", detector, cam_cfg.ip);
     return 0;
 }
+
+#endif /* !CW_EMBEDDED */

@@ -64,7 +64,7 @@ public final class IntegrationRuntimeContext {
     private List<Map<String, Object>> cameras = List.of();
     private List<Map<String, Object>> activeCameras = List.of();
     private IntegrationBootConfig bootConfig;
-    private Path workerBin;
+    private Path cameraNativeLibrary;
     private Path workerConfigPath;
 
     private ServicePoolLifecycle servicePools;
@@ -182,12 +182,12 @@ public final class IntegrationRuntimeContext {
         this.bootConfig = bootConfig;
     }
 
-    public Path workerBin() {
-        return workerBin;
+    public Path cameraNativeLibrary() {
+        return cameraNativeLibrary;
     }
 
-    public void setWorkerBin(Path workerBin) {
-        this.workerBin = workerBin;
+    public void setCameraNativeLibrary(Path cameraNativeLibrary) {
+        this.cameraNativeLibrary = cameraNativeLibrary;
     }
 
     public Path workerConfigPath() {

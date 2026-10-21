@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Pre-flight: камеры, SHM purge, бинарник worker, загрузка {@link IntegrationBootConfig}.
+ * Pre-flight: камеры, SHM purge, JNI library, загрузка {@link IntegrationBootConfig}.
  */
 public final class IntegrationPreflightService {
 
@@ -26,7 +26,7 @@ public final class IntegrationPreflightService {
     }
 
     /**
-     * @return {@code false} при early-exit (нет камер / нет worker binary)
+     * @return {@code false} при early-exit (нет камер / нет JNI library)
      */
     @SuppressWarnings("unchecked")
     public boolean run(IntegrationRuntimeContext ctx) {
@@ -39,15 +39,15 @@ public final class IntegrationPreflightService {
         log.info("configured cameras: {}", ConfiguredCameras.enabledIds(ctx.root()));
         ImlShmJanitor.purgeStaleFiles(log);
 
-        Path workerBin = CameraWorkerPaths.resolveCameraWorkerExecutable(ctx.projectRoot());
-        ctx.setWorkerBin(workerBin);
         Map<String, Object> integration = (Map<String, Object>) ctx.root().get("integration");
         ctx.setIntegration(integration);
+        Path cameraLibrary = CameraWorkerPaths.resolveCameraNativeLibrary(ctx.projectRoot(), integration);
+        ctx.setCameraNativeLibrary(cameraLibrary);
 
-        if (!Files.isRegularFile(workerBin)) {
+        if (!Files.isRegularFile(cameraLibrary)) {
             log.error(
-                    "camera-worker binary not found at {}. Build the worker or place camera_worker (exe) under camera-worker/build/; integration pipeline not started.",
-                    workerBin.toAbsolutePath()
+                    "Camera JNI library not found at {}. Build camera-worker with CAMERA_BUILD_JNI=ON (target camera_jni); integration pipeline not started.",
+                    cameraLibrary
             );
             return false;
         }
@@ -62,8 +62,9 @@ public final class IntegrationPreflightService {
         ctx.setWorkerConfigPath(workerConfigPath);
         if (!Files.isRegularFile(workerConfigPath)) {
             log.error("Файл конфигурации camera-worker не найден: {} (integration.worker_config_json)", workerConfigPath.toAbsolutePath());
+            return false;
         } else {
-            log.info("camera_worker config={}", workerConfigPath.toAbsolutePath());
+            log.info("camera backend=jni library={} config={}", cameraLibrary, workerConfigPath.toAbsolutePath());
         }
         return true;
     }
