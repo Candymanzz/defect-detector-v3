@@ -48,7 +48,8 @@ workerScope.onmessage = (event: MessageEvent<HeatmapRenderRequest>) => {
       pixels[pixelIndex] = HEATMAP_COLOR_LUT[colorIndex];
       pixels[pixelIndex + 1] = HEATMAP_COLOR_LUT[colorIndex + 1];
       pixels[pixelIndex + 2] = HEATMAP_COLOR_LUT[colorIndex + 2];
-      pixels[pixelIndex + 3] = HEATMAP_COLOR_LUT[colorIndex + 3];
+      // raw 0 = no anomaly (or outside the ROI): keep it transparent instead of tinting the whole frame
+      pixels[pixelIndex + 3] = bytes[index] === 0 ? 0 : HEATMAP_COLOR_LUT[colorIndex + 3];
     }
 
     context.putImageData(imageData, 0, 0);

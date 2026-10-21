@@ -17,6 +17,9 @@ double msSince(Clock::time_point t) {
 }
 
 constexpr double kMinShiftResponse = 0.05;   // below this the shift estimate is not trusted
+// A shift beyond the limit rejects the frame only when the estimate is confident: on flat / overexposed
+// surfaces phase correlation returns a large shift with a response of ~0.05-0.1 that is just noise.
+constexpr double kRejectShiftResponse = 0.3;
 
 }
 
@@ -52,11 +55,14 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     sh.y *= static_cast<double>(region.height) / prep->smallSize.height;
     out.shiftResponse = response;
     if (response < kMinShiftResponse) sh = cv::Point2d(0, 0);
+    out.rawShift = cv::Point2d(sh.x / scale, sh.y / scale);
 
     const double maxShift = std::max(8.0, 4.0 * tolWork);
     if (std::abs(sh.x) > maxShift || std::abs(sh.y) > maxShift) {
-        out.reject = true;
-        out.reason = "shift_exceeded";
+        if (response >= kRejectShiftResponse) {
+            out.reject = true;
+            out.reason = "shift_exceeded";
+        }
         sh = cv::Point2d(0, 0);   // a shift this large cannot be compensated reliably
     }
     out.shift = cv::Point2d(sh.x / scale, sh.y / scale);
@@ -184,9 +190,13 @@ cv::Mat placeInCanvas(const InspectOutcome& out, const cv::Mat& regionImg) {
 }
 
 cv::Mat buildHeatmap(const InspectOutcome& out, const NormPolygon& roi, int maxWidth) {
-    // anomaly energy: pixel differences, gated by the accepted blobs
-    cv::Mat core = cv::Mat::zeros(out.diff.size(), CV_8U);
-    out.diff.copyTo(core, out.kept);
+    // anomaly energy: diff normalised to the detection threshold (threshold -> mid grey, 2x threshold -> white),
+    // values below half of the threshold are dropped so that noise does not paint the whole object. Unlike a
+    // blob-gated map this also shows sub-threshold hints, so a near-miss is visible and a clean frame is empty.
+    const double thr = std::max(1, out.pixelThreshold);
+    cv::Mat core;
+    out.diff.convertTo(core, CV_8U, 128.0 / thr);
+    cv::threshold(core, core, 63, 0, cv::THRESH_TOZERO);
     cv::Mat heat = placeInCanvas(out, core);
 
     // downscale first (the halo is a visual effect, so it is cheaper to blur the small image)

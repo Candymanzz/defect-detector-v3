@@ -13,6 +13,7 @@ struct InspectOutcome {
     bool reject = false;
     std::string reason;              // "", "score_over_threshold", "shift_exceeded"
     cv::Point2d shift;               // detected translation, original-frame pixels
+    cv::Point2d rawShift;            // estimate before the limit/ignore rules (diagnostics)
     double shiftResponse = 0.0;      // phase-correlation confidence
     std::vector<cv::Rect> zones;     // anomaly zones, original-frame pixels
     double alignMs = 0, diffMs = 0, anomalyMs = 0, totalMs = 0;

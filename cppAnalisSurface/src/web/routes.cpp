@@ -170,6 +170,7 @@ json inspectJson(const std::string& product, const Inspected& r, const Service::
     j["area_percent"] = round3(o.areaPercent);
     j["reason"] = o.reason;
     j["shift"] = {round3(o.shift.x), round3(o.shift.y)};
+    j["shift_raw"] = {round3(o.rawShift.x), round3(o.rawShift.y)};
     j["zones"] = json::array();
     for (auto& z : o.zones) j["zones"].push_back({z.x, z.y, z.width, z.height});
     j["frame_width"] = r.frameSize.width;
@@ -208,6 +209,7 @@ constexpr int kOkSampleEvery = 20;
 
 struct ProductStats {
     long long n = 0, rejects = 0, shiftExceeded = 0, sinceLogged = 0;
+    Clock::time_point lastFull = Clock::now();
     double scoreSum = 0, scoreMax = 0, msSum = 0, msMax = 0, waitMax = 0;
     std::vector<double> ms;
 };
@@ -254,8 +256,9 @@ void logInspection(const char* endpoint, const InspectJob& job, const Inspected&
         st.msMax = std::max(st.msMax, totalMs);
         st.waitMax = std::max(st.waitMax, r.waitMs);
         st.ms.push_back(totalMs);
-        if (!full && ++st.sinceLogged >= kOkSampleEvery) full = true;
-        if (full) st.sinceLogged = 0;
+        // calm frames: every kOkSampleEvery-th, or at least one per 30 s so slow cameras still leave a trace
+        if (!full && (++st.sinceLogged >= kOkSampleEvery || Clock::now() - st.lastFull > std::chrono::seconds(30))) full = true;
+        if (full) { st.sinceLogged = 0; st.lastFull = Clock::now(); }
         if (Clock::now() - g_lastSummary > std::chrono::seconds(60)) {
             g_lastSummary = Clock::now();
             flushSummary(g_stats);
