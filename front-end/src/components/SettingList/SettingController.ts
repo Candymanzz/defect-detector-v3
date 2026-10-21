@@ -19,7 +19,6 @@ const MIN_MAX_SHIFT_MM = 0;
 const MAX_MAX_SHIFT_MM = 100;
 const MIN_SEGMENTATION_SENSITIVITY = 0;
 const MAX_SEGMENTATION_SENSITIVITY = 1;
-const FALLBACK_ANALYSIS_PRODUCT_TYPE = "reference-product";
 
 const DEFAULT_ANALYSIS_SETTINGS: AnalysisSettings = {
   default_threshold: 0.25,
@@ -118,21 +117,12 @@ export async function saveLineDirection(
 }
 
 export async function loadSettingData(selectedCameraId: number | null = null): Promise<SettingData> {
-  const [lightBrightness, lightMode, geometryRuntime, analysisProductTypes, frameArchiveSettings] = await Promise.all([
+  const [lightBrightness, lightMode, geometryRuntime, frameArchiveSettings] = await Promise.all([
     orchestratorApi.getLightBrightness(),
     orchestratorApi.getLightMode(),
     orchestratorApi.getGeometryRuntime(selectedCameraId),
-    loadAnalysisProductTypes(),
     orchestratorApi.getFrameArchiveSettings().catch(() => null),
   ]);
-  const analysisResponse = await loadAnalysisSettings(selectedCameraId, analysisProductTypes);
-  const analysisSettings = "settings" in analysisResponse ? analysisResponse.settings : analysisResponse;
-  const resolvedProductTypes =
-    "analysis_profile" in analysisResponse && analysisResponse.analysis_profile
-      ? [analysisResponse.analysis_profile]
-      : "product_type" in analysisResponse && analysisResponse.product_type
-        ? [analysisResponse.product_type]
-        : analysisProductTypes;
   const savedFramesCount = readSavedFramesCount(frameArchiveSettings);
 
   return {
@@ -147,9 +137,10 @@ export async function loadSettingData(selectedCameraId: number | null = null): P
       jointSeamSegmentationSensitivity: readJointSeamSegmentationSensitivity(geometryRuntime),
       lineDirection: "reverse",
       savedFramesCount,
-      analysisSettings,
+      // DetectorSettingsPanel owns C++ settings loading; the shared controls do not use the legacy Python API.
+      analysisSettings: { ...DEFAULT_ANALYSIS_SETTINGS },
     },
-    analysisProductTypes: resolvedProductTypes,
+    analysisProductTypes: [],
   };
 }
 
@@ -192,14 +183,6 @@ export async function saveSettingData(form: SettingForm, selectedCameraId: numbe
       text: "сохранено",
     },
   };
-}
-
-function loadAnalysisSettings(selectedCameraId: number | null, fallbackProductTypes: string[]) {
-  if (selectedCameraId !== null) {
-    return orchestratorApi.getCameraAnalysisSettings(selectedCameraId);
-  }
-
-  return orchestratorApi.getAnalysisSettings(fallbackProductTypes[0] ?? FALLBACK_ANALYSIS_PRODUCT_TYPE);
 }
 
 export async function saveMaxShiftData(
@@ -509,22 +492,6 @@ async function saveGeometryRuntimeSettings(
     orchestratorApi.patchGeometryRuntime(update),
     ...cameraIds.map((cameraId) => orchestratorApi.patchGeometryRuntime(update, cameraId)),
   ]);
-}
-
-async function loadAnalysisProductTypes() {
-  try {
-    const cameraList = await orchestratorApi.listCameras();
-    const snapshots = await Promise.allSettled(
-      cameraList.cameras.map((cameraId) => orchestratorApi.getLatestSnapshot(cameraId)),
-    );
-    const productTypes = snapshots
-      .map((result) => (result.status === "fulfilled" ? result.value.productType : ""))
-      .filter((productType): productType is string => Boolean(productType.trim()));
-
-    return Array.from(new Set(productTypes));
-  } catch {
-    return [FALLBACK_ANALYSIS_PRODUCT_TYPE];
-  }
 }
 
 function parseInputNumber(rawValue: string, fallback: number) {
