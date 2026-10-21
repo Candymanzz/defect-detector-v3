@@ -1,5 +1,6 @@
 .m2-local/
 .m2/
+/.maven-test-cache/
 /testimage/
 /tools/
 /scripts/
