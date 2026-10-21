@@ -1,4 +1,5 @@
 #include "inspector.h"
+#include "request_timing.h"
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
 #include <chrono>
@@ -24,6 +25,7 @@ constexpr double kRejectShiftResponse = 0.3;
 }
 
 InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Settings& s, bool keepVisuals) {
+    TimingPhase algorithmTiming("algorithm_ms");
     const auto tStart = Clock::now();
     if (bgr.empty() || bgr.size() != ref.size()) {
         throw std::invalid_argument("frame size " + std::to_string(bgr.cols) + "x" + std::to_string(bgr.rows) +
@@ -44,6 +46,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     cv::GaussianBlur(cur, cur, cv::Size(5, 5), 0);
 
     // ---- cheap translation estimate on a thumbnail of the ROI box ----
+    requestTiming.add("prepare_ms", msSince(tStart));
     const auto tAlign = Clock::now();
     const int tolWork = std::max(0, static_cast<int>(std::lround(s.shiftTolerance * scale)));
     cv::Mat small, smallF;
@@ -75,6 +78,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         curR = warped;
     }
     out.alignMs = msSince(tAlign);
+    requestTiming.add("align_ms", out.alignMs);
 
     // ---- difference map with brightness normalisation and shift-tolerant envelope ----
     const auto tDiff = Clock::now();
@@ -127,6 +131,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         }
     }
     out.diffMs = msSince(tDiff);
+    requestTiming.add("diff_ms", out.diffMs);
 
     // ---- sensitivity -> pixel threshold, blobs, score ----
     const auto tAnomaly = Clock::now();
@@ -169,6 +174,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         out.reason = "score_over_threshold";
     }
     out.anomalyMs = msSince(tAnomaly);
+    requestTiming.add("anomaly_ms", out.anomalyMs);
 
     if (keepVisuals) {
         out.diff = diff;

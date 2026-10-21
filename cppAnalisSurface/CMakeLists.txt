@@ -18,6 +18,7 @@ add_executable(cpp_analis_surface
   src/core/reference.cpp
   src/core/inspector.cpp
   src/core/logger.cpp
+  src/core/performance_log.cpp
   src/core/shm_io.cpp
   src/service/service.cpp
   src/web/routes.cpp)
@@ -31,3 +32,18 @@ endif()
 target_link_libraries(cpp_analis_surface PRIVATE
   opencv_core opencv_imgproc opencv_imgcodecs
   httplib::httplib nlohmann_json::nlohmann_json Threads::Threads)
+
+include(CTest)
+if(BUILD_TESTING)
+  add_executable(performance_log_test tests/performance_log_test.cpp src/core/performance_log.cpp)
+  target_include_directories(performance_log_test PRIVATE src)
+  target_link_libraries(performance_log_test PRIVATE nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME performance_log_test COMMAND performance_log_test)
+  add_executable(performance_http_test tests/performance_http_test.cpp src/core/performance_log.cpp)
+  target_include_directories(performance_http_test PRIVATE src)
+  target_link_libraries(performance_http_test PRIVATE httplib::httplib nlohmann_json::nlohmann_json Threads::Threads)
+  if(MINGW)
+    target_link_libraries(performance_http_test PRIVATE ws2_32 crypt32)
+  endif()
+  add_test(NAME performance_http_test COMMAND performance_http_test)
+endif()

@@ -70,3 +70,4 @@ analisSurface/test-analysis.html
 /LightServer.v3/logs
 # lab: локальная лаборатория тестирования analisSurface
 /analisSurface/lab/
+.verification

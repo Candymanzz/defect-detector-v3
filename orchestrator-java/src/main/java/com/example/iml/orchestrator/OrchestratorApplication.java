@@ -46,6 +46,7 @@ public final class OrchestratorApplication {
         }
         startupReporter.report(root, configPath);
         Path projectRoot = configPath.toAbsolutePath().getParent().getParent();
+        com.example.iml.orchestrator.integration.logging.PerformanceTrace.initialize(projectRoot, root);
         integrationBootstrap.start(root, projectRoot);
     }
 }

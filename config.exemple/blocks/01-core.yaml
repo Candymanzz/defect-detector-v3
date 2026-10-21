@@ -35,6 +35,11 @@ orchestrator:
 
 # camera — эталон снимается с камеры при старте; client — только client.reference_bundle по WebSocket.
 integration:
+  # Separate bounded asynchronous timing logs. Existing runtime/inspection logs are unchanged.
+  performance_log:
+    enabled: true
+    directory: "cppAnalisSurface/logs"
+    queue_capacity: 8192
   reference_source: client
   # false: DI3/триггер не стартует цикл, пока нет client.reference_bundle.
   capture_without_reference: true

@@ -4,6 +4,7 @@ import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.capture.LineFramePinService;
 import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
+import com.example.iml.orchestrator.integration.logging.PerformanceTrace;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
@@ -88,6 +89,7 @@ public final class InspectPositioningExecutor {
                     resolvePositioningProfileOverrides(cameraId, productType)
             );
             BinaryInspectHeaders.applyMainRoiFromPolygon(header, state.capture(), activeReference);
+            PerformanceTrace.copyContext(state.capture().header(), header);
             if (positioningSlots != null) {
                 positioningSlots.acquire();
             }
