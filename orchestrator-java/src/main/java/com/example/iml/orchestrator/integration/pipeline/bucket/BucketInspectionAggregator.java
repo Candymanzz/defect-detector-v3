@@ -380,6 +380,10 @@ public final class BucketInspectionAggregator implements AutoCloseable {
                 seamStrict
         );
 
+        com.example.iml.orchestrator.integration.logging.PerformanceTrace.cycle(state.triggerSequence, -1, -1,
+                "bucket_verdict", com.example.iml.orchestrator.integration.logging.PerformanceTrace.values(
+                        "group_id", state.groupId, "pass", bucketPass, "required_cameras", requiredCameraIds,
+                        "received_cameras", snapshot.keySet(), "timed_out", timedOut));
         List<Runnable> pendingUi = new ArrayList<>(state.pendingUiByCamera.values());
         state.pendingUiByCamera.clear();
 

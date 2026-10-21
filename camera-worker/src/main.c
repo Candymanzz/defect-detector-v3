@@ -76,6 +76,9 @@ typedef struct {
     uint64_t latency_ns_sum;
     uint64_t last_capture_started_ns;
     uint64_t last_capture_latency_ns;
+    uint64_t last_capture_wait_ns;
+    uint64_t last_capture_copy_ns;
+    uint64_t last_capture_monotonic_ns;
     uint64_t pending_trigger_fired_ns;
     uint64_t last_frame_id;
     int last_slot_index;
@@ -604,6 +607,16 @@ static uint64_t now_ns(void) {
 #else
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
+    return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
+#endif
+}
+
+static uint64_t performance_now_ns(void) {
+#ifdef _WIN32
+    return now_ns();
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
 #endif
 }
@@ -1930,6 +1943,7 @@ static int fire_software_trigger_only(worker_state_t *st, char *err, size_t err_
 
 static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t frame_id, int sync_capture, int wait_only,
                                char *err, size_t err_len) {
+    uint64_t performance_started = performance_now_ns();
     if (strcmp(st->capture_source, "hik") == 0) {
 #if defined(_WIN32) && defined(HAVE_HIK_MVS)
         int use_sync = !wait_only && (sync_capture || st->trigger_mode == TRIGGER_MODE_SOFTWARE);
@@ -1970,10 +1984,13 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
             snprintf(err, err_len, "hik frame too short: nFrameLen=%u expected>=%u", info.nFrameLen, min_frame_len);
             return -1;
         }
+        st->last_capture_wait_ns = performance_now_ns() - performance_started;
+        uint64_t copy_started = performance_now_ns();
         if (hik_copy_frame_to_bgr(st, &info, frame) != 0) {
             snprintf(err, err_len, "hik unsupported pixel type: 0x%x", info.enPixelType);
             return -1;
         }
+        st->last_capture_copy_ns = performance_now_ns() - copy_started;
         (void)frame_id;
         return 0;
 #else
@@ -2009,6 +2026,8 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
             snprintf(err, err_len, "aravis frame dims mismatch %dx%d", width, height);
             return -1;
         }
+        st->last_capture_wait_ns = performance_now_ns() - performance_started;
+        uint64_t copy_started = performance_now_ns();
         // Convert mono8 -> BGR8 for current pipeline compatibility.
         for (int y = 0; y < st->height; y++) {
             for (int x = 0; x < st->width; x++) {
@@ -2020,6 +2039,7 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
             }
         }
         (void)needed;
+        st->last_capture_copy_ns = performance_now_ns() - copy_started;
         arv_stream_push_buffer(st->arv_stream, buffer);
         return 0;
 #else
@@ -2027,9 +2047,12 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
         return -1;
 #endif
     }
+    st->last_capture_wait_ns = performance_now_ns() - performance_started;
+    uint64_t copy_started = performance_now_ns();
     memcpy(frame, st->pattern_frame, st->frame_bytes);
     frame[1] = (uint8_t)(frame_id & 0xFF);
     frame[4] = (uint8_t)((frame_id >> 8) & 0xFF);
+    st->last_capture_copy_ns = performance_now_ns() - copy_started;
     return 0;
 }
 
@@ -2066,6 +2089,9 @@ static void stream_lock_leave(worker_state_t *st) {
 }
 
 static int capture_frame_to_shm(worker_state_t *st, int sync_capture, int wait_only, char *err, size_t err_len) {
+    uint64_t performance_started = performance_now_ns();
+    st->last_capture_wait_ns = 0;
+    st->last_capture_copy_ns = 0;
     uint64_t capture_started_ns = now_ns();
     uint64_t frame_id = st->next_frame_id;
     int slot_index = (int)((frame_id - 1) % (uint64_t)st->ring_slots);
@@ -2076,8 +2102,11 @@ static int capture_frame_to_shm(worker_state_t *st, int sync_capture, int wait_o
         return -1;
     }
 #ifdef _WIN32
+    uint64_t flush_started = performance_now_ns();
     FlushViewOfFile(frame, st->frame_bytes);
+    st->last_capture_copy_ns += performance_now_ns() - flush_started;
 #endif
+    st->last_capture_monotonic_ns = performance_now_ns() - performance_started;
     uint64_t timestamp_ns = now_ns();
     uint64_t capture_latency_ns = timestamp_ns - capture_started_ns;
     update_latency(st, capture_latency_ns);
@@ -2106,7 +2135,8 @@ static void format_capture_json(const worker_state_t *st, char *out, size_t out_
     snprintf(out, out_len,
              "{\"camera_id\":%d,\"frame_id\":%llu,\"slot_index\":%d,\"width\":%d,\"height\":%d,\"stride\":%d,"
              "\"format\":\"BGR8\",\"capture_pixel_format\":\"%s\",\"timestamp_ns\":%llu,\"shm_name\":\"%s\",\"shm_offset\":%zu,\"frame_bytes\":%zu,"
-             "\"ring_slots\":%d,\"streaming\":%s,\"capture_started_ns\":%llu,\"capture_latency_ns\":%llu}",
+             "\"ring_slots\":%d,\"streaming\":%s,\"capture_started_ns\":%llu,\"capture_latency_ns\":%llu,"
+             "\"capture_wait_ns\":%llu,\"capture_copy_ns\":%llu,\"capture_monotonic_ns\":%llu}",
              st->camera_id,
              (unsigned long long)st->last_frame_id,
              slot_index,
@@ -2121,7 +2151,10 @@ static void format_capture_json(const worker_state_t *st, char *out, size_t out_
              st->ring_slots,
              st->stream_active ? "true" : "false",
              (unsigned long long)st->last_capture_started_ns,
-             (unsigned long long)st->last_capture_latency_ns);
+             (unsigned long long)st->last_capture_latency_ns,
+             (unsigned long long)st->last_capture_wait_ns,
+             (unsigned long long)st->last_capture_copy_ns,
+             (unsigned long long)st->last_capture_monotonic_ns);
 }
 
 static void stop_stream_internal(worker_state_t *st) {
