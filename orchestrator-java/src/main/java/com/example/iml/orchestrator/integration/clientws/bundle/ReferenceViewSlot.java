@@ -24,8 +24,24 @@ public record ReferenceViewSlot(
          * Линия перспективы в норм. координатах: [ближний край, дальний край].
          * Пустой список — действует допущение по умолчанию («верх кадра дальше»).
          */
-        List<FpZoneNorm.PointNorm> perspectiveLineNorm
+        List<FpZoneNorm.PointNorm> perspectiveLineNorm,
+        /**
+         * Линия стыка этикетки в норм. координатах: [начало, конец]. Пустой список — линия не задана
+         * (контроль стыка cppAnalisSurface тогда использует линию из настроек профиля, если она там есть).
+         */
+        List<FpZoneNorm.PointNorm> seamLineNorm
 ) {
+    public ReferenceViewSlot(
+            ShmFrameRefData frame,
+            PixelRoi interestRoi,
+            PixelRoi jointRoi,
+            List<FpZoneNorm.PointNorm> interestPolygonNorm,
+            List<FpZoneNorm.PointNorm> jointPolygonNorm,
+            List<FpZoneNorm.PointNorm> perspectiveLineNorm
+    ) {
+        this(frame, interestRoi, jointRoi, interestPolygonNorm, jointPolygonNorm, perspectiveLineNorm, List.of());
+    }
+
     public ReferenceViewSlot(
             ShmFrameRefData frame,
             PixelRoi interestRoi,
@@ -33,7 +49,11 @@ public record ReferenceViewSlot(
             List<FpZoneNorm.PointNorm> interestPolygonNorm,
             List<FpZoneNorm.PointNorm> jointPolygonNorm
     ) {
-        this(frame, interestRoi, jointRoi, interestPolygonNorm, jointPolygonNorm, List.of());
+        this(frame, interestRoi, jointRoi, interestPolygonNorm, jointPolygonNorm, List.of(), List.of());
+    }
+
+    public boolean hasSeamLineNorm() {
+        return seamLineNorm != null && seamLineNorm.size() == 2;
     }
 
     public boolean hasPerspectiveLineNorm() {

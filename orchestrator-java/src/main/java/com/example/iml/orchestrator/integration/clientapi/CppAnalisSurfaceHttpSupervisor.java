@@ -286,6 +286,7 @@ public final class CppAnalisSurfaceHttpSupervisor implements BinaryRpcSupervisor
         putProfile(body, header, cameraId);
         copy(body, header, "detector_id");
         copy(body, header, "roi_polygon_norm");
+        copy(body, header, "seam_line_norm");
         PerformanceTrace.copyContext(header, body);
         copy(body, header, "heatmap_u8_output_path");
         copy(body, header, "heatmap_max_width");
@@ -403,6 +404,7 @@ public final class CppAnalisSurfaceHttpSupervisor implements BinaryRpcSupervisor
         copy(body, header, "shm_offset");
         copy(body, header, "detector_id");
         copy(body, header, "roi_polygon_norm");
+        copy(body, header, "seam_line_norm");
         PerformanceTrace.copyContext(header, body);
         copy(body, header, "heatmap_u8_output_path");
         copy(body, header, "heatmap_max_width");

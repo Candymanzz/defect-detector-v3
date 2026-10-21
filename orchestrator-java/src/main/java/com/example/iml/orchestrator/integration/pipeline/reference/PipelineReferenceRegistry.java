@@ -218,6 +218,9 @@ public final class PipelineReferenceRegistry {
         if (slot.hasPerspectiveLineNorm()) {
             header.put("perspective_line_norm", InterestPolygonNormCodec.fromNormLine(slot.perspectiveLineNorm()));
         }
+        if (slot.hasSeamLineNorm()) {
+            header.put("seam_line_norm", InterestPolygonNormCodec.fromNormLine(slot.seamLineNorm()));
+        }
         if (bucketJointRoiNorm != null) {
             header.put("joint_roi_norm", bucketJointRoiNorm);
         }

@@ -399,6 +399,8 @@ export type ReferenceViewSlot = {
   joint_roi_polygon_norm?: InterestPointNorm[];
   /** Линия перспективы [ближний край, дальний край], две точки [0,1]. */
   perspective_line_norm?: InterestPointNorm[];
+  /** Линия стыка этикетки [начало, конец], две точки [0,1] (контроль стыка cppAnalisSurface). */
+  seam_line_norm?: InterestPointNorm[];
 };
 
 export type ClientReferenceBundlePayload = {

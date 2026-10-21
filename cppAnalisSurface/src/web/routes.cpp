@@ -128,6 +128,16 @@ InspectJob parseJob(const json& b) {
     if (b.contains("settings") && b["settings"].is_object()) job.patch = SettingsPatch::fromJson(b["settings"]);
     if (b.contains("roi_polygon_norm") && b["roi_polygon_norm"].is_array())
         job.roi = parsePoints(b["roi_polygon_norm"], "roi_polygon_norm");
+    // seam line of the reference ([start, end] in 0..1); a malformed line is ignored, the settings line stays in force
+    if (b.contains("seam_line_norm") && b["seam_line_norm"].is_array() && b["seam_line_norm"].size() == 2) {
+        try {
+            NormPolygon line = parsePoints(b["seam_line_norm"], "seam_line_norm");
+            bool ok = true;
+            for (auto& p : line) ok = ok && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1;
+            if (ok) job.seamLine = line;
+        } catch (const std::invalid_argument&) {
+        }
+    }
     return job;
 }
 

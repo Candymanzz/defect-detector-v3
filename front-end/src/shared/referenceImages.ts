@@ -1,6 +1,6 @@
 import { HttpError, orchestratorApi } from "./api";
 import type { LearnedNormalCase } from "./api/types";
-import { isValidJointRoiPolygon, isValidPerspectiveLine } from "../components/ReferenceSetup/referenceRoi";
+import { isValidJointRoiPolygon, isValidPerspectiveLine, isValidSeamLine } from "../components/ReferenceSetup/referenceRoi";
 import type {
   ClientReferenceBundlePayload,
   FpZoneNorm,
@@ -17,6 +17,7 @@ export type StoredReferenceImage = {
   roiPoints: InterestPointNorm[];
   jointRoiPoints?: InterestPointNorm[];
   perspectiveLine?: InterestPointNorm[];
+  seamLine?: InterestPointNorm[];
   fpZones?: FpZoneNorm[];
 };
 export type ArchivedReferenceGroup = {
@@ -190,6 +191,7 @@ export function commitReferenceBundleImages(
         perspectiveLine: isValidPerspectiveLine(view.perspective_line_norm)
           ? copyRoiPoints(view.perspective_line_norm ?? [])
           : undefined,
+        seamLine: isValidSeamLine(view.seam_line_norm) ? copyRoiPoints(view.seam_line_norm ?? []) : undefined,
         fpZones: copyFpZonesForCamera(bundle.fp_zones, cameraId),
       };
 
@@ -409,6 +411,7 @@ function createArchivedReferenceGroup(
       ...(isValidPerspectiveLine(image.perspectiveLine)
         ? { perspective_line_norm: copyRoiPoints(image.perspectiveLine ?? []) }
         : {}),
+      ...(isValidSeamLine(image.seamLine) ? { seam_line_norm: copyRoiPoints(image.seamLine ?? []) } : {}),
     })),
     fp_zones: sortedImages.flatMap((image) => copyFpZonesForCamera(image.fpZones ?? [], image.cameraId)),
   };
@@ -447,6 +450,7 @@ function copyArchivedReferenceGroup(archive: ArchivedReferenceGroup): ArchivedRe
         ...(isValidPerspectiveLine(view.perspective_line_norm)
           ? { perspective_line_norm: copyRoiPoints(view.perspective_line_norm ?? []) }
           : {}),
+        ...(isValidSeamLine(view.seam_line_norm) ? { seam_line_norm: copyRoiPoints(view.seam_line_norm ?? []) } : {}),
       })),
       fp_zones: copyFpZones(archive.bundle.fp_zones),
     },
@@ -473,6 +477,7 @@ function copyStoredReferenceImage(referenceImage: StoredReferenceImage): StoredR
     roiPoints: copyRoiPoints(referenceImage.roiPoints),
     jointRoiPoints: referenceImage.jointRoiPoints ? copyRoiPoints(referenceImage.jointRoiPoints) : undefined,
     perspectiveLine: referenceImage.perspectiveLine ? copyRoiPoints(referenceImage.perspectiveLine) : undefined,
+    seamLine: referenceImage.seamLine ? copyRoiPoints(referenceImage.seamLine) : undefined,
     fpZones: referenceImage.fpZones ? copyFpZones(referenceImage.fpZones) : undefined,
   };
 }
@@ -810,6 +815,7 @@ function restorePersistedReferenceImage(persisted: PersistedReferenceImage, imag
     roiPoints: copyRoiPoints(persisted.roiPoints),
     jointRoiPoints: persisted.jointRoiPoints ? copyRoiPoints(persisted.jointRoiPoints) : undefined,
     perspectiveLine: persisted.perspectiveLine ? copyRoiPoints(persisted.perspectiveLine) : undefined,
+    seamLine: persisted.seamLine ? copyRoiPoints(persisted.seamLine) : undefined,
     fpZones: persisted.fpZones ? copyFpZones(persisted.fpZones) : undefined,
   };
 }

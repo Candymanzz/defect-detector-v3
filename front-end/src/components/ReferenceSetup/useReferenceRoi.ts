@@ -23,6 +23,9 @@ export function useReferenceRoi(
   const [editedPerspectiveLinesByCameraId, setEditedPerspectiveLinesByCameraId] = useState<
     Record<number, InterestPointNorm[]>
   >({});
+  const [editedSeamLinesByCameraId, setEditedSeamLinesByCameraId] = useState<
+    Record<number, InterestPointNorm[]>
+  >({});
   const [jointCameraIdsByGroupKey, setJointCameraIdsByGroupKey] = useState<Record<string, number>>({});
   const [selectedCameraIdState, setSelectedCameraIdState] = useState(initialCameraId);
   const [selectedRoiMode, setSelectedRoiMode] = useState<ReferenceRoiEditMode>("interest");
@@ -36,6 +39,12 @@ export function useReferenceRoi(
     cameraIds,
     editedPerspectiveLinesByCameraId,
     useStoredRois,
+  );
+  const seamLinesByCameraId = mergePerspectiveLines(
+    cameraIds,
+    editedSeamLinesByCameraId,
+    useStoredRois,
+    (cameraId) => getReferenceImage(cameraId)?.seamLine,
   );
   const selectedCameraId = resolveCameraId(activeCameraIds, selectedCameraIdState);
   const jointGroupKey = createGroupKey(activeCameraIds);
@@ -86,6 +95,15 @@ export function useReferenceRoi(
     }));
   };
 
+  const setSeamLineForCamera = (cameraId: number, points: InterestPointNorm[]) => {
+    const targetCameraId = resolveCameraId(cameraIds, cameraId);
+
+    setEditedSeamLinesByCameraId((prev) => ({
+      ...prev,
+      [targetCameraId]: copyRoiPolygon(points),
+    }));
+  };
+
   const setJointRoi = (points: InterestPointNorm[]) => {
     setEditedJointRoiPolygonsByGroupKey((previous) => ({
       ...previous,
@@ -115,6 +133,9 @@ export function useReferenceRoi(
       Object.fromEntries(Object.entries(previous).filter(([cameraId]) => !targetCameraIdSet.has(Number(cameraId)))),
     );
     setEditedPerspectiveLinesByCameraId((previous) =>
+      Object.fromEntries(Object.entries(previous).filter(([cameraId]) => !targetCameraIdSet.has(Number(cameraId)))),
+    );
+    setEditedSeamLinesByCameraId((previous) =>
       Object.fromEntries(Object.entries(previous).filter(([cameraId]) => !targetCameraIdSet.has(Number(cameraId)))),
     );
     setEditedJointRoiPolygonsByGroupKey((previous) =>
@@ -148,6 +169,7 @@ export function useReferenceRoi(
     jointRoiPolygon,
     roiPolygonsByCameraId,
     perspectiveLinesByCameraId,
+    seamLinesByCameraId,
     selectedCameraId,
     selectedRoiMode,
     getJointRoiPolygonForCameraIds,
@@ -158,6 +180,7 @@ export function useReferenceRoi(
     setJointRoiPolygon: setJointRoi,
     setRoiPolygonForCamera,
     setPerspectiveLineForCamera,
+    setSeamLineForCamera,
     setSelectedCameraId,
   };
 }
@@ -221,12 +244,14 @@ function mergePerspectiveLines(
   cameraIds: number[],
   editedLines: Record<number, InterestPointNorm[]>,
   useStored: boolean,
+  storedLine: (cameraId: number) => InterestPointNorm[] | undefined = (cameraId) =>
+    getReferenceImage(cameraId)?.perspectiveLine,
 ) {
   const merged: Record<number, InterestPointNorm[]> = {};
 
   for (const cameraId of cameraIds) {
     const editedPoints = editedLines[cameraId];
-    const points = editedPoints ?? (useStored ? getReferenceImage(cameraId)?.perspectiveLine : undefined);
+    const points = editedPoints ?? (useStored ? storedLine(cameraId) : undefined);
 
     if (points) {
       merged[cameraId] = copyRoiPolygon(points);

@@ -148,6 +148,11 @@ Inspected Service::run(const InspectJob& job, const cv::Mat& frame, bool keepVis
     Inspected r;
     r.settings = settings_.get(job.profile.empty() ? job.product : job.profile);
     job.patch.applyTo(r.settings);
+    if (job.seamLine && job.seamLine->size() == 2) {
+        const auto& line = *job.seamLine;
+        r.settings.seam.p0x = line[0].x; r.settings.seam.p0y = line[0].y;
+        r.settings.seam.p1x = line[1].x; r.settings.seam.p1y = line[1].y;
+    }
     r.roi = ref->roi();
     r.frameSize = frame.size();
     requestTiming.add("service_setup_ms", msSince(setupStarted));

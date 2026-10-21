@@ -6,6 +6,7 @@ import { subscribeAnalysisSettingsChanged } from "./analysisSettingsEvents";
 import { errorMessage } from "../../shared/lib/errors";
 import { Button } from "../../shared/ui/Button";
 import { SeamSettingsSection } from "./SeamSettingsSection";
+import "./SeamSettingsSection.css";
 
 /**
  * Настройки анализа поверхности (cppAnalisSurface): пять реальных параметров детектора.

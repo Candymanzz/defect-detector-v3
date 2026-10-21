@@ -518,6 +518,12 @@ public final class BinaryInspectHeaders {
                 && line.size() == 2) {
             pyHeader.put("perspective_line_norm", line);
         }
+        if (activeReference != null
+                && activeReference.header() != null
+                && activeReference.header().get("seam_line_norm") instanceof List<?> seamLine
+                && seamLine.size() == 2) {
+            pyHeader.put("seam_line_norm", seamLine);
+        }
     }
 
     @SuppressWarnings("unchecked")

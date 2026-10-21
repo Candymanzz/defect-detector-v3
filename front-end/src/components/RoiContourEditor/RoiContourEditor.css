@@ -204,3 +204,17 @@
 .roi-editor__overlay .roi-editor__perspective-far {
   fill: #ff6b6b;
 }
+
+.roi-editor__overlay .roi-editor__seam-line {
+  stroke: #00e5ff;
+  stroke-width: 0.004;
+  stroke-dasharray: 0.02 0.012;
+}
+
+.roi-editor__overlay .roi-editor__seam-start {
+  fill: #00e5ff;
+}
+
+.roi-editor__overlay .roi-editor__seam-end {
+  fill: #ffd400;
+}
