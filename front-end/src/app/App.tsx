@@ -172,7 +172,7 @@ export function App() {
               void handleHandleModeChange(!isPlasticHandleMode);
             }}
           >
-            <span data-active={!isPlasticHandleMode}>Стальная ручка 111</span>
+            <span data-active={!isPlasticHandleMode}>Стальная ручка</span>
             <span className="app-header-handle-switch" aria-hidden="true">
               <span />
             </span>
