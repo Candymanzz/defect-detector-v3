@@ -1,35 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="отбраковка дискретки при файла на любой из камер">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Checkout_at_09_10_2026_16_13_[Changes]/shelved.patch" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Checkout_at_09_10_2026_16_13__Changes_.xml" beforeDir="false" />
+    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="камераворкер теперь часть оркестратора">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/RUN.md" beforeDir="false" afterPath="$PROJECT_DIR$/RUN.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/camera-worker/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/camera-worker/CMakeLists.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/camera-worker/src/camera_jni.c" beforeDir="false" afterPath="$PROJECT_DIR$/camera-worker/src/camera_jni.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/camera-worker/src/main.c" beforeDir="false" afterPath="$PROJECT_DIR$/camera-worker/src/main.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/config.exemple/blocks/01-core.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/config.exemple/blocks/01-core.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/deploy/linux/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/deploy/linux/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/knowledge/PROJECT_CONTEXT.md" beforeDir="false" afterPath="$PROJECT_DIR$/knowledge/PROJECT_CONTEXT.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/knowledge/camera-worker/api_contracts.md" beforeDir="false" afterPath="$PROJECT_DIR$/knowledge/camera-worker/api_contracts.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/knowledge/camera-worker/architecture_why.md" beforeDir="false" afterPath="$PROJECT_DIR$/knowledge/camera-worker/architecture_why.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/knowledge/camera-worker/overview.md" beforeDir="false" afterPath="$PROJECT_DIR$/knowledge/camera-worker/overview.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/knowledge/global_architecture.md" beforeDir="false" afterPath="$PROJECT_DIR$/knowledge/global_architecture.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/knowledge/global_changelog.md" beforeDir="false" afterPath="$PROJECT_DIR$/knowledge/global_changelog.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/knowledge/orchestrator/overview.md" beforeDir="false" afterPath="$PROJECT_DIR$/knowledge/orchestrator/overview.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/knowledge/recent_context.md" beforeDir="false" afterPath="$PROJECT_DIR$/knowledge/recent_context.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/binaryrpc/AbstractBinaryRpcSupervisor.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/binaryrpc/AbstractBinaryRpcSupervisor.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/bootstrap/context/IntegrationRuntimeContext.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/bootstrap/context/IntegrationRuntimeContext.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/bootstrap/service/CameraWorkerBootstrapService.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/bootstrap/service/CameraWorkerBootstrapService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/bootstrap/service/IntegrationPreflightService.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/bootstrap/service/IntegrationPreflightService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/camera/BinaryClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/camera/BinaryClient.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/camera/WorkerProcessSupervisor.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/camera/WorkerProcessSupervisor.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/config/CameraWorkerPaths.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/config/CameraWorkerPaths.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/io/mvs/MvsSdkLease.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/io/mvs/MvsSdkLease.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/rebuild-and-run.sh" beforeDir="false" afterPath="$PROJECT_DIR$/rebuild-and-run.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/run-all-tests.sh" beforeDir="false" afterPath="$PROJECT_DIR$/run-all-tests.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ЗАПУСК.md" beforeDir="false" afterPath="$PROJECT_DIR$/ЗАПУСК.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config.exemple/blocks/30-ui-and-client.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/config.exemple/blocks/30-ui-and-client.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config.exemple/config.json" beforeDir="false" afterPath="$PROJECT_DIR$/config.exemple/config.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/CAMERA-JNI.md" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/CAMERA-JNI.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/camera/NativeCameraClientTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/camera/NativeCameraClientTest.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -144,6 +124,7 @@
     <MESSAGE value="ультра мега дупер оптимизация пайплайна" />
     <MESSAGE value="вынес отдельный даунскейл для центральных камер" />
     <MESSAGE value="отбраковка дискретки при файла на любой из камер" />
-    <option name="LAST_COMMIT_MESSAGE" value="отбраковка дискретки при файла на любой из камер" />
+    <MESSAGE value="камераворкер теперь часть оркестратора" />
+    <option name="LAST_COMMIT_MESSAGE" value="камераворкер теперь часть оркестратора" />
   </component>
 </project>

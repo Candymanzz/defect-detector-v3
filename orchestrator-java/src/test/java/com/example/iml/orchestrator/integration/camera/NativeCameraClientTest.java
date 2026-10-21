@@ -4,6 +4,9 @@ import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import com.example.iml.orchestrator.integration.bootstrap.context.IntegrationRuntimeContext;
 import com.example.iml.orchestrator.integration.bootstrap.service.CameraWorkerBootstrapService;
 import com.example.iml.orchestrator.integration.bootstrap.service.IntegrationPreflightService;
+import com.sun.jna.NativeLibrary;
+import com.sun.jna.Platform;
+import com.sun.jna.Pointer;
 import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -89,6 +92,31 @@ class NativeCameraClientTest {
             ok(camera, Map.of("op", "stop_stream"));
             assertEquals("software", ok(camera, Map.of("op", "get_settings")).get("capture_trigger_mode"));
             ok(camera, Map.of("op", "capture", "sync", true));
+        }
+    }
+
+    @Test
+    void decimalJsonIgnoresTheCallingThreadsLocaleAndRestoresIt() throws Exception {
+        assumeTrue(Platform.isLinux(), "POSIX thread-locale regression");
+        NativeLibrary libc = NativeLibrary.getInstance(Platform.C_LIBRARY_NAME);
+        Pointer commaLocale = null;
+        for (String name : List.of("ru_RU.UTF-8", "de_DE.UTF-8", "fr_FR.UTF-8")) {
+            // Linux LC_NUMERIC=1; the newlocale mask is 1 << LC_NUMERIC.
+            commaLocale = libc.getFunction("newlocale").invokePointer(new Object[]{2, name, Pointer.NULL});
+            if (commaLocale != null) break;
+        }
+        assumeTrue(commaLocale != null, "Install a locale with a comma decimal separator");
+        Pointer previous = libc.getFunction("uselocale").invokePointer(new Object[]{commaLocale});
+        assertNotNull(previous);
+        try (NativeCameraClient camera = camera(30001)) {
+            Map<String, Object> settings = ok(camera, Map.of("op", "set_settings", "gain_db", 2.5, "gamma", 1.25));
+            assertEquals(2.5, ((Number)settings.get("gain_db")).doubleValue());
+            assertEquals(1.25, ((Number)settings.get("gamma")).doubleValue());
+            assertEquals("ok", ok(camera, Map.of("op", "health")).get("status"));
+            assertEquals(commaLocale, libc.getFunction("uselocale").invokePointer(new Object[]{Pointer.NULL}));
+        } finally {
+            libc.getFunction("uselocale").invokePointer(new Object[]{previous});
+            libc.getFunction("freelocale").invokeVoid(new Object[]{commaLocale});
         }
     }
 

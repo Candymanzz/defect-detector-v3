@@ -1261,6 +1261,10 @@ static unsigned int hik_min_frame_transfer_delay_step(const worker_state_t *st) 
 }
 
 static unsigned int hik_effective_frame_transfer_delay_step(const worker_state_t *st) {
+    /* Explicit zero disables staggering; negative values retain automatic sizing. */
+    if (st->gige_frame_transfer_delay_step == 0) {
+        return 0u;
+    }
     unsigned int configured = st->gige_frame_transfer_delay_step > 0 ? (unsigned int)st->gige_frame_transfer_delay_step
                                                                        : 0u;
     unsigned int min_step = hik_min_frame_transfer_delay_step(st);
@@ -1301,6 +1305,9 @@ static unsigned int hik_frame_transfer_slot_index(const worker_state_t *st) {
 
 static int hik_effective_inter_packet_delay(const worker_state_t *st) {
     int delay = st->gige_inter_packet_delay;
+    if (delay <= 0) {
+        return delay;
+    }
     int per_link = st->gige_ftd_cameras_per_link > 0 ? st->gige_ftd_cameras_per_link : 2;
     if (hik_is_small_switch_buffer(st)) {
         int min_delay = (per_link == 2) ? 120000 : 80000;
@@ -1377,6 +1384,12 @@ static int hik_set_gige_int_value_clamped(void *handle, const char *node_name, u
                 sr);
         return sr;
     }
+    MVCC_INTVALUE applied;
+    memset(&applied, 0, sizeof(applied));
+    if (MV_CC_GetIntValue(handle, node_name, &applied) == MV_OK) {
+        fprintf(stderr, "hik: %s readback cam=%d value=%u requested=%u\n",
+                label, camera_id, applied.nCurValue, value);
+    }
     if (clamped != value) {
         fprintf(stderr,
                 "hik: %s=%u cam=%d (requested=%u clamped to range %u..%u)\n",
@@ -1399,9 +1412,6 @@ static void hik_apply_gige_frame_transfer_delay(worker_state_t *st) {
         return;
     }
     unsigned int step = hik_effective_frame_transfer_delay_step(st);
-    if (step == 0u) {
-        return;
-    }
     int per_link = st->gige_ftd_cameras_per_link > 0 ? st->gige_ftd_cameras_per_link : 2;
     unsigned int index = hik_frame_transfer_slot_index(st);
     unsigned int mult = hik_gige_ftd_delay_multiplier(st);
@@ -1430,7 +1440,7 @@ static void hik_apply_gige_frame_transfer_delay(worker_state_t *st) {
 }
 
 static void hik_apply_gige_inter_packet_delay(void *handle, int inter_packet_delay, int camera_id) {
-    if (inter_packet_delay <= 0) {
+    if (inter_packet_delay < 0) {
         return;
     }
     int r = hik_set_gige_int_value_clamped(handle, "GevSCPD", (unsigned int)inter_packet_delay, camera_id, "GevSCPD");

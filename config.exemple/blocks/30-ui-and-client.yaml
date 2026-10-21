@@ -51,3 +51,8 @@ client:
   url: "ws://127.0.0.1:8765"
   # Используется только если в integration.live_preview не задан interval_ms
   preview_max_fps: 1
+
+# Результаты доставляются без искусственной HTTP-задержки.
+fanout:
+  client_http:
+    artificial_delay_ms: 0
