@@ -2,6 +2,7 @@
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
 #include <chrono>
+#include <climits>
 #include <cmath>
 #include <stdexcept>
 
@@ -94,6 +95,31 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         cv::absdiff(aligned, refR, diff);
     }
     diff.setTo(0, ~maskR);
+    out.scale = scale;
+    out.roiArea = prep->roiArea;
+    out.envelopeKernel = k;
+    out.gain = gain;
+    out.refMean = mr[0];
+    out.curMean = mc[0];
+    {
+        cv::Scalar md = cv::mean(diff, maskR);
+        out.diffMean = md[0];
+        double mx = 0;
+        cv::minMaxLoc(diff, nullptr, &mx, nullptr, nullptr, maskR);
+        out.diffMax = static_cast<int>(mx);
+        const int histSize = 256;
+        const float range[] = {0, 256};
+        const float* ranges[] = {range};
+        const int ch = 0;
+        cv::Mat hist;
+        cv::calcHist(&diff, 1, &ch, maskR, hist, 1, &histSize, ranges);
+        const double target = 0.99 * cv::sum(hist)[0];
+        double acc = 0;
+        for (int i = 0; i < histSize; ++i) {
+            acc += hist.at<float>(i);
+            if (acc >= target) { out.diffP99 = i; break; }
+        }
+    }
     out.diffMs = msSince(tDiff);
 
     // ---- sensitivity -> pixel threshold, blobs, score ----
@@ -107,13 +133,28 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     cv::findContours(bin, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
     const double minArea = std::max(1.0, s.minBlobArea * scale * scale);
     cv::Mat kept = cv::Mat::zeros(bin.size(), CV_8U);
+    out.pixelThreshold = thr;
+    out.blobsTotal = static_cast<int>(contours.size());
     for (size_t i = 0; i < contours.size(); ++i) {
-        if (cv::contourArea(contours[i]) < minArea) continue;
+        const double area = cv::contourArea(contours[i]);
+        if (area < minArea) {
+            out.largestDroppedBlob = std::max(out.largestDroppedBlob, area);
+            continue;
+        }
         cv::drawContours(kept, contours, static_cast<int>(i), 255, cv::FILLED);
         cv::Rect bb = cv::boundingRect(contours[i]);
+        {
+            cv::Mat blobMask = cv::Mat::zeros(bb.size(), CV_8U);
+            cv::drawContours(blobMask, contours, static_cast<int>(i), 255, cv::FILLED, cv::LINE_8, cv::noArray(), INT_MAX, -bb.tl());
+            double mx = 0;
+            cv::minMaxLoc(diff(bb), nullptr, &mx, nullptr, nullptr, blobMask);
+            out.keptBlobMaxDiff.push_back(static_cast<int>(mx));
+            out.keptBlobAreas.push_back(area);
+        }
         out.zones.emplace_back(cvRound((bb.x + region.x) / scale), cvRound((bb.y + region.y) / scale),
                                cvRound(bb.width / scale), cvRound(bb.height / scale));
     }
+    out.blobsKept = static_cast<int>(out.zones.size());
     const int flagged = cv::countNonZero(kept);
     out.areaPercent = prep->roiArea > 0 ? 100.0 * flagged / prep->roiArea : 0.0;
     out.anomalyScore = std::min(1.0, out.areaPercent / kScoreFullScalePercent);

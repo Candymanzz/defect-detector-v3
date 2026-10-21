@@ -1,9 +1,16 @@
 #include "routes.h"
+#include "core/logger.h"
 #include "core/shm_io.h"
 #include "service/service.h"
 #include <opencv2/imgcodecs.hpp>
+#include <algorithm>
 #include <chrono>
+#include <iomanip>
 #include <iostream>
+#include <map>
+#include <mutex>
+#include <sstream>
+#include <vector>
 
 namespace cas {
 
@@ -34,12 +41,16 @@ void guarded(httplib::Response& res, Service& svc, F&& f) {
     try {
         f();
     } catch (const NoReference& e) {
+        Logger::instance().warn(std::string("no_reference: ") + e.what());
         sendError(res, svc, 400, e.what(), "no_reference");
     } catch (const std::invalid_argument& e) {
+        Logger::instance().warn(std::string("bad_request: ") + e.what());
         sendError(res, svc, 400, e.what(), "bad_request");
     } catch (const std::runtime_error& e) {
+        Logger::instance().warn(std::string("io_error: ") + e.what());
         sendError(res, svc, 400, e.what(), "io_error");   // shared-memory / file problems (was OSError -> 400)
     } catch (const std::exception& e) {
+        Logger::instance().error(std::string("internal_error: ") + e.what());
         std::cerr << "[error] " << e.what() << std::endl;
         sendError(res, svc, 500, e.what(), "internal_error");
     }
@@ -183,7 +194,116 @@ json settingsJson(Service& svc, const std::string& profile) {
 }
 
 void logSlow(const char* what, const std::string& product, double ms) {
-    if (ms > 400.0) std::cerr << "[slow] " << what << " product=" << product << " ms=" << ms << std::endl;
+    if (ms > 400.0) {
+        std::cerr << "[slow] " << what << " product=" << product << " ms=" << ms << std::endl;
+        Logger::instance().warn(std::string("slow ") + what + " product=" + product + " ms=" + std::to_string(ms));
+    }
+}
+
+// ---------- inspection log ----------
+// Every reject, near-miss (score >= half of the threshold) and slow request is logged in full; calm frames are
+// sampled (1 of kOkSampleEvery per product) so ~25 inspections/s do not produce gigabytes per day. A summary
+// line per product and minute (counts, score and timing stats) keeps the whole picture in cas-*.log.
+constexpr int kOkSampleEvery = 20;
+
+struct ProductStats {
+    long long n = 0, rejects = 0, shiftExceeded = 0, sinceLogged = 0;
+    double scoreSum = 0, scoreMax = 0, msSum = 0, msMax = 0, waitMax = 0;
+    std::vector<double> ms;
+};
+
+std::mutex g_statsM;
+std::map<std::string, ProductStats> g_stats;
+Clock::time_point g_lastSummary = Clock::now();
+
+// "<product>#cam=<id>" -> id (empty when the product is not camera-scoped)
+std::string cameraOf(const std::string& product) {
+    const auto p = product.find("#cam=");
+    return p == std::string::npos ? "" : product.substr(p + 5);
+}
+
+void flushSummary(std::map<std::string, ProductStats>& stats) {
+    for (auto& [product, st] : stats) {
+        if (st.n == 0) continue;
+        std::sort(st.ms.begin(), st.ms.end());
+        const double p95 = st.ms.empty() ? 0.0 : st.ms[std::min(st.ms.size() - 1, static_cast<size_t>(st.ms.size() * 0.95))];
+        std::ostringstream os;
+        os << std::fixed << std::setprecision(3) << "summary 1min product=" << product << " n=" << st.n
+           << " rejects=" << st.rejects << " shift_exceeded=" << st.shiftExceeded << " score_avg=" << st.scoreSum / st.n
+           << " score_max=" << st.scoreMax << std::setprecision(1) << " ms_avg=" << st.msSum / st.n << " ms_p95=" << p95
+           << " ms_max=" << st.msMax << " wait_max=" << st.waitMax;
+        Logger::instance().info(os.str());
+    }
+    stats.clear();
+}
+
+// One JSONL record per (selected) inspection: everything needed to judge/tune the analysis offline.
+void logInspection(const char* endpoint, const InspectJob& job, const Inspected& r, double totalMs,
+                   const std::string& note = "") {
+    const auto& o = r.out;
+    bool full = o.reject || o.anomalyScore >= 0.5 * r.settings.threshold || totalMs > 400.0 || endpoint != std::string("inspect-shm");
+    {
+        std::lock_guard<std::mutex> lk(g_statsM);
+        auto& st = g_stats[job.product];
+        ++st.n;
+        st.rejects += o.reject ? 1 : 0;
+        st.shiftExceeded += o.reason == "shift_exceeded" ? 1 : 0;
+        st.scoreSum += o.anomalyScore;
+        st.scoreMax = std::max(st.scoreMax, o.anomalyScore);
+        st.msSum += totalMs;
+        st.msMax = std::max(st.msMax, totalMs);
+        st.waitMax = std::max(st.waitMax, r.waitMs);
+        st.ms.push_back(totalMs);
+        if (!full && ++st.sinceLogged >= kOkSampleEvery) full = true;
+        if (full) st.sinceLogged = 0;
+        if (Clock::now() - g_lastSummary > std::chrono::seconds(60)) {
+            g_lastSummary = Clock::now();
+            flushSummary(g_stats);
+        }
+    }
+    if (!full) return;
+
+    json j;
+    j["endpoint"] = endpoint;
+    j["product"] = job.product;
+    j["camera"] = cameraOf(job.product);
+    j["profile"] = job.profile;
+    j["status"] = o.reject ? "reject" : "ok";
+    j["reason"] = o.reason;
+    j["score"] = round3(o.anomalyScore);
+    j["threshold"] = r.settings.threshold;
+    j["area_percent"] = round3(o.areaPercent);
+    j["settings"] = r.settings.toJson();
+    j["frame"] = {r.frameSize.width, r.frameSize.height};
+    j["work_size"] = {o.workSize.width, o.workSize.height};
+    j["roi_points"] = r.roi.size();
+    j["roi_area_px"] = o.roiArea;
+    j["scale"] = round3(o.scale);
+    j["shift"] = {round3(o.shift.x), round3(o.shift.y)};
+    j["shift_response"] = round3(o.shiftResponse);
+    j["pixel_threshold"] = o.pixelThreshold;
+    j["envelope_kernel"] = o.envelopeKernel;
+    j["gain"] = round3(o.gain);
+    j["ref_mean"] = round3(o.refMean);
+    j["cur_mean"] = round3(o.curMean);
+    j["diff_mean"] = round3(o.diffMean);
+    j["diff_p99"] = o.diffP99;
+    j["diff_max"] = o.diffMax;
+    j["blobs_total"] = o.blobsTotal;
+    j["blobs_kept"] = o.blobsKept;
+    j["largest_dropped_blob"] = round3(o.largestDroppedBlob);
+    j["zones"] = json::array();
+    for (size_t i = 0; i < o.zones.size(); ++i) {
+        const auto& z = o.zones[i];
+        j["zones"].push_back({{"rect", {z.x, z.y, z.width, z.height}},
+                              {"area", i < o.keptBlobAreas.size() ? round3(o.keptBlobAreas[i]) : 0.0},
+                              {"max_diff", i < o.keptBlobMaxDiff.size() ? o.keptBlobMaxDiff[i] : 0}});
+    }
+    j["ms"] = {{"wait", round3(r.waitMs)}, {"read", round3(r.readMs)}, {"align", round3(o.alignMs)},
+               {"diff", round3(o.diffMs)}, {"anomaly", round3(o.anomalyMs)}, {"inspect", round3(o.totalMs)},
+               {"request", round3(totalMs)}};
+    if (!note.empty()) j["note"] = note;
+    Logger::instance().inspection(j);
 }
 
 } // namespace
@@ -197,7 +317,11 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
     });
 
     svr.Post("/clear-inspection-context", [&](const httplib::Request&, httplib::Response& res) {
-        guarded(res, svc, [&] { sendJson(res, {{"ok", true}, {"cleared", svc.clearContext()}}, svc); });
+        guarded(res, svc, [&] {
+            json cleared = svc.clearContext();
+            Logger::instance().info("context cleared " + cleared.dump());
+            sendJson(res, {{"ok", true}, {"cleared", cleared}}, svc);
+        });
     });
 
     // ---- reference ----
@@ -207,6 +331,8 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
             std::string product = requireString(b, "product_type");
             ShmFrame f = parseShmFrame(b);
             svc.setReference(product, readBgrFrame(f.name, f.width, f.height, f.stride, f.offset));
+            Logger::instance().info("reference uploaded (shm) product=" + product + " size=" +
+                                    std::to_string(f.width) + "x" + std::to_string(f.height));
             sendJson(res, {{"message", "Reference uploaded from shared memory"}, {"product_type", product}}, svc);
         });
     });
@@ -220,6 +346,8 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
             cv::Mat img = cv::imdecode(bytes, cv::IMREAD_COLOR);
             if (img.empty()) throw std::invalid_argument("cannot decode image");
             svc.setReference(product, img);
+            Logger::instance().info("reference uploaded product=" + product + " size=" +
+                                    std::to_string(img.cols) + "x" + std::to_string(img.rows));
             sendJson(res, {{"message", "Reference uploaded"}, {"product_type", product}}, svc);
         });
     });
@@ -231,7 +359,8 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
             std::string product = requireString(b, "product_type");
             if (!b.contains("points")) throw std::invalid_argument("field 'points' is required");
             NormPolygon pts = parsePoints(b["points"], "points");
-            svc.setRoi(product, pts);   // perspective_line is accepted and ignored (not used by this detector)
+            svc.setRoi(product, pts);
+            Logger::instance().info("roi set product=" + product + " points=" + std::to_string(pts.size()));   // perspective_line is accepted and ignored (not used by this detector)
             sendJson(res, {{"product_type", product}, {"points", pointsJson(pts)}, {"perspective_line", nullptr}}, svc);
         });
     });
@@ -259,12 +388,14 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
             Settings saved;
             std::string err = svc.settings().set(profile, b, saved);
             if (!err.empty()) return sendError(res, svc, 400, err, "bad_settings");
+            Logger::instance().info("settings saved profile=" + profile + " " + saved.toJson().dump());
             sendJson(res, settingsJson(svc, profile), svc);
         });
     });
     svr.Delete("/settings/:profile", [&](const httplib::Request& req, httplib::Response& res) {
         std::string profile = req.path_params.at("profile");
         svc.settings().reset(profile);
+        Logger::instance().info("settings reset profile=" + profile);
         sendJson(res, settingsJson(svc, profile), svc);
     });
 
@@ -287,10 +418,12 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
                     haveVisuals = true;
                 } catch (const std::exception& e) {
                     std::cerr << "[warn] heatmap export failed: " << e.what() << std::endl;
+                    Logger::instance().warn(std::string("heatmap export failed: ") + e.what());
                 }
             }
             const double ms = msSince(t);
             logSlow("inspect-shm", job.product, ms);
+            logInspection("inspect-shm", job, r, ms);
             sendJson(res, inspectJson(job.product, r, haveVisuals ? &w : nullptr, ms), svc);
         });
     });
@@ -307,8 +440,10 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
                 w = svc.writeVisuals(r, outputs);
             } catch (const std::exception& e) {   // this endpoint exists to produce artifacts: no silent loss
                 std::cerr << "[error] visual export failed: " << e.what() << std::endl;
+                Logger::instance().error(std::string("visual export failed: ") + e.what());
                 return sendError(res, svc, 500, std::string("visual output export failed: ") + e.what(), "export_failed");
             }
+            logInspection("inspect-shm-visuals", job, r, msSince(t));
             sendJson(res, visualsJson(inspectJson(job.product, r, &w, msSince(t)), w), svc);
         });
     });
@@ -328,7 +463,9 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
                 w = svc.writeVisuals(r, outputs);
             } catch (const std::exception& e) {
                 std::cerr << "[warn] test-frame visual export failed: " << e.what() << std::endl;
+                Logger::instance().warn(std::string("test-frame visual export failed: ") + e.what());
             }
+            logInspection("inspect-test-frame", job, r, msSince(t), filePath);
             sendJson(res, visualsJson(inspectJson(job.product, r, &w, msSince(t)), w), svc);
         });
     });
@@ -352,6 +489,7 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
             }
             job.patch = SettingsPatch::fromJson(overrides);
             Inspected r = svc.inspectMat(job, img, false);
+            logInspection("inspect", job, r, msSince(t));
             sendJson(res, inspectJson(product, r, nullptr, msSince(t)), svc);
         });
     });

@@ -46,6 +46,8 @@ struct Inspected {
     NormPolygon roi;
     cv::Size frameSize;
     double heatmapMs = 0.0;
+    double waitMs = 0.0;   // time spent waiting for a free worker slot (CPU saturation indicator)
+    double readMs = 0.0;   // shared-memory frame read
 };
 
 class Service {

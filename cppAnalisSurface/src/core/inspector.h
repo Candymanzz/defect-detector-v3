@@ -16,6 +16,19 @@ struct InspectOutcome {
     double shiftResponse = 0.0;      // phase-correlation confidence
     std::vector<cv::Rect> zones;     // anomaly zones, original-frame pixels
     double alignMs = 0, diffMs = 0, anomalyMs = 0, totalMs = 0;
+    // diagnostics for tuning (logged, not part of the API response)
+    double roiArea = 0.0;            // ROI pixels at work resolution
+    double scale = 1.0;              // work scale (inspect_scale after clamping)
+    int pixelThreshold = 0;          // diff level that counts as anomalous, derived from sensitivity
+    int envelopeKernel = 1;          // shift-tolerance kernel size at work resolution
+    double gain = 1.0;               // brightness normalisation gain
+    double refMean = 0.0, curMean = 0.0;   // ROI mean brightness before normalisation
+    double diffMean = 0.0;           // mean diff inside the ROI
+    int diffMax = 0, diffP99 = 0;    // diff extremes inside the ROI
+    int blobsTotal = 0, blobsKept = 0;
+    double largestDroppedBlob = 0.0; // biggest blob below min_blob_area, work pixels (near-miss indicator)
+    std::vector<double> keptBlobAreas;   // work pixels, same order as zones
+    std::vector<int> keptBlobMaxDiff;    // peak diff per kept blob, same order as zones
     // visuals (only filled when requested)
     cv::Size workSize;
     cv::Rect region;

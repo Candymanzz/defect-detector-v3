@@ -1,11 +1,14 @@
 // cppAnalisSurface: reference-based surface inspection service (replacement of the Python analisSurface).
-// Usage: cpp_analis_surface [--host 127.0.0.1] [--port 8000] [--workers N] [--data-dir DIR]
+// Usage: cpp_analis_surface [--host 127.0.0.1] [--port 8000] [--workers N] [--data-dir DIR] [--log-dir DIR]
+// Logs go to <app root>/logs by default (see core/logger.h).
 // The orchestrator appends/replaces "--port N" when it starts a pool of instances.
+#include "core/logger.h"
 #include "service/service.h"
 #include "web/routes.h"
 #include <opencv2/core/utility.hpp>
 #include <algorithm>
 #include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -15,6 +18,7 @@ int main(int argc, char** argv) {
     int port = 8000;
     std::string dataDir = "data";
     int workers = 0;   // 0 = auto
+    std::string logDir;
 
     if (const char* env = std::getenv("ANALIS_INSPECT_WORKERS")) {
         try { workers = std::stoi(env); } catch (...) {}
@@ -27,6 +31,7 @@ int main(int argc, char** argv) {
             else if (k == "--port") port = std::stoi(next());
             else if (k == "--workers") workers = std::stoi(next());
             else if (k == "--data-dir") dataDir = next();
+            else if (k == "--log-dir") logDir = next();
         } catch (...) {
             std::cerr << "bad value for " << k << "\n";
             return 2;
@@ -37,6 +42,9 @@ int main(int argc, char** argv) {
 
     // Parallelism comes from concurrent requests; OpenCV-internal thread teams would oversubscribe the CPU.
     cv::setNumThreads(1);
+
+    auto& log = cas::Logger::instance();
+    log.init(logDir.empty() ? cas::defaultLogDir(argv[0]) : std::filesystem::u8path(logDir));
 
     cas::Service service(dataDir, workers);
     httplib::Server svr;
@@ -49,7 +57,10 @@ int main(int argc, char** argv) {
 
     std::cout << "cppAnalisSurface detector_id=" << service.detectorId() << " workers=" << workers
               << " data=" << dataDir << " listening on " << host << ":" << port << std::endl;
+    log.info("start detector_id=" + service.detectorId() + " workers=" + std::to_string(workers) + " data=" + dataDir +
+             " listen=" + host + ":" + std::to_string(port) + " logs=" + log.dir().string());
     if (!svr.listen(host, port)) {
+        log.error("cannot listen on " + host + ":" + std::to_string(port));
         std::cerr << "cannot listen on " << host << ":" << port << "\n";
         return 1;
     }

@@ -127,15 +127,26 @@ Inspected Service::run(const InspectJob& job, const cv::Mat& frame, bool keepVis
 }
 
 Inspected Service::inspectShm(const InspectJob& job, const ShmFrame& frame, bool keepVisuals) {
+    const auto tWait = std::chrono::steady_clock::now();
     Slot slot(*this);
+    const double waitMs = msSince(tWait);
     if (!reference(job.product)) throw NoReference(job.product);
+    const auto tRead = std::chrono::steady_clock::now();
     cv::Mat bgr = readBgrFrame(frame.name, frame.width, frame.height, frame.stride, frame.offset);
-    return run(job, bgr, keepVisuals);
+    const double readMs = msSince(tRead);
+    Inspected r = run(job, bgr, keepVisuals);
+    r.waitMs = waitMs;
+    r.readMs = readMs;
+    return r;
 }
 
 Inspected Service::inspectMat(const InspectJob& job, const cv::Mat& frame, bool keepVisuals) {
+    const auto tWait = std::chrono::steady_clock::now();
     Slot slot(*this);
-    return run(job, frame, keepVisuals);
+    const double waitMs = msSince(tWait);
+    Inspected r = run(job, frame, keepVisuals);
+    r.waitMs = waitMs;
+    return r;
 }
 
 cv::Mat Service::loadTestFrame(const std::string& cacheKey, const std::string& path, const std::string& imageUrl,
