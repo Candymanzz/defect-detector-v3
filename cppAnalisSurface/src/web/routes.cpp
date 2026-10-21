@@ -176,6 +176,10 @@ json inspectJson(const std::string& product, const Inspected& r, const Service::
     j["frame_width"] = r.frameSize.width;
     j["frame_height"] = r.frameSize.height;
     j["settings"] = r.settings.toJson();
+    if (o.seamEnabled)
+        j["seam"] = {{"found", o.seamFound}, {"reject", o.seamReject}, {"ratio", round3(o.seamRatio)},
+                     {"max_dev", round3(o.seamMaxDev)}, {"worst_t", round3(o.seamWorstT)},
+                     {"coverage", round3(o.seamCoverage)}, {"ms", round3(o.seamMs)}};
     j["heatmap_u8"] = w ? imageJson(w->heatmap) : json(nullptr);
     return j;
 }
@@ -294,6 +298,10 @@ void logInspection(const char* endpoint, const InspectJob& job, const Inspected&
     j["diff_max"] = o.diffMax;
     j["blobs_total"] = o.blobsTotal;
     j["blobs_kept"] = o.blobsKept;
+    if (o.seamEnabled)
+        j["seam"] = {{"found", o.seamFound}, {"reject", o.seamReject}, {"ratio", round3(o.seamRatio)},
+                     {"max_dev", round3(o.seamMaxDev)}, {"worst_t", round3(o.seamWorstT)},
+                     {"coverage", round3(o.seamCoverage)}, {"ms", round3(o.seamMs)}};
     j["largest_dropped_blob"] = round3(o.largestDroppedBlob);
     j["zones"] = json::array();
     for (size_t i = 0; i < o.zones.size(); ++i) {

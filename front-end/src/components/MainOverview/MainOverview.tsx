@@ -181,7 +181,7 @@ export function MainOverview({
         analysisDraft == null
           ? undefined
           : {
-              settings: { ...analysisDraft.settings } as Record<string, number>,
+              settings: { ...analysisDraft.settings } as Record<string, unknown>,
             };
       controller.setPendingTestJob(null);
       const accepted = await orchestratorApi.testAnalyzePinnedFrame(snapshot.cameraId, pinId, frameId, {

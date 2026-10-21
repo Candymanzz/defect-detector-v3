@@ -1,4 +1,5 @@
 #include "service.h"
+#include "core/seam.h"
 #include "core/shm_io.h"
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
@@ -12,6 +13,31 @@ namespace cas {
 namespace fs = std::filesystem;
 
 namespace {
+
+// Seam straightness check on top of the reference comparison. A seam deviation rejects the frame; the reason of the
+// reference comparison (if any) stays the primary one. The bounding box of the bad points is added as an anomaly zone.
+void applySeam(const cv::Mat& frame, const SeamSettings& seam, InspectOutcome& out) {
+    if (!seam.enabled || !seam.hasLine() || out.reason == "size_mismatch") return;
+    SeamResult sr = measureSeam(frame, seam);
+    out.seamEnabled = true;
+    out.seamFound = sr.found;
+    out.seamReject = sr.reject;
+    out.seamRatio = sr.ratio;
+    out.seamMaxDev = sr.maxDev;
+    out.seamWorstT = sr.worstT;
+    out.seamCoverage = sr.coverage;
+    out.seamMs = sr.ms;
+    out.totalMs += sr.ms;
+    if (!sr.reject) return;
+    out.reject = true;
+    if (out.reason.empty()) out.reason = "seam_deviation";
+    if (!sr.badPts.empty()) {
+        cv::Rect bb = cv::boundingRect(sr.badPts);
+        bb.x -= 12; bb.y -= 12; bb.width += 24; bb.height += 24;
+        bb &= cv::Rect(0, 0, frame.cols, frame.rows);
+        if (bb.area() > 0) out.zones.push_back(bb);
+    }
+}
 
 std::string makeDetectorId() {
     for (const char* env : {"DETECTOR_ID", "PYTHON_APP_ID"}) {
@@ -123,6 +149,7 @@ Inspected Service::run(const InspectJob& job, const cv::Mat& frame, bool keepVis
     r.roi = ref->roi();
     r.frameSize = frame.size();
     r.out = inspectFrame(*ref, frame, r.settings, keepVisuals);
+    applySeam(frame, r.settings.seam, r.out);
     return r;
 }
 

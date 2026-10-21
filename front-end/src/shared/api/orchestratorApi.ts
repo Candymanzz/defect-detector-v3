@@ -453,7 +453,7 @@ export const orchestratorApi = {
         detailed?: Record<string, number>;
         pro?: Record<string, number>;
         /** cppAnalisSurface: временные настройки анализа (sensitivity, threshold, shift_tolerance, min_blob_area, inspect_scale). */
-        settings?: Record<string, number>;
+        settings?: Record<string, unknown>;
       };
     },
   ) {

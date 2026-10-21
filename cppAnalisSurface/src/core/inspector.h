@@ -28,6 +28,13 @@ struct InspectOutcome {
     int diffMax = 0, diffP99 = 0;    // diff extremes inside the ROI
     int blobsTotal = 0, blobsKept = 0;
     double largestDroppedBlob = 0.0; // biggest blob below min_blob_area, work pixels (near-miss indicator)
+    // seam straightness (filled by Service::run when the profile enables it)
+    bool seamEnabled = false, seamFound = false, seamReject = false;
+    double seamRatio = 0.0;          // max deviation / tolerance (> 1 = reject)
+    double seamMaxDev = 0.0;         // px at the worst position
+    double seamWorstT = 0.0;         // 0..1 along the seam
+    double seamCoverage = 0.0;       // share of evaluated rows where the line was located
+    double seamMs = 0.0;
     std::vector<double> keptBlobAreas;   // work pixels, same order as zones
     std::vector<int> keptBlobMaxDiff;    // peak diff per kept blob, same order as zones
     // visuals (only filled when requested)

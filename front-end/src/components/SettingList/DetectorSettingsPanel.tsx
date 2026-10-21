@@ -1,15 +1,26 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { orchestratorApi } from "../../shared/api";
-import type { DetectorSettings } from "../../shared/api";
+import type { DetectorSettings, SeamSettings } from "../../shared/api";
 import { subscribeAnalysisSettingsChanged } from "./analysisSettingsEvents";
 import { errorMessage } from "../../shared/lib/errors";
 import { Button } from "../../shared/ui/Button";
+import { SeamSettingsSection } from "./SeamSettingsSection";
 
 /**
  * Настройки анализа поверхности (cppAnalisSurface): пять реальных параметров детектора.
  * Хранятся на сервисе по профилю камеры; здесь же — временные настройки для проверки тестового кадра.
  */
+
+const DEFAULT_SEAM: SeamSettings = {
+  enabled: false,
+  p0: [0, 0],
+  p1: [0, 0],
+  band: 30,
+  tol_mid: 1,
+  tol_edge: 5,
+  edge_frac: 0.12,
+};
 
 const DEFAULT_SETTINGS: DetectorSettings = {
   sensitivity: 0.5,
@@ -17,9 +28,10 @@ const DEFAULT_SETTINGS: DetectorSettings = {
   shift_tolerance: 3,
   min_blob_area: 20,
   inspect_scale: 1,
+  seam: DEFAULT_SEAM,
 };
 
-type FieldName = keyof DetectorSettings;
+type FieldName = Exclude<keyof DetectorSettings, "seam">;
 
 type Field = {
   name: FieldName;
@@ -79,7 +91,7 @@ type Props = {
 
 export type DetectorSettingsPanelHandle = {
   save: () => Promise<void>;
-  getDraft: () => { settings: DetectorSettings };
+  getDraft: () => { settings: Partial<DetectorSettings> };
 };
 
 export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Props>(function DetectorSettingsPanel({
@@ -211,7 +223,8 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
 
   useImperativeHandle(ref, () => ({
     save: persist,
-    getDraft: () => ({ settings }),
+    // линия стыка принадлежит конкретной камере: в режиме «все камеры» она в настройки не попадает
+    getDraft: () => ({ settings: selectedCameraId === null ? withoutSeam(settings) : settings }),
   }));
 
   const reset = () => {
@@ -302,6 +315,18 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
         })}
       </div>
 
+      {selectedCameraId !== null && (
+        <SeamSettingsSection
+          cameraId={selectedCameraId}
+          seam={settings.seam}
+          disabled={busy}
+          onChange={(seam) => {
+            userEditedRef.current = true;
+            setSettings((current) => ({ ...current, seam }));
+          }}
+        />
+      )}
+
       <div className="analysis-presets__footer">
         <span data-kind={status.kind} aria-live="polite">{status.text}</span>
         {!hideSaveAction && <Button type="button" disabled={busy} onClick={() => void persist()}>Сохранить</Button>}
@@ -326,9 +351,17 @@ async function loadSettings(cameraId: number | null) {
     : orchestratorApi.getDefaultDetectorSettings();
 }
 
+function withoutSeam(settings: DetectorSettings): Partial<DetectorSettings> {
+  const rest: Partial<DetectorSettings> = { ...settings };
+  delete rest.seam;
+  return rest;
+}
+
 async function saveSettings(cameraId: number | null, settings: DetectorSettings) {
   if (cameraId !== null) return orchestratorApi.setCameraDetectorSettings(cameraId, settings);
-  const responses = await Promise.all((await allCameras()).map((id) => orchestratorApi.setCameraDetectorSettings(id, settings)));
+  // стык задаётся отдельно для каждой камеры — общее сохранение его не трогает
+  const common = withoutSeam(settings);
+  const responses = await Promise.all((await allCameras()).map((id) => orchestratorApi.setCameraDetectorSettings(id, common)));
   return responses[0];
 }
 

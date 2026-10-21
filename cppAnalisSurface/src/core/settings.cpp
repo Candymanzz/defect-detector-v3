@@ -3,9 +3,14 @@
 
 namespace cas {
 
+json SeamSettings::toJson() const {
+    return {{"enabled", enabled}, {"p0", {p0x, p0y}}, {"p1", {p1x, p1y}}, {"band", band},
+            {"tol_mid", tolMid}, {"tol_edge", tolEdge}, {"edge_frac", edgeFrac}};
+}
+
 json Settings::toJson() const {
     return {{"sensitivity", sensitivity}, {"threshold", threshold}, {"shift_tolerance", shiftTolerance},
-            {"min_blob_area", minBlobArea}, {"inspect_scale", inspectScale}};
+            {"min_blob_area", minBlobArea}, {"inspect_scale", inspectScale}, {"seam", seam.toJson()}};
 }
 
 namespace {
@@ -24,6 +29,38 @@ bool readNumber(const json& j, const char* key, double lo, double hi, bool loExc
     return true;
 }
 
+
+// Reads a normalised point [x, y] (0..1) into x/y when present.
+bool readPoint(const json& j, const char* key, double& x, double& y, std::string& err) {
+    if (!j.contains(key)) return true;
+    const json& a = j[key];
+    if (!a.is_array() || a.size() != 2 || !a[0].is_number() || !a[1].is_number()) {
+        err = std::string(key) + " must be [x, y]";
+        return false;
+    }
+    double px = a[0].get<double>(), py = a[1].get<double>();
+    if (px < 0 || px > 1 || py < 0 || py > 1) { err = std::string(key) + " out of range"; return false; }
+    x = px;
+    y = py;
+    return true;
+}
+
+}
+
+std::string SeamSettings::applyJson(const json& j) {
+    if (!j.is_object()) return "seam must be a JSON object";
+    SeamSettings t = *this;
+    std::string err;
+    if (j.contains("enabled")) {
+        if (!j["enabled"].is_boolean()) return "seam.enabled must be a boolean";
+        t.enabled = j["enabled"].get<bool>();
+    }
+    if (!readPoint(j, "p0", t.p0x, t.p0y, err) || !readPoint(j, "p1", t.p1x, t.p1y, err)) return "seam." + err;
+    if (!readNumber(j, "band", 5, 200, false, t.band, err) || !readNumber(j, "tol_mid", 0.1, 50, false, t.tolMid, err) ||
+        !readNumber(j, "tol_edge", 0.1, 50, false, t.tolEdge, err) || !readNumber(j, "edge_frac", 0, 0.5, false, t.edgeFrac, err))
+        return "seam." + err;
+    *this = t;
+    return "";
 }
 
 std::string Settings::applyJson(const json& j) {
@@ -45,6 +82,10 @@ std::string Settings::applyJson(const json& j) {
     v = tmp.inspectScale;
     if (!readNumber(j, "inspect_scale", 0.1, 1, false, v, err)) return err;
     tmp.inspectScale = v;
+    if (j.contains("seam")) {
+        err = tmp.seam.applyJson(j["seam"]);
+        if (!err.empty()) return err;
+    }
     *this = tmp;
     return "";
 }
@@ -64,6 +105,10 @@ SettingsPatch SettingsPatch::fromJson(const json& j) {
     take("inspect_scale", p.inspectScale);
     take("shift_tolerance", p.shiftTolerance);
     take("min_blob_area", p.minBlobArea);
+    if (j.contains("seam") && j["seam"].is_object()) {
+        SeamSettings probeSeam;
+        if (probeSeam.applyJson(j["seam"]).empty()) p.seam = j["seam"];   // invalid seam override is ignored as a whole
+    }
     return p;
 }
 
@@ -73,6 +118,7 @@ void SettingsPatch::applyTo(Settings& s) const {
     if (inspectScale) s.inspectScale = *inspectScale;
     if (shiftTolerance) s.shiftTolerance = *shiftTolerance;
     if (minBlobArea) s.minBlobArea = *minBlobArea;
+    if (seam.is_object()) s.seam.applyJson(seam);
 }
 
 SettingsStore::SettingsStore(std::filesystem::path file) : file_(std::move(file)) { reloadIfStale(); }

@@ -17,6 +17,7 @@ add_executable(cpp_analis_surface
   src/core/settings.cpp
   src/core/reference.cpp
   src/core/inspector.cpp
+  src/core/seam.cpp
   src/core/logger.cpp
   src/core/shm_io.cpp
   src/service/service.cpp

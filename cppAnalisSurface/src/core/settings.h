@@ -1,5 +1,6 @@
 #pragma once
 #include <nlohmann/json.hpp>
+#include <cmath>
 #include <filesystem>
 #include <map>
 #include <mutex>
@@ -14,6 +15,22 @@ using json = nlohmann::json;
 // With the default threshold 0.25 a frame is rejected when ~1.25% of the ROI area is anomalous.
 constexpr double kScoreFullScalePercent = 5.0;
 
+// Label seam straightness check (a thin bright line along the label edge). Points are normalised 0..1 of the
+// frame, p0 -> p1 follow the seam (approximate: `band` px of search margin absorb the pose of the product).
+struct SeamSettings {
+    bool enabled = false;
+    double p0x = 0, p0y = 0, p1x = 0, p1y = 0;
+    double band = 30;         // px, search half-width around the p0-p1 line
+    double tolMid = 1.0;      // px, allowed deviation of the seam from a smooth line (middle part)
+    double tolEdge = 5.0;     // px, allowed deviation near both ends of the seam
+    double edgeFrac = 0.12;   // share of the seam length treated as an "end" on each side
+
+    bool hasLine() const { return std::abs(p1x - p0x) + std::abs(p1y - p0y) > 1e-6; }
+    json toJson() const;
+    // Applies the fields present in `j` (partial update); returns an error text or an empty string.
+    std::string applyJson(const json& j);
+};
+
 // The real, user-facing inspection settings (per analysis profile = camera).
 struct Settings {
     double sensitivity = 0.5;     // 0..1, higher = stricter (lower pixel-difference threshold)
@@ -21,6 +38,7 @@ struct Settings {
     int shiftTolerance = 3;       // px of the original frame, micro-shift tolerance
     int minBlobArea = 20;         // px of the original frame, smaller anomalies are noise
     double inspectScale = 1.0;    // (0..1], frame is downscaled by this factor before analysis
+    SeamSettings seam;            // seam straightness check
 
     json toJson() const;
     // Applies the fields present in `j`; returns an error text or an empty string.
@@ -31,6 +49,7 @@ struct Settings {
 struct SettingsPatch {
     std::optional<double> sensitivity, threshold, inspectScale;
     std::optional<int> shiftTolerance, minBlobArea;
+    json seam;                                       // partial seam settings (null = none)
     static SettingsPatch fromJson(const json& j);   // ignores missing, wrong-typed or out-of-range fields
     void applyTo(Settings& s) const;
 };

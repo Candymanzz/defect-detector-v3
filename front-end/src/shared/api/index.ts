@@ -5,6 +5,7 @@ export type {
   AnalysisSettingsResponse,
   AnalysisSettingsUpdateRequest,
   DetectorSettings,
+  SeamSettings,
   DetectorSettingsResponse,
   DetectorSettingsUpdate,
   AnalysisPresetResponse,
