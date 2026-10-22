@@ -1782,3 +1782,7 @@
     max-height: 420px;
   }
 }
+
+.setting-list__quick-action--lines {
+  grid-column: 1 / -1;
+}

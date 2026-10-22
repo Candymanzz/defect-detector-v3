@@ -40,6 +40,25 @@ void applySeam(const cv::Mat& frame, const SeamSettings& seam, InspectOutcome& o
     }
 }
 
+// Seam and edge zones of the profile: each adds its own reject reason; the reason of the reference comparison (if any)
+// stays the primary one. The bounding box of the bad points joins the anomaly zones.
+void applyLineZone(const cv::Mat& frame, const LineZone& zone, const char* reason, Inspected::Zone& z, InspectOutcome& out) {
+    if (!zone.usable() || out.reason == "size_mismatch") return;
+    z.params = zone.toParams(frame.size());
+    z.result = measureLine(frame, z.params);
+    z.ran = true;
+    out.totalMs += z.result.ms;
+    if (!z.result.reject) return;
+    out.reject = true;
+    if (out.reason.empty()) out.reason = reason;
+    if (!z.result.badPts.empty()) {
+        cv::Rect bb = cv::boundingRect(z.result.badPts);
+        bb.x -= 12; bb.y -= 12; bb.width += 24; bb.height += 24;
+        bb &= cv::Rect(0, 0, frame.cols, frame.rows);
+        if (bb.area() > 0) out.zones.push_back(bb);
+    }
+}
+
 std::string makeDetectorId() {
     for (const char* env : {"DETECTOR_ID", "PYTHON_APP_ID"}) {
         const char* v = std::getenv(env);
@@ -82,6 +101,7 @@ Service::Service(fs::path dataDir, int workers)
     : detectorId_(makeDetectorId()),
       workers_(std::max(1, workers)),
       settings_(dataDir / "settings.json"),
+      lines_(dataDir / "lines.json"),
       freeSlots_(std::max(1, workers)) {}
 
 NormPolygon Service::validated(NormPolygon pts) {
@@ -146,7 +166,8 @@ Inspected Service::run(const InspectJob& job, const cv::Mat& frame, bool keepVis
     if (job.roi) ref->setRoi(validated(*job.roi));
 
     Inspected r;
-    r.settings = settings_.get(job.profile.empty() ? job.product : job.profile);
+    r.profile = job.profile.empty() ? job.product : job.profile;
+    r.settings = settings_.get(r.profile);
     job.patch.applyTo(r.settings);
     if (job.seamLine && job.seamLine->size() == 2) {
         const auto& line = *job.seamLine;
@@ -160,6 +181,20 @@ Inspected Service::run(const InspectJob& job, const cv::Mat& frame, bool keepVis
     {
         TimingPhase seamTiming("seam_ms");
         applySeam(frame, r.settings.seam, r.out);
+    }
+    {
+        TimingPhase linesTiming("lines_ms");
+        const LinesSettings ls = lines_.get(r.profile);
+        applyLineZone(frame, ls.seam, "seam_line_deviation", r.seamZone, r.out);
+        applyLineZone(frame, ls.edge, "edge_line_deviation", r.edgeZone, r.out);
+        if (r.seamZone.ran || r.edgeZone.ran) {
+            json last = {{"ts_ms", std::chrono::duration_cast<std::chrono::milliseconds>(
+                                       std::chrono::system_clock::now().time_since_epoch()).count()},
+                         {"frame_width", frame.cols}, {"frame_height", frame.rows}, {"reject", r.out.reject}};
+            if (r.seamZone.ran) last["seam"] = zoneResultJson(r.seamZone.params, r.seamZone.result, frame.size());
+            if (r.edgeZone.ran) last["edge"] = zoneResultJson(r.edgeZone.params, r.edgeZone.result, frame.size());
+            lines_.setLast(r.profile, std::move(last));
+        }
     }
     return r;
 }

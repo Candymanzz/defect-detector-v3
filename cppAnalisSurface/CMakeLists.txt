@@ -18,6 +18,8 @@ add_executable(cpp_analis_surface
   src/core/reference.cpp
   src/core/inspector.cpp
   src/core/seam.cpp
+  src/core/line_geometry.cpp
+  src/core/lines.cpp
   src/core/logger.cpp
   src/core/performance_log.cpp
   src/core/shm_io.cpp

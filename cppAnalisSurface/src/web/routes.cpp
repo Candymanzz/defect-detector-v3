@@ -154,6 +154,19 @@ VisualOutputs parseOutputs(const json& b) {
 
 // ---------- response bodies ----------
 
+// Short verdict of the seam/edge line zones (the per-sample arrays are served by GET /lines/<profile>/last).
+json lineZonesJson(const Inspected& r) {
+    json j = json::object();
+    for (auto [name, z] : {std::pair<const char*, const Inspected::Zone*>{"seam", &r.seamZone}, {"edge", &r.edgeZone}}) {
+        if (!z->ran) continue;
+        const auto& s = z->result;
+        j[name] = {{"found", s.found}, {"reject", s.reject}, {"gap_reject", s.gapReject}, {"ratio", round3(s.ratio)},
+                   {"max_dev", round3(s.maxDev)}, {"worst_t", round3(s.worstT)}, {"coverage", round3(s.coverage)},
+                   {"noise", round3(s.noise)}, {"ms", round3(s.ms)}};
+    }
+    return j;
+}
+
 json imageJson(const std::optional<ImageInfo>& i) {
     if (!i) return nullptr;
     return {{"path", i->path}, {"width", i->width}, {"height", i->height},
@@ -201,6 +214,7 @@ json inspectJson(const std::string& product, const Inspected& r, const Service::
         j["seam"] = {{"found", o.seamFound}, {"reject", o.seamReject}, {"ratio", round3(o.seamRatio)},
                      {"max_dev", round3(o.seamMaxDev)}, {"worst_t", round3(o.seamWorstT)},
                      {"coverage", round3(o.seamCoverage)}, {"ms", round3(o.seamMs)}};
+    if (r.seamZone.ran || r.edgeZone.ran) j["lines"] = lineZonesJson(r);
     j["heatmap_u8"] = w ? imageJson(w->heatmap) : json(nullptr);
     return j;
 }
@@ -217,6 +231,11 @@ json settingsJson(Service& svc, const std::string& profile) {
             {"settings", svc.settings().get(profile).toJson()},
             {"defaults", Settings{}.toJson()},
             {"saved", svc.settings().has(profile)}};
+}
+
+json linesJson(Service& svc, const std::string& profile) {
+    return {{"analysis_profile", profile}, {"lines", svc.lines().get(profile).toJson()},
+            {"defaults", LinesSettings{}.toJson()}};
 }
 
 void logSlow(const char* what, const std::string& product, double ms) {
@@ -333,6 +352,7 @@ void logInspection(const char* endpoint, const InspectJob& job, const Inspected&
         j["seam"] = {{"found", o.seamFound}, {"reject", o.seamReject}, {"ratio", round3(o.seamRatio)},
                      {"max_dev", round3(o.seamMaxDev)}, {"worst_t", round3(o.seamWorstT)},
                      {"coverage", round3(o.seamCoverage)}, {"ms", round3(o.seamMs)}};
+    if (r.seamZone.ran || r.edgeZone.ran) j["lines"] = lineZonesJson(r);
     j["largest_dropped_blob"] = round3(o.largestDroppedBlob);
     j["zones"] = json::array();
     for (size_t i = 0; i < o.zones.size(); ++i) {
@@ -440,6 +460,34 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
         svc.settings().reset(profile);
         Logger::instance().info("settings reset profile=" + profile);
         sendJson(res, settingsJson(svc, profile), svc);
+    });
+
+    // ---- seam / edge line zones (per analysis profile) ----
+    svr.Get("/lines/defaults", [&](const httplib::Request&, httplib::Response& res) {
+        sendJson(res, {{"lines", LinesSettings{}.toJson()}, {"defaults", LinesSettings{}.toJson()}}, svc);
+    });
+    svr.Get("/lines/:profile/last", [&](const httplib::Request& req, httplib::Response& res) {
+        sendJson(res, {{"analysis_profile", req.path_params.at("profile")}, {"last", svc.lines().last(req.path_params.at("profile"))}}, svc);
+    });
+    svr.Get("/lines/:profile", [&](const httplib::Request& req, httplib::Response& res) {
+        sendJson(res, linesJson(svc, req.path_params.at("profile")), svc);
+    });
+    svr.Put("/lines/:profile", [&](const httplib::Request& req, httplib::Response& res) {
+        guarded(res, svc, [&] {
+            std::string profile = req.path_params.at("profile");
+            json b = parseBody(req);
+            LinesSettings saved;
+            std::string err = svc.lines().set(profile, b.contains("lines") ? b["lines"] : b, saved);
+            if (!err.empty()) return sendError(res, svc, 400, err, "bad_lines");
+            Logger::instance().info("lines saved profile=" + profile + " " + saved.toJson().dump());
+            sendJson(res, linesJson(svc, profile), svc);
+        });
+    });
+    svr.Delete("/lines/:profile", [&](const httplib::Request& req, httplib::Response& res) {
+        std::string profile = req.path_params.at("profile");
+        svc.lines().reset(profile);
+        Logger::instance().info("lines reset profile=" + profile);
+        sendJson(res, linesJson(svc, profile), svc);
     });
 
     // ---- inspection ----

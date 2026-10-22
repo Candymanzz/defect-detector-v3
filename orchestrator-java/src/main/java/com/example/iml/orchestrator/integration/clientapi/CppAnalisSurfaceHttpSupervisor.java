@@ -500,7 +500,7 @@ public final class CppAnalisSurfaceHttpSupervisor implements BinaryRpcSupervisor
             h.put(timing, YamlScalars.toDouble(json.get(timing), 0.0));
         }
         // нативные поля cppAnalisSurface
-        for (String key : List.of("area_percent", "reason", "shift", "zones", "settings", "frame_width", "frame_height", "seam")) {
+        for (String key : List.of("area_percent", "reason", "shift", "zones", "settings", "frame_width", "frame_height", "seam", "lines")) {
             if (json.get(key) != null) {
                 h.put(key, json.get(key));
             }

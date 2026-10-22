@@ -1,5 +1,6 @@
 #pragma once
 #include "core/inspector.h"
+#include "core/lines.h"
 #include "core/reference.h"
 #include "core/settings.h"
 #include "core/shm_io.h"
@@ -49,6 +50,10 @@ struct Inspected {
     double heatmapMs = 0.0;
     double waitMs = 0.0;   // time spent waiting for a free worker slot (CPU saturation indicator)
     double readMs = 0.0;   // shared-memory frame read
+    // seam / edge line zones (core/lines.h); a zone that is off or has no line keeps `ran` false
+    struct Zone { bool ran = false; LineParams params; LineResult result; };
+    Zone seamZone, edgeZone;
+    std::string profile;   // key of the settings/lines of this inspection
 };
 
 class Service {
@@ -58,6 +63,7 @@ public:
     const std::string& detectorId() const { return detectorId_; }
     int workers() const { return workers_; }
     SettingsStore& settings() { return settings_; }
+    LinesStore& lines() { return lines_; }
 
     void setReference(const std::string& product, cv::Mat bgr);
     std::shared_ptr<Reference> reference(const std::string& product);
@@ -86,6 +92,7 @@ private:
     std::string detectorId_;
     int workers_;
     SettingsStore settings_;
+    LinesStore lines_;
 
     std::mutex regM_;
     std::map<std::string, std::shared_ptr<Reference>> refs_;

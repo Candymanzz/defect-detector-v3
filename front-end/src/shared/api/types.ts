@@ -561,3 +561,86 @@ export type DetectorSettingsResponse = {
 };
 
 export type DetectorSettingsUpdate = Partial<DetectorSettings>;
+
+/**
+ * Геометрия линий этикетки (cppAnalisSurface): две независимые зоны камеры.
+ * «Стык» — тонкая светлая линия (ridge), «Кромка» — граница светлое/тёмное (step).
+ */
+export type LineZoneSettings = {
+  enabled: boolean;
+  mode: "ridge" | "step";
+  /** Контрольные точки линии в долях кадра (0..1); через них проходит сплайн. */
+  pts: Array<[number, number]>;
+  /** Номера участков (между pts[i] и pts[i+1]), исключённых из проверки. */
+  skip: number[];
+  /** Только step: 0 — любая граница, 1 — светлее по +нормали, -1 — темнее. */
+  polarity: -1 | 0 | 1;
+  fit_deg: number;
+  /** Только step: длина участка (px), по которому строится локальная опорная линия. */
+  smooth_win: number;
+  /** Полоса поиска вокруг линии, ± px. */
+  band: number;
+  tol_mid: number;
+  tol_edge: number;
+  edge_frac: number;
+  min_contrast: number;
+  /** Доля линии, которая может быть подряд «не найдена» (1 — не проверять). */
+  max_gap: number;
+};
+
+export type LinesSettings = {
+  seam: LineZoneSettings;
+  edge: LineZoneSettings;
+};
+
+export type LinesSettingsResponse = {
+  analysis_profile?: string;
+  lines: LinesSettings;
+  defaults: LinesSettings;
+};
+
+export type LinesSettingsUpdate = {
+  seam?: Partial<LineZoneSettings>;
+  edge?: Partial<LineZoneSettings>;
+};
+
+/** Результат одной зоны на последнем кадре: вердикт и сжатые массивы для диаграммы (до 400 отсчётов). */
+export type LineZoneResult = {
+  found: boolean;
+  reject: boolean;
+  gap_reject: boolean;
+  /** max |отклонение| / допуск; > 1 — брак. */
+  ratio: number;
+  max_dev: number;
+  worst_t: number;
+  coverage: number;
+  gap: number;
+  /** p95 |отклонения|, px: насколько «шумная» линия. */
+  noise: number;
+  ms: number;
+  /** Отклонение по отсчётам, px (со знаком). */
+  dev?: number[];
+  /** Допуск по отсчётам, px. */
+  tol?: number[];
+  /** Состояние отсчёта: 0 измерен, 1 исключён, 2 край линии, 3 линия не найдена. */
+  state?: string;
+  /** Измеренная линия, опорная линия и ось поиска в долях кадра. */
+  edge?: Array<[number, number]>;
+  ref?: Array<[number, number]>;
+  axis?: Array<[number, number]>;
+  samples?: number;
+};
+
+export type LinesLastResult = {
+  ts_ms: number;
+  frame_width: number;
+  frame_height: number;
+  reject: boolean;
+  seam?: LineZoneResult;
+  edge?: LineZoneResult;
+};
+
+export type LinesLastResponse = {
+  analysis_profile?: string;
+  last: LinesLastResult | null;
+};

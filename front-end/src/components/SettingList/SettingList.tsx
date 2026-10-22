@@ -15,6 +15,7 @@ import {
   updateSettingField,
 } from "./SettingController";
 import { CameraSettingsModal } from "../CameraSettingsModal";
+import { LinesSetup } from "../LinesSetup";
 import { ReferenceSetup } from "../ReferenceSetup";
 import { ServerStream } from "../ServerStream";
 import { DetectorSettingsPanel } from "./DetectorSettingsPanel";
@@ -224,6 +225,7 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
   const [analysisTooltip, setAnalysisTooltip] = useState<AnalysisTooltip | null>(null);
   const [isCameraSettingsOpen, setIsCameraSettingsOpen] = useState(false);
   const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
+  const [isLinesSetupOpen, setIsLinesSetupOpen] = useState(false);
   const [isServerStreamOpen, setIsServerStreamOpen] = useState(false);
   const requestIdRef = useRef(0);
 
@@ -542,6 +544,14 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
               Камеры
             </Button>
             <Button
+              className="setting-list__quick-action setting-list__quick-action--camera setting-list__quick-action--lines"
+              disabled={isBusy}
+              onClick={() => setIsLinesSetupOpen(true)}
+            >
+              <SettingActionIcon name="lines" />
+              Линии: стык / кромка
+            </Button>
+            <Button
               className={`setting-list__quick-action ${inspectionRunning === false ? "setting-list__quick-action--start" : "setting-list__quick-action--reset"}`}
               disabled={inspectionRunning === null || stopFeedback?.state === "resetting"}
               onClick={handleInspectionStop}
@@ -757,6 +767,12 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
           onClose={() => setIsReferenceSetupOpen(false)}
         />
       )}
+      {isLinesSetupOpen && (
+        <LinesSetup
+          initialCameraId={selectedCameraId}
+          onClose={() => setIsLinesSetupOpen(false)}
+        />
+      )}
       {isServerStreamOpen && (
         <ServerStream
           isOpen
@@ -803,7 +819,7 @@ function SettingActionIcon({
   name,
   className,
 }: {
-  name: "stream" | "reference" | "camera" | "reset" | "start" | "stop" | "light";
+  name: "stream" | "reference" | "camera" | "reset" | "start" | "stop" | "light" | "lines";
   className?: string;
 }) {
   const iconClassName = ["setting-list__action-icon", className].filter(Boolean).join(" ");
@@ -880,6 +896,14 @@ function SettingActionIcon({
             <path d="M6 7l1 13h10l1-13" />
           </>
         )}
+        {name === "lines" && (
+          <>
+            <path d="M4 17c4-1 6-8 10-9 2-.5 4 0 6 1" />
+            <path d="M4 12c3-.5 5-4 8-5" />
+            <circle cx="4" cy="17" r="1.4" />
+            <circle cx="20" cy="9" r="1.4" />
+          </>
+        )}
         {name === "stop" && <rect x="6" y="6" width="12" height="12" rx="2" />}
         {name === "start" && <path d="M8 5.5v13l10-6.5L8 5.5Z" />}
         {name === "light" && (
@@ -897,7 +921,7 @@ function SettingActionIcon({
   );
 }
 
-function resolveSettingActionIconUrl(name: "stream" | "reference" | "camera" | "reset" | "start" | "stop" | "light") {
+function resolveSettingActionIconUrl(name: "stream" | "reference" | "camera" | "reset" | "start" | "stop" | "light" | "lines") {
   if (name === "stream") {
     return streamIconUrl;
   }

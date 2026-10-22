@@ -6,6 +6,9 @@ import type {
   AnalysisPresetResponse,
   DetectorSettingsResponse,
   DetectorSettingsUpdate,
+  LinesLastResponse,
+  LinesSettingsResponse,
+  LinesSettingsUpdate,
   SimpleAnalysisKnobs,
   ProAnalysisKnobs,
   StrengthKnobs,
@@ -47,6 +50,7 @@ const LIGHT_BRIGHTNESS_PATH = "/api/orchestrator/light/brightness";
 const LIGHT_MODE_PATH = "/api/orchestrator/light/mode";
 const ANALYSIS_SETTINGS_PATH = "/api/orchestrator/analysis-settings";
 const DETECTOR_SETTINGS_PATH = "/api/orchestrator/detector-settings";
+const DETECTOR_LINES_PATH = "/api/orchestrator/detector-lines";
 
 export const orchestratorApi = {
   url: (path: string) => http.url(path),
@@ -291,6 +295,27 @@ export const orchestratorApi = {
     return http.json<DetectorSettingsResponse>(`${DETECTOR_SETTINGS_PATH}/camera/${cameraId}`, {
       method: "DELETE",
     });
+  },
+
+  /** Линии стыка и кромки камеры (cppAnalisSurface). */
+  async getCameraLines(cameraId: number) {
+    return http.json<LinesSettingsResponse>(`${DETECTOR_LINES_PATH}/camera/${cameraId}`);
+  },
+
+  async setCameraLines(cameraId: number, update: LinesSettingsUpdate) {
+    return http.json<LinesSettingsResponse>(`${DETECTOR_LINES_PATH}/camera/${cameraId}`, {
+      method: "PUT",
+      body: update,
+    });
+  },
+
+  async resetCameraLines(cameraId: number) {
+    return http.json<LinesSettingsResponse>(`${DETECTOR_LINES_PATH}/camera/${cameraId}`, { method: "DELETE" });
+  },
+
+  /** Измерения линий на последнем проверенном кадре камеры (для диаграммы отклонений). */
+  async getCameraLinesLast(cameraId: number) {
+    return http.json<LinesLastResponse>(`${DETECTOR_LINES_PATH}/camera/${cameraId}/last`);
   },
 
   async getDefaultDetectorSettings() {

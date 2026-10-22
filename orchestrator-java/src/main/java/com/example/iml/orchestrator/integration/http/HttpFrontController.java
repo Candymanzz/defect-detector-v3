@@ -18,6 +18,7 @@ import com.example.iml.orchestrator.integration.http.controller.HealthHttpContro
 import com.example.iml.orchestrator.integration.http.controller.LightHttpController;
 
 import com.example.iml.orchestrator.integration.http.controller.OrchestratorAnalysisSettingsHttpController;
+import com.example.iml.orchestrator.integration.http.controller.OrchestratorDetectorLinesHttpController;
 import com.example.iml.orchestrator.integration.http.controller.OrchestratorDetectorSettingsHttpController;
 
 import com.example.iml.orchestrator.integration.http.controller.OrchestratorFpZonesHttpController;
@@ -208,6 +209,17 @@ public final class HttpFrontController {
                 "*",
                 Pattern.compile("^/api/orchestrator/detector-settings(/.*)?$"),
                 detectorSettings
+        ));
+
+        OrchestratorDetectorLinesHttpController detectorLines = new OrchestratorDetectorLinesHttpController(
+                ctx.analisSurfaceBaseUrl(),
+                ctx.analysisProfileByCamera()
+        );
+
+        router.register(HttpRoute.regex(
+                "*",
+                Pattern.compile("^/api/orchestrator/detector-lines(/.*)?$"),
+                detectorLines
         ));
 
         OrchestratorAnalysisSettingsHttpController analysisSettings = new OrchestratorAnalysisSettingsHttpController(

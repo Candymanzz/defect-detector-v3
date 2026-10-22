@@ -31,7 +31,7 @@ struct RequestTiming {
         double accounted = 0;
         // Only disjoint top-level intervals, never algorithm_ms plus its children.
         for (const char* key : {"request_parse_ms", "wait_ms", "read_ms", "reference_check_ms", "service_setup_ms",
-                 "algorithm_ms", "seam_ms", "visuals_ms", "legacy_inspection_logging_ms", "legacy_slow_logging_ms",
+                 "algorithm_ms", "seam_ms", "lines_ms", "visuals_ms", "legacy_inspection_logging_ms", "legacy_slow_logging_ms",
                  "response_build_ms", "response_serialize_ms", "response_write_ms", "test_frame_load_ms"}) {
             accounted += stages.value(key, 0.0);
         }
