@@ -549,7 +549,7 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
               onClick={() => setIsLinesSetupOpen(true)}
             >
               <SettingActionIcon name="lines" />
-              Линии: стык / кромка
+              Стык: линия
             </Button>
             <Button
               className={`setting-list__quick-action ${inspectionRunning === false ? "setting-list__quick-action--start" : "setting-list__quick-action--reset"}`}
@@ -769,6 +769,7 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
       )}
       {isLinesSetupOpen && (
         <LinesSetup
+          zones={["seam"]}
           initialCameraId={selectedCameraId}
           onClose={() => setIsLinesSetupOpen(false)}
         />

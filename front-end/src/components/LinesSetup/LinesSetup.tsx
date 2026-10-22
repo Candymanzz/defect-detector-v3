@@ -31,7 +31,7 @@ type EditMode = "pick" | "roi" | "skip";
 type Tab = "lines" | "diagram";
 type NumericParam = "band" | "tol_mid" | "tol_edge" | "edge_frac" | "smooth_win" | "min_contrast" | "max_gap";
 
-const ZONES: ReadonlyArray<{ key: ZoneKey; title: string; hint: string; color: string; step: boolean }> = [
+const ALL_ZONES: ReadonlyArray<{ key: ZoneKey; title: string; hint: string; color: string; step: boolean }> = [
   { key: "seam", title: "Стык", hint: "тонкая светлая линия", color: "#00e5ff", step: false },
   { key: "edge", title: "Кромка", hint: "граница светлое/тёмное", color: "#b388ff", step: true },
 ];
@@ -56,12 +56,16 @@ const DIAGRAM_REFRESH_MS = 3000;
 type Props = {
   initialCameraId: number | null;
   onClose: () => void;
+  /** Какие зоны показывать: окно настроек — «Стык», меню эталона — «Кромка». По умолчанию обе. */
+  zones?: readonly ZoneKey[];
 };
 
 type Edit = { zone: ZoneKey; mode: EditMode } | null;
 type Drag = { zone: ZoneKey; index: number } | null;
 
-export function LinesSetup({ initialCameraId, onClose }: Props) {
+export function LinesSetup({ initialCameraId, onClose, zones = ["seam", "edge"] }: Props) {
+  const ZONES = ALL_ZONES.filter(({ key }) => zones.includes(key));
+  const title = ZONES.map(({ title: t }) => t).join(" и ");
   const [cameraIds, setCameraIds] = useState<number[]>([]);
   const [cameraId, setCameraId] = useState<number | null>(initialCameraId);
   const [lines, setLines] = useState<LinesSettings | null>(null);
@@ -103,11 +107,14 @@ export function LinesSetup({ initialCameraId, onClose }: Props) {
   );
 
   useEffect(() => {
+    // capture phase: Escape closes only this window, not the "Эталон" window it may be opened from
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      onClose();
     };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true });
   }, [onClose]);
 
   useEffect(() => {
@@ -442,11 +449,11 @@ export function LinesSetup({ initialCameraId, onClose }: Props) {
   const busy = status.kind === "loading";
 
   return (
-    <div className="lines-setup" role="dialog" aria-modal="true" aria-label="Линии стыка и кромки">
+    <div className="lines-setup" role="dialog" aria-modal="true" aria-label={title}>
       <div className="lines-setup__modal">
         <header className="lines-setup__header">
           <div>
-            <h2>Линии: стык и кромка</h2>
+            <h2>{title}</h2>
             <span>Проверка ровности линий этикетки: две независимые зоны на камеру</span>
           </div>
           <label className="lines-setup__camera">
@@ -590,9 +597,9 @@ export function LinesSetup({ initialCameraId, onClose }: Props) {
                 <p className="lines-setup__diagram-verdict" data-reject={last.reject ? "true" : "false"}>
                   {last.reject ? "Кадр забракован" : "Кадр годен"} · {last.frame_width}×{last.frame_height}
                 </p>
-                {last.seam && <LinesDiagram title="Стык" result={last.seam} />}
-                {last.edge && <LinesDiagram title="Кромка" result={last.edge} />}
-                {!last.seam && !last.edge && <p className="lines-setup__empty">Зоны выключены или линия не задана.</p>}
+                {zones.includes("seam") && last.seam && <LinesDiagram title="Стык" result={last.seam} />}
+                {zones.includes("edge") && last.edge && <LinesDiagram title="Кромка" result={last.edge} />}
+                {!(zones.includes("seam") && last.seam) && !(zones.includes("edge") && last.edge) && <p className="lines-setup__empty">Зоны выключены или линия не задана.</p>}
               </>
             )}
           </div>
@@ -659,7 +666,7 @@ function ZoneOverlay({ zone, color, k, width, height, dragIndex }: OverlayProps)
 }
 
 type CardProps = {
-  info: (typeof ZONES)[number];
+  info: (typeof ALL_ZONES)[number];
   zone: LineZoneSettings;
   editing: EditMode | null;
   roiSelected: number;

@@ -3,6 +3,7 @@ import type { CSSProperties, MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import "../ModalWrapper/ModalWrapper.css";
 import "./ReferenceSetup.css";
+import { LinesSetup } from "../LinesSetup";
 import { RoiContourEditor } from "../RoiContourEditor";
 import { orchestratorApi } from "../../shared/api";
 import {
@@ -61,6 +62,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     setSeamLineForCamera,
     fpZonesByCameraId,
   } = useReferenceSetupController(onClose, initialCameraId);
+  const [isEdgeEditorOpen, setIsEdgeEditorOpen] = useState(false);
   const [selectedArchiveId, setSelectedArchiveId] = useState<string | null>(null);
   const [selectedLearnedCaseId, setSelectedLearnedCaseId] = useState<string | null>(null);
   const selectedSlot = cameraSlots.find((slot) => slot.cameraId === selectedCameraId);
@@ -412,6 +414,21 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
               </section>
               <section className="reference-setup__object-section">
                 <header>
+                  <span>Кромка этикетки</span>
+                  <i data-kind="roi" />
+                </header>
+                <button
+                  className="reference-setup__object-row"
+                  type="button"
+                  disabled={!selectedSlot}
+                  onClick={() => setIsEdgeEditorOpen(true)}
+                >
+                  <i data-kind="roi" /> Геометрия кромки {selectedSlot?.cameraId ?? ""}
+                  <span>настроить</span>
+                </button>
+              </section>
+              <section className="reference-setup__object-section">
+                <header>
                   <span>Доп. кадры анализа</span>
                   <i data-kind="fp" />
                 </header>
@@ -544,6 +561,14 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
             onSelect={setSelectedArchiveId}
             onUse={handleUseArchivedReference}
           />
+
+          {isEdgeEditorOpen && selectedSlot && (
+            <LinesSetup
+              zones={["edge"]}
+              initialCameraId={selectedSlot.cameraId}
+              onClose={() => setIsEdgeEditorOpen(false)}
+            />
+          )}
 
           {selectedLearnedCaseId && createPortal(
             <LearnedFramesGallery
