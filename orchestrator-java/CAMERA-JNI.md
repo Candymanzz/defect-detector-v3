@@ -16,8 +16,7 @@ cmake -S camera-worker -B camera-worker/build -DCMAKE_BUILD_TYPE=Release -DCAMER
 cmake --build camera-worker/build --config Release --target camera_jni
 ```
 
-Linux: `camera-worker/build/libcamera_jni.so`, Windows с Visual Studio:
-`camera-worker/build/Release/camera_jni.dll`. Windows DLL MVS копируются рядом.
+Библиотека Linux: `camera-worker/build/libcamera_jni.so`.
 Linux использует SDK в `/opt/MVS` или заданном `MVS_ROOT`.
 `rebuild-and-run.sh` собирает JNI и атомарно заменяет библиотеку в `camera-worker/build`.
 Для загрузки новой библиотеки требуется перезапуск JVM.

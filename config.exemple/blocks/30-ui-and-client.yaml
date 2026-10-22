@@ -29,8 +29,7 @@ frame_archive:
   max_allowed_frames_per_camera: 100
 
 # HTTP API для фронта на том же порту, что ui_http (нужен ui_http.enabled: true).
-# Прокси к analisSurface: путь /api/client/<...> → <kopcheni_base_url>/<...> (например /api/client/fp-zones → /fp-zones).
-# geometry-runtime: GET/PUT/DELETE порогов и ROI для следующих вызовов java-geometry (поверх java_geometry в YAML).
+# Прокси к C++-анализатору: путь /api/client/<...> → <kopcheni_base_url>/<...> (например /api/client/fp-zones → /fp-zones).
 client_api:
   enabled: true
   kopcheni_base_url: "http://127.0.0.1:8000"

@@ -157,30 +157,6 @@
       "pipe_command_linux": "/tmp/camera-9-cmd.sock"
     }
   ],
-  "java_geometry": {
-    "pixels_to_mm": 0.02,
-    "main_roi": {
-      "x": 0,
-      "y": 0,
-      "width": 1224,
-      "height": 1024
-    },
-    "max_shift_mm": 0.5,
-    "max_rotation_deg": 1.0,
-    "max_joint_defect_mm": 0.5,
-    "joint_min_width_mm": 0.25,
-    "joint_max_width_mm": 1.6,
-    "max_joint_parallelism_deg": 2.5,
-    "max_joint_taper_mm": 0.8,
-    "max_joint_rim_skew_deg": 2.5,
-    "max_joint_gap_asymmetry_mm": 0.8,
-    "joint_sibling_min_visibility": 0.25,
-    "max_joint_parallelism_deg_strict": 2.5,
-    "joint_min_width_mm_strict": 0.4,
-    "joint_max_width_mm_strict": 1.5,
-    "joint_seam_segmentation_enabled": true,
-    "max_wrinkles_score": 0.45
-  },
   "python_detector": {
     "backend": "cpp",
     "base_url": "http://127.0.0.1:8000",
@@ -237,7 +213,6 @@
     }
   },
   "integration": {
-    "geometry_pool_size": 10,
     "python_parallelism": 10,
     "python_request_parallelism": 10,
     "python_server_pool_size": 1,
@@ -245,10 +220,6 @@
     "worker_command_timeout_ms": 30000,
     "worker_startup_stagger_ms": 0,
     "service_command_timeout_ms": 15000,
-    "worker_ipc_mode": "stdio",
-    "worker_named_pipe_template": "\\\\.\\pipe\\iml-camera-%d-binary",
-    "worker_named_pipe_template_linux": "/tmp/iml-camera-%d.pipe",
-    "worker_named_pipe_connect_timeout_ms": 3000,
     "light_server_startup_delay_ms": 0,
     "inspection_cycle_timeout_ms": 3500,
     "inspection_bucket": {
@@ -280,27 +251,8 @@
       "directory": "testimage",
       "jpeg_quality": 0.92
     },
-    "geometry_command_windows": [
-      "java",
-      "-jar",
-      "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
-    ],
-    "geometry_command_linux": [
-      "java",
-      "-jar",
-      "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
-    ],
     "analis_surface_command_linux": [
       "cppAnalisSurface/build/cpp_analis_surface",
-      "--host",
-      "127.0.0.1",
-      "--port",
-      "8000",
-      "--data-dir",
-      "data"
-    ],
-    "analis_surface_command_windows": [
-      "cppAnalisSurface/build/Release/cpp_analis_surface.exe",
       "--host",
       "127.0.0.1",
       "--port",

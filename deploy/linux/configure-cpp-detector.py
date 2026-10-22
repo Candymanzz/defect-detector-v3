@@ -8,12 +8,14 @@ from pathlib import Path
 def profile(source, workers):
     return {
         'imports': [source.name],
+        'java_positioning': {'enabled': False},
         'python_detector': {
             'backend': 'cpp', 'base_url': 'http://127.0.0.1:8000', 'server_concurrency': 10,
             'defer_heatmap': False, 'defer_learning_review': False,
             'include_visuals': False, 'heatmap_preview_max_width': 512,
         },
         'integration': {
+            'geometry_command_linux': [], 'positioning_command_linux': [],
             'python_parallelism': 10, 'python_request_parallelism': 10, 'python_server_pool_size': 1,
             'analis_surface_autostart': {
                 'enabled': True, 'inspect_workers': workers, 'working_dir': 'cppAnalisSurface',

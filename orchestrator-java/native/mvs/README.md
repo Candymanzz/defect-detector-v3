@@ -1,8 +1,8 @@
-# MVS native runtime
+# MVS SDK на Linux
 
-`win64/` содержит неизменённые DLL vendor MVS SDK, перенесённые из
-`LightServer.v3/ThirdParty/MVS/Runtime/win64/`. Используются Java IO, Java светом
-и Windows camera-worker. Применяются условия лицензирования SDK производителя;
-эти библиотеки не являются собственной реализацией проекта.
+Установите SDK производителя в `/opt/MVS`.
+Камеры используют JNI-библиотеку из `camera-worker/`, свет и DI/DO — JNA
+внутри оркестратора. Библиотека SDK: `/opt/MVS/lib/64/libMvCameraControl.so`.
 
-Linux использует установленный системный SDK `/opt/MVS`.
+Каталог SDK при сборке JNI переопределяется переменной `MVS_ROOT`.
+Windows DLL в репозитории не хранятся.

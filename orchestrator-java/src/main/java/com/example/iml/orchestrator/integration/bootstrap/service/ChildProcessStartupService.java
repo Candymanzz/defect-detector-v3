@@ -6,7 +6,6 @@ import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
 import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
 import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeStore;
-import com.example.iml.orchestrator.integration.config.CameraWorkerPaths;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
 import com.example.iml.orchestrator.integration.config.PythonDetectorConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
@@ -16,7 +15,6 @@ import com.example.iml.orchestrator.integration.pipeline.stages.CaptureFrameDown
 import com.example.iml.orchestrator.integration.pipeline.stages.WorkerCaptureCoordinator;
 import com.example.iml.orchestrator.integration.plc.PlcFinsServiceHolder;
 import com.example.iml.orchestrator.integration.python.AnalisSurfaceLauncher;
-import com.example.iml.orchestrator.integration.services.ServiceProcessSupervisor;
 import com.example.iml.orchestrator.integration.subprocess.ExternalServiceProcess;
 import com.example.iml.orchestrator.integration.subprocess.IntegrationExternalProcessLauncher;
 import com.example.iml.orchestrator.integration.trigger.ManualLineDirectionService;
@@ -51,21 +49,18 @@ public final class ChildProcessStartupService {
     }
 
     /**
-     * @return {@code false} при пустом python pool (early-exit)
+     * @return {@code false} при пустом HTTP-пуле анализатора
      */
     @SuppressWarnings("unchecked")
     public boolean start(IntegrationRuntimeContext ctx, IntegrationServicePoolFactory poolFactory) {
         assembleCoreCollaborators(ctx);
 
         PythonDetectorConfig pythonDetectorCfg = PythonDetectorConfig.fromRootYaml(ctx.root());
-        List<String> geometryCommand = ctx.bootConfig().geometryCommand();
-        List<String> positioningCommand = CameraWorkerPaths.pickIntegrationCommandList(
-                ctx.integration(), ctx.windows(), "positioning_command_windows", "positioning_command_linux");
         LightServersConfig lightServersCfg = LightServersConfig.fromRootYaml(ctx.root());
         InspectionTriggerConfig inspectionTriggerConfig = InspectionTriggerConfig.parse(ctx.integration());
         boolean startFrontend = shouldAutostartFrontend();
 
-        ExecutorService boot = Executors.newFixedThreadPool(6, r -> {
+        ExecutorService boot = Executors.newFixedThreadPool(2, r -> {
             Thread t = new Thread(r, "svc-boot");
             t.setDaemon(true);
             return t;
@@ -80,20 +75,6 @@ public final class ChildProcessStartupService {
                             pythonDetectorCfg.baseUrl(),
                             ctx.bootConfig().pythonServerPoolSize(),
                             ctx.bootConfig().workerStartupStaggerMs()
-                    ),
-                    boot
-            );
-            CompletableFuture<List<ServiceProcessSupervisor>> geometryFuture = CompletableFuture.supplyAsync(
-                    () -> poolFactory.createGeometryPool(geometryCommand, ctx.projectRoot(), ctx.bootConfig()),
-                    boot
-            );
-            CompletableFuture<List<ServiceProcessSupervisor>> positioningFuture = CompletableFuture.supplyAsync(
-                    () -> poolFactory.createPositioningPool(
-                            ctx.root(),
-                            ctx.integration(),
-                            positioningCommand,
-                            ctx.projectRoot(),
-                            ctx.bootConfig()
                     ),
                     boot
             );
@@ -124,18 +105,19 @@ public final class ChildProcessStartupService {
             }, boot);
 
             CompletableFuture.allOf(
-                    analisFuture, geometryFuture, positioningFuture, frontendFuture
+                    analisFuture, frontendFuture
             ).join();
 
             AnalisSurfaceLauncher.PoolStartResult analisSurfacePool = analisFuture.join();
             ctx.setAnalisSurfaceProcesses(analisSurfacePool.processes());
-            ctx.setGeometryPool(geometryFuture.join());
-            ctx.setPositioningPool(positioningFuture.join());
+            // Geometry and positioning are handled by the C++ detector.
+            ctx.setGeometryPool(List.of());
+            ctx.setPositioningPool(List.of());
             ctx.setFrontendProcess(frontendFuture.join());
 
             boolean cppDetector = com.example.iml.orchestrator.integration.config.DetectorBackend
                     .fromRootYaml(ctx.root()) == com.example.iml.orchestrator.integration.config.DetectorBackend.CPP;
-            log.info("detector backend: {}", cppDetector ? "cppAnalisSurface (C++)" : "analisSurface (Python)");
+            log.info("detector backend: cppAnalisSurface (C++)");
             ctx.setPythonPool(poolFactory.createPythonHttpPool(
                     analisSurfacePool.baseUrls(),
                     ctx.bootConfig(),
@@ -143,8 +125,8 @@ public final class ChildProcessStartupService {
             ));
             if (ctx.pythonPool().isEmpty()) {
                 log.error(
-                        "analisSurface FastAPI pool is empty (urls={}). "
-                                + "Проверьте venv в analisSurface/backend, integration.analis_surface_autostart и python_detector.base_url.",
+                        "C++ detector HTTP pool is empty (urls={}). "
+                                + "Проверьте сборку cppAnalisSurface, integration.analis_surface_autostart и python_detector.base_url.",
                         analisSurfacePool.baseUrls()
                 );
                 for (ExternalServiceProcess process : ctx.analisSurfaceProcesses()) {
@@ -153,17 +135,15 @@ public final class ChildProcessStartupService {
                 return false;
             }
             log.info(
-                    "python detector transport=http servers={} clients={} autostart={} urls={}",
+                    "surface detector transport=http servers={} clients={} autostart={} urls={}",
                     analisSurfacePool.baseUrls().size(),
                     ctx.pythonPool().size(),
                     analisSurfacePool.autostartEnabled(),
                     analisSurfacePool.baseUrls()
             );
             log.info(
-                    "child services boot parallel done in {} ms (geometry={} positioning={})",
-                    TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - t0),
-                    ctx.geometryPool().size(),
-                    ctx.positioningPool().size()
+                    "child services boot parallel done in {} ms",
+                    TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - t0)
             );
         } finally {
             boot.shutdownNow();
@@ -174,7 +154,7 @@ public final class ChildProcessStartupService {
         Map<String, Object> positioningCfgEarly = (Map<String, Object>) ctx.root().get("java_positioning");
         boolean positioningEnabled = YamlScalars.toBool(
                 positioningCfgEarly == null ? null : positioningCfgEarly.get("enabled"),
-                true
+                false
         );
         Map<String, Object> positioningCfg = positioningCfgEarly != null
                 ? positioningCfgEarly

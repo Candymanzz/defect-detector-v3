@@ -7,7 +7,6 @@ SKIP_CAMERA_WORKER=false
 SKIP_ORCHESTRATOR=false
 SKIP_FRONTEND=false
 SKIP_DETECTOR=false
-SKIP_GEOMETRY=false
 BUILD_JOBS="${IML_BUILD_JOBS:-2}"
 RESTART_FRONTEND=false
 FRONTEND_INSTALL_DIR="${FRONTEND_INSTALL_DIR:-/opt/defect-detector-ui}"
@@ -21,11 +20,10 @@ Usage: bash ./rebuild-and-run.sh [options]
   -o, --skip-orchestrator   Skip orchestrator rebuild
   -f, --skip-frontend       Skip frontend build and kiosk installation
   -d, --skip-detector       Skip C++ surface detector build
-  -g, --skip-geometry       Skip Java geometry service build
   --restart-frontend       Restart kiosk UI after installation, without a password
   -h, --help               Show this help
 
-Rebuild orchestrator, camera JNI, C++ detector, Java geometry and frontend.
+Rebuild orchestrator, camera JNI, C++ detector and frontend for Linux.
 Services are not stopped or started. IML_BUILD_JOBS defaults to 2.
 Frontend: npm run build, then copy dist/, electron/ and package.json to
 /opt/defect-detector-ui (override with FRONTEND_INSTALL_DIR). Existing kiosk
@@ -139,7 +137,7 @@ resolve_cmake() {
     "$HOME"/.local/bin/cmake "$HOME"/cmake*/bin/cmake
     "$HOME"/Downloads/cmake*/bin/cmake "$HOME"/Downloads/cmake*/*/bin/cmake
     "$HOME"/Загрузки/cmake*/bin/cmake "$HOME"/Загрузки/cmake*/*/bin/cmake
-    "$REPO_ROOT"/cmake*/bin/cmake "$REPO_ROOT"/analisSurface/backend/.venv/bin/cmake
+    "$REPO_ROOT"/cmake*/bin/cmake
     /opt/clion*/bin/cmake/linux/*/bin/cmake
     "$HOME"/clion*/bin/cmake/linux/*/bin/cmake
     "$HOME"/.local/share/JetBrains/Toolbox/apps/*/bin/cmake/linux/*/bin/cmake
@@ -159,7 +157,6 @@ while (($#)); do
     -o|--skip-orchestrator) SKIP_ORCHESTRATOR=true; shift ;;
     -f|--skip-frontend|--no-frontend) SKIP_FRONTEND=true; shift ;;
     -d|--skip-detector) SKIP_DETECTOR=true; shift ;;
-    -g|--skip-geometry) SKIP_GEOMETRY=true; shift ;;
     --restart-frontend) RESTART_FRONTEND=true; shift ;;
     -r|--rt-diagnostics|--build-only) LEGACY_OPTIONS=true; shift ;;
     --config|--rt-interval)
@@ -186,11 +183,11 @@ fi
 cd "$REPO_ROOT"
 step "Check build tools"
 [[ "$BUILD_JOBS" =~ ^[1-9][0-9]*$ ]] || fail "IML_BUILD_JOBS must be a positive integer"
-if [[ -n "${JAVA_HOME:-}" && ( "$SKIP_ORCHESTRATOR" == false || "$SKIP_GEOMETRY" == false || "$SKIP_CAMERA_WORKER" == false ) ]]; then
+if [[ -n "${JAVA_HOME:-}" && ( "$SKIP_ORCHESTRATOR" == false || "$SKIP_CAMERA_WORKER" == false ) ]]; then
   [[ -x "$JAVA_HOME/bin/java" ]] || fail "JAVA_HOME must contain bin/java"
   export PATH="$JAVA_HOME/bin:$PATH"
 fi
-if [[ "$SKIP_ORCHESTRATOR" == false || "$SKIP_GEOMETRY" == false ]]; then
+if [[ "$SKIP_ORCHESTRATOR" == false ]]; then
   for tool in java javac; do require_tool "$tool"; done
   resolve_maven
   echo "Maven: ${MAVEN_COMMAND[*]}"
@@ -215,12 +212,6 @@ if [[ "$SKIP_ORCHESTRATOR" == false ]]; then
   [[ -f "$REPO_ROOT/orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar" ]] || fail "Orchestrator build artifact missing"
 fi
 
-if [[ "$SKIP_GEOMETRY" == false ]]; then
-  step "Build java-geometry-service"
-  (cd "$REPO_ROOT/java-geometry-service" && "${MAVEN_COMMAND[@]}" --batch-mode --no-transfer-progress \
-    -Dstyle.color=never package -Dmaven.test.skip=true)
-  [[ -f "$REPO_ROOT/java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar" ]] || fail "Geometry build artifact missing"
-fi
 
 if [[ "$SKIP_DETECTOR" == false ]]; then
   step "Build C++ surface detector"

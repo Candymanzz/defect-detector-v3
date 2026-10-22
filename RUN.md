@@ -1,85 +1,54 @@
 # Сборка и запуск на Linux
 
-Для ветки `линукс+кресты`: [сборка, конфигурация и тесты C++-бэкенда](deploy/linux/CPP-DETECTOR.md).
-Основная сборка теперь также включает C++-детектор и Java-геометрию;
-`-d` пропускает C++, `-g` — геометрию. Для сборки только фронта используйте `-c -o -d -g`.
+Рабочие компоненты: `orchestrator-java` (Java), `cppAnalisSurface` (C++) и
+`front-end` (React + Electron). Камеры, подсветка, DI/DO и ПЛК обслуживаются
+оркестратором; `camera-worker` содержит исходники JNI-библиотеки камер.
 
-Пересборка из корня проекта:
+Требуются JDK 17+, Maven, CMake 3.25+, компиляторы C/C++17, pkg-config,
+OpenCV, cpp-httplib, nlohmann-json, Node.js >=20.19 и npm. Для оборудования
+нужен Linux MVS SDK (`MVS_ROOT=/opt/MVS`). Python 3 используется скриптами
+управления и диагностики; отдельного Python-сервиса нет.
+
+Скопируйте `config.exemple/` в `config/` и настройте камеры, свет и ПЛК своей
+линии. Карта регистров ПЛК находится в `plk/register-map.yaml`.
+Настройки камеры в `config/config.json` должны соответствовать YAML.
+Разделы `python_detector` и `integration.analis_surface_*` сохраняют прежние
+имена для совместимости конфигурации, но задают C++-анализатор.
 
 ```bash
-bash ./rebuild-and-run.sh             # Оркестратор, геометрия, JNI камер, C++ и фронт
-bash ./rebuild-and-run.sh -c          # Без пересборки JNI камер
-bash ./rebuild-and-run.sh -o          # Без пересборки оркестратора
-bash ./rebuild-and-run.sh -c -o -g -d # Только фронт с установкой
-bash ./rebuild-and-run.sh -f          # Весь бэкенд, без фронта
+bash ./rebuild-and-run.sh          # Все три компонента и JNI камер
+bash ./rebuild-and-run.sh -c       # Без пересборки JNI
+bash ./rebuild-and-run.sh -f       # Без сборки и установки фронта
+bash ./rebuild-and-run.sh -c -o -d # Только фронт
 ```
 
-Скрипт только собирает выбранные компоненты и завершает работу. Он не
-останавливает и не запускает сервисы, не вызывает systemctl. Фронт собирается
-через `npm run build`; `dist/`, `electron/` и `package.json` копируются в
-`/opt/defect-detector-ui`. Установленный Electron и его `node_modules` используются
-повторно. Для защищённого каталога скрипт запрашивает `sudo` до начала сборки.
-Путь установки можно изменить через `FRONTEND_INSTALL_DIR`. После установки
-нужно отдельно перезапустить Electron киоска, чтобы загрузить новую версию.
-
-Однократная настройка обновлений без повторного ввода пароля (пользователь `o`):
+Сборка не запускает и не останавливает сервисы. Фронт устанавливается в
+`/opt/defect-detector-ui` (переопределяется `FRONTEND_INSTALL_DIR`); Electron
+и его `node_modules` должны быть подготовлены заранее. После установки
+перезапустите киоск. Однократная настройка обновлений:
 
 ```bash
 sudo bash deploy/linux/setup-frontend-updates.sh o
-bash ./rebuild-and-run.sh -c -o -g -d --restart-frontend
+bash ./rebuild-and-run.sh -c -o -d --restart-frontend
 ```
 
-Настройка передаёт `o` только `dist/`, `electron/` и `package.json`. Каталог
-приложения, Electron в `node_modules` и `chrome-sandbox` сохраняют прежние права
-доступа к среде исполнения; корень приложения принадлежит `root`.
-`--restart-frontend` вызывает через `sudo -n` фиксированную команду
-`/usr/local/sbin/defect-detector-restart-ui` без аргументов. Она завершает только
-процессы Electron пользователя `kiosk`; цикл киоска запускает их снова через 5 секунд.
-Без этого параметра пересборка не перезапускает интерфейс. Команда настройки
-сохраняет сведения о прежних правах и копии существующего helper/sudoers в
-`/var/backups/defect-detector-frontend.*`.
-
-Java-геометрия и C++-инспекция включены в сборку. Python и отключённое Java-позиционирование не пересобираются.
-`-f`, `--skip-frontend`, `--no-frontend` пропускают сборку и установку фронта.
-Старые параметры `-r`, `--build-only`, `--config`, `--rt-interval`
-принимаются для совместимости, но на сборку не влияют; скрипт сообщает об этом.
-
-Для оркестратора нужны JDK 17+ и Maven; для JNI камер — тот же JDK, CMake и C-компилятор.
-Для C++ нужны C++17-компилятор, pkg-config, OpenCV, cpp-httplib и nlohmann-json;
-команда установки пакетов Ubuntu приведена в [инструкции](deploy/linux/CPP-DETECTOR.md).
-Камеры работают внутри JVM; сборка и настройка описаны в [CAMERA-JNI.md](orchestrator-java/CAMERA-JNI.md).
-Для фронта нужны Node.js >=20.19.0 и npm; скрипт обнаруживает установки NVM.
-Если TypeScript/Vite ещё не установлены, он выполняет `npm ci`. При изменении
-зависимостей выполните `npm ci` в `front-end` перед пересборкой.
-Инструменты пропущенного компонента не требуются. Maven ищется в PATH,
-MAVEN_HOME/M2_HOME, Maven Wrapper и стандартных установках IntelliJ IDEA.
-CMake ищется в PATH, CMAKE_HOME, /opt, ~/.local/bin, Downloads, Загрузки и CLion.
-Явный путь можно задать переменными `MAVEN_CMD` и `CMAKE_CMD`:
-
-```bash
-CMAKE_CMD=/путь/к/bin/cmake bash ./rebuild-and-run.sh -o
-MAVEN_CMD=/путь/к/bin/mvn bash ./rebuild-and-run.sh -c
-```
-
-SDK камеры задаётся `MVS_ROOT` (по умолчанию `/opt/MVS`).
-
-Запуск выполняется отдельно:
+Запуск и остановка:
 
 ```bash
 bash ./run-supervised.sh
-bash ./run-supervised.sh -f    # Без автозапуска фронтенда
-bash ./run-rt.sh -r           # Только логирование системы, без запуска сервисов
-bash ./run-supervised.sh -r --rt-interval 2
+bash ./run-supervised.sh -f # Без автозапуска фронта
 CONFIG=/path/to/config.yaml bash ./run-supervised.sh
+bash ./stop-dev.sh
 ```
 
-Для systemd: `sudo systemctl start defect-detector.service`.
-Остановка интерактивного запуска — Ctrl+C; отдельная полная остановка —
-`bash ./stop-dev.sh`. Штатный backend-launcher сохраняет отдельную сессию киоска.
+Для установленного systemd-сервиса: `sudo systemctl start defect-detector.service`.
+Оркестратор запускает C++-анализатор и фронт согласно конфигурации. Киоск
+может запускаться отдельной системной сессией. Геометрия и позиционирование
+не запускаются как отдельные сервисы.
 
-Тесты: `bash ./run-all-tests.sh`.
-Настройки CPU и диагностика: [RT-LINUX.md](RT-LINUX.md).
-Логи: [LOGGING.md](LOGGING.md).
-Подготовка ПК и киоска: [deploy/linux/README.md](deploy/linux/README.md).
+Проверка: `bash ./run-all-tests.sh` (JNI, Java, Linux-скрипты, C++, HTTP/SHM,
+фронт). Диагностика уже работающей системы: `bash ./run-rt.sh -r`.
 
-Режим `-r` в `run-rt.sh` и `run-supervised.sh` только собирает метрики уже работающей системы. Он не вызывает systemctl/sudo, не запускает и не останавливает приложение и не меняет affinity его процессов. Ctrl+C останавливает только сборщик. Прямой запуск: `bash ./rt-logs.sh --rt-interval 2`; свой каталог: `--log-dir /путь/к/логам`.
+Подробности: [C++ на Linux](deploy/linux/CPP-DETECTOR.md),
+[JNI камер](orchestrator-java/CAMERA-JNI.md), [установка Linux и киоска](deploy/linux/README.md),
+[диагностика CPU](RT-LINUX.md), [логи](LOGGING.md).

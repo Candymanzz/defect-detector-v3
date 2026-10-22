@@ -1,27 +1,16 @@
 package com.example.iml.orchestrator.integration.config;
 
-import java.util.Locale;
 import java.util.Map;
 
-/**
- * Какой сервис анализа поверхности используется: Python FastAPI (analisSurface) или C++ (cppAnalisSurface).
- * Выбирается {@code python_detector.backend}: {@code cpp} | {@code python} (по умолчанию python — обратная совместимость).
- */
+/** C++ detector selection. The YAML section keeps its historical name for existing configs. */
 public enum DetectorBackend {
-    PYTHON,
     CPP;
 
     public static DetectorBackend fromRootYaml(Map<String, Object> root) {
-        if (root != null && root.get("python_detector") instanceof Map<?, ?> pd) {
-            Object raw = pd.get("backend");
-            if (raw != null && "cpp".equals(String.valueOf(raw).trim().toLowerCase(Locale.ROOT))) {
-                return CPP;
-            }
-        }
-        return PYTHON;
+        return CPP;
     }
 
-    /** Сколько запросов инспекции одновременно принимает один сервер (python: 1; cpp: многопоточный сервер). */
+    /** Сколько запросов инспекции одновременно принимает C++-сервер. */
     public static int serverConcurrency(Map<String, Object> pythonCfg) {
         Object raw = pythonCfg == null ? null : pythonCfg.get("server_concurrency");
         int fallback = 1;

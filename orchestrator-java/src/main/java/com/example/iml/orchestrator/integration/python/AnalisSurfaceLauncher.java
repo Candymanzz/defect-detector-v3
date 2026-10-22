@@ -17,13 +17,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Автозапуск пула FastAPI analisSurface (uvicorn) из {@code integration.analis_surface_command_*}.
+ * Автозапуск C++-анализатора из {@code integration.analis_surface_command_*}.
  * Размер пула совпадает с {@code integration.python_parallelism}: отдельный OS-процесс и порт на инстанс.
  */
 public final class AnalisSurfaceLauncher {
 
     private static final String PROCESS_LABEL = "analis-surface";
-    private static final String DEFAULT_BACKEND_DIR = "analisSurface/backend";
+    private static final String DEFAULT_BACKEND_DIR = "cppAnalisSurface";
     private static final String DEFAULT_HOST = "127.0.0.1";
     private static final int DEFAULT_PORT = 8000;
 
@@ -50,7 +50,7 @@ public final class AnalisSurfaceLauncher {
     }
 
     /**
-     * Поднимает {@code poolSize} uvicorn-процессов на портах base_port..base_port+poolSize-1
+     * Поднимает {@code poolSize} C++-процессов на портах base_port..base_port+poolSize-1
      * (host и base_port из {@code python_detector.base_url}).
      */
     public PoolStartResult startPoolIfConfigured(
@@ -79,7 +79,7 @@ public final class AnalisSurfaceLauncher {
             commandTemplate = defaultCommand(projectRoot, isWindows);
         }
         if (commandTemplate.isEmpty()) {
-            log.warn("analisSurface autostart: команда не задана и venv не найден ({})", DEFAULT_BACKEND_DIR);
+            log.warn("analisSurface autostart: команда C++-анализатора не задана ({})", DEFAULT_BACKEND_DIR);
             return new PoolStartResult(List.of(), baseUrls, true);
         }
         if (!Files.isDirectory(settings.workingDir())) {
@@ -239,31 +239,9 @@ public final class AnalisSurfaceLauncher {
     }
 
     private static List<String> defaultCommand(Path projectRoot, boolean isWindows) {
-        Path backend = projectRoot.resolve(DEFAULT_BACKEND_DIR);
-        Path venvPython = isWindows
-                ? backend.resolve(".venv/Scripts/python.exe")
-                : backend.resolve(".venv/bin/python");
-        if (Files.isRegularFile(venvPython)) {
-            return List.of(
-                    venvPython.toAbsolutePath().toString(),
-                    "-m",
-                    "uvicorn",
-                    "app.main:app",
-                    "--host",
-                    DEFAULT_HOST,
-                    "--port",
-                    String.valueOf(DEFAULT_PORT)
-            );
-        }
         return List.of(
-                isWindows ? "python" : "python3",
-                "-m",
-                "uvicorn",
-                "app.main:app",
-                "--host",
-                DEFAULT_HOST,
-                "--port",
-                String.valueOf(DEFAULT_PORT)
+                projectRoot.resolve("cppAnalisSurface/build/cpp_analis_surface").toAbsolutePath().toString(),
+                "--host", DEFAULT_HOST, "--port", String.valueOf(DEFAULT_PORT), "--data-dir", "data"
         );
     }
 

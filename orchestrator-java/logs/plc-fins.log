@@ -1,6 +1,0 @@
-2026-10-13 10:48:19.710 INFO  [plc-fins-publisher] c.e.i.o.i.p.f.OmronFinsTransport - plc fins response ok host=127.0.0.1:57265 from=127.0.0.1:57265 op=write_bit area=W address=0.4 sid=1 end_code=0000 len=14
-2026-10-13 10:48:19.713 INFO  [plc-fins-publisher] c.e.i.o.i.p.f.OmronFinsTransport - plc fins response ok host=127.0.0.1:57265 from=127.0.0.1:57265 op=write_bit area=W address=0.5 sid=2 end_code=0000 len=14
-2026-10-13 10:48:19.716 INFO  [main] c.e.i.o.i.p.f.OmronFinsTransport - plc fins response ok host=127.0.0.1:57265 from=127.0.0.1:57265 op=write_bit area=W address=0.4 sid=3 end_code=0000 len=14
-2026-10-13 11:40:58.401 INFO  [plc-fins-publisher] c.e.i.o.i.p.f.OmronFinsTransport - plc fins response ok host=127.0.0.1:34580 from=127.0.0.1:34580 op=write_bit area=W address=0.4 sid=1 end_code=0000 len=14
-2026-10-13 11:40:58.404 INFO  [plc-fins-publisher] c.e.i.o.i.p.f.OmronFinsTransport - plc fins response ok host=127.0.0.1:34580 from=127.0.0.1:34580 op=write_bit area=W address=0.5 sid=2 end_code=0000 len=14
-2026-10-13 11:40:58.406 INFO  [main] c.e.i.o.i.p.f.OmronFinsTransport - plc fins response ok host=127.0.0.1:34580 from=127.0.0.1:34580 op=write_bit area=W address=0.4 sid=3 end_code=0000 len=14

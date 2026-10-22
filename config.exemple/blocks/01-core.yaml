@@ -50,8 +50,6 @@ integration:
     # Все камеры передают кадры одной параллельной волной.
     transfer_wait_waves: 1
     transfer_wave_gap_ms: 0
-  geometry_pool_size: 10
-  positioning_pool_size: 10
   # Один C++-процесс: Java отправляет все камеры, CPU-параллелизм ограничен inspect_workers.
   python_parallelism: 10
   python_request_parallelism: 10
@@ -61,7 +59,7 @@ integration:
   worker_command_timeout_ms: 30000
   # Пауза между открытием камер через JNI (health идёт параллельно).
   worker_startup_stagger_ms: 0
-  # Таймаут health/check для внешних сервисов (geometry/python bridge).
+  # Таймаут health/check для внешних сервисов (C++ detector).
   service_command_timeout_ms: 15000
   # Необязательно: camera_native_library: "camera-worker/build/libcamera_jni.so"
   # Камеры всегда работают через JNI; старые worker_ipc_mode/worker_named_pipe_* не используются.
@@ -83,7 +81,7 @@ integration:
   client_stream:
     default_max_fps: 20
     max_fps_cap: 30
-  # Непрерывный цикл: вспышка → capture → geometry → python → вердикт (ПЛК + WebSocket UI).
+  # Непрерывный цикл: вспышка → capture → C++ → вердикт (ПЛК + WebSocket UI).
   continuous_inspection:
     enabled: false
     cycle_delay_ms: 0
@@ -110,14 +108,6 @@ integration:
     working_dir: "cppAnalisSurface"
     startup_timeout_ms: 30000
     health_path: "/health"
-  analis_surface_command_windows:
-    - "cppAnalisSurface/build/Release/cpp_analis_surface.exe"
-    - "--host"
-    - "127.0.0.1"
-    - "--port"
-    - "8000"
-    - "--data-dir"
-    - "data"
   analis_surface_command_linux:
     - "cppAnalisSurface/build/cpp_analis_surface"
     - "--host"
@@ -130,31 +120,11 @@ integration:
     enabled: true
     directory: "logs/performance"
     queue_capacity: 8192
-  geometry_command_windows:
-    - "java"
-    - "-jar"
-    - "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
-  geometry_command_linux:
-    - "java"
-    - "-jar"
-    - "java-geometry-service/target/java-geometry-service-0.1.0-SNAPSHOT.jar"
-  positioning_command_windows:
-    - "java"
-    - "-jar"
-    - "java-positioning-service/target/java-positioning-service-0.1.0-SNAPSHOT.jar"
-  positioning_command_linux:
-    - "java"
-    - "-jar"
-    - "java-positioning-service/target/java-positioning-service-0.1.0-SNAPSHOT.jar"
   # Front-end (Vite + Electron) — npm run dev в front-end/.
   frontend_autostart:
     enabled: true
     startup_delay_ms: 0
     working_dir: "front-end"
-  frontend_command_windows:
-    - "npm.cmd"
-    - "run"
-    - "dev"
   frontend_command_linux:
     - "npm"
     - "run"

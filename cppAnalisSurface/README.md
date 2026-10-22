@@ -17,54 +17,16 @@ C++ сервис анализа поверхности: сравнивает к�
 Отдельные подробные тайминги Java, камер, C++ и отправки вердикта в ПЛК пишутся в эту же папку `logs`.
 Формат, включение и границы измерений: [PERFORMANCE_LOGGING.md](PERFORMANCE_LOGGING.md).
 
-## Быстрый старт (Windows)
+## Сборка на Linux
 
-```powershell
-cd cppAnalisSurface
-.ebuild-and-run.cmd          # проверить/доустановить инструменты и библиотеки, собрать, запустить
-.un.cmd                      # только запустить (без сборки)
-```
-
-`rebuild-and-run` (`.cmd` вызывает `.ps1`, поддерживается Windows PowerShell 5.1+):
-
-| Шаг | Что проверяется | Если нет |
-|---|---|---|
-| 1 | Visual Studio C++ (cl.exe), через vswhere | скачивает Build Tools 2022 и ставит с нагрузкой C++ (нужны права администратора, будет запрос UAC; 3–6 ГБ) |
-| 2 | CMake >= 3.25 | скачивает portable CMake в `.tools` |
-| 3 | git (нужен только для vcpkg) | скачивает portable MinGit в `.tools` |
-| 4 | vcpkg (`VCPKG_ROOT`, `D:vcpkg`, `C:vcpkg`, `%USERPROFILE%vcpkg`) | клонирует в `<диск проекта>vcpkg` и собирает `vcpkg.exe` |
-| 5 | библиотеки opencv4, cpp-httplib, nlohmann-json в `buildvcpkg_installed` и актуальность `vcpkg.json` | доустанавливает через vcpkg (первый раз OpenCV собирается 10–40 мин, дальше берётся из кэша) |
-
-Всё, что уже установлено, пропускается (`[skip]`). Перед сборкой скрипт останавливает уже запущенный `cpp_analis_surface.exe` из этой сборки.
-
-Опции `rebuild-and-run`: `-CheckOnly` (только отчёт, ничего не ставит), `-NoRun` (собрать, не запускать), `-Clean` (стереть `build` и поставить библиотеки заново), `-Port`, `-Workers`, `-DataDir`, `-BindHost`, `-Config`.
-Опции `run`: `-Port 8000`, `-Workers N` (по умолчанию число логических потоков), `-DataDir`, `-BindHost`. Если порт занят, `run` откажется стартовать. Если exe ещё нет, подскажет запустить `rebuild-and-run`.
-
-## Сборка вручную
-
-Зависимости: OpenCV (core, imgproc, imgcodecs), cpp-httplib, nlohmann-json. Менеджер — vcpkg (манифест `vcpkg.json`).
-
-**Windows** (Visual Studio Build Tools 2022, vcpkg в `D:/vcpkg`, путь можно поменять в `CMakePresets.json`):
-
-```powershell
-cd cppAnalisSurface
-cmake --preset windows
-cmake --build build --config Release
-# build\Release\cpp_analis_surface.exe
-```
-
-**Linux** (первая сборка собирает OpenCV через vcpkg, потом берётся из кэша):
+Требуются CMake >=3.25, C++17, OpenCV (core, imgproc, imgcodecs),
+cpp-httplib >=0.14 и nlohmann-json. Установка зависимостей:
 
 ```bash
-export VCPKG_ROOT=~/vcpkg      # git clone https://github.com/microsoft/vcpkg && ./vcpkg/bootstrap-vcpkg.sh
-cd cppAnalisSurface
-cmake --preset linux
-cmake --build build
-# build/cpp_analis_surface
+sudo apt install build-essential cmake pkg-config libopencv-dev libcpp-httplib-dev nlohmann-json3-dev
+bash cppAnalisSurface/build.sh
+bash cppAnalisSurface/run.sh
 ```
-
-Без vcpkg на Debian/Ubuntu: `apt install libopencv-dev nlohmann-json3-dev libcpp-httplib-dev cmake ninja-build`, затем
-`cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build`.
 
 ## Запуск
 
@@ -94,7 +56,7 @@ python_detector:
 ```
 
 `config/blocks/01-core.yaml` (см. `config.exemple`): `analis_surface_autostart.working_dir: cppAnalisSurface`,
-`analis_surface_command_windows/linux` (путь к exe, `--port`, `--data-dir data`),
+`analis_surface_command_linux` (путь к бинарнику, `--port`, `--data-dir data`),
 `python_parallelism: 10` (потоков стадии детектора = камер одновременно; НЕ 1), `python_server_pool_size: 1`, `python_request_parallelism: 10`.
 
 ## HTTP API
@@ -179,7 +141,7 @@ python_detector:
 она остаётся основной), в `zones` добавляется рамка вокруг проблемных точек. Если линия не найдена (нет этикетки), стык
 сам по себе брак не даёт. В ответе и в логах есть объект `seam` (`found`, `reject`, `ratio`, `max_dev`, `worst_t`,
 `coverage`, `ms`). Временно значения можно переопределить полем `seam` в `settings` запроса (как остальные настройки).
-Старая проверка шва в `java-geometry-service` (`joint*`) независима и не затронута.
+Проверку шва выполняет C++-анализатор; отдельный Java-сервис геометрии не используется.
 
 ## Алгоритм (кратко)
 

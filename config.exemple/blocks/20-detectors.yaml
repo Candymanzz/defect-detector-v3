@@ -1,65 +1,3 @@
-java_geometry:
-  # При binning 2×2 мм/пиксель ≈ ×2 (перекалибровать по эталону при необходимости).
-  pixels_to_mm: 0.02
-  # Fallback ROI, если эталон не задан с клиента; морщины используют тот же ROI, что interest с эталона.
-  main_roi: { x: 0, y: 0, width: 1224, height: 1024 }
-  max_shift_mm: 0.5
-  max_rotation_deg: 1.0
-  # Шов этикетки (joint ROI): сегментация полосы, средняя ширина + клин сверху/снизу.
-  # min смягчён: рабочие швы на стенде часто ~0.35–0.45 mm при pixels_to_mm=0.02.
-  max_joint_defect_mm: 0.5
-  # Min width применяется только если параллельность кромок НЕ ок;
-  # при хорошей параллельности min-порог не валит шов (остаётся только max).
-  joint_min_width_mm: 0.25
-  # Для пластиковой ручки ровный зазор около 2 мм — брак.
-  joint_max_width_mm: 1.6
-  # Ракурс снизу даёт сходимость кромок в кадре — допуск шире, чем для фронтального вида.
-  # Параллельность двух кромок шва (горизонтальный/наклонный — ось из joint ROI).
-  # База для верхней линии; низ (ракурс/сходимость) — шире в profiles bench-lan6..10.
-  max_joint_parallelism_deg: 2.5
-  # |widthStart − widthEnd| вдоль оси шва; перспектива даёт клин, реальный брак — больше порога.
-  max_joint_taper_mm: 0.8
-  # Перекос этикетки к жёлтому ободу (main ROI): угол клина зазора и |gapL−gapR|.
-  # Гейт только на joint-камере (где жёлтая полоса/стык); sibling visibility — не валит
-  # (косой ракурс = оптический клин, жёлтые полосы на всех вёдрах не нужны).
-  max_joint_rim_skew_deg: 2.5
-  max_joint_gap_asymmetry_mm: 0.8
-  # Если на соседних камерах шов почти не виден — ужесточённые пороги на уровне ведра
-  # (только как доп. проверка, когда jointPass=false; при jointPass=true игнорируются).
-  joint_sibling_min_visibility: 0.25
-  max_joint_parallelism_deg_strict: 2.5
-  joint_min_width_mm_strict: 0.4
-  joint_max_width_mm_strict: 1.5
-  # Сегментация полосы стыка + fitLine кромок (параллельность). Всегда включена.
-  joint_seam_segmentation_enabled: true
-  # 0..1: выше — легче захватить слабую полосу и жёстче допуск параллельности (вердикт).
-  joint_seam_segmentation_sensitivity: 0.5
-  # Порог морщин (геометрия: смещение + стык + морщины в переданном ROI).
-  max_wrinkles_score: 0.45
-  # Нижняя группа: ракурс даёт ~2.5–3.2° «параллельности» на годном шве — не брак смещения.
-  profiles:
-    bench-lan6:
-      max_joint_parallelism_deg: 5.0
-    bench-lan7:
-      max_joint_parallelism_deg: 5.0
-    bench-lan8:
-      max_joint_parallelism_deg: 5.0
-    bench-lan9:
-      max_joint_parallelism_deg: 5.0
-    bench-lan10:
-      max_joint_parallelism_deg: 5.0
-
-# C++-детектор компенсирует сдвиг внутри анализа поверхности.
-# Java-сервис позиционирования и предварительное выравнивание отключены.
-java_positioning:
-  enabled: false
-  fail_on_reject: false
-  write_aligned: true
-  pixels_to_mm: 0.02
-  # Мягкие метрики в ответе (не гейтят PASS); QC допусков — у java_geometry после выравнивания.
-  max_shift_mm: 9999.0
-  max_rotation_deg: 9999.0
-
 # Имя секции сохранено для совместимости протокола оркестратора.
 python_detector:
   backend: cpp
@@ -67,7 +5,7 @@ python_detector:
   server_concurrency: 10
   # Масштаб, чувствительность, порог и контроль стыка задаются в UI,
   # хранятся в cppAnalisSurface/data/settings.json по analysis_profile камеры.
-  # C++ пока формирует heatmap в запросе инспекции; Python render-heatmap не используется.
+  # C++ формирует heatmap в запросе инспекции.
   defer_heatmap: false
   defer_learning_review: false
   heatmap_preview_max_width: 512

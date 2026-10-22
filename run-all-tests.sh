@@ -2,15 +2,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LEGACY_PYTHON=false
-INTEGRATION=false
-for arg in "$@"; do
-  case "$arg" in
-    --legacy-python) LEGACY_PYTHON=true ;;
-    --integration) INTEGRATION=true ;;
-    *) echo "Usage: bash ./run-all-tests.sh [--legacy-python] [--integration]" >&2; exit 1 ;;
-  esac
-done
+if (($#)); then
+  echo "Usage: bash ./run-all-tests.sh" >&2
+  exit 1
+fi
 
 run_step() {
   local name="$1"
@@ -43,7 +38,6 @@ if command -v cmake >/dev/null 2>&1; then
 fi
 
 run_step "orchestrator-java (JUnit)" "$ROOT/orchestrator-java" mvn -q "${CAMERA_TEST_ARGS[@]}" test
-run_step "java-geometry-service (JUnit)" "$ROOT/java-geometry-service" mvn -q test
 run_step "Linux service scripts (unittest)" "$ROOT" python3 -m unittest discover -s deploy/linux -p 'test_*.py'
 
 run_step "C++ detector (configure)" "$ROOT" cmake -S cppAnalisSurface -B cppAnalisSurface/build-test \
@@ -53,23 +47,6 @@ run_step "C++ detector (CTest)" "$ROOT" ctest --test-dir cppAnalisSurface/build-
 run_step "Java -> C++ (HTTP/SHM)" "$ROOT/orchestrator-java" mvn -q \
   "-Diml.cpp.detector.binary=$ROOT/cppAnalisSurface/build-test/cpp_analis_surface" \
   -Dtest=CppDetectorLinuxIntegrationTest test
-
-if [[ "$LEGACY_PYTHON" == true ]]; then
-BACKEND="$ROOT/analisSurface/backend"
-PYTHON="$BACKEND/.venv/bin/python"
-if [[ ! -x "$PYTHON" ]]; then
-  PYTHON="python3"
-fi
-
-run_step "analisSurface backend (pytest)" "$BACKEND" bash -lc "
-  $PYTHON -m pip install -q -r requirements-dev.txt
-  if [[ '$INTEGRATION' == true ]]; then
-    $PYTHON -m pytest tests/ -q
-  else
-    $PYTHON -m pytest tests/ -q -m 'not integration'
-  fi
-"
-fi
 
 run_step "front-end (Vitest)" "$ROOT/front-end" bash -lc "
   if [[ ! -d node_modules ]]; then npm install; fi

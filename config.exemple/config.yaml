@@ -1,5 +1,5 @@
 ## Главный конфиг-агрегатор.
-## camera-worker по-прежнему читает config/config.json.
+## Камеры работают внутри JVM через JNI; config.json содержит настройки захвата.
 imports:
   - "blocks/01-core.yaml"
   - "blocks/10-cameras.yaml"

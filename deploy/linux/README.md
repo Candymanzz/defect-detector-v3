@@ -5,17 +5,17 @@
 Из корня проекта:
 
 ```bash
-bash ./rebuild-and-run.sh       # Оркестратор, JNI камер и установка нового фронта
-bash ./rebuild-and-run.sh -c    # Оркестратор и фронт
-bash ./rebuild-and-run.sh -o    # JNI камер и фронт
-bash ./rebuild-and-run.sh -c -o # Только фронт
+bash ./rebuild-and-run.sh       # Оркестратор, JNI камер, C++ и установка нового фронта
+bash ./rebuild-and-run.sh -c    # Оркестратор, C++ и фронт
+bash ./rebuild-and-run.sh -o    # JNI камер, C++ и фронт
+bash ./rebuild-and-run.sh -c -o -d # Только фронт
 bash ./rebuild-and-run.sh -f    # Без сборки и установки фронта
 ```
 
 Скрипт не останавливает и не запускает сервисы. Фронт собирается и копируется
 в `/opt/defect-detector-ui` (`dist/`, `electron/`, `package.json`), с запросом `sudo`
 при необходимости. Electron/node_modules киоска должны быть установлены заранее.
-Python, geometry и positioning не пересобираются. Для оркестратора нужны
+Собираются три компонента: оркестратор, C++-анализатор и фронт. Для оркестратора нужны
 JDK 17+ и Maven; для JNI камер — тот же JDK, CMake и C-компилятор; для фронта — Node.js и npm.
 `MVS_ROOT` задаёт каталог SDK (по умолчанию `/opt/MVS`).
 Старые параметры запуска принимаются, но игнорируются.
@@ -35,7 +35,7 @@ bash ./run-supervised.sh -r --rt-interval 2
 
 ```bash
 sudo bash deploy/linux/setup-frontend-updates.sh o   # Один раз
-bash ./rebuild-and-run.sh -c -o --restart-frontend
+bash ./rebuild-and-run.sh -c -o -d --restart-frontend
 ```
 
 Настройка разрешает запись только в `dist/`, `electron/` и `package.json`.
@@ -81,7 +81,7 @@ Ubuntu Pro, сетевые адреса, UUID дисков, приложение
    Архив не содержит ядро: его пакеты и лицензия устанавливаются отдельно.
 3. Разместите собранное приложение по тому же пути
    `/home/o/Документы/core-dev`, включая `run-rt.sh`, рабочий `config`, JAR,
-   Linux-venv и MVS SDK. Windows-venv и Windows-бинарники не переносятся.
+   C++-анализатор, JNI камер и MVS SDK. SDK устанавливается в /opt/MVS.
    Конфиг камеры/света/ПЛК задайте для конкретной линии.
 4. Подготовьте Node.js подходящей версии и соберите интерфейс на Linux:
 
