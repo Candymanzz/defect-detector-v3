@@ -1,6 +1,7 @@
 #define JSMN_STATIC
 #include "jsmn.h"
 #include "cw_config.h"
+#include "cw_roi.h"
 #include "cw_runtime.h"
 
 #include <errno.h>
@@ -59,6 +60,12 @@ typedef struct {
     int height;
     int stride;
     size_t frame_bytes;
+    size_t slot_bytes;
+    int roi_supported;
+    int roi_sensor_width, roi_sensor_height;
+    int roi_x, roi_y, roi_default_x, roi_default_y;
+    int roi_frame_width, roi_frame_height;
+    cw_roi_range roi_x_range, roi_y_range, roi_width_range, roi_height_range;
     int ring_slots;
     char shm_name[64];
 #ifndef _WIN32
@@ -304,6 +311,8 @@ typedef struct {
     char binning_mode[16];
     float balance_ratio_red;
     float balance_ratio_blue;
+    int roi_configured;
+    cw_roi_rect capture_roi;
 } worker_camera_config_t;
 
 /** Читает frame.width / frame.height / frame.format из корня config.json. */
@@ -476,7 +485,7 @@ static void load_camera_config(const char *js, int jslen, int camera_id, worker_
     }
 }
 
-/** WB ratios from config/data/camera_runtime_settings.json (next to config.json). */
+/** Saved tuning and hardware crop from camera_runtime_settings.json next to config.json. */
 static void load_runtime_wb_settings(const char *config_path, int camera_id, worker_camera_config_t *cfg) {
     if (!config_path || !cfg) {
         return;
@@ -541,6 +550,20 @@ static void load_runtime_wb_settings(const char *config_path, int camera_id, wor
     if (cam_obj < 0) {
         free(js);
         return;
+    }
+
+    /* Reapply the same hardware crop whenever a camera reconnects, before any
+     * capture can use an existing reference. Keep the configured SHM envelope. */
+    int saved_length = tok[cam_obj].end - tok[cam_obj].start;
+    char *saved = malloc((size_t)saved_length + 1);
+    if (saved) {
+        memcpy(saved, js + tok[cam_obj].start, (size_t)saved_length);
+        saved[saved_length] = '\0';
+        cfg->roi_configured = json_find_int(saved, saved_length, "roi_x", &cfg->capture_roi.x) == 0
+                && json_find_int(saved, saved_length, "roi_y", &cfg->capture_roi.y) == 0
+                && json_find_int(saved, saved_length, "roi_width", &cfg->capture_roi.width) == 0
+                && json_find_int(saved, saved_length, "roi_height", &cfg->capture_roi.height) == 0;
+        free(saved);
     }
 
     int cam_end = tok[cam_obj].end;
@@ -890,6 +913,110 @@ static void hik_read_runtime_tuning(worker_state_t *st) {
 
 #endif /* HAVE_HIK_MVS: SDK tuning helpers */
 
+static void init_roi_limits(worker_state_t *st) {
+    st->roi_frame_width = st->width;
+    st->roi_frame_height = st->height;
+    st->roi_sensor_width = st->width;
+    st->roi_sensor_height = st->height;
+    st->roi_x_range = (cw_roi_range){0, st->width - 1, 1};
+    st->roi_y_range = (cw_roi_range){0, st->height - 1, 1};
+    st->roi_width_range = (cw_roi_range){1, st->width, 1};
+    st->roi_height_range = (cw_roi_range){1, st->height, 1};
+    st->roi_supported = strcmp(st->capture_source, "fake") == 0;
+#ifdef HAVE_HIK_MVS
+    if (st->hik_handle) {
+        const char *names[] = {"OffsetX", "OffsetY", "Width", "Height", "WidthMax", "HeightMax"};
+        MVCC_INTVALUE values[6];
+        memset(values, 0, sizeof(values));
+        for (int i = 0; i < 6; ++i) {
+            if (MV_CC_GetIntValue(st->hik_handle, names[i], &values[i]) != MV_OK) return;
+        }
+        st->roi_x = (int)values[0].nCurValue;
+        st->roi_y = (int)values[1].nCurValue;
+        st->roi_default_x = st->roi_x;
+        st->roi_default_y = st->roi_y;
+        st->roi_sensor_width = (int)values[4].nCurValue;
+        st->roi_sensor_height = (int)values[5].nCurValue;
+        st->roi_x_range = (cw_roi_range){(int)values[0].nMin, st->roi_sensor_width - 1,
+                                        values[0].nInc > 0 ? (int)values[0].nInc : 1};
+        st->roi_y_range = (cw_roi_range){(int)values[1].nMin, st->roi_sensor_height - 1,
+                                        values[1].nInc > 0 ? (int)values[1].nInc : 1};
+        /* Keep the existing SHM allocation and ring slot offsets stable. The configured
+         * frame size is the maximum capture envelope; any smaller hardware ROI fits. */
+        st->roi_width_range = (cw_roi_range){(int)values[2].nMin, st->width,
+                                            values[2].nInc > 0 ? (int)values[2].nInc : 1};
+        st->roi_height_range = (cw_roi_range){(int)values[3].nMin, st->height,
+                                             values[3].nInc > 0 ? (int)values[3].nInc : 1};
+        st->roi_supported = 1;
+    }
+#endif
+}
+
+#ifdef HAVE_HIK_MVS
+static int hik_set_roi_nodes(void *handle, cw_roi_rect roi) {
+    int result;
+    /* Offsets must be reset before enlarging the image. Never ignore a node error. */
+    if ((result = MV_CC_SetIntValue(handle, "OffsetX", 0)) != MV_OK) return result;
+    if ((result = MV_CC_SetIntValue(handle, "OffsetY", 0)) != MV_OK) return result;
+    if ((result = MV_CC_SetIntValue(handle, "Width", (unsigned int)roi.width)) != MV_OK) return result;
+    if ((result = MV_CC_SetIntValue(handle, "Height", (unsigned int)roi.height)) != MV_OK) return result;
+    if ((result = MV_CC_SetIntValue(handle, "OffsetX", (unsigned int)roi.x)) != MV_OK) return result;
+    return MV_CC_SetIntValue(handle, "OffsetY", (unsigned int)roi.y);
+}
+#endif
+
+/* Called with stream_lock held, and serialized with capture by the camera client. */
+static int apply_capture_roi(worker_state_t *st, cw_roi_rect roi, char *err, size_t err_len) {
+    if (!st->roi_supported) {
+        snprintf(err, err_len, "Аппаратный ROI недоступен для этой камеры");
+        return -1;
+    }
+    if (st->stream_active) {
+        snprintf(err, err_len, "Остановите видеопоток перед изменением области захвата");
+        return -1;
+    }
+    if (!cw_roi_valid(roi, st->roi_sensor_width, st->roi_sensor_height,
+                      st->roi_x_range, st->roi_y_range, st->roi_width_range, st->roi_height_range)) {
+        snprintf(err, err_len, "ROI выходит за границы камеры или не соответствует допустимому шагу");
+        return -1;
+    }
+    if (roi.x == st->roi_x && roi.y == st->roi_y && roi.width == st->width && roi.height == st->height) return 0;
+#ifdef HAVE_HIK_MVS
+    if (st->hik_handle) {
+        cw_roi_rect previous = {st->roi_x, st->roi_y, st->width, st->height};
+        int result = MV_CC_StopGrabbing(st->hik_handle);
+        if (result != MV_OK) {
+            snprintf(err, err_len, "Не удалось остановить захват для ROI: 0x%x", result);
+            return -1;
+        }
+        result = hik_set_roi_nodes(st->hik_handle, roi);
+        MVCC_INTVALUE payload;
+        memset(&payload, 0, sizeof(payload));
+        if (result == MV_OK) result = MV_CC_GetIntValue(st->hik_handle, "PayloadSize", &payload);
+        if (result == MV_OK && (payload.nCurValue == 0 || payload.nCurValue > st->hik_raw_capacity)) result = -1;
+        if (result == MV_OK) result = MV_CC_StartGrabbing(st->hik_handle);
+        if (result != MV_OK) {
+            int restore = hik_set_roi_nodes(st->hik_handle, previous);
+            int restart = MV_CC_StartGrabbing(st->hik_handle);
+            if (restore != MV_OK || restart != MV_OK) st->capture_backend_ready = 0;
+            snprintf(err, err_len, "Не удалось применить ROI: 0x%x; восстановление: 0x%x/0x%x", result, restore, restart);
+            return -1;
+        }
+        st->gige_payload_bytes = payload.nCurValue;
+    }
+#endif
+    st->roi_x = roi.x;
+    st->roi_y = roi.y;
+    st->width = roi.width;
+    st->height = roi.height;
+    st->stride = roi.width * 3;
+    st->frame_bytes = (size_t)st->stride * (size_t)st->height;
+    st->last_frame_id = 0;
+    st->last_slot_index = -1;
+    st->pending_trigger_fired_ns = 0;
+    return 0;
+}
+
 static void format_settings_json(const worker_state_t *st, char *out, size_t out_len) {
     int exposure_us = st->exposure_us;
     float gain_db = st->gain_db;
@@ -949,6 +1076,20 @@ static void format_settings_json(const worker_state_t *st, char *out, size_t out
              st->frame_timeout_ms,
              st->stream_active ? "true" : "false",
              mvs_available ? "true" : "false");
+    size_t end = strlen(out);
+    if (end > 0 && out[end - 1] == '}') {
+        snprintf(out + end - 1, out_len - end + 1,
+                 ",\"roi_supported\":%s,\"roi_x\":%d,\"roi_y\":%d,\"roi_width\":%d,\"roi_height\":%d,"
+                 "\"roi_sensor_width\":%d,\"roi_sensor_height\":%d,\"roi_default_x\":%d,\"roi_default_y\":%d,"
+                 "\"roi_width_min\":%d,\"roi_width_max\":%d,\"roi_width_inc\":%d,"
+                 "\"roi_height_min\":%d,\"roi_height_max\":%d,\"roi_height_inc\":%d,"
+                 "\"roi_x_min\":%d,\"roi_x_inc\":%d,\"roi_y_min\":%d,\"roi_y_inc\":%d}",
+                 st->roi_supported ? "true" : "false", st->roi_x, st->roi_y, st->width, st->height,
+                 st->roi_sensor_width, st->roi_sensor_height, st->roi_default_x, st->roi_default_y,
+                 st->roi_width_range.min, st->roi_width_range.max, st->roi_width_range.inc,
+                 st->roi_height_range.min, st->roi_height_range.max, st->roi_height_range.inc,
+                 st->roi_x_range.min, st->roi_x_range.inc, st->roi_y_range.min, st->roi_y_range.inc);
+    }
 }
 
 static int apply_settings_from_header(worker_state_t *st, const char *header_json, char *err, size_t err_len) {
@@ -968,6 +1109,12 @@ static int apply_settings_from_header(worker_state_t *st, const char *header_jso
     int frame_timeout_ms = 0;
     char mode[32] = {0};
     int has_mode = 0;
+    cw_roi_rect roi = {st->roi_x, st->roi_y, st->width, st->height};
+    int has_roi = 0;
+    has_roi |= json_find_int(header_json, (int)strlen(header_json), "roi_x", &roi.x) == 0;
+    has_roi |= json_find_int(header_json, (int)strlen(header_json), "roi_y", &roi.y) == 0;
+    has_roi |= json_find_int(header_json, (int)strlen(header_json), "roi_width", &roi.width) == 0;
+    has_roi |= json_find_int(header_json, (int)strlen(header_json), "roi_height", &roi.height) == 0;
 
     if (json_find_int(header_json, (int)strlen(header_json), "exposure_us", &exposure_us) == 0) {
         has_exposure = 1;
@@ -995,7 +1142,7 @@ static int apply_settings_from_header(worker_state_t *st, const char *header_jso
     }
 
     if (!has_exposure && !has_gain && !has_gamma && !has_black && !has_wb_red && !has_wb_blue
-        && !has_timeout && !has_mode) {
+        && !has_timeout && !has_mode && !has_roi) {
         snprintf(err, err_len, "no_supported_settings_in_request");
         return -1;
     }
@@ -1021,6 +1168,10 @@ static int apply_settings_from_header(worker_state_t *st, const char *header_jso
     }
 
     stream_lock_enter(st);
+    if (has_roi && apply_capture_roi(st, roi, err, err_len) != 0) {
+        stream_lock_leave(st);
+        return -1;
+    }
 #ifdef HAVE_HIK_MVS
     if (st->hik_handle) {
         if (has_exposure) {
@@ -2125,7 +2276,11 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
         return -1;
 #endif
     }
-    memcpy(frame, st->pattern_frame, st->frame_bytes);
+    for (int row = 0; row < st->height; ++row) {
+        const uint8_t *source = st->pattern_frame
+                + ((size_t)(st->roi_y + row) * (size_t)st->roi_frame_width + (size_t)st->roi_x) * 3u;
+        memcpy(frame + (size_t)row * (size_t)st->stride, source, (size_t)st->stride);
+    }
     if (st->frame_bytes > 1) frame[1] = (uint8_t)(frame_id & 0xFF);
     if (st->frame_bytes > 4) frame[4] = (uint8_t)((frame_id >> 8) & 0xFF);
     return 0;
@@ -2167,7 +2322,7 @@ static int capture_frame_to_shm(worker_state_t *st, int sync_capture, int wait_o
     uint64_t capture_started_ns = now_ns();
     uint64_t frame_id = st->next_frame_id;
     int slot_index = (int)((frame_id - 1) % (uint64_t)st->ring_slots);
-    size_t slot_offset = (size_t)slot_index * st->frame_bytes;
+    size_t slot_offset = (size_t)slot_index * st->slot_bytes;
     uint8_t *frame = st->shm_base + slot_offset;
     if (capture_from_source(st, frame, frame_id, sync_capture, wait_only, err, err_len) != 0) {
         st->capture_dropped++;
@@ -2200,7 +2355,7 @@ static int capture_frame_to_shm(worker_state_t *st, int sync_capture, int wait_o
 
 static void format_capture_json(const worker_state_t *st, char *out, size_t out_len) {
     int slot_index = st->last_slot_index;
-    size_t slot_offset = slot_index >= 0 ? (size_t)slot_index * st->frame_bytes : 0;
+    size_t slot_offset = slot_index >= 0 ? (size_t)slot_index * st->slot_bytes : 0;
     snprintf(out, out_len,
              "{\"camera_id\":%d,\"frame_id\":%llu,\"slot_index\":%d,\"width\":%d,\"height\":%d,\"stride\":%d,"
              "\"format\":\"BGR8\",\"capture_pixel_format\":\"%s\",\"timestamp_ns\":%llu,\"shm_name\":\"%s\",\"shm_offset\":%zu,\"frame_bytes\":%zu,"
@@ -2368,6 +2523,7 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
     st->height = cam_cfg && cam_cfg->frame_height > 0 ? cam_cfg->frame_height : 1024;
     st->stride = st->width * 3;
     st->frame_bytes = (size_t)st->stride * (size_t)st->height;
+    st->slot_bytes = st->frame_bytes;
     st->ring_slots = RING_SLOTS;
     st->next_frame_id = 1;
     st->last_slot_index = -1;
@@ -2520,6 +2676,14 @@ static int init_worker_state(worker_state_t *st, int camera_id, const char *dete
         fprintf(stderr, "capture source init failed: hik backend needs MVS SDK (see camera-worker/CMakeLists.txt)\n");
         return 1;
 #endif
+    }
+    init_roi_limits(st);
+    if (cam_cfg && cam_cfg->roi_configured) {
+        char roi_error[256];
+        if (apply_capture_roi(st, cam_cfg->capture_roi, roi_error, sizeof(roi_error)) != 0) {
+            fprintf(stderr, "camera=%d saved capture ROI rejected: %s\n", camera_id, roi_error);
+            return 1;
+        }
     }
     if (init_metrics_log(st) != 0) {
         free(st->pattern_frame);
@@ -2716,7 +2880,7 @@ static int handle_camera_command(worker_state_t *st, const char *header_buf, cw_
         stream_lock_leave(st);
         set_response(response, MSG_RESPONSE, out);
     } else if (strcmp(op, "get_settings") == 0) {
-        char out[1024];
+        char out[2048];
         stream_lock_enter(st);
         format_settings_json(st, out, sizeof(out));
         stream_lock_leave(st);
@@ -2732,7 +2896,7 @@ static int handle_camera_command(worker_state_t *st, const char *header_buf, cw_
             set_response(response, MSG_ERROR, out_err);
             return 0;
         }
-        char out[1024];
+        char out[2048];
         stream_lock_enter(st);
         format_settings_json(st, out, sizeof(out));
         stream_lock_leave(st);

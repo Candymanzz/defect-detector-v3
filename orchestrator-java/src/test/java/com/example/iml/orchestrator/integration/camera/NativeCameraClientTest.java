@@ -72,6 +72,65 @@ class NativeCameraClientTest {
     }
 
     @Test
+    void captureRoiIsIndependentAndKeepsSharedMemorySlotsStable() throws Exception {
+        try (NativeCameraClient first = camera(30001); NativeCameraClient second = camera(30002)) {
+            ok(first, Map.of("op", "capture"));
+            Map<String, Object> cropped = ok(first, Map.of("op", "set_settings",
+                    "roi_x", 2, "roi_y", 1, "roi_width", 4, "roi_height", 3));
+            assertEquals(4, number(cropped, "width"));
+            assertEquals(2, number(cropped, "roi_x"));
+            Map<String, Object> frame = ok(first, Map.of("op", "capture"));
+            assertEquals(4, number(frame, "width"));
+            assertEquals(3, number(frame, "height"));
+            assertEquals(12, number(frame, "stride"));
+            assertEquals(144, number(frame, "shm_offset"));
+            Path shm = System.getProperty("os.name").startsWith("Windows")
+                    ? Path.of(System.getenv("LOCALAPPDATA"), "iml_shm", "iml_cam_30001_frame")
+                    : Path.of("/dev/shm/iml_cam_30001_frame");
+            try (FileChannel channel = FileChannel.open(shm, StandardOpenOption.READ)) {
+                ByteBuffer pixels = ByteBuffer.allocate(36);
+                assertEquals(36, channel.read(pixels, 144));
+                assertEquals((2 + 30001 * 17) & 255, pixels.get(0) & 255);
+                assertEquals((1 + 1) & 255, pixels.get(12 + 1) & 255);
+            }
+            assertEquals(8, number(ok(second, Map.of("op", "get_settings")), "width"));
+            assertEquals(BinaryProtocol.MSG_ERROR, first.command(Map.of("op", "set_settings", "roi_width", 20)).type());
+            assertEquals(4, number(ok(first, Map.of("op", "get_settings")), "width"));
+            ok(first, Map.of("op", "set_settings", "roi_x", 0, "roi_y", 0, "roi_width", 8, "roi_height", 6));
+            assertEquals(8, number(ok(first, Map.of("op", "capture")), "width"));
+            ok(first, Map.of("op", "start_stream", "fps", 10));
+            assertEquals(BinaryProtocol.MSG_ERROR, first.command(Map.of("op", "set_settings", "roi_width", 4)).type());
+        }
+    }
+
+    @Test
+    void captureRoiPersistsPerCameraAndRequiresClearingReference() throws Exception {
+        CameraWorkersHolder holder = new CameraWorkersHolder();
+        WorkerProcessSupervisor first = new WorkerProcessSupervisor(30001, library, config, 3000);
+        WorkerProcessSupervisor second = new WorkerProcessSupervisor(30002, library, config, 3000);
+        var file = directory.resolve("data/camera_runtime_settings.json");
+        var store = CameraSettingsStore.open(file);
+        holder.set(Map.of(30001, first, 30002, second));
+        var service = new CameraSettingsService(holder, null, store);
+        try {
+            first.start(); second.start();
+            var locked = new CameraSettingsService(holder, null, store, () -> false);
+            assertThrows(IllegalStateException.class, () -> locked.patchSettings(30001, Map.of("roi_width", 4)));
+            assertEquals(8, number(service.getSettings(30001), "width"));
+            service.patchSettings(30001, Map.of("roi_x", 2, "roi_y", 1, "roi_width", 4, "roi_height", 3));
+            assertTrue(store.settingsForCamera(30002).isEmpty());
+            assertThrows(IOException.class, () -> service.patchSettings(30001, Map.of("roi_width", 20)));
+            assertEquals(4, store.settingsForCamera(30001).get("roi_width"));
+            first.restart();
+            assertEquals(4, number(service.getSettings(30001), "width"), "ROI must already be restored on reconnect");
+            new CameraSettingsService(holder, null, CameraSettingsStore.open(file)).applyPersistedSettings();
+            assertEquals(4, number(service.getSettings(30001), "width"));
+            assertEquals(2, number(service.getSettings(30001), "roi_x"));
+            assertEquals(8, number(service.getSettings(30002), "width"));
+        } finally { first.close(); second.close(); }
+    }
+
+    @Test
     void settingsAndStreamingKeepTheirExistingBehavior() throws Exception {
         try (NativeCameraClient camera = camera(30001)) {
             Map<String, Object> settings = ok(camera, Map.of("op", "set_settings", "exposure_us", 4500, "gain_db", 2.5));

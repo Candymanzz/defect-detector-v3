@@ -99,3 +99,19 @@ add_executable(cw_config_tests
 )
 target_include_directories(cw_config_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 add_test(NAME cw_config_tests COMMAND cw_config_tests)
+
+add_executable(cw_roi_tests tests/test_cw_roi.c)
+target_include_directories(cw_roi_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+add_test(NAME cw_roi_tests COMMAND cw_roi_tests)
+
+if(UNIX AND CAMERA_ENABLE_MVS AND EXISTS "${MVS_ROOT}/include/MvCameraControl.h"
+        AND EXISTS "${MVS_ROOT}/lib/64/libMvCameraControl.so")
+    add_executable(cw_roi_mvs_tests tests/test_cw_roi_mvs.c src/cw_config.c)
+    target_compile_definitions(cw_roi_mvs_tests PRIVATE HAVE_HIK_MVS=1)
+    target_compile_options(cw_roi_mvs_tests PRIVATE -UNDEBUG)
+    target_include_directories(cw_roi_mvs_tests PRIVATE deps include "${MVS_ROOT}/include")
+    target_link_libraries(cw_roi_mvs_tests PRIVATE Threads::Threads ${CMAKE_DL_LIBS}
+            "${MVS_ROOT}/lib/64/libMvCameraControl.so")
+    set_target_properties(cw_roi_mvs_tests PROPERTIES BUILD_RPATH "${MVS_ROOT}/lib/64")
+    add_test(NAME cw_roi_mvs_tests COMMAND cw_roi_mvs_tests)
+endif()

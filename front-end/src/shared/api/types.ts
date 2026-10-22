@@ -57,13 +57,41 @@ export type CameraRuntimeSettings = {
   frame_timeout_ms: number;
   streaming?: boolean;
   mvs_available?: boolean;
+  roi_supported?: boolean;
+  roi_x?: number;
+  roi_y?: number;
+  roi_width?: number;
+  roi_height?: number;
+  roi_sensor_width?: number;
+  roi_sensor_height?: number;
+  roi_default_x?: number;
+  roi_default_y?: number;
+  roi_width_min?: number;
+  roi_width_max?: number;
+  roi_width_inc?: number;
+  roi_height_min?: number;
+  roi_height_max?: number;
+  roi_height_inc?: number;
+  roi_x_min?: number;
+  roi_x_inc?: number;
+  roi_y_min?: number;
+  roi_y_inc?: number;
   ok?: true;
 };
 
 export type CameraRuntimeSettingsUpdate = Partial<
   Pick<
     CameraRuntimeSettings,
-    "exposure_us" | "gain_db" | "gamma" | "black_level" | "capture_trigger_mode" | "frame_timeout_ms"
+    | "exposure_us"
+    | "gain_db"
+    | "gamma"
+    | "black_level"
+    | "capture_trigger_mode"
+    | "frame_timeout_ms"
+    | "roi_x"
+    | "roi_y"
+    | "roi_width"
+    | "roi_height"
   >
 >;
 

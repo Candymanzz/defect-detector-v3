@@ -4,6 +4,7 @@ import { HttpError, orchestratorApi } from "../../shared/api";
 import type { CameraRuntimeSettings, CameraRuntimeSettingsUpdate, CameraTriggerMode } from "../../shared/api";
 import { Button } from "../../shared/ui/Button";
 import "./CameraSettingsModal.css";
+import { CameraCaptureRoiSettings } from "./CameraCaptureRoiSettings";
 
 type CameraSettingsModalProps = {
   isOpen: boolean;
@@ -41,6 +42,7 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
   const [selectedCameraId, setSelectedCameraId] = useState(initialCameraId ?? 0);
   const [form, setForm] = useState<CameraSettingsForm>(DEFAULT_FORM);
   const [loadedSettings, setLoadedSettings] = useState<CameraRuntimeSettings | null>(null);
+  const [roiBusy, setRoiBusy] = useState(false);
   const [status, setStatus] = useState<{ state: StatusState; text: string }>({
     state: "loading",
     text: "Загрузка камер...",
@@ -50,7 +52,7 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
     () => (scope === "all" ? cameraIds : cameraIds.includes(selectedCameraId) ? [selectedCameraId] : []),
     [cameraIds, scope, selectedCameraId],
   );
-  const canSave = status.state !== "loading" && status.state !== "saving" && targetCameraIds.length > 0;
+  const canSave = !roiBusy && status.state !== "loading" && status.state !== "saving" && targetCameraIds.length > 0;
 
   useEffect(() => {
     if (!isOpen) {
@@ -85,7 +87,7 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
         const nextSelectedCameraId =
           initialCameraId !== null && sortedCameraIds.includes(initialCameraId)
             ? initialCameraId
-            : sortedCameraIds[0] ?? 0;
+            : (sortedCameraIds[0] ?? 0);
         setCameraIds(sortedCameraIds);
         setSelectedCameraId(nextSelectedCameraId);
 
@@ -219,6 +221,7 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
             <label>
               <input
                 checked={scope === "all"}
+                disabled={roiBusy || status.state === "saving"}
                 name="camera-settings-scope"
                 type="radio"
                 value="all"
@@ -229,6 +232,7 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
             <label>
               <input
                 checked={scope === "single"}
+                disabled={roiBusy || status.state === "saving"}
                 name="camera-settings-scope"
                 type="radio"
                 value="single"
@@ -241,7 +245,7 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
             </label>
             <select
               aria-label="Камера"
-              disabled={scope !== "single" || cameraIds.length === 0}
+              disabled={roiBusy || status.state === "saving" || scope !== "single" || cameraIds.length === 0}
               value={selectedCameraId}
               onChange={(event) => {
                 const nextCameraId = Number(event.target.value);
@@ -358,6 +362,15 @@ export function CameraSettingsModal({ isOpen, initialCameraId, onClose }: Camera
             </Button>
           </footer>
         </form>
+        {loadedSettings && (
+          <CameraCaptureRoiSettings
+            key={loadedSettings.camera_id}
+            settings={loadedSettings}
+            enabled={scope === "single" && canSave && loadedSettings.camera_id === selectedCameraId}
+            onSaved={setLoadedSettings}
+            onBusyChange={setRoiBusy}
+          />
+        )}
       </section>
     </div>
   );

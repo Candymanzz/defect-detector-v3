@@ -7,8 +7,19 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CameraSettingsServiceTest {
+
+    @Test
+    void roiCoordinatesRejectFractionalAndOverflowingValues() {
+        assertThrows(IllegalArgumentException.class,
+                () -> CameraSettingsService.parsePatchBody(Map.of("roi_x", 1.5)));
+        assertThrows(IllegalArgumentException.class,
+                () -> CameraSettingsService.parsePatchBody(Map.of("roi_width", "999999999999")));
+        assertEquals(Map.of("roi_x", 16, "roi_height", 128),
+                CameraSettingsService.parsePatchBody(Map.of("roi_x", "16", "roi_height", 128)));
+    }
 
     @Test
     void parsePatchBodyKeepsSupportedFieldsOnly() {

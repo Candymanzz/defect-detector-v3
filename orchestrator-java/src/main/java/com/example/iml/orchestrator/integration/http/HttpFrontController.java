@@ -127,7 +127,14 @@ public final class HttpFrontController {
                 new CameraSettingsService(
                         ctx.cameraWorkersHolder(),
                         ctx.cameraStreamHolder(),
-                        ctx.cameraSettingsStore()
+                        ctx.cameraSettingsStore(),
+                        () -> {
+                            var api = ctx.clientApi();
+                            var holder = api == null ? null : api.clientWsHolder();
+                            var ws = holder == null ? null : holder.get();
+                            return ws == null || ws.sessionState()
+                                    == com.example.iml.orchestrator.integration.clientws.session.ClientWsSessionState.NO_REFERENCE;
+                        }
                 )
         );
         router.register(HttpRoute.regex("GET", Pattern.compile("^/api/camera/\\d+/settings$"), cameraSettings));

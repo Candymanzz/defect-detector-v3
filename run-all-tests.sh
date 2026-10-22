@@ -23,7 +23,7 @@ if command -v cmake >/dev/null 2>&1; then
   # Tests use synthetic frames only and never initialize vendor camera backends.
   run_step "camera JNI (build)" "$ROOT" cmake -S camera-worker -B camera-worker/build-test \
     -DCMAKE_BUILD_TYPE=Debug -DCAMERA_BUILD_JNI=ON -DCAMERA_ENABLE_MVS=OFF -DCAMERA_ENABLE_ARAVIS=OFF
-  run_step "camera JNI (compile)" "$ROOT" cmake --build camera-worker/build-test --config Debug --target camera_jni cw_config_tests
+  run_step "camera JNI (compile)" "$ROOT" cmake --build camera-worker/build-test --config Debug --target camera_jni cw_config_tests cw_roi_tests
   run_step "camera-worker (CTest)" "$ROOT" ctest --test-dir camera-worker/build-test -C Debug --output-on-failure
   case "$(uname -s)" in
     Darwin) camera_library=libcamera_jni.dylib ;;

@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 
 /**
  * Онлайн-настройки камеры через camera-worker (MVS / runtime state).
@@ -27,12 +28,15 @@ public final class CameraSettingsService {
             "balance_ratio_red",
             "balance_ratio_blue",
             "capture_trigger_mode",
-            "frame_timeout_ms"
+            "frame_timeout_ms",
+            "roi_x", "roi_y", "roi_width", "roi_height"
     );
+    private static final Set<String> ROI_KEYS = Set.of("roi_x", "roi_y", "roi_width", "roi_height");
 
     private final CameraWorkersHolder workersHolder;
     private final CameraStreamServiceHolder streamHolder;
     private final CameraSettingsStore settingsStore;
+    private final BooleanSupplier roiChangeAllowed;
 
     public CameraSettingsService(CameraWorkersHolder workersHolder, CameraStreamServiceHolder streamHolder) {
         this(workersHolder, streamHolder, null);
@@ -43,9 +47,15 @@ public final class CameraSettingsService {
             CameraStreamServiceHolder streamHolder,
             CameraSettingsStore settingsStore
     ) {
+        this(workersHolder, streamHolder, settingsStore, () -> true);
+    }
+
+    public CameraSettingsService(CameraWorkersHolder workersHolder, CameraStreamServiceHolder streamHolder,
+                                 CameraSettingsStore settingsStore, BooleanSupplier roiChangeAllowed) {
         this.workersHolder = workersHolder;
         this.streamHolder = streamHolder;
         this.settingsStore = settingsStore;
+        this.roiChangeAllowed = roiChangeAllowed;
     }
 
     public Map<String, Object> getSettings(int cameraId) throws IOException {
@@ -107,7 +117,7 @@ public final class CameraSettingsService {
         return supported;
     }
 
-    private Map<String, Object> applySettings(int cameraId, Map<String, Object> update, boolean persist) throws IOException {
+    private synchronized Map<String, Object> applySettings(int cameraId, Map<String, Object> update, boolean persist) throws IOException {
         if (update == null || update.isEmpty()) {
             throw new IllegalArgumentException("at least one supported setting is required");
         }
@@ -126,9 +136,25 @@ public final class CameraSettingsService {
         if (header.containsKey("capture_trigger_mode") && isStreaming(cameraId)) {
             throw new IllegalStateException("capture_trigger_mode cannot be changed while stream is active");
         }
+        boolean hasRoi = update.keySet().stream().anyMatch(ROI_KEYS::contains);
+        if (hasRoi) {
+            Map<String, Object> current = getSettings(cameraId);
+            boolean changed = ROI_KEYS.stream().anyMatch(key -> update.containsKey(key)
+                    && !java.util.Objects.equals(update.get(key), current.get(key)));
+            if (changed && (isStreaming(cameraId) || Boolean.TRUE.equals(current.get("streaming")))) {
+                throw new IllegalStateException("Остановите видеопоток перед изменением области захвата");
+            }
+            if (persist && changed && !roiChangeAllowed.getAsBoolean()) {
+                throw new IllegalStateException("Перед изменением области захвата сбросьте эталон инспекции");
+            }
+        }
         Map<String, Object> applied = workerResponse(cameraId, header);
         if (persist && settingsStore != null) {
-            settingsStore.mergeAndSave(cameraId, update);
+            Map<String, Object> saved = new LinkedHashMap<>(update);
+            if (hasRoi) {
+                for (String key : ROI_KEYS) saved.put(key, applied.get(key));
+            }
+            settingsStore.mergeAndSave(cameraId, saved);
         }
         LOG.info("camera settings updated camera={} keys={} persisted={}", cameraId, header.keySet(), persist);
         return applied;
@@ -191,6 +217,7 @@ public final class CameraSettingsService {
         copyIfPresent(raw, patch, "balance_ratio_blue");
         copyIfPresent(raw, patch, "capture_trigger_mode");
         copyIfPresent(raw, patch, "frame_timeout_ms");
+        for (String key : ROI_KEYS) copyIfPresent(raw, patch, key);
         return Map.copyOf(patch);
     }
 
@@ -203,6 +230,13 @@ public final class CameraSettingsService {
             return;
         }
         switch (key) {
+            case "roi_x", "roi_y", "roi_width", "roi_height" -> {
+                try {
+                    patch.put(key, new java.math.BigDecimal(String.valueOf(value)).intValueExact());
+                } catch (ArithmeticException | NumberFormatException error) {
+                    throw new IllegalArgumentException(key + " должен быть целым числом пикселей");
+                }
+            }
             case "exposure_us", "black_level", "frame_timeout_ms" -> patch.put(key, YamlScalars.toInt(value, 0));
             case "gain_db", "gamma", "balance_ratio_red", "balance_ratio_blue" ->
                     patch.put(key, YamlScalars.toDouble(value, 0.0));
