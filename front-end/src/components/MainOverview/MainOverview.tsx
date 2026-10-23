@@ -11,6 +11,7 @@ import { GeometryTestSettingsPanel } from "../SettingList/GeometryTestSettingsPa
 import type { GeometryTestSettingsPanelHandle } from "../SettingList/GeometryTestSettingsPanel";
 import { resolveInspectionResultState, isCaptureOnlyInspectResult } from "../../shared/inspectResult";
 import { orchestratorApi } from "../../shared/api";
+import { formatAnomalyWithFindings } from "../../shared/lib/detectorFindings";
 import type { InspectionStateResponse } from "../../shared/api/types";
 import { StatusCard } from "../../shared/ui/StatusCard";
 import { createCameraCards, createSelectedCamera } from "./MainController";
@@ -235,8 +236,7 @@ export function MainOverview({
       return;
     }
     const resultState = resolveInspectionResultState(result);
-    const anomalyPercent =
-      typeof result.anomaly_score === "number" ? `${(result.anomaly_score * 100).toFixed(2)}%` : "—";
+    const anomalyPercent = formatAnomalyWithFindings(result);
     setTestAnalyzeState("complete");
     setTestAnalyzeMessage(
       `Кадр ${pending.frameId}: ${resultState === "pass" ? "годен" : resultState === "fail" ? "брак" : "результат получен"}, аномалия ${anomalyPercent}.`,

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { orchestratorApi } from "../../shared/api";
 import { formatAnomalyPercent } from "../../shared/lib/anomalyScore";
+import { getDetectorFindings } from "../../shared/lib/detectorFindings";
 import { getReferenceImage } from "../../shared/referenceImages";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import type { HeatmapDescriptor, InspectResultPayload } from "../../shared/ws";
@@ -117,6 +118,7 @@ function InspectionResultCard({
   const referenceImageUrl = getReferenceImage(result.camera_id)?.imageUrl;
   const comparisonImageUrl = referenceImageUrl ?? imageUrl;
   const heatmap = resolveInspectionHeatmap(result);
+  const findings = getDetectorFindings(result);
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -160,6 +162,8 @@ function InspectionResultCard({
               heatmap={heatmap}
               backgroundImageUrl={comparisonImageUrl}
               excludedNormalZones={result.excluded_normal_zones}
+              detectorResult={result.detector_result}
+              frameSize={result.current}
             />
           ) : (
             <div className="inspection-history-modal__placeholder">Тепловая карта отсутствует</div>
@@ -175,17 +179,33 @@ function InspectionResultCard({
         <ResultField
           label="Аномалия"
           value={formatAnomalyPercent(result.anomaly_score)}
+          flag={findings.map((finding) => finding.label).join(", ")}
+          flagTitle={findings.map((finding) => [finding.label, finding.detail].filter(Boolean).join(": ")).join("\n")}
         />
       </dl>
     </article>
   );
 }
 
-function ResultField({ label, value }: { label: string; value?: string | number | boolean }) {
+function ResultField({
+  label,
+  value,
+  flag,
+  flagTitle,
+}: {
+  label: string;
+  value?: string | number | boolean;
+  /** Short detector finding shown after a slash and highlighted, e.g. "Кромка повреждена". */
+  flag?: string;
+  flagTitle?: string;
+}) {
   return (
-    <div>
+    <div data-flagged={flag ? "true" : undefined}>
       <dt>{label}</dt>
-      <dd>{value === undefined ? "-" : String(value)}</dd>
+      <dd title={flag ? flagTitle : undefined}>
+        {value === undefined ? "-" : String(value)}
+        {flag && <span className="inspection-history-modal__flag"> / {flag}</span>}
+      </dd>
     </div>
   );
 }

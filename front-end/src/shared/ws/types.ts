@@ -298,6 +298,8 @@ export type InspectResultPayload = {
   geometry_status?: InspectionStageStatus | string;
   /** Compact geometry metrics for this frame (WS/archive); preferred over /api/geometry/.../latest. */
   geometry?: GeometryInspectResponse;
+  /** Native cppAnalisSurface findings: reject reason and the seam/edge line zones. */
+  detector_result?: DetectorResult;
   fp_zones: FpZoneNorm[];
   excluded_normal_zones?: ExcludedNormalZone[];
   fp_coordinate_space?: {
@@ -305,6 +307,47 @@ export type InspectResultPayload = {
     heatmap_height: number;
   };
   server_ts_ms: number;
+};
+
+/** One seam/edge line zone as measured by cppAnalisSurface; point arrays are normalised 0..1 of the frame. */
+export type DetectorLineZone = {
+  found: boolean;
+  reject: boolean;
+  gap_reject?: boolean;
+  /** max |deviation| / tolerance; > 1 means reject. */
+  ratio: number;
+  /** Worst deviation, px. */
+  max_dev: number;
+  /** Position of the worst deviation along the line, 0..1. */
+  worst_t: number;
+  coverage?: number;
+  noise?: number;
+  tol_mid?: number;
+  tol_edge?: number;
+  /** Search half-width, px of the frame. */
+  band?: number;
+  samples?: number;
+  /** Deviation (px) and tolerance (px) per decimated sample. */
+  dev?: number[];
+  tol?: number[];
+  /** Per sample: 0 evaluated, 1 skipped segment, 2 line end ignored, 3 no edge found. */
+  state?: string;
+  axis?: Array<[number, number]>;
+  edge?: Array<[number, number]>;
+  ref?: Array<[number, number]>;
+};
+
+export type DetectorResult = {
+  /** Reject reason code of the detector (score_over_threshold, seam_line_deviation, ...). */
+  reason?: string;
+  area_percent?: number;
+  threshold?: number;
+  lines?: {
+    seam?: DetectorLineZone;
+    edge?: DetectorLineZone;
+  };
+  /** Legacy single-seam check. */
+  seam?: { found?: boolean; reject?: boolean; ratio?: number; max_dev?: number };
 };
 
 export type ExcludedNormalZone = {

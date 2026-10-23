@@ -6,6 +6,8 @@ export type {
   ClientWsEnvelope,
   ClientWsMessage,
   ClientWsMessageType,
+  DetectorLineZone,
+  DetectorResult,
   ClientSetActiveReferenceViewPayload,
   ExcludedNormalZone,
   FpZoneNorm,

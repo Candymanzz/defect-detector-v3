@@ -819,3 +819,16 @@
     min-height: 0;
   }
 }
+
+.modal-inspect-result__field[data-flagged="true"] {
+  grid-column: 1 / -1;
+}
+
+.modal-inspect-result__field[data-flagged="true"] dd {
+  white-space: normal;
+}
+
+.modal-inspect-result__flag {
+  color: #fca5a5;
+  font-weight: 700;
+}

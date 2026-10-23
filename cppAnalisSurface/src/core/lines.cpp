@@ -114,7 +114,7 @@ std::string LinesSettings::applyJson(const json& j) {
     return "";
 }
 
-json zoneResultJson(const LineParams& p, const LineResult& r, const cv::Size& frame) {
+json zoneResultJson(const LineParams& p, const LineResult& r, const cv::Size& frame, int maxSamples) {
     auto r3 = [](double v) { return std::round(v * 1000.0) / 1000.0; };
     auto r2 = [](double v) { return std::round(v * 100.0) / 100.0; };
     json j = {{"found", r.found}, {"reject", r.reject}, {"gap_reject", r.gapReject}, {"ratio", r2(r.ratio)},
@@ -122,8 +122,7 @@ json zoneResultJson(const LineParams& p, const LineResult& r, const cv::Size& fr
               {"gap", r3(r.longestGap)}, {"noise", r2(r.noise)}, {"ms", r2(r.ms)}};
     const int N = int(r.rowPos.size());
     if (N < 2) return j;
-    constexpr int kMaxSamples = 400;
-    const int step = std::max(1, (N + kMaxSamples - 1) / kMaxSamples);
+    const int step = std::max(1, (N + maxSamples - 1) / maxSamples);
     json dev = json::array(), tol = json::array(), edge = json::array(), ref = json::array(), axis = json::array();
     std::string state;
     const double sx = 1.0 / std::max(1, frame.width - 1), sy = 1.0 / std::max(1, frame.height - 1);
@@ -149,6 +148,7 @@ json zoneResultJson(const LineParams& p, const LineResult& r, const cv::Size& fr
     j["samples"] = N;
     j["tol_mid"] = p.tolMid;
     j["tol_edge"] = p.tolEdge;
+    j["band"] = p.bandHalf;
     return j;
 }
 

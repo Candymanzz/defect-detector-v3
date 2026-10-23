@@ -17,10 +17,32 @@ public record InspectionDecision(
         double jointVisibility,
         boolean jointPass,
         /** Компактный geometry header для UI (WS/archive); может быть пустым. */
-        Map<String, Object> geometry
+        Map<String, Object> geometry,
+        /** Нативные выводы cppAnalisSurface для UI: reason, area_percent, lines (стык/кромка); может быть пустым. */
+        Map<String, Object> detector
 ) {
     public InspectionDecision {
         geometry = geometry == null || geometry.isEmpty() ? Map.of() : Map.copyOf(geometry);
+        detector = detector == null || detector.isEmpty() ? Map.of() : Map.copyOf(detector);
+    }
+
+    public InspectionDecision(
+            int cameraId,
+            long frameId,
+            boolean overallPass,
+            String action,
+            double anomalyScore,
+            String pythonStatus,
+            String geometryStatus,
+            boolean jointCamera,
+            double jointParallelismDeg,
+            double jointWidthMm,
+            double jointVisibility,
+            boolean jointPass,
+            Map<String, Object> geometry
+    ) {
+        this(cameraId, frameId, overallPass, action, anomalyScore, pythonStatus, geometryStatus, jointCamera,
+                jointParallelismDeg, jointWidthMm, jointVisibility, jointPass, geometry, Map.of());
     }
 
     /**

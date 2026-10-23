@@ -125,10 +125,12 @@ public final class FrameArchiveService implements AutoCloseable {
             int frameWidth,
             int frameHeight,
             String learnedReviewId,
-            Map<String, Object> geometry
+            Map<String, Object> geometry,
+            Map<String, Object> detectorResult
     ) {
         public ArchivedFrame {
             geometry = geometry == null || geometry.isEmpty() ? Map.of() : Map.copyOf(geometry);
+            detectorResult = detectorResult == null || detectorResult.isEmpty() ? Map.of() : Map.copyOf(detectorResult);
         }
     }
 
@@ -518,6 +520,9 @@ public final class FrameArchiveService implements AutoCloseable {
             if (decision.geometry() != null && !decision.geometry().isEmpty()) {
                 root.set("geometry", JSON.valueToTree(decision.geometry()));
             }
+            if (decision.detector() != null && !decision.detector().isEmpty()) {
+                root.set("detector_result", JSON.valueToTree(decision.detector()));
+            }
         }
         if (request.learnedReviewId() != null && !request.learnedReviewId().isBlank()) {
             root.put("learned_review_id", request.learnedReviewId().trim());
@@ -628,6 +633,16 @@ public final class FrameArchiveService implements AutoCloseable {
                 }
                 geometry = copied;
             }
+            Map<String, Object> detectorResult = Map.of();
+            if (root.get("detector_result") instanceof Map<?, ?> detectorMap && !detectorMap.isEmpty()) {
+                Map<String, Object> copied = new java.util.LinkedHashMap<>();
+                for (Map.Entry<?, ?> entry : detectorMap.entrySet()) {
+                    if (entry.getKey() != null) {
+                        copied.put(String.valueOf(entry.getKey()), entry.getValue());
+                    }
+                }
+                detectorResult = copied;
+            }
             return Optional.of(new ArchivedFrame(
                     frameId,
                     inspectionId,
@@ -645,7 +660,8 @@ public final class FrameArchiveService implements AutoCloseable {
                     frameWidth,
                     frameHeight,
                     learnedReviewId,
-                    geometry
+                    geometry,
+                    detectorResult
             ));
         } catch (IOException e) {
             LOG.debug("frame archive metadata read failed {}: {}", frameDir, e.getMessage());

@@ -237,6 +237,9 @@ public final class FrameArchiveHttpController implements HttpController {
             if (frame.geometry() != null && !frame.geometry().isEmpty()) {
                 item.set("geometry", JSON.valueToTree(frame.geometry()));
             }
+            if (frame.detectorResult() != null && !frame.detectorResult().isEmpty()) {
+                item.set("detector_result", JSON.valueToTree(frame.detectorResult()));
+            }
         }
         HttpResponses.send(ctx, 200, "application/json; charset=utf-8", JSON.writeValueAsBytes(root));
     }

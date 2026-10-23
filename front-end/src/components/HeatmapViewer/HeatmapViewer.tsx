@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import type { ExcludedNormalZone, HeatmapDescriptor } from "../../shared/ws";
+import type { DetectorResult, ExcludedNormalZone, HeatmapDescriptor } from "../../shared/ws";
 import {
   clearHeatmapCanvas,
   drawExcludedNormalZones,
@@ -8,6 +8,7 @@ import {
   drawHeatmapBitmap,
   loadHeatmapForCamera,
 } from "./HeatmapController";
+import { LineZonesLegend, LineZonesOverlay } from "./LineZonesOverlay";
 import "./HeatmapViewer.css";
 
 type HeatmapViewerProps = {
@@ -15,6 +16,10 @@ type HeatmapViewerProps = {
   heatmap: HeatmapDescriptor | null;
   backgroundImageUrl?: string;
   excludedNormalZones?: readonly ExcludedNormalZone[];
+  /** Seam/edge zones measured by the detector; drawn over the heatmap with a legend under it. */
+  detectorResult?: DetectorResult;
+  /** Source frame size in px (the seam/edge search band is given in frame pixels). */
+  frameSize?: { width: number; height: number };
 };
 type HeatmapStatus = "idle" | "loading" | "ready" | "error";
 type HeatmapWorkerResponse = {
@@ -29,6 +34,8 @@ export function HeatmapViewer({
   heatmap,
   backgroundImageUrl,
   excludedNormalZones,
+  detectorResult,
+  frameSize,
 }: HeatmapViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestIdRef = useRef(0);
@@ -155,8 +162,16 @@ export function HeatmapViewer({
           className="heatmap-viewer__canvas"
         />
 
+        <LineZonesOverlay
+          detectorResult={detectorResult}
+          frameWidth={frameSize?.width}
+          frameHeight={frameSize?.height}
+        />
+
         {status === "loading" && <div className="heatmap-viewer__status">Загрузка тепловой карты</div>}
       </div>
+
+      <LineZonesLegend detectorResult={detectorResult} />
 
       <figcaption>
         Тепловая карта {heatmap.width}x{heatmap.height}

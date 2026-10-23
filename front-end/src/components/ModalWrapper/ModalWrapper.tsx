@@ -4,6 +4,7 @@ import { HttpError, orchestratorApi } from "../../shared/api";
 import type { GeometryInspectResponse } from "../../shared/api";
 import { resolveInspectionResultState } from "../../shared/inspectResult";
 import { formatAnomalyPercent } from "../../shared/lib/anomalyScore";
+import { getDetectorFindings } from "../../shared/lib/detectorFindings";
 import { attachLearnedCasesToActiveReference, updateReferenceFpZones } from "../../shared/referenceImages";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import { orchestratorWs } from "../../shared/ws";
@@ -692,6 +693,8 @@ function HeatmapPanel({
           heatmap={frozenHeatmap}
           backgroundImageUrl={cameraImageUrl}
           excludedNormalZones={matchingInspectResult.excluded_normal_zones}
+          detectorResult={matchingInspectResult.detector_result}
+          frameSize={matchingInspectResult.current}
         />
       ) : (
         <div className="modal-image-panel__image-wrap">
@@ -706,6 +709,7 @@ function HeatmapPanel({
 
 function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPayload }) {
   const resultState = resolveInspectionResultState(inspectResult);
+  const findings = getDetectorFindings(inspectResult);
   return (
     <section
       className="modal-inspect-result"
@@ -732,6 +736,8 @@ function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPa
           <InspectResultField
             label="Аномалия"
             value={formatAnomalyPercent(inspectResult.anomaly_score)}
+            flag={findings.map((finding) => finding.label).join(", ")}
+            flagTitle={findings.map((finding) => [finding.label, finding.detail].filter(Boolean).join(": ")).join("\n")}
           />
         </dl>
       ) : (
@@ -741,11 +747,28 @@ function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPa
   );
 }
 
-function InspectResultField({ label, value }: { label: string; value?: string | number }) {
+function InspectResultField({
+  label,
+  value,
+  flag,
+  flagTitle,
+}: {
+  label: string;
+  value?: string | number;
+  /** Short detector finding shown after a slash and highlighted, e.g. "Кромка повреждена". */
+  flag?: string;
+  flagTitle?: string;
+}) {
   return (
-    <div className="modal-inspect-result__field">
+    <div
+      className="modal-inspect-result__field"
+      data-flagged={flag ? "true" : undefined}
+    >
       <dt>{label}</dt>
-      <dd>{value ?? "-"}</dd>
+      <dd title={flag ? flagTitle : undefined}>
+        {value ?? "-"}
+        {flag && <span className="modal-inspect-result__flag"> / {flag}</span>}
+      </dd>
     </div>
   );
 }

@@ -415,6 +415,7 @@ export function archivedFrameToInspectResult(cameraId: number, frame: FrameArchi
     python_status: frame.python_status,
     geometry_status: frame.geometry_status,
     geometry: frame.geometry,
+    detector_result: frame.detector_result,
     fp_zones: [],
     fp_coordinate_space:
       heatmapWidth > 0 && heatmapHeight > 0

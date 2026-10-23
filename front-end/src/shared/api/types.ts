@@ -1,3 +1,5 @@
+import type { DetectorResult } from "../ws/types";
+
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonObject | JsonValue[];
 export type JsonObject = {
@@ -267,6 +269,7 @@ export type FrameArchiveHistoryFrame = {
   result_url: string;
   learned_review_id?: string;
   geometry?: GeometryInspectResponse;
+  detector_result?: DetectorResult;
 };
 
 export type FrameArchiveHistoryResponse = {

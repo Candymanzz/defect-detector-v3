@@ -167,6 +167,15 @@ json lineZonesJson(const Inspected& r) {
     return j;
 }
 
+// Same zones for the UI: verdict numbers plus compact per-sample arrays (axis, measured edge, deviation, tolerance),
+// normalised 0..1 of the frame, so the history can redraw what the detector saw. Decimated to keep the response small.
+json lineZonesUiJson(const Inspected& r) {
+    json j = json::object();
+    for (auto [name, z] : {std::pair<const char*, const Inspected::Zone*>{"seam", &r.seamZone}, {"edge", &r.edgeZone}})
+        if (z->ran) j[name] = zoneResultJson(z->params, z->result, r.frameSize, 160);
+    return j;
+}
+
 json imageJson(const std::optional<ImageInfo>& i) {
     if (!i) return nullptr;
     return {{"path", i->path}, {"width", i->width}, {"height", i->height},
@@ -214,7 +223,7 @@ json inspectJson(const std::string& product, const Inspected& r, const Service::
         j["seam"] = {{"found", o.seamFound}, {"reject", o.seamReject}, {"ratio", round3(o.seamRatio)},
                      {"max_dev", round3(o.seamMaxDev)}, {"worst_t", round3(o.seamWorstT)},
                      {"coverage", round3(o.seamCoverage)}, {"ms", round3(o.seamMs)}};
-    if (r.seamZone.ran || r.edgeZone.ran) j["lines"] = lineZonesJson(r);
+    if (r.seamZone.ran || r.edgeZone.ran) j["lines"] = lineZonesUiJson(r);
     j["heatmap_u8"] = w ? imageJson(w->heatmap) : json(nullptr);
     return j;
 }

@@ -621,6 +621,9 @@ public final class WsOutboundMessenger {
             if (decision.geometry() != null && !decision.geometry().isEmpty()) {
                 payload.set("geometry", JSON.valueToTree(decision.geometry()));
             }
+            if (decision.detector() != null && !decision.detector().isEmpty()) {
+                payload.set("detector_result", JSON.valueToTree(decision.detector()));
+            }
         } else {
             // Missing aggregation is not a reject decision.
             payload.put("python_status", "UNKNOWN");

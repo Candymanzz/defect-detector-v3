@@ -35,7 +35,7 @@ struct LinesSettings {
 };
 
 // One zone of an inspection result: verdict numbers plus compact per-sample arrays for the diagram in the UI.
-json zoneResultJson(const LineParams& p, const LineResult& r, const cv::Size& frame);
+json zoneResultJson(const LineParams& p, const LineResult& r, const cv::Size& frame, int maxSamples = 400);
 
 // Persistent profile -> LinesSettings (JSON file next to settings.json) and the last measured result per profile.
 class LinesStore {

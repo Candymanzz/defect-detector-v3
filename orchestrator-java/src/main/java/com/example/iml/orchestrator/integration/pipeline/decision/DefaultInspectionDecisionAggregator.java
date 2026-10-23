@@ -6,10 +6,16 @@ import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.Logger;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
  * Стандартная агрегация: python + geometry + статусы БРАК/FAIL.
  */
 public final class DefaultInspectionDecisionAggregator implements InspectionDecisionPolicy {
+
+    private static final List<String> DETECTOR_DETAIL_KEYS = List.of("reason", "area_percent", "threshold", "lines", "seam");
 
     private final Logger log;
 
@@ -64,7 +70,8 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
                 jointWidthMm,
                 jointVisibility,
                 jointPass,
-                GeometryUiPayload.fromGeomResponse(geomResp)
+                GeometryUiPayload.fromGeomResponse(geomResp),
+                detectorDetails(pyResp)
         );
         if (log != null) {
             log.info(
@@ -91,6 +98,21 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
             );
         }
         return decision;
+    }
+
+    /** Нативные поля cppAnalisSurface, нужные UI для объяснения вердикта (причина, стык/кромка); у Python-детектора пусто. */
+    private static Map<String, Object> detectorDetails(BinaryProtocol.Message pyResp) {
+        if (pyResp == null || pyResp.header() == null) {
+            return Map.of();
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        for (String key : DETECTOR_DETAIL_KEYS) {
+            Object value = pyResp.header().get(key);
+            if (value instanceof String text ? !text.isBlank() : value != null) {
+                out.put(key, value);
+            }
+        }
+        return out;
     }
 
     private static boolean isGeometryPass(BinaryProtocol.Message geomResp) {
