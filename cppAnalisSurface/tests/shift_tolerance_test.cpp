@@ -4,6 +4,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <iostream>
 #include <stdexcept>
 
@@ -89,6 +90,63 @@ cas::InspectOutcome inspect(const cv::Mat& ref, const cv::Mat& cur, int x, int y
     return cas::inspectFrame(reference, cur, s, true);
 }
 
+bool sameInspection(const cas::InspectOutcome& a, const cas::InspectOutcome& b) {
+    return a.reject == b.reject && a.reason == b.reason && a.anomalyScore == b.anomalyScore
+        && a.areaPercent == b.areaPercent && a.shift == b.shift && a.rawShift == b.rawShift
+        && std::abs(a.shiftResponse - b.shiftResponse) < 1e-12 && a.zones == b.zones
+        && cv::norm(a.diff, b.diff, cv::NORM_INF) == 0 && cv::norm(a.kept, b.kept, cv::NORM_INF) == 0;
+}
+
+void alignmentCacheTests() {
+    const auto frame = fixture();
+    const auto moved = translated(frame, 6, -4);
+    const cas::NormPolygon square{{40.0 / 383, 20.0 / 319}, {320.0 / 383, 20.0 / 319},
+                                 {320.0 / 383, 300.0 / 319}, {40.0 / 383, 300.0 / 319}};
+    for (bool squareRoi : {false, true}) for (double scale : {1.0, 0.5}) {
+        cas::Reference reference(frame.clone());
+        if (squareRoi) reference.setRoi(square);
+        cas::Settings settings;
+        settings.inspectScale = scale;
+        const auto prepared = reference.prepared(scale);
+        if (squareRoi && scale == 1.0)
+            require(prepared->smallSize == cv::Size(256, 256), "regression fixture must exercise the unpadded DFT path");
+        const auto originalSmall = prepared->refSmall.clone(), originalHann = prepared->hann.clone();
+        const auto originalGray = prepared->refGray.clone(), originalBgr = reference.bgr().clone();
+        const auto expected = cas::inspectFrame(reference, moved, settings, true);
+        require(cv::norm(originalSmall, prepared->refSmall, cv::NORM_INF) == 0,
+                "phase correlation must not modify the cached alignment thumbnail");
+        require(!expected.reject && std::abs(expected.shift.x - 6) < 1.5 && std::abs(expected.shift.y + 4) < 1.5,
+                "a small translation must align without adding a defect");
+        for (int iteration = 0; iteration < 80; ++iteration)
+            require(sameInspection(cas::inspectFrame(reference, moved, settings, true), expected),
+                    "repeated identical inspections must preserve shift, confidence, maps and verdict");
+
+        // All workers intentionally share ONE warmed reference/cache, not separate camera objects.
+        std::vector<std::future<bool>> workers;
+        for (int worker = 0; worker < 8; ++worker) workers.push_back(std::async(std::launch::async, [&] {
+            for (int iteration = 0; iteration < 20; ++iteration)
+                if (!sameInspection(cas::inspectFrame(reference, moved, settings, true), expected)) return false;
+            return true;
+        }));
+        for (auto& worker : workers) require(worker.get(), "concurrent inspections must not corrupt shared cached data");
+        require(reference.prepared(scale).get() == prepared.get(), "inspection must reuse the immutable prepared cache");
+        require(cv::norm(originalSmall, prepared->refSmall, cv::NORM_INF) == 0, "shared alignment thumbnail must stay unchanged");
+        require(cv::norm(originalHann, prepared->hann, cv::NORM_INF) == 0, "Hann window must stay unchanged");
+        require(cv::norm(originalGray, prepared->refGray, cv::NORM_INF) == 0, "prepared reference image must stay unchanged");
+        require(cv::norm(originalBgr, reference.bgr(), cv::NORM_INF) == 0, "original reference image must stay unchanged");
+
+        cas::Reference coldReference(frame.clone());
+        if (squareRoi) coldReference.setRoi(square);
+        workers.clear();
+        for (int worker = 0; worker < 8; ++worker) workers.push_back(std::async(std::launch::async, [&] {
+            return sameInspection(cas::inspectFrame(coldReference, moved, settings, true), expected);
+        }));
+        for (auto& worker : workers) require(worker.get(), "concurrent first inspections must also be stable");
+        require(cv::norm(originalSmall, coldReference.prepared(scale)->refSmall, cv::NORM_INF) == 0,
+                "concurrent preparation must not publish a mutated thumbnail");
+    }
+}
+
 void inspectionTests() {
     const auto ref = fixture();
     const auto horizontal = translated(ref, 10, 0);
@@ -163,6 +221,7 @@ int main() {
         cv::setNumThreads(1);
         settingsTests(dir);
         inspectionTests();
+        alignmentCacheTests();
         std::filesystem::remove(dir / "settings.json");
         std::filesystem::remove(dir / "settings.json.tmp");
         std::filesystem::remove(dir);
