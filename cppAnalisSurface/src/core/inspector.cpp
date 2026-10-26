@@ -48,7 +48,8 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     // ---- cheap translation estimate on a thumbnail of the ROI box ----
     requestTiming.add("prepare_ms", msSince(tStart));
     const auto tAlign = Clock::now();
-    const int tolWork = std::max(0, static_cast<int>(std::lround(s.shiftTolerance * scale)));
+    const int tolWorkX = std::max(0, static_cast<int>(std::lround(s.shiftToleranceX * scale)));
+    const int tolWorkY = std::max(0, static_cast<int>(std::lround(s.shiftToleranceY * scale)));
     cv::Mat small, smallF;
     cv::resize(cur(region), small, prep->smallSize, 0, 0, cv::INTER_AREA);
     small.convertTo(smallF, CV_32F);
@@ -60,8 +61,10 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     if (response < kMinShiftResponse) sh = cv::Point2d(0, 0);
     out.rawShift = cv::Point2d(sh.x / scale, sh.y / scale);
 
-    const double maxShift = std::max(8.0, 4.0 * tolWork);
-    if (std::abs(sh.x) > maxShift || std::abs(sh.y) > maxShift) {
+    const double maxShiftX = std::max(8.0, 4.0 * tolWorkX);
+    const double maxShiftY = std::max(8.0, 4.0 * tolWorkY);
+    out.shiftLimit = cv::Point2d(maxShiftX / scale, maxShiftY / scale);
+    if (std::abs(sh.x) > maxShiftX || std::abs(sh.y) > maxShiftY) {
         if (response >= kRejectShiftResponse) {
             out.reject = true;
             out.reason = "shift_exceeded";
@@ -91,10 +94,10 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     cv::Mat aligned;
     curR.convertTo(aligned, CV_8U, gain, mr[0] - mc[0] * gain);
 
-    const int k = 2 * tolWork + 1;
+    const cv::Size kernelSize(2 * tolWorkX + 1, 2 * tolWorkY + 1);
     cv::Mat diff;
-    if (k > 1) {
-        cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(k, k));
+    if (kernelSize.width > 1 || kernelSize.height > 1) {
+        cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, kernelSize);
         cv::Mat refMin, refMax, lo, hi;
         cv::erode(refR, refMin, kernel);
         cv::dilate(refR, refMax, kernel);
@@ -107,7 +110,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     diff.setTo(0, ~maskR);
     out.scale = scale;
     out.roiArea = prep->roiArea;
-    out.envelopeKernel = k;
+    out.envelopeKernel = kernelSize;
     out.gain = gain;
     out.refMean = mr[0];
     out.curMean = mc[0];

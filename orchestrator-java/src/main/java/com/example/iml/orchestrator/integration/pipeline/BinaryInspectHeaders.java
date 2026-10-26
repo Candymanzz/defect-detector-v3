@@ -531,7 +531,7 @@ public final class BinaryInspectHeaders {
         Object temporary = captureHeader.get("analysis_test_settings");
         if (temporary instanceof Map<?, ?> nativeSettings && nativeSettings.get("settings") instanceof Map<?, ?> detectorSettings
                 && !detectorSettings.isEmpty()) {
-            // cppAnalisSurface: {sensitivity, threshold, shift_tolerance, min_blob_area, inspect_scale}
+            // cppAnalisSurface: {sensitivity, threshold, shift_tolerance_x/y, min_blob_area, inspect_scale}
             pyHeader.put("settings", copyStringObjectMap(detectorSettings));
             return;
         }

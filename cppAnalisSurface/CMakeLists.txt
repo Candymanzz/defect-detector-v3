@@ -36,6 +36,12 @@ target_link_libraries(cpp_analis_surface PRIVATE
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(shift_tolerance_test tests/shift_tolerance_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp)
+  target_include_directories(shift_tolerance_test PRIVATE src)
+  target_link_libraries(shift_tolerance_test PRIVATE
+    opencv_core opencv_imgproc nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME shift_tolerance_test COMMAND shift_tolerance_test)
   add_executable(performance_log_test tests/performance_log_test.cpp src/core/performance_log.cpp)
   target_include_directories(performance_log_test PRIVATE src)
   target_link_libraries(performance_log_test PRIVATE nlohmann_json::nlohmann_json Threads::Threads)

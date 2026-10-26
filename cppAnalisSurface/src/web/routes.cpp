@@ -192,6 +192,7 @@ json inspectJson(const std::string& product, const Inspected& r, const Service::
     j["reason"] = o.reason;
     j["shift"] = {round3(o.shift.x), round3(o.shift.y)};
     j["shift_raw"] = {round3(o.rawShift.x), round3(o.rawShift.y)};
+    j["shift_limit"] = {round3(o.shiftLimit.x), round3(o.shiftLimit.y)};
     j["zones"] = json::array();
     for (auto& z : o.zones) j["zones"].push_back({z.x, z.y, z.width, z.height});
     j["frame_width"] = r.frameSize.width;
@@ -318,9 +319,14 @@ void logInspection(const char* endpoint, const InspectJob& job, const Inspected&
     j["roi_area_px"] = o.roiArea;
     j["scale"] = round3(o.scale);
     j["shift"] = {round3(o.shift.x), round3(o.shift.y)};
+    j["shift_raw"] = {round3(o.rawShift.x), round3(o.rawShift.y)};
+    j["shift_limit"] = {round3(o.shiftLimit.x), round3(o.shiftLimit.y)};
     j["shift_response"] = round3(o.shiftResponse);
     j["pixel_threshold"] = o.pixelThreshold;
-    j["envelope_kernel"] = o.envelopeKernel;
+    // Preserve the old scalar for square envelopes; unequal axes have no single kernel size.
+    j["envelope_kernel"] = o.envelopeKernel.width == o.envelopeKernel.height ? json(o.envelopeKernel.width) : json(nullptr);
+    j["envelope_kernel_x"] = o.envelopeKernel.width;
+    j["envelope_kernel_y"] = o.envelopeKernel.height;
     j["gain"] = round3(o.gain);
     j["ref_mean"] = round3(o.refMean);
     j["cur_mean"] = round3(o.curMean);
@@ -526,7 +532,7 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
             InspectJob job;
             job.product = product;
             json overrides = json::object();
-            for (const char* k : {"sensitivity", "threshold", "shift_tolerance", "min_blob_area", "inspect_scale"}) {
+            for (const char* k : {"sensitivity", "threshold", "shift_tolerance", "shift_tolerance_x", "shift_tolerance_y", "min_blob_area", "inspect_scale"}) {
                 std::string v = req.form.get_field(k);
                 if (!v.empty()) { try { overrides[k] = std::stod(v); } catch (...) {} }
             }
