@@ -9,7 +9,8 @@ json SeamSettings::toJson() const {
 }
 
 json Settings::toJson() const {
-    return {{"sensitivity", sensitivity}, {"threshold", threshold}, {"shift_tolerance", shiftTolerance},
+    return {{"sensitivity", sensitivity}, {"threshold", threshold},
+            {"shift_tolerance_x", shiftToleranceX}, {"shift_tolerance_y", shiftToleranceY},
             {"min_blob_area", minBlobArea}, {"inspect_scale", inspectScale}, {"seam", seam.toJson()}};
 }
 
@@ -73,9 +74,18 @@ std::string Settings::applyJson(const json& j) {
     v = tmp.threshold;
     if (!readNumber(j, "threshold", 0, 1, true, v, err)) return err;
     tmp.threshold = v;
-    v = tmp.shiftTolerance;
-    if (!readNumber(j, "shift_tolerance", 0, 30, false, v, err)) return err;
-    tmp.shiftTolerance = static_cast<int>(v);
+    // Old profiles/clients set both axes. Explicit axis values take precedence.
+    if (j.contains("shift_tolerance")) {
+        v = tmp.shiftToleranceX;
+        if (!readNumber(j, "shift_tolerance", 0, 30, false, v, err)) return err;
+        tmp.shiftToleranceX = tmp.shiftToleranceY = static_cast<int>(v);
+    }
+    v = tmp.shiftToleranceX;
+    if (!readNumber(j, "shift_tolerance_x", 0, 30, false, v, err)) return err;
+    tmp.shiftToleranceX = static_cast<int>(v);
+    v = tmp.shiftToleranceY;
+    if (!readNumber(j, "shift_tolerance_y", 0, 30, false, v, err)) return err;
+    tmp.shiftToleranceY = static_cast<int>(v);
     v = tmp.minBlobArea;
     if (!readNumber(j, "min_blob_area", 1, 100000, false, v, err)) return err;
     tmp.minBlobArea = static_cast<int>(v);
@@ -103,7 +113,10 @@ SettingsPatch SettingsPatch::fromJson(const json& j) {
     take("sensitivity", p.sensitivity);
     take("threshold", p.threshold);
     take("inspect_scale", p.inspectScale);
-    take("shift_tolerance", p.shiftTolerance);
+    take("shift_tolerance", p.shiftToleranceX);
+    p.shiftToleranceY = p.shiftToleranceX;
+    take("shift_tolerance_x", p.shiftToleranceX);
+    take("shift_tolerance_y", p.shiftToleranceY);
     take("min_blob_area", p.minBlobArea);
     if (j.contains("seam") && j["seam"].is_object()) {
         SeamSettings probeSeam;
@@ -116,7 +129,8 @@ void SettingsPatch::applyTo(Settings& s) const {
     if (sensitivity) s.sensitivity = *sensitivity;
     if (threshold) s.threshold = *threshold;
     if (inspectScale) s.inspectScale = *inspectScale;
-    if (shiftTolerance) s.shiftTolerance = *shiftTolerance;
+    if (shiftToleranceX) s.shiftToleranceX = *shiftToleranceX;
+    if (shiftToleranceY) s.shiftToleranceY = *shiftToleranceY;
     if (minBlobArea) s.minBlobArea = *minBlobArea;
     if (seam.is_object()) s.seam.applyJson(seam);
 }

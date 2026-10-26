@@ -35,7 +35,8 @@ struct SeamSettings {
 struct Settings {
     double sensitivity = 0.5;     // 0..1, higher = stricter (lower pixel-difference threshold)
     double threshold = 0.25;      // (0..1], reject when anomaly_score >= threshold
-    int shiftTolerance = 3;       // px of the original frame, micro-shift tolerance
+    int shiftToleranceX = 3;      // original-frame px, horizontal comparison tolerance and alignment-limit input
+    int shiftToleranceY = 3;      // original-frame px, vertical comparison tolerance and alignment-limit input
     int minBlobArea = 20;         // px of the original frame, smaller anomalies are noise
     double inspectScale = 1.0;    // (0..1], frame is downscaled by this factor before analysis
     SeamSettings seam;            // seam straightness check
@@ -48,7 +49,7 @@ struct Settings {
 // Per-request overrides (never persisted).
 struct SettingsPatch {
     std::optional<double> sensitivity, threshold, inspectScale;
-    std::optional<int> shiftTolerance, minBlobArea;
+    std::optional<int> shiftToleranceX, shiftToleranceY, minBlobArea;
     json seam;                                       // partial seam settings (null = none)
     static SettingsPatch fromJson(const json& j);   // ignores missing, wrong-typed or out-of-range fields
     void applyTo(Settings& s) const;

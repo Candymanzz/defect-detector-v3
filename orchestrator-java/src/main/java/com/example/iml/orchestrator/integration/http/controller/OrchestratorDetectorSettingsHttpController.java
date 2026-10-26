@@ -19,7 +19,7 @@ import java.util.regex.Pattern;
  *   <li>{@code /api/orchestrator/detector-settings/camera/{id}} -> {@code /settings/{analysis_profile of the camera}}</li>
  *   <li>{@code /api/orchestrator/detector-settings/{profile}} -> {@code /settings/{profile}}</li>
  * </ul>
- * GET reads, PUT applies a partial update (sensitivity, threshold, shift_tolerance, min_blob_area, inspect_scale),
+ * GET reads, PUT applies a partial update (sensitivity, threshold, shift_tolerance_x/y, min_blob_area, inspect_scale),
  * DELETE resets the profile to defaults. Isolated from the legacy Python {@code analysis-settings} proxy.
  */
 public final class OrchestratorDetectorSettingsHttpController implements HttpController {

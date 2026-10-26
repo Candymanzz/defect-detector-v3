@@ -543,8 +543,10 @@ export type DetectorSettings = {
   sensitivity: number;
   /** (0..1], брак при anomaly_score >= threshold (score = доля аномальной площади ROI / 5%). */
   threshold: number;
-  /** Допуск на микросдвиг кадра, px исходного кадра. */
-  shift_tolerance: number;
+  /** Горизонтальный допуск сравнения, px исходного кадра; также задаёт предел компенсации X. */
+  shift_tolerance_x: number;
+  /** Вертикальный допуск сравнения, px исходного кадра; также задаёт предел компенсации Y. */
+  shift_tolerance_y: number;
   /** Минимальная площадь дефекта, px исходного кадра. */
   min_blob_area: number;
   /** (0..1], во сколько раз кадр уменьшается перед анализом. */

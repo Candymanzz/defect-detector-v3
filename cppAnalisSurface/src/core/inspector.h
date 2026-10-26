@@ -21,7 +21,8 @@ struct InspectOutcome {
     double roiArea = 0.0;            // ROI pixels at work resolution
     double scale = 1.0;              // work scale (inspect_scale after clamping)
     int pixelThreshold = 0;          // diff level that counts as anomalous, derived from sensitivity
-    int envelopeKernel = 1;          // shift-tolerance kernel size at work resolution
+    cv::Size envelopeKernel{1, 1};   // shift-tolerance kernel width (X) and height (Y) at work resolution
+    cv::Point2d shiftLimit;          // maximum compensated shift per axis, original-frame pixels
     double gain = 1.0;               // brightness normalisation gain
     double refMean = 0.0, curMean = 0.0;   // ROI mean brightness before normalisation
     double diffMean = 0.0;           // mean diff inside the ROI
