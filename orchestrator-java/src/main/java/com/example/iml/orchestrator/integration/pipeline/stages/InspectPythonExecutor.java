@@ -169,7 +169,7 @@ public final class InspectPythonExecutor implements PythonInspectStage {
                 long frameId = YamlScalars.toLong(state.capture().header().get("frame_id"), -1L);
                 boolean deferHeatmap = YamlScalars.toBool(
                         pythonCfg == null ? null : pythonCfg.get("defer_heatmap"),
-                        false
+                        true
                 );
                 if (!deferHeatmap) {
                     pyHeader.put(

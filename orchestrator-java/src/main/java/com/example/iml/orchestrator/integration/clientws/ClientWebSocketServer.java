@@ -6,6 +6,7 @@ import com.example.iml.orchestrator.integration.clientws.bundle.ReferenceBundleS
 import com.example.iml.orchestrator.integration.clientws.config.ClientWsConfig;
 import com.example.iml.orchestrator.integration.clientws.exception.ClientWsKopcheniSyncException;
 import com.example.iml.orchestrator.integration.clientws.outbound.WsOutboundMessenger;
+import com.example.iml.orchestrator.integration.clientws.outbound.UiNotificationDispatcher;
 import com.example.iml.orchestrator.integration.clientws.routing.WsConnectionPath;
 import com.example.iml.orchestrator.integration.clientws.routing.WsFrontController;
 import com.example.iml.orchestrator.integration.clientws.service.ClientWsKopcheniBroadcaster;
@@ -37,6 +38,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -57,6 +60,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
             new AtomicReference<>(ClientWsSessionState.NO_REFERENCE);
     private final ClientWsKopcheniBroadcaster kopcheniBroadcaster;
     private final WsOutboundMessenger outbound;
+    private final UiNotificationDispatcher notifications;
     private final ClientWsApplicationContext application;
     private final WsFrontController frontController;
     private final Object sessionLock = new Object();
@@ -78,6 +82,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         this.cfg = cfg;
         this.kopcheniBroadcaster = new ClientWsKopcheniBroadcaster(log, cfg);
         this.outbound = new WsOutboundMessenger(log, cfg, referenceContext, sessionState::get);
+        this.notifications = new UiNotificationDispatcher(log, 512);
         this.application = new ClientWsApplicationContext(
                 log,
                 cfg,
@@ -303,13 +308,18 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
         if (frameId < 0) {
             return;
         }
-        broadcastOpenClients(conn -> outbound.sendInspectResult(
+        Map<String, Object> snapshot = Collections.unmodifiableMap(new LinkedHashMap<>(captureHeader));
+        broadcastUiNotification(conn -> {
+            if (isTestMode() && !YamlScalars.toBool(snapshot.get("test_analyze"), false)) {
+                return;
+            }
+            outbound.sendInspectResult(
                 conn,
                 cameraId,
                 productType,
                 detectorId,
                 decision,
-                captureHeader,
+                snapshot,
                 frameId,
                 inspectionId,
                 shmName,
@@ -320,21 +330,22 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
                 heatmapArtifactTokenOrNull,
                 includeHeatmapFilePathInWs,
                 inspectionArtifactBundleId
-        ));
+            );
+        });
     }
 
     public void notifyInspectBucketResult(BucketFanOutResult result) {
         if (result == null) {
             return;
         }
-        broadcastOpenClients(conn -> outbound.sendInspectBucketResult(conn, result));
+        broadcastUiNotification(conn -> outbound.sendInspectBucketResult(conn, result));
     }
 
     public void notifyPlcFinsTraffic(com.example.iml.orchestrator.integration.plc.PlcFinsTrafficEvent event) {
         if (event == null) {
             return;
         }
-        broadcastOpenClients(conn -> outbound.sendPlcFinsTraffic(conn, event));
+        broadcastUiNotification(conn -> outbound.sendPlcFinsTraffic(conn, event));
     }
 
     @Override
@@ -417,6 +428,7 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
 
     @Override
     public void close() {
+        notifications.close();
         pingScheduler.shutdown();
         try {
             if (!pingScheduler.awaitTermination(2, TimeUnit.SECONDS)) {
@@ -470,6 +482,21 @@ public final class ClientWebSocketServer extends WebSocketServer implements Auto
                 sender.accept(conn);
             }
         }
+    }
+
+    private void broadcastUiNotification(Consumer<WebSocket> sender) {
+        // Capture recipients now so a queued result is never delivered to a later session.
+        List<WebSocket> recipients = List.copyOf(getConnections());
+        if (recipients.isEmpty()) {
+            return;
+        }
+        notifications.dispatch(() -> {
+            for (WebSocket conn : recipients) {
+                if (conn.isOpen()) {
+                    sender.accept(conn);
+                }
+            }
+        });
     }
 
     private WebSocket firstOpenClient() {

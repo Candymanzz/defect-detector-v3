@@ -1,6 +1,8 @@
 package com.example.iml.orchestrator.integration.pipeline.session;
 
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
+import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
+import com.example.iml.orchestrator.integration.capture.LineFramePinService;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
 import com.example.iml.orchestrator.integration.pipeline.InspectionPipelineServices;
 import com.example.iml.orchestrator.integration.pipeline.PipelineState;
@@ -15,8 +17,11 @@ import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +42,39 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AsyncInspectionCycleRunnerTest {
 
     private final List<ExecutorService> executors = new ArrayList<>();
+    private boolean sidecarRetainsCapture;
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void queuedUiRetainsItsFrameAfterInspectionReturns(boolean withReference) throws Exception {
+        sidecarRetainsCapture = true;
+        String pin = "iml_line_pin_cam0_f987654321";
+        Path file = FrameJpegWriter.imlShmFilePath(pin);
+        Files.createDirectories(file.getParent());
+        Files.write(file, new byte[12]);
+        BinaryProtocol.Message capture = message(BinaryProtocol.MSG_RESPONSE, Map.of(
+                "camera_id", 0, "frame_id", 987654321L, "shm_name", "/" + pin,
+                "width", 2, "height", 2, "stride", 6, "line_pinned", true
+        ));
+        AtomicBoolean scheduled = new AtomicBoolean();
+        InspectionPipelineServices services = pipelineServices(
+                new AtomicBoolean(), new AtomicBoolean(), new AtomicBoolean(), scheduled,
+                new AtomicBoolean(), new AtomicReference<>(), capture,
+                message(BinaryProtocol.MSG_RESPONSE, Map.of("overallPass", true, "status", "PASS")),
+                message(BinaryProtocol.MSG_RESPONSE, Map.of("ok", true, "status", "PASS", "anomaly_score", 0.01))
+        );
+        ReferenceSnapshot reference = withReference
+                ? new ReferenceSnapshot("bench", Map.of("shm_name", "ref", "width", 2, "height", 2, "stride", 6))
+                : null;
+        try {
+            AsyncInspectionCycleRunner.run(services, buildInput(0, reference), Map.of(), 5000L, null);
+            assertTrue(scheduled.get());
+            assertTrue(Files.exists(file), "returning from inspection must not delete the queued UI frame");
+        } finally {
+            LineFramePinService.releasePinnedCapture(capture.header());
+        }
+        assertFalse(Files.exists(file), "the UI owner must be able to release the pin after publishing");
+    }
 
     @AfterEach
     void shutdownExecutors() {
@@ -395,6 +433,11 @@ class AsyncInspectionCycleRunnerTest {
         };
 
         AfterInspectionSidecar sidecar = new AfterInspectionSidecar() {
+            @Override
+            public boolean retainsCaptureAfterScheduling() {
+                return sidecarRetainsCapture;
+            }
+
             @Override
             public void scheduleAfterInspection(
                     com.example.iml.orchestrator.integration.ui.UiHttpServer uiServer,

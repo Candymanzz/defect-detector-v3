@@ -1,10 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { InspectionHistoryModal } from "../InspectionHistoryModal";
 import type { InspectionHistoryItem } from "../MainOverview/type";
+import { createInspectionHistoryTiles, selectInspectionHistoryTile } from "./historyTiles";
+import type { InspectionHistoryTile } from "./historyTiles";
 import "./InspectionHistory.css";
-
-import { inspectionHistoryLimit } from "../MainOverview/MainController";
-const INSPECTION_GROUP_WINDOW_MS = 15_000;
 
 type InspectionHistoryProps = {
   cameraIds: number[];
@@ -14,15 +13,6 @@ type InspectionHistoryProps = {
   onCameraOpen?: (item: InspectionHistoryItem) => void;
 };
 
-type InspectionHistoryTile = {
-  groupKey: string;
-  inspectionId: string;
-  groupSource: "inspection" | "frame" | "bucket";
-  result: "pass" | "fail" | "capture";
-  serverTsMs: number;
-  results: InspectionHistoryItem[];
-};
-
 export function InspectionHistory({
   cameraIds,
   historyByCameraId,
@@ -30,13 +20,22 @@ export function InspectionHistory({
   onLoadArchivedHistory,
   onCameraOpen,
 }: InspectionHistoryProps) {
-  const items = createInspectionHistoryTiles(cameraIds, historyByCameraId);
-  const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
-  const [selectedInspectionSnapshot, setSelectedInspectionSnapshot] = useState<InspectionHistoryTile | null>(null);
-  // Keep the opened result mounted even if a newer result changes/rebuilds the
-  // visible history list. Use fresh data when the selected group still exists.
-  const selectedInspection =
-    items.find((item) => item.groupKey === selectedGroupKey) ?? selectedInspectionSnapshot;
+  const items = useMemo(
+    () => createInspectionHistoryTiles(cameraIds, historyByCameraId),
+    [cameraIds, historyByCameraId],
+  );
+  const [selection, setSelection] = useState<{
+    snapshot: InspectionHistoryTile;
+    historyItems: InspectionHistoryTile[];
+  } | null>(null);
+  // Retain the latest complete snapshot when the rolling history eventually evicts it.
+  if (selection && selection.historyItems !== items) {
+    setSelection({
+      snapshot: selectInspectionHistoryTile(items, selection.snapshot) ?? selection.snapshot,
+      historyItems: items,
+    });
+  }
+  const selectedInspection = selection?.snapshot ?? null;
   const isLoadingArchive = archiveHistoryState === "loading";
 
   const selectInspection = (groupKey: string) => {
@@ -44,13 +43,11 @@ export function InspectionHistory({
     if (!item) {
       return;
     }
-    setSelectedGroupKey(groupKey);
-    setSelectedInspectionSnapshot(item);
+    setSelection({ snapshot: item, historyItems: items });
   };
 
   const closeInspection = () => {
-    setSelectedGroupKey(null);
-    setSelectedInspectionSnapshot(null);
+    setSelection(null);
   };
 
   return (
@@ -107,91 +104,4 @@ export function InspectionHistory({
       )}
     </>
   );
-}
-
-function createInspectionHistoryTiles(cameraIds: number[], historyByCameraId: Record<number, InspectionHistoryItem[]>) {
-  const groups: InspectionHistoryTile[] = [];
-  const historyItems = cameraIds
-    .flatMap((cameraId) => historyByCameraId[cameraId] ?? [])
-    .sort((left, right) => right.inspectResult.server_ts_ms - left.inspectResult.server_ts_ms);
-
-  for (const item of historyItems) {
-    const groupSource = item.inspectResult.inspection_id ? "inspection" : "frame";
-    const groupId = item.inspectResult.inspection_id ?? item.frameId;
-
-    const exactFrameGroup = groups.find(
-      (group) =>
-        group.groupSource === groupSource &&
-        group.inspectionId === groupId &&
-        group.results.some(
-          (result) =>
-            result.inspectResult.camera_id === item.inspectResult.camera_id && result.frameId === item.frameId,
-        ),
-    );
-    if (exactFrameGroup) {
-      replaceCameraResult(exactFrameGroup, item);
-      continue;
-    }
-
-    const matchingCycleGroup = groups.find(
-      (group) =>
-        group.groupSource === groupSource &&
-        group.inspectionId === groupId &&
-        Math.abs(group.serverTsMs - item.inspectResult.server_ts_ms) <= INSPECTION_GROUP_WINDOW_MS &&
-        group.results.every((result) => result.inspectResult.camera_id !== item.inspectResult.camera_id),
-    );
-    if (matchingCycleGroup) {
-      matchingCycleGroup.results.push(item);
-      matchingCycleGroup.result = resolveGroupResult(matchingCycleGroup.results);
-      matchingCycleGroup.serverTsMs = Math.max(matchingCycleGroup.serverTsMs, item.inspectResult.server_ts_ms);
-      continue;
-    }
-
-    groups.push({
-      groupKey: createInspectionGroupKey(groupSource, groupId, item),
-      inspectionId: groupId,
-      groupSource,
-      result: item.result,
-      serverTsMs: item.inspectResult.server_ts_ms,
-      results: [item],
-    });
-  }
-
-  return groups
-    .map((group) => ({
-      ...group,
-      results: [...group.results].sort((left, right) => left.inspectResult.camera_id - right.inspectResult.camera_id),
-    }))
-    .sort((left, right) => right.serverTsMs - left.serverTsMs)
-    .slice(0, inspectionHistoryLimit);
-}
-
-function replaceCameraResult(group: InspectionHistoryTile, item: InspectionHistoryItem) {
-  const resultIndex = group.results.findIndex(
-    (result) => result.inspectResult.camera_id === item.inspectResult.camera_id && result.frameId === item.frameId,
-  );
-  if (resultIndex < 0) {
-    return;
-  }
-
-  const current = group.results[resultIndex];
-  if (!current.inspectResult.artifact_bundle_id && item.inspectResult.artifact_bundle_id) {
-    group.results[resultIndex] = item;
-  }
-  group.result = resolveGroupResult(group.results);
-  group.serverTsMs = Math.max(group.serverTsMs, item.inspectResult.server_ts_ms);
-}
-
-function resolveGroupResult(results: InspectionHistoryItem[]): "pass" | "fail" | "capture" {
-  if (results.some((result) => result.result === "fail")) {
-    return "fail";
-  }
-  if (results.some((result) => result.result === "pass")) {
-    return "pass";
-  }
-  return "capture";
-}
-
-function createInspectionGroupKey(source: "inspection" | "frame", inspectionId: string, item: InspectionHistoryItem) {
-  return `${source}:${inspectionId}:${item.inspectResult.server_ts_ms}:${item.inspectResult.camera_id}:${item.frameId}`;
 }

@@ -14,6 +14,11 @@ import java.util.concurrent.ExecutorService;
  */
 public interface AfterInspectionSidecar {
 
+    /** True when queued UI work owns the capture pin and releases it on completion/discard. */
+    default boolean retainsCaptureAfterScheduling() {
+        return false;
+    }
+
     void scheduleAfterInspection(
             UiHttpServer uiServer,
             Map<String, Object> uiCfg,

@@ -2,17 +2,34 @@ package com.example.iml.orchestrator.integration.ui;
 
 import com.example.iml.orchestrator.integration.pipeline.ReferenceSnapshot;
 import com.example.iml.orchestrator.integration.pipeline.stages.InspectPositioningExecutor;
+import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
+import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class UiArtifactsSidecarPublishGateTest {
 
     private static final ReferenceSnapshot REFERENCE = new ReferenceSnapshot("bucket", Map.of("shm_name", "/ref"));
+
+    @Test
+    void immutableCaptureMovesToUiWithoutCopyingOnDecisionThread() throws Exception {
+        String pin = "iml_line_pin_cam3_f1042";
+        UiArtifactsSidecar.FrozenFrame frame = UiArtifactsSidecar.freezeInspectionFrame(
+                3, 1042L, "/" + pin, 1224, 1024, 1224 * 3,
+                Map.of("shm_offset", 0L, "line_pinned", true)
+        );
+        // No source file is needed to hand off ownership; the UI worker does all frame I/O.
+        assertEquals(FrameJpegWriter.imlShmFilePath(pin), frame.path());
+        assertEquals("/" + pin, frame.shmName());
+        assertTrue(frame.deleteWhenDone());
+        assertTrue(new UiArtifactsSidecar(LogManager.getLogger(getClass())).retainsCaptureAfterScheduling());
+    }
 
     @Test
     void allowsRawWhenNoReference() {
