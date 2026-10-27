@@ -1,20 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="белый вагон">
+    <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="отдельный рои для каждой камеры">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/camera-worker/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/camera-worker/CMakeLists.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/camera-worker/src/main.c" beforeDir="false" afterPath="$PROJECT_DIR$/camera-worker/src/main.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/front-end/src/components/CameraSettingsModal/CameraSettingsModal.css" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/src/components/CameraSettingsModal/CameraSettingsModal.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/front-end/src/components/CameraSettingsModal/CameraSettingsModal.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/src/components/CameraSettingsModal/CameraSettingsModal.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/front-end/src/shared/api/types.ts" beforeDir="false" afterPath="$PROJECT_DIR$/front-end/src/shared/api/types.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/CAMERA-JNI.md" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/CAMERA-JNI.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/camera/CameraSettingsService.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/camera/CameraSettingsService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/http/HttpFrontController.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/http/HttpFrontController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/http/controller/CameraSettingsHttpController.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/main/java/com/example/iml/orchestrator/integration/http/controller/CameraSettingsHttpController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/camera/CameraSettingsServiceTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/camera/CameraSettingsServiceTest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/camera/NativeCameraClientTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/orchestrator-java/src/test/java/com/example/iml/orchestrator/integration/camera/NativeCameraClientTest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/run-all-tests.sh" beforeDir="false" afterPath="$PROJECT_DIR$/run-all-tests.sh" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -106,7 +94,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="фикс для линукса" />
     <MESSAGE value="фикса экрана" />
     <MESSAGE value="фикс продрачивания хромиума" />
     <MESSAGE value="конфиги" />
@@ -131,6 +118,7 @@
     <MESSAGE value="камераворкер теперь часть оркестратора" />
     <MESSAGE value="инишиал кооммит для линукса с крестамми" />
     <MESSAGE value="белый вагон" />
-    <option name="LAST_COMMIT_MESSAGE" value="белый вагон" />
+    <MESSAGE value="отдельный рои для каждой камеры" />
+    <option name="LAST_COMMIT_MESSAGE" value="отдельный рои для каждой камеры" />
   </component>
 </project>
