@@ -518,6 +518,12 @@ public final class BinaryInspectHeaders {
                 && line.size() == 2) {
             pyHeader.put("perspective_line_norm", line);
         }
+        if (activeReference != null
+                && activeReference.header() != null
+                && activeReference.header().get("seam_line_norm") instanceof List<?> seamLine
+                && seamLine.size() == 2) {
+            pyHeader.put("seam_line_norm", seamLine);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -525,7 +531,7 @@ public final class BinaryInspectHeaders {
         Object temporary = captureHeader.get("analysis_test_settings");
         if (temporary instanceof Map<?, ?> nativeSettings && nativeSettings.get("settings") instanceof Map<?, ?> detectorSettings
                 && !detectorSettings.isEmpty()) {
-            // cppAnalisSurface: {sensitivity, threshold, shift_tolerance, min_blob_area, inspect_scale}
+            // cppAnalisSurface: {sensitivity, threshold, shift_tolerance_x/y, min_blob_area, inspect_scale}
             pyHeader.put("settings", copyStringObjectMap(detectorSettings));
             return;
         }

@@ -124,7 +124,19 @@ class CppDetectorLinuxIntegrationTest {
                     new TypeReference<Map<String, Object>>() {});
             assertEquals(0.1, ((Number) ((Map<?, ?>) settings.get("settings")).get("threshold")).doubleValue());
             assertEquals(404, request(settingsBase, "GET", "/api/orchestrator/detector-settings/camera/99", null).statusCode());
-            assertEquals(200, request(settingsBase, "GET", "/api/orchestrator/detector-settings/defaults", null).statusCode());
+            var defaultsResponse = request(settingsBase, "GET", "/api/orchestrator/detector-settings/defaults", null);
+            assertEquals(200, defaultsResponse.statusCode());
+            var defaults = JSON.readValue(defaultsResponse.body(), new TypeReference<Map<String, Object>>() {});
+            var defaultSettings = (Map<?, ?>) defaults.get("settings");
+            assertEquals(0.6, ((Number) defaultSettings.get("threshold")).doubleValue());
+            // Legacy profiles set both axes; explicit X/Y settings override only their axis.
+            assertEquals(200, request(settingsBase, "PUT", "/api/orchestrator/detector-settings/camera/0",
+                    "{\"shift_tolerance\":4,\"shift_tolerance_y\":7}").statusCode());
+            var axes = JSON.readValue(request(settingsBase, "GET", "/api/orchestrator/detector-settings/camera/0", null).body(),
+                    new TypeReference<Map<String, Object>>() {});
+            var axisSettings = (Map<?, ?>) axes.get("settings");
+            assertEquals(4, ((Number) axisSettings.get("shift_tolerance_x")).intValue());
+            assertEquals(7, ((Number) axisSettings.get("shift_tolerance_y")).intValue());
             Map<String, Object> badJob = new LinkedHashMap<>(jobs.get(0));
             badJob.put("shm_name", bad.toString());
             badJob.put("heatmap_u8_output_path", heatmap.toString()); badJob.put("heatmap_max_width", 96);

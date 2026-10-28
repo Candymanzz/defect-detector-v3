@@ -9,6 +9,8 @@ import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -97,8 +99,9 @@ class InspectPythonExecutorTest {
         assertEquals("ERROR", result.py().header().get("status"));
     }
 
-    @Test
-    void callsPythonSupervisorAndReturnsResponse() {
+    @ParameterizedTest
+    @ValueSource(strings = {"default", "true", "false"})
+    void callsPythonSupervisorAndDefersHeatmapByDefault(String deferHeatmap) {
         AtomicReference<Map<String, Object>> sentHeader = new AtomicReference<>();
         BinaryRpcSupervisor python = new BinaryRpcSupervisor() {
             @Override
@@ -144,6 +147,12 @@ class InspectPythonExecutorTest {
             }
         };
 
+        Map<String, Object> config = new HashMap<>();
+        config.put("inspect_scale", 0.75);
+        config.put("inspect_scale_by_camera", Map.of(2, 0.5, 7, 0.5));
+        if (!"default".equals(deferHeatmap)) {
+            config.put("defer_heatmap", Boolean.parseBoolean(deferHeatmap));
+        }
         for (int cameraId : new int[] { 2, 7, 3 }) {
             PipelineState result = executor.apply(
                     stateWithCapture(),
@@ -151,8 +160,7 @@ class InspectPythonExecutorTest {
                     "bench",
                     "detector-1",
                     reference(),
-                    Map.of("defer_heatmap", true, "inspect_scale", 0.75,
-                            "inspect_scale_by_camera", Map.of(2, 0.5, 7, 0.5)),
+                    config,
                     List.of(python),
                     new Semaphore(1),
                     new AtomicInteger(0)
@@ -161,8 +169,9 @@ class InspectPythonExecutorTest {
             assertEquals(BinaryProtocol.MSG_RESPONSE, result.py().type());
             assertTrue(Boolean.TRUE.equals(result.py().header().get("ok")));
             assertEquals(cameraId, sentHeader.get().get("camera_id"));
-            assertFalse(sentHeader.get().containsKey("heatmap_u8_output_path"));
-            assertFalse(sentHeader.get().containsKey("heatmap_max_width"));
+            boolean inlineHeatmap = "false".equals(deferHeatmap);
+            assertEquals(inlineHeatmap, sentHeader.get().containsKey("heatmap_u8_output_path"));
+            assertEquals(inlineHeatmap, sentHeader.get().containsKey("heatmap_max_width"));
             assertEquals(cameraId == 3 ? 0.75 : 0.5,
                     ((Number) sentHeader.get().get("inspect_scale")).doubleValue(), 1e-9);
             // Descriptors remain at full resolution: Python scales the aligned pair itself.

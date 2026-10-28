@@ -38,6 +38,7 @@ struct InspectJob {
     std::string profile;                 // analysis profile (settings key); defaults to product
     SettingsPatch patch;                 // per-request overrides
     std::optional<NormPolygon> roi;      // ROI re-sent with the request (re-applied before inspecting)
+    std::optional<NormPolygon> seamLine; // seam line [start, end] of the reference (overrides settings.seam.p0/p1)
 };
 
 struct Inspected {

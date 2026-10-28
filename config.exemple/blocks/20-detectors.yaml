@@ -5,8 +5,8 @@ python_detector:
   server_concurrency: 10
   # Масштаб, чувствительность, порог и контроль стыка задаются в UI,
   # хранятся в cppAnalisSurface/data/settings.json по analysis_profile камеры.
-  # C++ формирует heatmap в запросе инспекции.
-  defer_heatmap: false
+  # UI heatmap формируется в фоне после выдачи вердикта.
+  defer_heatmap: true
   defer_learning_review: false
   heatmap_preview_max_width: 512
   include_visuals: false

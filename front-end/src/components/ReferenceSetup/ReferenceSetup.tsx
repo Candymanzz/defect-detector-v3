@@ -55,9 +55,11 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     jointRoiPolygon,
     roiPolygonsByCameraId,
     perspectiveLinesByCameraId,
+    seamLinesByCameraId,
     setJointRoiPolygon,
     setRoiPolygonForCamera,
     setPerspectiveLineForCamera,
+    setSeamLineForCamera,
     fpZonesByCameraId,
   } = useReferenceSetupController(onClose, initialCameraId);
   const [selectedArchiveId, setSelectedArchiveId] = useState<string | null>(null);
@@ -348,6 +350,8 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     allowRadiusMode={selectedRoiMode !== "joint"}
                     perspectiveLine={perspectiveLinesByCameraId[selectedSlot.cameraId] ?? []}
                     onPerspectiveLineChange={(points) => setPerspectiveLineForCamera(selectedSlot.cameraId, points)}
+                    seamLine={seamLinesByCameraId[selectedSlot.cameraId] ?? []}
+                    onSeamLineChange={(points) => setSeamLineForCamera(selectedSlot.cameraId, points)}
                     onChange={(points) => {
                       if (selectedRoiMode === "joint") {
                         setJointRoiPolygon(points);

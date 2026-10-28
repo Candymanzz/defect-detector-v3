@@ -50,7 +50,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         }
     }
 
-    private record FrozenFrame(Path path, String shmName, boolean deleteWhenDone) {
+    record FrozenFrame(Path path, String shmName, boolean deleteWhenDone) {
     }
 
     private record UiPublishTask(int cameraId, Runnable delegate, Runnable cleanup) implements Runnable {
@@ -76,6 +76,11 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
 
     public UiArtifactsSidecar(Logger log) {
         this.log = log;
+    }
+
+    @Override
+    public boolean retainsCaptureAfterScheduling() {
+        return true;
     }
 
     /**
@@ -349,8 +354,10 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             );
             return;
         }
-        // Freeze no longer retains line-pin paths; free per-cycle SHM asap.
-        LineFramePinService.releasePinnedCapture(capture.header());
+        // Immutable line pins move to the UI task without another frame copy.
+        if (!ImlShmJanitor.isEphemeralLinePin(frozenFrame.shmName())) {
+            LineFramePinService.releasePinnedCapture(capture.header());
+        }
         if (!isLatestPublish(cameraId, publishSequence)) {
             deleteTemporaryArtifact(sourceHeatmap.path(), "stale source heatmap");
             deleteFrozenFrameIfOwned(frozenFrame, "stale frozen inspection frame");
@@ -973,7 +980,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         return path != null && Files.isRegularFile(path);
     }
 
-    private static FrozenFrame freezeInspectionFrame(
+    static FrozenFrame freezeInspectionFrame(
             int cameraId,
             long frameId,
             String shmName,
@@ -987,18 +994,22 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         }
         long sourceOffset = YamlScalars.toLong(captureHeader.get("shm_offset"), 0L);
         long frameBytes = Math.multiplyExact((long) stride, (long) height);
+        String base = shmName.startsWith("/") ? shmName.substring(1) : shmName;
+        base = base.replace('/', '_');
+        boolean testAnalyze = YamlScalars.toBool(captureHeader.get("test_analyze"), false);
+        if (!testAnalyze && sourceOffset == 0L && ImlShmJanitor.isEphemeralLinePin(base)) {
+            // The pipeline already pinned this exact frame. Transfer ownership to the bounded
+            // UI queue; JPEG/archive/heatmap work and deletion happen on its background worker.
+            return new FrozenFrame(FrameJpegWriter.imlShmFilePath(base), "/" + base, true);
+        }
         Path source = FrameJpegWriter.resolveShmPath(shmName, cameraId);
         if (source == null || !Files.isRegularFile(source)) {
             throw new IOException("source SHM is missing");
         }
 
-        String base = shmName.startsWith("/") ? shmName.substring(1) : shmName;
-        base = base.replace('/', '_');
-        // Line-pin files are per-cycle; always copy into a stable UI buffer so the pin can be deleted
-        // immediately after freeze without racing the async JPEG publisher.
+        // Other frame sources can be mutable and still need a snapshot before queuing.
         boolean ephemeralPin = YamlScalars.toBool(captureHeader.get("line_pinned"), false)
                 || ImlShmJanitor.isEphemeralLinePin(base);
-        boolean testAnalyze = YamlScalars.toBool(captureHeader.get("test_analyze"), false);
         if (!testAnalyze && sourceOffset == 0L && !ephemeralPin && ImlShmJanitor.isDedicatedOrchestratorBuffer(base)) {
             return new FrozenFrame(source, "/" + base, false);
         }

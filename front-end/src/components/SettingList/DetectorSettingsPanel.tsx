@@ -6,9 +6,10 @@ import { subscribeAnalysisSettingsChanged } from "./analysisSettingsEvents";
 import { errorMessage } from "../../shared/lib/errors";
 import { Button } from "../../shared/ui/Button";
 import { SeamSettingsSection } from "./SeamSettingsSection";
+import "./SeamSettingsSection.css";
 
 /**
- * Настройки анализа поверхности (cppAnalisSurface): пять реальных параметров детектора.
+ * Настройки анализа поверхности (cppAnalisSurface): реальные параметры детектора.
  * Хранятся на сервисе по профилю камеры; здесь же — временные настройки для проверки тестового кадра.
  */
 
@@ -24,8 +25,9 @@ const DEFAULT_SEAM: SeamSettings = {
 
 const DEFAULT_SETTINGS: DetectorSettings = {
   sensitivity: 0.5,
-  threshold: 0.25,
-  shift_tolerance: 3,
+  threshold: 0.6,
+  shift_tolerance_x: 3,
+  shift_tolerance_y: 3,
   min_blob_area: 20,
   inspect_scale: 1,
   seam: DEFAULT_SEAM,
@@ -57,13 +59,19 @@ const FIELDS: readonly Field[] = [
   {
     name: "threshold",
     label: "Порог брака",
-    hint: "Кадр бракуется, когда оценка аномалии достигает порога. Оценка = доля площади ROI с отличиями, 100% соответствует 5% площади. Ниже порог — строже к браку.",
+    hint: "Кадр бракуется, когда оценка аномалии достигает порога. Оценка = доля площади ROI с отличиями, 100% соответствует 0,2% площади. Ниже порог — строже к браку.",
     min: 0.01, max: 1, step: 0.005, factor: 100, unit: "%", decimals: 1,
   },
   {
-    name: "shift_tolerance",
-    label: "Допуск на сдвиг",
-    hint: "Допустимое смещение кадра относительно эталона в пикселях исходного кадра. Больше — меньше ложных зон по краям при дрожании изделия.",
+    name: "shift_tolerance_x",
+    label: "Допуск на сдвиг X",
+    hint: "По горизонтали, влево/вправо: допуск сравнения в пикселях исходного кадра. Больше — меньше ложных зон при смещении; также увеличивается предел компенсации X. При масштабе 100% предел компенсации = max(8, допуск × 4) px.",
+    min: 0, max: 15, step: 1, factor: 1, unit: "px", decimals: 0,
+  },
+  {
+    name: "shift_tolerance_y",
+    label: "Допуск на сдвиг Y",
+    hint: "По вертикали, вверх/вниз: допуск сравнения в пикселях исходного кадра. Больше — меньше ложных зон при смещении; также увеличивается предел компенсации Y. При масштабе 100% предел компенсации = max(8, допуск × 4) px.",
     min: 0, max: 15, step: 1, factor: 1, unit: "px", decimals: 0,
   },
   {

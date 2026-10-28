@@ -34,6 +34,9 @@ type RoiContourEditorProps = {
   /** Линия перспективы: [ближний край, дальний край]. Включает режим рисования линии. */
   perspectiveLine?: NormPoint[];
   onPerspectiveLineChange?: (points: NormPoint[]) => void;
+  /** Линия стыка этикетки: [начало, конец]. Включает кнопки «Линия шва» (контроль стыка cppAnalisSurface). */
+  seamLine?: NormPoint[];
+  onSeamLineChange?: (points: NormPoint[]) => void;
   onChange: (points: NormPoint[]) => void;
 };
 
@@ -50,6 +53,8 @@ export function RoiContourEditor({
   shapeMode = "polygon",
   perspectiveLine = [],
   onPerspectiveLineChange,
+  seamLine = [],
+  onSeamLineChange,
   onChange,
 }: RoiContourEditorProps) {
   const imageRef = useRef<HTMLImageElement>(null);
@@ -60,6 +65,7 @@ export function RoiContourEditor({
   const widthInputFocusedRef = useRef(false);
   const [drawMode, setDrawMode] = useState<DrawMode>("polygon");
   const [perspectiveMode, setPerspectiveMode] = useState(false);
+  const [seamMode, setSeamMode] = useState(false);
   const [cursorPoint, setCursorPoint] = useState<NormPoint | null>(null);
   const [orientedDraft, setOrientedDraft] = useState<OrientedDraft>({ phase: "idle" });
   const [widthInputText, setWidthInputText] = useState(() => formatStripWidthPct(DEFAULT_HALF_WIDTH * 2));
@@ -67,6 +73,8 @@ export function RoiContourEditor({
   const isOriented = shapeMode === "oriented-rect";
   const canEditPerspective = !isOriented && Boolean(onPerspectiveLineChange);
   const perspectiveActive = canEditPerspective && perspectiveMode;
+  const canEditSeam = !isOriented && Boolean(onSeamLineChange);
+  const seamActive = canEditSeam && seamMode;
   const effectiveDrawMode = isOriented ? "polygon" : allowRadiusMode ? drawMode : "polygon";
   const svgPoints = points.map(toSvgPoint).join(" ");
   const edgeHandles = createEdgeHandles(points);
@@ -135,6 +143,16 @@ export function RoiContourEditor({
       const nextLine = perspectiveLine.length === 1 ? [perspectiveLine[0], linePoint] : [linePoint];
       onPerspectiveLineChange?.(nextLine);
       if (nextLine.length === 2) setPerspectiveMode(false);
+      return;
+    }
+
+    if (seamActive) {
+      const linePoint = resolveNormPoint(event);
+      if (!linePoint) return;
+      // Первый клик — начало стыка, второй — конец; третий начинает линию заново.
+      const nextLine = seamLine.length === 1 ? [seamLine[0], linePoint] : [linePoint];
+      onSeamLineChange?.(nextLine);
+      if (nextLine.length === 2) setSeamMode(false);
       return;
     }
 
@@ -219,7 +237,7 @@ export function RoiContourEditor({
   };
 
   const beginDrag = (event: PointerEvent<SVGCircleElement>, index: number, nextPoints = points) => {
-    if (disabled || isOriented || perspectiveActive || effectiveDrawMode !== "radius") return;
+    if (disabled || isOriented || perspectiveActive || seamActive || effectiveDrawMode !== "radius") return;
 
     event.preventDefault();
     event.stopPropagation();
@@ -299,6 +317,7 @@ export function RoiContourEditor({
             title: perspectiveActive ? "Отмена линии" : "Линия перспективы",
             onClick: () => {
               if (!perspectiveActive) onPerspectiveLineChange?.([]);
+              setSeamMode(false);
               setPerspectiveMode(!perspectiveActive);
             },
             disabled,
@@ -314,9 +333,35 @@ export function RoiContourEditor({
           },
         ]
       : []),
+    ...(canEditSeam
+      ? [
+          {
+            title: seamActive ? "Отмена линии шва" : "Линия шва",
+            onClick: () => {
+              if (!seamActive) onSeamLineChange?.([]);
+              setPerspectiveMode(false);
+              setSeamMode(!seamActive);
+            },
+            disabled,
+            active: seamActive,
+          },
+          {
+            title: "Убрать линию шва",
+            onClick: () => {
+              setSeamMode(false);
+              onSeamLineChange?.([]);
+            },
+            disabled: disabled || seamLine.length === 0,
+          },
+        ]
+      : []),
   ];
 
-  const hint = perspectiveActive
+  const hint = seamActive
+    ? seamLine.length === 0
+      ? "Кликните по началу стыка этикетки, затем по его концу"
+      : "Теперь кликните по концу стыка этикетки"
+    : perspectiveActive
     ? perspectiveLine.length === 0
       ? "Кликните по ближнему краю изделия, затем по дальнему"
       : "Теперь кликните по дальнему краю изделия"
@@ -371,6 +416,24 @@ export function RoiContourEditor({
           cx={point.x}
           cy={point.y}
           r="0.014"
+        />
+      ))}
+      {seamLine.length === 2 && (
+        <line
+          className="roi-editor__seam-line"
+          x1={seamLine[0].x}
+          y1={seamLine[0].y}
+          x2={seamLine[1].x}
+          y2={seamLine[1].y}
+        />
+      )}
+      {seamLine.map((point, index) => (
+        <circle
+          key={`seam-${index}`}
+          className={index === 0 ? "roi-editor__seam-start" : "roi-editor__seam-end"}
+          cx={point.x}
+          cy={point.y}
+          r="0.012"
         />
       ))}
       {!isOriented &&

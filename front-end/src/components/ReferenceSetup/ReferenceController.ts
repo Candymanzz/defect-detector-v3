@@ -584,6 +584,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
           referenceRoi.getJointRoiPolygonForCameraIds(groupCameraIds),
           referenceFpZones.getFpZonesForCameraIds(groupCameraIds),
           referenceRoi.perspectiveLinesByCameraId,
+          referenceRoi.seamLinesByCameraId,
         );
         const messageId = orchestratorWs.sendReferenceBundle(payload, imageUrlsByCameraId);
         pendingReferenceCameraIdsByMessageIdRef.current[messageId] = groupCameraIds;

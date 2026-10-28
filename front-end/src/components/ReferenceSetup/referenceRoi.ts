@@ -62,6 +62,11 @@ export function isValidPerspectiveLine(points?: InterestPointNorm[]) {
   return Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y) >= 0.05;
 }
 
+/** Линия стыка этикетки: ровно две точки — начало и конец стыка. */
+export function isValidSeamLine(points?: InterestPointNorm[]) {
+  return isValidPerspectiveLine(points);
+}
+
 function normalizeRoiCoordinate(value: number, size: number) {
   if (!Number.isFinite(value) || !Number.isFinite(size) || size <= 0) {
     return 0;

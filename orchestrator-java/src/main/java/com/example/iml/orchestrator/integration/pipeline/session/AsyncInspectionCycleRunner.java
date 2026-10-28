@@ -142,6 +142,7 @@ public final class AsyncInspectionCycleRunner {
                             "decision_ms", (tDecisionDone - tDecision0) / 1_000_000.0));
             boolean resultPublished = publishIfAllowed(inspectionGate, in.cameraId(), () -> {
                 Runnable publishUi = () -> {
+                    boolean scheduled = false;
                     try {
                         svc.afterInspectionSidecar().scheduleAfterInspection(
                                 in.uiServer(),
@@ -158,6 +159,7 @@ public final class AsyncInspectionCycleRunner {
                                 state.py(),
                                 state.geom()
                         );
+                        scheduled = true;
                     } catch (RuntimeException e) {
                         svc.afterInspectionSidecar().discardInspectionArtifacts(state.py());
                         svc.log().warn(
@@ -167,7 +169,9 @@ public final class AsyncInspectionCycleRunner {
                                 e.getMessage()
                         );
                     } finally {
-                        releaseCycleShm(state.capture());
+                        if (!scheduled || !svc.afterInspectionSidecar().retainsCaptureAfterScheduling()) {
+                            releaseCycleShm(state.capture());
+                        }
                     }
                 };
                 if (in.bucketAggregator() != null) {
@@ -380,6 +384,7 @@ public final class AsyncInspectionCycleRunner {
         // Soft-stop passes a null gate: must still publish (do not short-circuit the publish runnable).
         boolean published = publishIfAllowed(inspectionGate, in.cameraId(), () -> {
             Runnable publishUi = () -> {
+                boolean scheduled = false;
                 try {
                     svc.afterInspectionSidecar().scheduleAfterInspection(
                             in.uiServer(),
@@ -396,6 +401,7 @@ public final class AsyncInspectionCycleRunner {
                             null,
                             null
                     );
+                    scheduled = true;
                 } catch (RuntimeException e) {
                     svc.log().warn(
                             "capture-only ui publish failed camera_id={} frame_id={}: {}",
@@ -404,7 +410,9 @@ public final class AsyncInspectionCycleRunner {
                             e.getMessage()
                     );
                 } finally {
-                    releaseCycleShm(state.capture());
+                    if (!scheduled || !svc.afterInspectionSidecar().retainsCaptureAfterScheduling()) {
+                        releaseCycleShm(state.capture());
+                    }
                 }
             };
             if (inspectionGate != null && in.bucketAggregator() != null) {

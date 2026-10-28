@@ -155,6 +155,16 @@ InspectJob parseJob(const json& b) {
     if (b.contains("settings") && b["settings"].is_object()) job.patch = SettingsPatch::fromJson(b["settings"]);
     if (b.contains("roi_polygon_norm") && b["roi_polygon_norm"].is_array())
         job.roi = parsePoints(b["roi_polygon_norm"], "roi_polygon_norm");
+    // seam line of the reference ([start, end] in 0..1); a malformed line is ignored, the settings line stays in force
+    if (b.contains("seam_line_norm") && b["seam_line_norm"].is_array() && b["seam_line_norm"].size() == 2) {
+        try {
+            NormPolygon line = parsePoints(b["seam_line_norm"], "seam_line_norm");
+            bool ok = true;
+            for (auto& p : line) ok = ok && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1;
+            if (ok) job.seamLine = line;
+        } catch (const std::invalid_argument&) {
+        }
+    }
     return job;
 }
 
@@ -209,6 +219,7 @@ json inspectJson(const std::string& product, const Inspected& r, const Service::
     j["reason"] = o.reason;
     j["shift"] = {round3(o.shift.x), round3(o.shift.y)};
     j["shift_raw"] = {round3(o.rawShift.x), round3(o.rawShift.y)};
+    j["shift_limit"] = {round3(o.shiftLimit.x), round3(o.shiftLimit.y)};
     j["zones"] = json::array();
     for (auto& z : o.zones) j["zones"].push_back({z.x, z.y, z.width, z.height});
     j["frame_width"] = r.frameSize.width;
@@ -335,9 +346,14 @@ void logInspection(const char* endpoint, const InspectJob& job, const Inspected&
     j["roi_area_px"] = o.roiArea;
     j["scale"] = round3(o.scale);
     j["shift"] = {round3(o.shift.x), round3(o.shift.y)};
+    j["shift_raw"] = {round3(o.rawShift.x), round3(o.rawShift.y)};
+    j["shift_limit"] = {round3(o.shiftLimit.x), round3(o.shiftLimit.y)};
     j["shift_response"] = round3(o.shiftResponse);
     j["pixel_threshold"] = o.pixelThreshold;
-    j["envelope_kernel"] = o.envelopeKernel;
+    // Preserve the old scalar for square envelopes; unequal axes have no single kernel size.
+    j["envelope_kernel"] = o.envelopeKernel.width == o.envelopeKernel.height ? json(o.envelopeKernel.width) : json(nullptr);
+    j["envelope_kernel_x"] = o.envelopeKernel.width;
+    j["envelope_kernel_y"] = o.envelopeKernel.height;
     j["gain"] = round3(o.gain);
     j["ref_mean"] = round3(o.refMean);
     j["cur_mean"] = round3(o.curMean);
@@ -543,7 +559,7 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
             InspectJob job;
             job.product = product;
             json overrides = json::object();
-            for (const char* k : {"sensitivity", "threshold", "shift_tolerance", "min_blob_area", "inspect_scale"}) {
+            for (const char* k : {"sensitivity", "threshold", "shift_tolerance", "shift_tolerance_x", "shift_tolerance_y", "min_blob_area", "inspect_scale"}) {
                 std::string v = formField(req, k, 0);
                 if (!v.empty()) { try { overrides[k] = std::stod(v); } catch (...) {} }
             }

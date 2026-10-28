@@ -573,17 +573,21 @@ public final class WsOutboundMessenger {
         if (!previewHttpPath.isEmpty()) {
             payload.put("http_path", previewHttpPath);
         }
+        String tok = heatmapArtifactTokenOrNull == null ? "" : heatmapArtifactTokenOrNull.trim();
+        // Registered artifacts outlive the temporary detector file. A queued notification
+        // must keep their descriptor even when the sidecar has already cleaned that file.
+        boolean registeredHeatmap = !bundleId.isEmpty() || !tok.isEmpty()
+                || (previewHttpPath.contains("/api/frame-archive/") && previewHttpPath.endsWith("/frame.jpg"));
         boolean hasHm = heatmapU8Path != null
                 && heatmapW > 0
                 && heatmapH > 0
-                && Files.isRegularFile(heatmapU8Path);
+                && (registeredHeatmap || Files.isRegularFile(heatmapU8Path));
         if (hasHm) {
             ObjectNode hm = JSON.createObjectNode();
             hm.put("width", heatmapW);
             hm.put("height", heatmapH);
             hm.put("pixel_format", "gray_u8");
             hm.put("channels", 1);
-            String tok = heatmapArtifactTokenOrNull == null ? "" : heatmapArtifactTokenOrNull.trim();
             // test-analyze: never reuse archived heatmap — UI must show freshly generated result.
             if (!testAnalyze
                     && previewHttpPath.contains("/api/frame-archive/")

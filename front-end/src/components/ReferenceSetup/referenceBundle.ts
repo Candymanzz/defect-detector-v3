@@ -11,6 +11,7 @@ import {
   isValidJointRoiPolygon,
   isValidPerspectiveLine,
   isValidRoiPolygon,
+  isValidSeamLine,
 } from "./referenceRoi";
 
 export function createReferenceBundleFromCameraFrames(
@@ -21,6 +22,7 @@ export function createReferenceBundleFromCameraFrames(
   jointRoiPolygon: InterestPointNorm[],
   fpZones: FpZoneNorm[],
   perspectiveLinesByCameraId: Record<number, InterestPointNorm[]> = {},
+  seamLinesByCameraId: Record<number, InterestPointNorm[]> = {},
 ): ClientReferenceBundlePayload {
   if (cameraIds.length === 0) {
     throw new Error("Список настроенных камер пуст");
@@ -82,6 +84,7 @@ export function createReferenceBundleFromCameraFrames(
       roiPolygonsByCameraId,
       jointRoiPolygon,
       perspectiveLinesByCameraId[cameraIds[viewIndex]],
+      seamLinesByCameraId[cameraIds[viewIndex]],
     ),
   );
 
@@ -109,6 +112,7 @@ function createReferenceViewForFrame(
   roiPolygonsByCameraId: Record<number, InterestPointNorm[]>,
   jointRoiPolygon: InterestPointNorm[],
   perspectiveLine?: InterestPointNorm[],
+  seamLine?: InterestPointNorm[],
 ) {
   if (previewFrame.camera_id !== cameraId || previewFrame.current.camera_id !== cameraId) {
     throw new Error(
@@ -138,6 +142,7 @@ function createReferenceViewForFrame(
     jointRoi,
     jointRoiPolygonNorm,
     isValidPerspectiveLine(perspectiveLine) ? (perspectiveLine ?? null) : null,
+    isValidSeamLine(seamLine) ? (seamLine ?? null) : null,
   );
 }
 
@@ -148,6 +153,7 @@ function createReferenceView(
   jointRoi: PixelRoi | null,
   jointRoiPolygonNorm: InterestPointNorm[] | null,
   perspectiveLineNorm: InterestPointNorm[] | null,
+  seamLineNorm: InterestPointNorm[] | null = null,
 ): ReferenceViewSlot {
   return {
     frame: previewFrame.current,
@@ -160,5 +166,6 @@ function createReferenceView(
     ...(perspectiveLineNorm
       ? { perspective_line_norm: perspectiveLineNorm.map((point) => ({ x: point.x, y: point.y })) }
       : {}),
+    ...(seamLineNorm ? { seam_line_norm: seamLineNorm.map((point) => ({ x: point.x, y: point.y })) } : {}),
   };
 }

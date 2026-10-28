@@ -12,8 +12,9 @@ namespace cas {
 using json = nlohmann::json;
 
 // Score scale: anomaly_score = min(1, flagged-area-percent / kScoreFullScalePercent).
-// With the default threshold 0.25 a frame is rejected when ~1.25% of the ROI area is anomalous.
-constexpr double kScoreFullScalePercent = 5.0;
+// 0..0.2% of the ROI area is stretched over 0..100% of the score; 0.2% and more saturate at 1.0.
+// With the default threshold 0.6 a frame is rejected when ~0.12% of the ROI area is anomalous.
+constexpr double kScoreFullScalePercent = 0.2;
 
 // Label seam straightness check (a thin bright line along the label edge). Points are normalised 0..1 of the
 // frame, p0 -> p1 follow the seam (approximate: `band` px of search margin absorb the pose of the product).
@@ -34,8 +35,9 @@ struct SeamSettings {
 // The real, user-facing inspection settings (per analysis profile = camera).
 struct Settings {
     double sensitivity = 0.5;     // 0..1, higher = stricter (lower pixel-difference threshold)
-    double threshold = 0.25;      // (0..1], reject when anomaly_score >= threshold
-    int shiftTolerance = 3;       // px of the original frame, micro-shift tolerance
+    double threshold = 0.6;     // (0..1], reject when anomaly_score >= threshold
+    int shiftToleranceX = 3;      // original-frame px, horizontal comparison tolerance and alignment-limit input
+    int shiftToleranceY = 3;      // original-frame px, vertical comparison tolerance and alignment-limit input
     int minBlobArea = 20;         // px of the original frame, smaller anomalies are noise
     double inspectScale = 1.0;    // (0..1], frame is downscaled by this factor before analysis
     SeamSettings seam;            // seam straightness check
@@ -48,7 +50,7 @@ struct Settings {
 // Per-request overrides (never persisted).
 struct SettingsPatch {
     std::optional<double> sensitivity, threshold, inspectScale;
-    std::optional<int> shiftTolerance, minBlobArea;
+    std::optional<int> shiftToleranceX, shiftToleranceY, minBlobArea;
     json seam;                                       // partial seam settings (null = none)
     static SettingsPatch fromJson(const json& j);   // ignores missing, wrong-typed or out-of-range fields
     void applyTo(Settings& s) const;
