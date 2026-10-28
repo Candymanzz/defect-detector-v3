@@ -536,12 +536,19 @@ export type SeamSettings = {
   tol_edge: number;
   /** Доля длины стыка с каждого конца, считающаяся краем (0..0.5). */
   edge_frac: number;
+  /** Minimum grayscale contrast for a measured seam edge. */
+  min_contrast: number;
 };
 
 export type DetectorSettings = {
+  horizontal_shift_tolerance_mm: number;
+  vertical_shift_tolerance_mm: number;
+  estimated_mm_per_pixel?: [number, number];
+  metric_scale_source?: "estimated" | "calibrated";
+  metric_reference_size?: [number, number];
   /** 0..1, выше — строже (мельче отличия считаются дефектом). */
   sensitivity: number;
-  /** (0..1], брак при anomaly_score >= threshold (score = доля аномальной площади ROI / 5%). */
+  /** (0..1], брак при anomaly_score >= threshold; 100% score соответствует 0.2% площади ROI. */
   threshold: number;
   /** Горизонтальный допуск сравнения, px исходного кадра; также задаёт предел компенсации X. */
   shift_tolerance_x: number;

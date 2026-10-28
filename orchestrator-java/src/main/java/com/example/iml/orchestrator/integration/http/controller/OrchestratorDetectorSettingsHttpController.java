@@ -53,7 +53,8 @@ public final class OrchestratorDetectorSettingsHttpController implements HttpCon
                 HttpResponses.sendJsonError(ctx, 404, "camera " + cameraId + " is not configured");
                 return;
             }
-            KopcheniHttpProxy.forward(ctx.exchange(), detectorBaseUrl, "/settings/" + encode(profile));
+            KopcheniHttpProxy.forwardTarget(ctx.exchange(), detectorBaseUrl,
+                    "/settings/" + encode(profile) + "?camera_id=" + cameraId, null);
             return;
         }
         if ("/detector-settings/defaults".equals(target)) {

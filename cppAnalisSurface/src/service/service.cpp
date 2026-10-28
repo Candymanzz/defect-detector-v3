@@ -18,7 +18,7 @@ namespace {
 // Seam straightness check on top of the reference comparison. A seam deviation rejects the frame; the reason of the
 // reference comparison (if any) stays the primary one. The bounding box of the bad points is added as an anomaly zone.
 void applySeam(const cv::Mat& frame, const SeamSettings& seam, InspectOutcome& out) {
-    if (!seam.enabled || !seam.hasLine() || out.reason == "size_mismatch") return;
+    if (!seam.enabled || out.reason == "size_mismatch") return;
     SeamResult sr = measureSeam(frame, seam);
     out.seamEnabled = true;
     out.seamFound = sr.found;
@@ -31,7 +31,7 @@ void applySeam(const cv::Mat& frame, const SeamSettings& seam, InspectOutcome& o
     out.totalMs += sr.ms;
     if (!sr.reject) return;
     out.reject = true;
-    if (out.reason.empty()) out.reason = "seam_deviation";
+    if (out.reason.empty()) out.reason = sr.found ? "seam_deviation" : "seam_not_found";
     if (!sr.badPts.empty()) {
         cv::Rect bb = cv::boundingRect(sr.badPts);
         bb.x -= 12; bb.y -= 12; bb.width += 24; bb.height += 24;
@@ -93,6 +93,10 @@ NormPolygon Service::validated(NormPolygon pts) {
         p.x = std::clamp(p.x, 0.0, 1.0);
         p.y = std::clamp(p.y, 0.0, 1.0);
     }
+    std::vector<cv::Point2f> polygon;
+    for (const auto& p : pts) polygon.emplace_back(p);
+    if (std::abs(cv::contourArea(polygon)) < 1e-12)
+        throw std::invalid_argument("ROI polygon must enclose a nonzero area");
     return pts;
 }
 
@@ -146,8 +150,16 @@ Inspected Service::run(const InspectJob& job, const cv::Mat& frame, bool keepVis
     if (job.roi) ref->setRoi(validated(*job.roi));
 
     Inspected r;
-    r.settings = settings_.get(job.profile.empty() ? job.product : job.profile);
+    int cameraId = job.cameraId;
+    if (cameraId < 0) {
+        const auto marker = job.product.rfind("#cam=");
+        if (marker != std::string::npos) {
+            try { cameraId = std::stoi(job.product.substr(marker+5)); } catch (...) {}
+        }
+    }
+    r.settings = settings_.get(job.profile.empty() ? job.product : job.profile, cameraId);
     job.patch.applyTo(r.settings);
+    r.settings = r.settings.forFrame(frame.size());
     if (job.seamLine && job.seamLine->size() == 2) {
         const auto& line = *job.seamLine;
         r.settings.seam.p0x = line[0].x; r.settings.seam.p0y = line[0].y;

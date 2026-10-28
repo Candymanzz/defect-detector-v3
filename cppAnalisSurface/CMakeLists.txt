@@ -53,4 +53,11 @@ if(BUILD_TESTING)
     target_link_libraries(performance_http_test PRIVATE ws2_32 crypt32)
   endif()
   add_test(NAME performance_http_test COMMAND performance_http_test)
+  add_executable(inspection_port_test tests/inspection_port_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/seam.cpp
+    src/core/shm_io.cpp src/service/service.cpp)
+  target_include_directories(inspection_port_test PRIVATE src)
+  target_link_libraries(inspection_port_test PRIVATE
+    opencv_core opencv_imgproc opencv_imgcodecs nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME inspection_port_test COMMAND inspection_port_test)
 endif()

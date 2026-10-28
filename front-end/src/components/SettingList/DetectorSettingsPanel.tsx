@@ -21,11 +21,14 @@ const DEFAULT_SEAM: SeamSettings = {
   tol_mid: 1,
   tol_edge: 5,
   edge_frac: 0.12,
+  min_contrast: 8,
 };
 
 const DEFAULT_SETTINGS: DetectorSettings = {
   sensitivity: 0.5,
-  threshold: 0.25,
+  threshold: 0.6,
+  horizontal_shift_tolerance_mm: 0.75,
+  vertical_shift_tolerance_mm: 0.99,
   shift_tolerance_x: 3,
   shift_tolerance_y: 3,
   min_blob_area: 20,
@@ -33,7 +36,8 @@ const DEFAULT_SETTINGS: DetectorSettings = {
   seam: DEFAULT_SEAM,
 };
 
-type FieldName = Exclude<keyof DetectorSettings, "seam">;
+type FieldName = "sensitivity" | "threshold" | "horizontal_shift_tolerance_mm" | "vertical_shift_tolerance_mm"
+  | "min_blob_area" | "inspect_scale";
 
 type Field = {
   name: FieldName;
@@ -59,20 +63,20 @@ const FIELDS: readonly Field[] = [
   {
     name: "threshold",
     label: "Порог брака",
-    hint: "Кадр бракуется, когда оценка аномалии достигает порога. Оценка = доля площади ROI с отличиями, 100% соответствует 5% площади. Ниже порог — строже к браку.",
+    hint: "Кадр бракуется, когда оценка аномалии достигает порога. 100% оценки соответствует 0,2% отмеченной площади ROI. Ниже порог — строже к браку.",
     min: 0.01, max: 1, step: 0.005, factor: 100, unit: "%", decimals: 1,
   },
   {
-    name: "shift_tolerance_x",
-    label: "Допуск на сдвиг X",
-    hint: "По горизонтали, влево/вправо: допуск сравнения в пикселях исходного кадра. Больше — меньше ложных зон при смещении; также увеличивается предел компенсации X. При масштабе 100% предел компенсации = max(8, допуск × 4) px.",
-    min: 0, max: 15, step: 1, factor: 1, unit: "px", decimals: 0,
+    name: "horizontal_shift_tolerance_mm",
+    label: "Допуск на смещение по горизонтали",
+    hint: "Допуск локального сравнения и общего смещения влево/вправо, в мм. Пересчёт учитывает разрешение кадра и масштаб анализа.",
+    min: 0, max: 10, step: 0.01, factor: 1, unit: "мм", decimals: 2,
   },
   {
-    name: "shift_tolerance_y",
-    label: "Допуск на сдвиг Y",
-    hint: "По вертикали, вверх/вниз: допуск сравнения в пикселях исходного кадра. Больше — меньше ложных зон при смещении; также увеличивается предел компенсации Y. При масштабе 100% предел компенсации = max(8, допуск × 4) px.",
-    min: 0, max: 15, step: 1, factor: 1, unit: "px", decimals: 0,
+    name: "vertical_shift_tolerance_mm",
+    label: "Допуск на смещение по вертикали",
+    hint: "Допуск локального сравнения и общего смещения вверх/вниз, в мм. Пересчёт учитывает разрешение кадра и масштаб анализа.",
+    min: 0, max: 10, step: 0.01, factor: 1, unit: "мм", decimals: 2,
   },
   {
     name: "min_blob_area",
@@ -232,7 +236,7 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
   useImperativeHandle(ref, () => ({
     save: persist,
     // линия стыка принадлежит конкретной камере: в режиме «все камеры» она в настройки не попадает
-    getDraft: () => ({ settings: selectedCameraId === null ? withoutSeam(settings) : settings }),
+    getDraft: () => ({ settings: editableSettings(settings, selectedCameraId !== null) }),
   }));
 
   const reset = () => {
@@ -323,6 +327,10 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
         })}
       </div>
 
+      {settings.metric_scale_source !== "calibrated" && (
+        <p className="analysis-presets__intro">Миллиметры пока приблизительные. Масштаб уточняется на машине для каждой камеры.</p>
+      )}
+
       {selectedCameraId !== null && (
         <SeamSettingsSection
           cameraId={selectedCameraId}
@@ -359,16 +367,18 @@ async function loadSettings(cameraId: number | null) {
     : orchestratorApi.getDefaultDetectorSettings();
 }
 
-function withoutSeam(settings: DetectorSettings): Partial<DetectorSettings> {
-  const rest: Partial<DetectorSettings> = { ...settings };
-  delete rest.seam;
-  return rest;
+export function editableSettings(settings: DetectorSettings, includeSeam: boolean): Partial<DetectorSettings> {
+  // Camera calibration/scale and legacy pixel metadata must not be copied to other cameras.
+  const result: Partial<DetectorSettings> = {};
+  for (const field of FIELDS) result[field.name] = settings[field.name];
+  if (includeSeam) result.seam = settings.seam;
+  return result;
 }
 
 async function saveSettings(cameraId: number | null, settings: DetectorSettings) {
-  if (cameraId !== null) return orchestratorApi.setCameraDetectorSettings(cameraId, settings);
+  if (cameraId !== null) return orchestratorApi.setCameraDetectorSettings(cameraId, editableSettings(settings, true));
   // стык задаётся отдельно для каждой камеры — общее сохранение его не трогает
-  const common = withoutSeam(settings);
+  const common = editableSettings(settings, false);
   const responses = await Promise.all((await allCameras()).map((id) => orchestratorApi.setCameraDetectorSettings(id, common)));
   return responses[0];
 }

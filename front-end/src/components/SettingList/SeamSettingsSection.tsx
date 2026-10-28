@@ -9,41 +9,48 @@ import { getReferenceImage, subscribeReferenceImages } from "../../shared/refere
  * Допуск в середине стыка строгий, на концах мягкий.
  */
 
-type SliderField = {
-  name: "tol_mid" | "tol_edge" | "edge_frac" | "band";
-  label: string;
-  hint: string;
-  min: number;
-  max: number;
-  step: number;
-  factor: number;
-  unit: string;
-  decimals: number;
-};
-
-const SLIDERS: readonly SliderField[] = [
-  {
-    name: "tol_mid", label: "Допуск в середине стыка",
-    hint: "Насколько линия стыка может отклоняться от плавной кривой в средней части. Меньше — строже к изломам.",
-    min: 0.2, max: 5, step: 0.1, factor: 1, unit: "px", decimals: 1,
-  },
-  {
-    name: "tol_edge", label: "Допуск на концах стыка",
-    hint: "То же для краевых частей стыка: здесь небольшие отклонения считаются нормой.",
-    min: 0.5, max: 15, step: 0.5, factor: 1, unit: "px", decimals: 1,
-  },
-  {
-    name: "edge_frac", label: "Длина краевой части",
-    hint: "Какая доля длины стыка с каждого конца считается краем (мягкий допуск).",
-    min: 0, max: 0.4, step: 0.01, factor: 100, unit: "%", decimals: 0,
-  },
-  {
-    name: "band", label: "Полоса поиска (±)",
-    hint: "Насколько далеко от нарисованной линии искать стык. Нужен запас на положение изделия.",
-    min: 10, max: 80, step: 1, factor: 1, unit: "px", decimals: 0,
-  },
-];
-
+type SliderField = {
+  name: "tol_mid" | "tol_edge" | "edge_frac" | "band" | "min_contrast";
+
+  label: string;
+  hint: string;
+  min: number;
+  max: number;
+  step: number;
+  factor: number;
+  unit: string;
+  decimals: number;
+};
+
+const SLIDERS: readonly SliderField[] = [
+  {
+    name: "min_contrast", label: "Минимальный контраст стыка",
+    hint: "Минимальная разница яркости линии и фона для измерения краёв стыка.",
+    min: 1, max: 100, step: 1, factor: 1, unit: "ур. серого", decimals: 0,
+  },
+
+  {
+    name: "tol_mid", label: "Допуск в середине стыка",
+    hint: "Насколько линия стыка может отклоняться от плавной кривой в средней части. Меньше — строже к изломам.",
+    min: 0.2, max: 5, step: 0.1, factor: 1, unit: "px", decimals: 1,
+  },
+  {
+    name: "tol_edge", label: "Допуск на концах стыка",
+    hint: "То же для краевых частей стыка: здесь небольшие отклонения считаются нормой.",
+    min: 0.5, max: 15, step: 0.5, factor: 1, unit: "px", decimals: 1,
+  },
+  {
+    name: "edge_frac", label: "Длина краевой части",
+    hint: "Какая доля длины стыка с каждого конца считается краем (мягкий допуск).",
+    min: 0, max: 0.4, step: 0.01, factor: 100, unit: "%", decimals: 0,
+  },
+  {
+    name: "band", label: "Полоса поиска (±)",
+    hint: "Насколько далеко от нарисованной линии искать стык. Нужен запас на положение изделия.",
+    min: 10, max: 80, step: 1, factor: 1, unit: "px", decimals: 0,
+  },
+];
+
 type Props = {
   cameraId: number;
   seam: SeamSettings;

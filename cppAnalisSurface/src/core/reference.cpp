@@ -9,11 +9,20 @@ namespace {
 
 constexpr int kShiftEstimateMaxSide = 256;   // shift is estimated on a thumbnail of the ROI box
 
+int evenOptimalDftSize(int size) {
+    int optimal = cv::getOptimalDFTSize(size);
+    while (optimal % 2 != 0) optimal = cv::getOptimalDFTSize(optimal + 1);
+    return optimal;
+}
+
 cv::Mat toBlurredGray(const cv::Mat& bgr, double scale) {
     cv::Mat g;
-    if (bgr.channels() == 1) g = bgr;
+    if (bgr.channels() == 1) g = bgr.clone();
     else cv::cvtColor(bgr, g, cv::COLOR_BGR2GRAY);
-    if (scale != 1.0) cv::resize(g, g, cv::Size(), scale, scale, cv::INTER_AREA);
+    // Use the same rounded destination size for reference and current frame. Passing fx/fy
+    // for one and dsize for the other samples different coordinates at fractional scales.
+    if (scale != 1.0) cv::resize(g, g, cv::Size(std::max(1, cvRound(g.cols * scale)),
+                                              std::max(1, cvRound(g.rows * scale))), 0, 0, cv::INTER_AREA);
     cv::GaussianBlur(g, g, cv::Size(5, 5), 0);
     return g;
 }
@@ -86,6 +95,15 @@ std::shared_ptr<const Prepared> Reference::build(double scale, const NormPolygon
     cv::resize(p->refGray(box), small, p->smallSize, 0, 0, cv::INTER_AREA);
     small.convertTo(p->refSmall, CV_32F);
     cv::createHanningWindow(p->hann, p->smallSize, CV_32F);
+
+    // phaseCorrelate measures its peak relative to width/2, height/2. An odd DFT
+    // dimension introduces a half-pixel zero offset even for identical images.
+    // Pad pixels and their existing window, preserving thumbnail geometry/scale.
+    const cv::Size phaseSize(evenOptimalDftSize(p->smallSize.width), evenOptimalDftSize(p->smallSize.height));
+    cv::copyMakeBorder(p->refSmall, p->refSmall, 0, phaseSize.height - p->smallSize.height,
+                      0, phaseSize.width - p->smallSize.width, cv::BORDER_CONSTANT, 0);
+    cv::copyMakeBorder(p->hann, p->hann, 0, phaseSize.height - p->smallSize.height,
+                      0, phaseSize.width - p->smallSize.width, cv::BORDER_CONSTANT, 0);
     return p;
 }
 

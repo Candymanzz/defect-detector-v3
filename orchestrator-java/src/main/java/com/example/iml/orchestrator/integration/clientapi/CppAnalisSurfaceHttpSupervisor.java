@@ -453,6 +453,7 @@ public final class CppAnalisSurfaceHttpSupervisor implements BinaryRpcSupervisor
     }
 
     private static void putProfile(Map<String, Object> body, Map<String, Object> header, int cameraId) {
+        if (cameraId >= 0) body.put("camera_id", cameraId);
         Object explicit = header.get("analysis_profile");
         String profile = explicit == null ? "" : String.valueOf(explicit).trim();
         if (profile.isEmpty()) {
@@ -479,8 +480,15 @@ public final class CppAnalisSurfaceHttpSupervisor implements BinaryRpcSupervisor
     private BinaryProtocol.Message inspectResponse(Map<String, Object> header, Map<String, Object> json) {
         String status = String.valueOf(json.getOrDefault("status", "UNKNOWN"));
         String normalized = status.trim().toUpperCase(java.util.Locale.ROOT);
-        boolean ok = !("БРАК".equals(normalized) || "FAIL".equals(normalized)
-                || "ERROR".equals(normalized) || "REJECT".equals(normalized));
+        boolean ok = List.of("ГОДЕН", "OK", "PASS", "ACCEPT").contains(normalized);
+        boolean rejected = List.of("БРАК", "FAIL", "ERROR", "REJECT").contains(normalized);
+        Object scoreValue = json.get("anomaly_score"), thresholdValue = json.get("threshold");
+        if ((!ok && !rejected) || !(scoreValue instanceof Number score) || !(thresholdValue instanceof Number limit)
+                || !Double.isFinite(score.doubleValue()) || score.doubleValue() < 0 || score.doubleValue() > 1
+                || !Double.isFinite(limit.doubleValue()) || limit.doubleValue() <= 0 || limit.doubleValue() > 1) {
+            return error("invalid inspection response", Map.of("status", "ERROR", "ok", false,
+                    "error_code", "invalid_inspection_response"));
+        }
         Map<String, Object> h = new LinkedHashMap<>();
         h.put("status", status);
         h.put("ok", ok);
@@ -500,7 +508,10 @@ public final class CppAnalisSurfaceHttpSupervisor implements BinaryRpcSupervisor
             h.put(timing, YamlScalars.toDouble(json.get(timing), 0.0));
         }
         // нативные поля cppAnalisSurface
-        for (String key : List.of("area_percent", "reason", "shift", "zones", "settings", "frame_width", "frame_height", "seam")) {
+        for (String key : List.of("area_percent", "reason", "shift", "zones", "settings", "frame_width", "frame_height", "seam",
+                "shift_raw", "shift_limit", "shift_response", "shift_units", "shift_mm", "shift_raw_mm", "shift_limit_mm",
+                "mm_per_pixel", "metric_scale_source", "calibration_ready", "horizontal_shift_tolerance_mm",
+                "vertical_shift_tolerance_mm", "effective_shift_tolerance_mm", "analysis_pixel_mm")) {
             if (json.get(key) != null) {
                 h.put(key, json.get(key));
             }
