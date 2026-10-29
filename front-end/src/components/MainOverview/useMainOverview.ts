@@ -941,7 +941,7 @@ function addInspectionHistoryItem(
   });
 }
 
-function addModalInspectionItem(
+export function addModalInspectionItem(
   setModalSnapshot: Dispatch<SetStateAction<ModalInspectionSnapshot | null>>,
   inspectResult: InspectResultPayload,
   pendingTestJobId: string | null | undefined,
@@ -1003,8 +1003,9 @@ function addModalInspectionItem(
 
     if (
       currentSnapshot.inspectResult?.frame_id === inspectResult.frame_id &&
-      hasDisplayableInspectImage(inspectResult) &&
-      !hasDisplayableInspectImage(currentSnapshot.inspectResult)
+      ((hasDisplayableInspectImage(inspectResult) &&
+        !hasDisplayableInspectImage(currentSnapshot.inspectResult)) ||
+        (Boolean(inspectResult.heatmap) && !currentSnapshot.inspectResult.heatmap))
     ) {
       return updateModalSnapshotResult(nextSnapshot, inspectResult);
     }
