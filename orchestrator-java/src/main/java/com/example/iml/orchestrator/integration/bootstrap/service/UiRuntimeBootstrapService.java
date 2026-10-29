@@ -81,7 +81,8 @@ public final class UiRuntimeBootstrapService {
                 ctx.uiCfg(),
                 ctx.pythonPool().isEmpty() ? null : ctx.pythonPool().get(0)
         ));
-        ctx.setUiArtifactsExecutor(ctx.uiSidecar().startUiPublishExecutorIfEnabled(ctx.uiCfg()));
+        ctx.setUiArtifactsExecutor(ctx.uiSidecar().startUiPublishExecutorIfEnabled(
+                ctx.uiCfg(), ConfiguredCameras.enabledIds(ctx.root()).size()));
         wireUiTestAnalyze(ctx);
     }
 

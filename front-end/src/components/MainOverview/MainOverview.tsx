@@ -63,6 +63,8 @@ export function MainOverview({
   });
   const analysisSettingsRef = useRef<DetectorSettingsPanelHandle>(null);
   const geometrySettingsRef = useRef<GeometryTestSettingsPanelHandle>(null);
+  const [analysisSettingsReady, setAnalysisSettingsReady] = useState(false);
+  const [geometrySettingsReady, setGeometrySettingsReady] = useState(false);
   const inspectionStateBeforeTestRef = useRef<InspectionStateResponse | null>(null);
   const cameraCards = createCameraCards(controller.cameraIds, controller.previewImageUrlsByCameraId);
   const cameraCardGroups = chunkItems(cameraCards, CAMERAS_PER_OVERVIEW);
@@ -377,6 +379,8 @@ export function MainOverview({
                       <span className="modal__test-settings-chevron" aria-hidden="true" />
                     </summary>
                     <GeometryTestSettingsPanel
+                      key={`geometry-settings-${controller.modalSnapshot.cameraId}`}
+                      onReadyChange={setGeometrySettingsReady}
                       ref={geometrySettingsRef}
                       selectedCameraId={controller.modalSnapshot.cameraId}
                       testFrameId={testFrameId}
@@ -387,6 +391,8 @@ export function MainOverview({
                   <section className="modal__test-settings-section">
                     <h4>Анализ поверхности</h4>
                     <DetectorSettingsPanel
+                      key={`analysis-settings-${controller.modalSnapshot.cameraId}`}
+                      onReadyChange={setAnalysisSettingsReady}
                       ref={analysisSettingsRef}
                       selectedCameraId={controller.modalSnapshot.cameraId}
                       testFrameId={testFrameId}
@@ -399,7 +405,7 @@ export function MainOverview({
                   <button
                     type="button"
                     className="modal__action"
-                    disabled={testAnalyzeState === "submitting" || testAnalyzeState === "awaiting"}
+                    disabled={!analysisSettingsReady || !geometrySettingsReady || testAnalyzeState === "submitting" || testAnalyzeState === "awaiting"}
                     onClick={() => void applySettingsAndInspect("check")}
                   >
                     {testAnalyzeState === "submitting"
@@ -411,7 +417,7 @@ export function MainOverview({
                   <button
                     type="button"
                     className="modal__action"
-                    disabled={testAnalyzeState === "submitting" || testAnalyzeState === "awaiting"}
+                    disabled={!analysisSettingsReady || !geometrySettingsReady || testAnalyzeState === "submitting" || testAnalyzeState === "awaiting"}
                     onClick={() => void applySettingsAndInspect("save")}
                   >
                     Сохранить

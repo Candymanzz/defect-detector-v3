@@ -32,6 +32,38 @@ class UiArtifactsSidecarPublishGateTest {
     }
 
     @Test
+    void acceptsSynchronizedCameraWavesWhilePublishersAreBusy() throws Exception {
+        var sidecar = new UiArtifactsSidecar(LogManager.getLogger(getClass()));
+        var executor = sidecar.startUiPublishExecutorIfEnabled(
+                Map.of("enabled", true, "visuals_parallelism", 4, "visuals_queue_size", 8), 10);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        var started = new java.util.concurrent.CountDownLatch(4);
+        var completed = new java.util.concurrent.CountDownLatch(20);
+        try {
+            for (int i = 0; i < 4; i++) {
+                executor.execute(() -> {
+                    started.countDown();
+                    try {
+                        release.await();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+            }
+            assertTrue(started.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            // Two ten-camera waves must fit even when no worker can drain the queue.
+            for (int i = 0; i < 20; i++) {
+                executor.execute(completed::countDown);
+            }
+            release.countDown();
+            assertTrue(completed.await(5, java.util.concurrent.TimeUnit.SECONDS));
+        } finally {
+            release.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
     void allowsRawWhenNoReference() {
         Map<String, Object> cap = new LinkedHashMap<>();
         cap.put("positioning_ms", 12);

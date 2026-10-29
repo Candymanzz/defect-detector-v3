@@ -1700,6 +1700,15 @@ static int hik_try_set_binning_factor(void *handle, int camera_id, int factor, c
 }
 
 static int hik_apply_roi_center_crop(void *handle, int camera_id, int target_w, int target_h) {
+    /* Width/Height nMax shrink with the current offsets. A device reopened after
+     * a runtime crop still has those offsets, so reset them before reading limits. */
+    int reset_x = MV_CC_SetIntValue(handle, "OffsetX", 0u);
+    int reset_y = MV_CC_SetIntValue(handle, "OffsetY", 0u);
+    if (reset_x != MV_OK || reset_y != MV_OK) {
+        fprintf(stderr, "hik: cam=%d ROI offset reset failed x=0x%x y=0x%x\n",
+                camera_id, reset_x, reset_y);
+        return -1;
+    }
     MVCC_INTVALUE width;
     MVCC_INTVALUE height;
     MVCC_INTVALUE offset_x;
@@ -1732,8 +1741,6 @@ static int hik_apply_roi_center_crop(void *handle, int camera_id, int target_w, 
     unsigned int crop_x = hik_align_down_u((full_w - (unsigned int)target_w) / 2u, ox_inc);
     unsigned int crop_y = hik_align_down_u((full_h - (unsigned int)target_h) / 2u, oy_inc);
 
-    (void)MV_CC_SetIntValue(handle, "OffsetX", 0u);
-    (void)MV_CC_SetIntValue(handle, "OffsetY", 0u);
     int r_w = MV_CC_SetIntValue(handle, "Width", (unsigned int)target_w);
     int r_h = MV_CC_SetIntValue(handle, "Height", (unsigned int)target_h);
     int r_ox = MV_CC_SetIntValue(handle, "OffsetX", crop_x);

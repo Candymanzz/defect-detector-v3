@@ -148,19 +148,29 @@ describe("createReferenceBundleFromCameraFrames", () => {
     ).toThrow(/контура ROI/);
   });
 
-  it("rejects resolution mismatch", () => {
+  it("preserves independent hardware ROI dimensions and pixel contours for each camera", () => {
+    const first = previewFrame(0);
+    first.current.width = 780;
+    first.current.height = 588;
+    first.current.stride = 2340;
     const other = previewFrame(1);
-    other.current.height = 90;
+    other.current.width = 740;
+    other.current.height = 520;
+    other.current.stride = 2220;
 
-    expect(() =>
-      createReferenceBundleFromCameraFrames(
+    const bundle = createReferenceBundleFromCameraFrames(
         [0, 1],
-        0,
-        { 0: previewFrame(0), 1: other },
+        1,
+        { 0: first, 1: other },
         { 0: roi, 1: roi },
         jointRoi,
         [],
-      ),
-    ).toThrow(/same resolution/);
+    );
+    expect(bundle.views[0].frame).toEqual(first.current);
+    expect(bundle.views[1].frame).toEqual(other.current);
+    expect(bundle.views[0].interest_roi).toEqual({ x: 78, y: 58, width: 624, height: 472 });
+    expect(bundle.views[1].interest_roi).toEqual({ x: 74, y: 52, width: 592, height: 416 });
+    expect(bundle.heatmap_width).toBe(740);
+    expect(bundle.heatmap_height).toBe(520);
   });
 });

@@ -46,6 +46,7 @@ integration:
       dependencies: []      # optional full library paths to preload
       configure_inputs: true # configures/rearms DI edges only; restores original DI settings on close
       health_check_ms: 1000
+      sdk_timeout_ms: 2000  # зависший SDK-процесс завершается; IO автоматически переподключается
       reconnect_ms: 1000
       shutdown_timeout_ms: 5000
       output_poll_ms: 1000   # used by mv_camera backend when DO monitoring is configured

@@ -97,6 +97,31 @@ bool sameInspection(const cas::InspectOutcome& a, const cas::InspectOutcome& b) 
         && cv::norm(a.diff, b.diff, cv::NORM_INF) == 0 && cv::norm(a.kept, b.kept, cv::NORM_INF) == 0;
 }
 
+void sensitivityTests() {
+    const auto frame = fixture();
+    cas::Reference reference(frame.clone());
+    const auto moved = translated(frame, 30, 0);
+    auto damaged = frame.clone();
+    cv::rectangle(damaged, {40, 40, 200, 200}, {255, 255, 255}, cv::FILLED);
+    for (double threshold : {0.001, 0.6, 1.0}) {
+        for (double scale : {1.0, 0.5}) {
+            cas::Settings s;
+            s.threshold = threshold;
+            s.inspectScale = scale;
+            for (const auto& current : {frame, moved, damaged}) {
+                s.sensitivity = 0.0;
+                const auto accepted = cas::inspectFrame(reference, current, s, true);
+                require(!accepted.reject && accepted.anomalyScore == 0.0 && accepted.reason.empty(),
+                        "zero sensitivity must accept clean, shifted and damaged frames");
+                s.sensitivity = 1.0;
+                const auto rejected = cas::inspectFrame(reference, current, s, true);
+                require(rejected.reject && rejected.anomalyScore == 1.0,
+                        "full sensitivity must reject even an identical reference at threshold 1");
+            }
+        }
+    }
+}
+
 void alignmentCacheTests() {
     const auto frame = fixture();
     const auto moved = translated(frame, 6, -4);
@@ -221,6 +246,7 @@ int main() {
         cv::setNumThreads(1);
         settingsTests(dir);
         inspectionTests();
+        sensitivityTests();
         alignmentCacheTests();
         std::filesystem::remove(dir / "settings.json");
         std::filesystem::remove(dir / "settings.json.tmp");

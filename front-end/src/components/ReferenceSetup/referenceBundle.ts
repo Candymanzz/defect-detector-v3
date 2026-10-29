@@ -69,12 +69,7 @@ export function createReferenceBundleFromCameraFrames(
   const jointFrame = frames[jointViewIndex] ?? frames[0];
   const productType = jointFrame.detector.product_type || "reference-product";
 
-  for (const frame of frames) {
-    if (frame.current.width !== jointFrame.current.width || frame.current.height !== jointFrame.current.height) {
-      throw new Error("Reference frames must have the same resolution");
-    }
-  }
-
+  // Each hardware ROI has its own frame dimensions and pixel contour.
   const views = frames.map((previewFrame, viewIndex) =>
     createReferenceViewForFrame(
       previewFrame,

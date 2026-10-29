@@ -95,6 +95,7 @@ type Props = {
   testPinId?: string;
   onSaveComplete?: () => Promise<void> | void;
   hideSaveAction?: boolean;
+  onReadyChange?: (ready: boolean) => void;
 };
 
 export type DetectorSettingsPanelHandle = {
@@ -108,6 +109,7 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
   testPinId,
   onSaveComplete,
   hideSaveAction = false,
+  onReadyChange,
 }, ref) {
   const [settings, setSettings] = useState<DetectorSettings>(DEFAULT_SETTINGS);
   const [refreshVersion, setRefreshVersion] = useState(0);
@@ -118,6 +120,13 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
   const previewTimerRef = useRef<number | null>(null);
   const previewRequestIdRef = useRef(0);
   const hydratedRef = useRef(false);
+  const loadErrorRef = useRef<Error | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    onReadyChange?.(loaded);
+    return () => onReadyChange?.(false);
+  }, [loaded, onReadyChange]);
   const userEditedRef = useRef(false);
 
   useEffect(() => {
@@ -131,18 +140,26 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
   useEffect(() => {
     let active = true;
     hydratedRef.current = false;
+    loadErrorRef.current = null;
+    setLoaded(false);
     userEditedRef.current = false;
+    setStatus({ kind: "loading", text: "Загрузка настроек…" });
     loadSettings(selectedCameraId)
       .then((response) => {
         if (!active) return;
         setSettings({ ...DEFAULT_SETTINGS, ...response.settings });
         hydratedRef.current = true;
+        setLoaded(true);
         setStatus({
           kind: "success",
           text: selectedCameraId === null ? "Настройки для всех камер загружены" : `Настройки камеры ${selectedCameraId} загружены`,
         });
       })
-      .catch((error) => active && setStatus({ kind: "error", text: errorMessage(error) }));
+      .catch((error) => {
+        if (!active) return;
+        loadErrorRef.current = new Error(`Не удалось загрузить настройки анализа: ${errorMessage(error)}`);
+        setStatus({ kind: "error", text: loadErrorRef.current.message });
+      });
     return () => { active = false; };
   }, [refreshVersion, selectedCameraId]);
 
@@ -195,7 +212,7 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
 
   const persist = async () => {
     if (!hydratedRef.current) {
-      const error = new Error("Настройки анализа ещё загружаются");
+      const error = loadErrorRef.current ?? new Error("Настройки анализа ещё загружаются");
       setStatus({ kind: "error", text: error.message });
       throw error;
     }
@@ -246,7 +263,7 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
       .catch((error) => setStatus({ kind: "error", text: errorMessage(error) }));
   };
 
-  const busy = status.kind === "loading" || status.kind === "saving";
+  const busy = !loaded || status.kind === "loading" || status.kind === "saving";
 
   return (
     <div className="analysis-presets">
@@ -337,6 +354,9 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
 
       <div className="analysis-presets__footer">
         <span data-kind={status.kind} aria-live="polite">{status.text}</span>
+        {!loaded && status.kind === "error" && (
+          <Button type="button" onClick={() => setRefreshVersion((version) => version + 1)}>Повторить загрузку</Button>
+        )}
         {!hideSaveAction && <Button type="button" disabled={busy} onClick={() => void persist()}>Сохранить</Button>}
       </div>
     </div>

@@ -141,7 +141,8 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
 
     // ---- sensitivity -> pixel threshold, blobs, score ----
     const auto tAnomaly = Clock::now();
-    const int thr = cvRound(80.0 - 75.0 * std::clamp(s.sensitivity, 0.0, 1.0));
+    const double sensitivity = std::clamp(s.sensitivity, 0.0, 1.0);
+    const int thr = cvRound(80.0 - 75.0 * sensitivity);
     cv::Mat bin;
     cv::threshold(diff, bin, thr, 255, cv::THRESH_BINARY);
     cv::morphologyEx(bin, bin, cv::MORPH_OPEN, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3)));
@@ -174,7 +175,21 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     out.blobsKept = static_cast<int>(out.zones.size());
     const int flagged = cv::countNonZero(kept);
     out.areaPercent = prep->roiArea > 0 ? 100.0 * flagged / prep->roiArea : 0.0;
-    out.anomalyScore = std::min(1.0, out.areaPercent / kScoreFullScalePercent);
+    // Piecewise linear scale preserves the existing score at the default sensitivity.
+    const double n = sensitivity <= 0.5
+        ? 100.0 + (kScoreFullScalePercent - 100.0) * (2.0 * sensitivity)
+        : kScoreFullScalePercent + (0.001 - kScoreFullScalePercent) * (2.0 * sensitivity - 1.0);
+    out.anomalyScore = std::min(1.0, out.areaPercent / n);
+    // Division alone cannot guarantee the endpoints (e.g. zero anomalous pixels).
+    if (sensitivity == 0.0) {
+        out.anomalyScore = 0.0;
+        out.reject = false;
+        out.reason.clear();
+    } else if (sensitivity == 1.0) {
+        out.anomalyScore = 1.0;
+        out.reject = true;
+        out.reason = "score_over_threshold";
+    }
     if (!out.reject && out.anomalyScore >= s.threshold) {
         out.reject = true;
         out.reason = "score_over_threshold";

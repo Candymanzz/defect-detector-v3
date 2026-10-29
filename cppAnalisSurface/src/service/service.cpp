@@ -159,7 +159,7 @@ Inspected Service::run(const InspectJob& job, const cv::Mat& frame, bool keepVis
     r.out = inspectFrame(*ref, frame, r.settings, keepVisuals);
     {
         TimingPhase seamTiming("seam_ms");
-        applySeam(frame, r.settings.seam, r.out);
+        if (r.settings.sensitivity > 0.0) applySeam(frame, r.settings.seam, r.out);
     }
     return r;
 }

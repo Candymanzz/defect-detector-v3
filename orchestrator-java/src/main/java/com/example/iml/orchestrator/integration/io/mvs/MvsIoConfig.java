@@ -9,7 +9,7 @@ public record MvsIoConfig(boolean enabled, String library, String port, String s
                           int pollMs, int reconnectMs, Map<Integer, Input> inputs, Map<Integer, String> outputs,
                           int healthCheckMs, int outputPollMs, int shutdownTimeoutMs, int scanLogEvery,
                           boolean configureInputs, List<String> dependencies, IoRejectConfig reject, Map<String, Timer> timers,
-                          Set<Integer> startupEdgeOnlyInputs) {
+                          Set<Integer> startupEdgeOnlyInputs, int sdkTimeoutMs) {
     public record Timer(String line, Map<String, String> enums, Map<String, Long> integers) { }
     public record Input(String line, boolean invert, String risingEvent, String fallingEvent, int port, String edge) {
         public Input(String line, boolean invert, String risingEvent, String fallingEvent) {
@@ -111,7 +111,7 @@ public record MvsIoConfig(boolean enabled, String library, String port, String s
                 positive(cfg, "reconnect_ms", 1000), Map.copyOf(inputs), Map.copyOf(outputs),
                 positive(cfg, "health_check_ms", 1000), positive(cfg, "output_poll_ms", 1000),
                 positive(cfg, "shutdown_timeout_ms", 5000), positive(cfg, "scan_log_every", 1000),
-                YamlScalars.toBool(cfg.get("configure_inputs"), true), dependencies, reject, Map.copyOf(timers), Set.copyOf(startupEdgeOnlyInputs));
+                YamlScalars.toBool(cfg.get("configure_inputs"), true), dependencies, reject, Map.copyOf(timers), Set.copyOf(startupEdgeOnlyInputs), positive(cfg, "sdk_timeout_ms", 2000));
     }
 
     private static int positive(Map<?, ?> cfg, String key, int fallback) {

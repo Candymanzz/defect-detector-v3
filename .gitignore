@@ -30,3 +30,5 @@ node_modules/
 /.tmp/
 /tools/
 **/__pycache__/
+analisSurface/backend/.venv
+analisSurface/backend/app/data/

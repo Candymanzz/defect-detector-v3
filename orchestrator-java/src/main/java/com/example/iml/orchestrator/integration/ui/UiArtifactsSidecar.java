@@ -166,7 +166,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
      * JPEG и/или heatmap. Не требует {@code visuals_async_enabled} — без второго Python-процесса
      * публикуется превью JPEG из SHM; heatmap — только если задан отдельный процесс visuals.
      */
-    public ExecutorService startUiPublishExecutorIfEnabled(Map<String, Object> uiCfg) {
+    public ExecutorService startUiPublishExecutorIfEnabled(Map<String, Object> uiCfg, int cameraCount) {
         boolean enabled = YamlScalars.toBool(uiCfg == null ? null : uiCfg.get("enabled"), false);
         if (!enabled) {
             return null;
@@ -176,7 +176,11 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (!storeCurrent && !storeHeatmapU8) {
             return null;
         }
-        int q = Math.max(1, YamlScalars.toInt(uiCfg.get("visuals_queue_size"), 8));
+        // A synchronized capture can enqueue every camera while the workers are still
+        // finishing the preceding wave. Reserve two complete waves regardless of
+        // a legacy queue setting; keep the queue bounded and decision threads free.
+        int q = Math.max(Math.max(1, cameraCount) * 2,
+                YamlScalars.toInt(uiCfg.get("visuals_queue_size"), 8));
         int parallelism = Math.max(
                 1,
                 YamlScalars.toInt(uiCfg.get("visuals_parallelism"), 2)

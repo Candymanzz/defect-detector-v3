@@ -37,8 +37,23 @@ int MV_CC_SetIntValue(void *handle, const char *name, unsigned int value) {
 }
 int MV_CC_GetIntValue(void *handle, const char *name, MVCC_INTVALUE *value) {
     simulated_camera *camera = handle;
-    assert(strcmp(name, "PayloadSize") == 0);
-    value->nCurValue = (unsigned int)(camera->roi.width * camera->roi.height);
+    memset(value, 0, sizeof(*value));
+    value->nInc = 4;
+    if (strcmp(name, "PayloadSize") == 0) {
+        value->nCurValue = (unsigned int)(camera->roi.width * camera->roi.height);
+    } else if (strcmp(name, "Width") == 0) {
+        value->nCurValue = camera->roi.width;
+        value->nMax = 1024 - camera->roi.x;
+    } else if (strcmp(name, "Height") == 0) {
+        value->nCurValue = camera->roi.height;
+        value->nMax = 768 - camera->roi.y;
+    } else if (strcmp(name, "OffsetX") == 0) {
+        value->nCurValue = camera->roi.x;
+    } else if (strcmp(name, "OffsetY") == 0) {
+        value->nCurValue = camera->roi.y;
+    } else {
+        assert(0 && "unexpected node");
+    }
     return MV_OK;
 }
 
@@ -69,5 +84,13 @@ int main(void) {
     assert(camera.grabbing && camera.roi.x == 0 && state.width == 1024);
     assert(apply_capture_roi(&state, (cw_roi_rect){1, 0, 512, 400}, error, sizeof(error)) != 0);
     assert(state.width == 1024 && camera.grabbing);
+    /* Reopening a camera retains its previous ROI. Dynamic limits must be read
+     * after clearing offsets, otherwise full-frame startup rejects the sensor. */
+    camera.grabbing = 0;
+    camera.roi = (cw_roi_rect){100, 20, 512, 400};
+    state.height = 768;
+    assert(hik_apply_frame_geometry(&state, error, sizeof(error)) == 0);
+    assert(camera.roi.x == 0 && camera.roi.y == 0);
+    assert(camera.roi.width == 1024 && camera.roi.height == 768);
     return 0;
 }

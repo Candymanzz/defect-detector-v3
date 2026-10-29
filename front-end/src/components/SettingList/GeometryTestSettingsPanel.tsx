@@ -14,6 +14,7 @@ type Props = {
   testPinId?: string;
   onSaveComplete?: () => Promise<void> | void;
   hideSaveAction?: boolean;
+  onReadyChange?: (ready: boolean) => void;
 };
 export type GeometryTestSettingsPanelHandle = {
   save: () => Promise<void>;
@@ -28,11 +29,20 @@ export const GeometryTestSettingsPanel = forwardRef<GeometryTestSettingsPanelHan
   testPinId,
   onSaveComplete,
   hideSaveAction = false,
+  onReadyChange,
 }, ref) {
   const [maxShiftMm, setMaxShiftMm] = useState(DEFAULT_MAX_SHIFT_MM);
   const [jointSensitivity, setJointSensitivity] = useState(DEFAULT_JOINT_SENSITIVITY);
   const [status, setStatus] = useState<Status>({ kind: "loading", text: "Загрузка геометрии…" });
   const hydratedRef = useRef(false);
+  const loadErrorRef = useRef<Error | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+
+  useEffect(() => {
+    onReadyChange?.(loaded);
+    return () => onReadyChange?.(false);
+  }, [loaded, onReadyChange]);
   const userEditedRef = useRef(false);
   const previewRequestIdRef = useRef(0);
   const previewTimerRef = useRef<number | null>(null);
@@ -40,6 +50,8 @@ export const GeometryTestSettingsPanel = forwardRef<GeometryTestSettingsPanelHan
   useEffect(() => {
     let active = true;
     hydratedRef.current = false;
+    loadErrorRef.current = null;
+    setLoaded(false);
     userEditedRef.current = false;
     setStatus({ kind: "loading", text: "Загрузка геометрии…" });
     orchestratorApi
@@ -51,17 +63,19 @@ export const GeometryTestSettingsPanel = forwardRef<GeometryTestSettingsPanelHan
         setMaxShiftMm(readMaxShiftMm(runtime));
         setJointSensitivity(readJointSensitivity(runtime));
         hydratedRef.current = true;
+        setLoaded(true);
         setStatus({ kind: "success", text: "Параметры геометрии загружены" });
       })
       .catch((error) => {
         if (active) {
-          setStatus({ kind: "error", text: errorMessage(error) });
+          loadErrorRef.current = new Error(`Не удалось загрузить настройки геометрии: ${errorMessage(error)}`);
+          setStatus({ kind: "error", text: loadErrorRef.current.message });
         }
       });
     return () => {
       active = false;
     };
-  }, [selectedCameraId]);
+  }, [refreshVersion, selectedCameraId]);
 
   useEffect(() => {
     if (hideSaveAction || !hydratedRef.current || selectedCameraId === null || !userEditedRef.current) {
@@ -111,7 +125,7 @@ export const GeometryTestSettingsPanel = forwardRef<GeometryTestSettingsPanelHan
       return;
     }
     if (!hydratedRef.current) {
-      const error = new Error("Настройки геометрии ещё загружаются");
+      const error = loadErrorRef.current ?? new Error("Настройки геометрии ещё загружаются");
       setStatus({ kind: "error", text: error.message });
       throw error;
     }
@@ -149,7 +163,7 @@ export const GeometryTestSettingsPanel = forwardRef<GeometryTestSettingsPanelHan
     }),
   }));
 
-  const busy = status.kind === "loading" || status.kind === "saving";
+  const busy = !loaded || status.kind === "loading" || status.kind === "saving";
 
   return (
     <div className="geometry-test-settings">
@@ -198,6 +212,9 @@ export const GeometryTestSettingsPanel = forwardRef<GeometryTestSettingsPanelHan
         <span className="geometry-test-settings__status" data-kind={status.kind}>
           {status.text}
         </span>
+        {!loaded && status.kind === "error" && (
+          <Button type="button" onClick={() => setRefreshVersion((version) => version + 1)}>Повторить загрузку</Button>
+        )}
         {!hideSaveAction && (
           <Button type="button" disabled={busy || selectedCameraId === null} onClick={() => void persist()}>
             Сохранить геометрию

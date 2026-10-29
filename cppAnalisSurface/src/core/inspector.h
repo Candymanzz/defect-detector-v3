@@ -9,7 +9,7 @@ namespace cas {
 
 struct InspectOutcome {
     double areaPercent = 0.0;        // anomalous pixels / ROI pixels * 100
-    double anomalyScore = 0.0;       // min(1, areaPercent / kScoreFullScalePercent)
+    double anomalyScore = 0.0;       // min(1, areaPercent / sensitivity-dependent scale); endpoints force 0/1
     bool reject = false;
     std::string reason;              // "", "score_over_threshold", "shift_exceeded"
     cv::Point2d shift;               // detected translation, original-frame pixels

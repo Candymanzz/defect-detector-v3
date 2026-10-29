@@ -11,7 +11,7 @@ namespace cas {
 
 using json = nlohmann::json;
 
-// Score scale: anomaly_score = min(1, flagged-area-percent / kScoreFullScalePercent).
+// Score scale at default sensitivity 0.5: anomaly_score = min(1, flagged-area-percent / kScoreFullScalePercent).
 // 0..0.2% of the ROI area is stretched over 0..100% of the score; 0.2% and more saturate at 1.0.
 // With the default threshold 0.6 a frame is rejected when ~0.12% of the ROI area is anomalous.
 constexpr double kScoreFullScalePercent = 0.2;
@@ -34,7 +34,7 @@ struct SeamSettings {
 
 // The real, user-facing inspection settings (per analysis profile = camera).
 struct Settings {
-    double sensitivity = 0.5;     // 0..1, higher = stricter (lower pixel-difference threshold)
+    double sensitivity = 0.5;     // 0..1, higher = stricter; 0 always accepts, 1 always rejects
     double threshold = 0.6;     // (0..1], reject when anomaly_score >= threshold
     int shiftToleranceX = 3;      // original-frame px, horizontal comparison tolerance and alignment-limit input
     int shiftToleranceY = 3;      // original-frame px, vertical comparison tolerance and alignment-limit input
