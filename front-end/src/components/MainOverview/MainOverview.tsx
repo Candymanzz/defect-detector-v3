@@ -11,6 +11,8 @@ import { GeometryTestSettingsPanel } from "../SettingList/GeometryTestSettingsPa
 import type { GeometryTestSettingsPanelHandle } from "../SettingList/GeometryTestSettingsPanel";
 import { resolveInspectionResultState, isCaptureOnlyInspectResult } from "../../shared/inspectResult";
 import { orchestratorApi } from "../../shared/api";
+import { formatScorePercent } from "../../shared/lib/formatScorePercent";
+import { errorMessage } from "../../shared/lib/errors";
 import type { InspectionStateResponse } from "../../shared/api/types";
 import { StatusCard } from "../../shared/ui/StatusCard";
 import { createCameraCards, createSelectedCamera } from "./MainController";
@@ -153,7 +155,7 @@ export function MainOverview({
       setTestAnalyzeMessage(`Кадр ${frameId} записан на диск для теста (предыдущий pin перезаписан).`);
     } catch (error) {
       setTestAnalyzeState("error");
-      setTestAnalyzeMessage(error instanceof Error ? error.message : "Не удалось сменить кадр теста");
+      setTestAnalyzeMessage(errorMessage(error) || "Не удалось сменить кадр теста");
     }
   };
 
@@ -211,7 +213,7 @@ export function MainOverview({
     } catch (error) {
       controller.setPendingTestJob(undefined);
       setTestAnalyzeState("error");
-      setTestAnalyzeMessage(error instanceof Error ? error.message : "Не удалось запустить повторную инспекцию");
+      setTestAnalyzeMessage(errorMessage(error) || "Не удалось запустить повторную инспекцию");
     }
   };
 
@@ -238,7 +240,7 @@ export function MainOverview({
     }
     const resultState = resolveInspectionResultState(result);
     const anomalyPercent =
-      typeof result.anomaly_score === "number" ? `${(result.anomaly_score * 100).toFixed(2)}%` : "—";
+      formatScorePercent(result.anomaly_score);
     setTestAnalyzeState("complete");
     setTestAnalyzeMessage(
       `Кадр ${pending.frameId}: ${resultState === "pass" ? "годен" : resultState === "fail" ? "брак" : "результат получен"}, аномалия ${anomalyPercent}.`,
@@ -482,12 +484,11 @@ export function MainOverview({
                     setTestFrameId(undefined);
                     setShowModalAnalysisSettings(false);
                     setTestAnalyzeState("error");
+                    const message = errorMessage(error);
                     setTestAnalyzeMessage(
-                      error instanceof Error
-                        ? (error.message.includes("404") || error.message.toLowerCase().includes("not found")
-                          ? `Кадр ${frameId} не найден в архиве — pin только из архива`
-                          : error.message)
-                        : "Не удалось зафиксировать кадр для теста",
+                      message.includes("404") || message.toLowerCase().includes("not found")
+                        ? `Кадр ${frameId} не найден в архиве — pin только из архива`
+                        : message || "Не удалось зафиксировать кадр для теста",
                     );
                     try {
                       await restoreInspectionStateAfterTest();
@@ -519,7 +520,7 @@ export function MainOverview({
                 } catch (error) {
                   setTestAnalyzeState("error");
                   setTestAnalyzeMessage(
-                    error instanceof Error ? error.message : "Не удалось сохранить настройки анализа",
+                    errorMessage(error) || "Не удалось сохранить настройки анализа",
                   );
                 }
               })();

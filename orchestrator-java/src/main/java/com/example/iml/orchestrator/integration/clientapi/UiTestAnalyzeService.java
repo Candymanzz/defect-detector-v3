@@ -334,9 +334,8 @@ public final class UiTestAnalyzeService {
         if (ref == null || !ref.isUsable()) {
             throw new AnalyzeException(409, "no usable reference for camera " + request.cameraId());
         }
-        if (geometryPool.isEmpty()) {
-            throw new AnalyzeException(503, "geometry pool is empty");
-        }
+        // C++ performs the seam check itself; a separate geometry pool is optional.
+        // Keep running geometryStage below so configured positioning still applies.
         if (pythonPool.isEmpty()) {
             throw new AnalyzeException(503, "python pool is empty");
         }

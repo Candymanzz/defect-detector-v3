@@ -8,6 +8,11 @@ describe("formatAnomalyPercent", () => {
     expect(formatAnomalyPercent(1)).toBe("100.00%");
   });
 
+  it("keeps small positive scores visible", () => {
+    expect(formatAnomalyPercent(0.000001)).toBe("<0.01%");
+    expect(formatAnomalyPercent(0)).toBe("0.00%");
+  });
+
   it("does not display a missing or non-finite score", () => {
     expect(formatAnomalyPercent()).toBe("—");
     expect(formatAnomalyPercent(null)).toBe("—");

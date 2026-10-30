@@ -11,7 +11,6 @@ import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.capture.ImlShmJanitor;
 import com.example.iml.orchestrator.integration.capture.LineFramePinService;
 import com.example.iml.orchestrator.integration.config.CameraAnalysisProfiles;
-import com.example.iml.orchestrator.integration.config.InspectionScaleConfig;
 import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.integration.pipeline.BinaryInspectHeaders;
 import com.example.iml.orchestrator.integration.pipeline.InspectionDecision;
@@ -1058,6 +1057,29 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         return new FrozenFrame(target, "/" + frozenName, testAnalyze);
     }
 
+    /** Replay with the effective inspection settings, never the current editable profile. */
+    static boolean applyOriginalHeatmapSettings(Map<String, Object> request, Map<String, Object> response) {
+        if (!(response.get("settings") instanceof Map<?, ?> settings)) return false;
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        for (String key : java.util.List.of("sensitivity", "threshold", "shift_tolerance_x",
+                "shift_tolerance_y", "min_blob_area", "inspect_scale")) {
+            if (!(settings.get(key) instanceof Number value) || !Double.isFinite(value.doubleValue())) return false;
+            snapshot.put(key, value);
+        }
+        if (!(settings.get("seam") instanceof Map<?, ?> seam)) return false;
+        Map<String, Object> seamSnapshot = new LinkedHashMap<>();
+        for (String key : java.util.List.of("enabled", "p0", "p1", "band", "tol_mid", "tol_edge", "edge_frac")) {
+            if (seam.get(key) == null) return false;
+            Object value = seam.get(key);
+            seamSnapshot.put(key, value instanceof java.util.List<?> list ? java.util.List.copyOf(list) : value);
+        }
+        snapshot.put("seam", Map.copyOf(seamSnapshot));
+        request.put("settings", Map.copyOf(snapshot));
+        // The original effective seam coordinates already include the reference line override.
+        request.remove("seam_line_norm");
+        return true;
+    }
+
     private HeatmapArtifact generateHeatmapArtifact(
             BinaryRpcSupervisor uiVisualsPython,
             BinaryProtocol.Message productionResponse,
@@ -1142,12 +1164,9 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             if (analysisProfile != null && !analysisProfile.isBlank()) {
                 pyHeader.put("analysis_profile", analysisProfile);
             }
-            if (geometryRuntimeConfig != null) {
-                geometryRuntimeConfig.applyToPythonHeader(pyHeader, pythonCfg, analysisProfile);
-            }
-            double inspectScale = InspectionScaleConfig.resolve(pythonCfg, cameraId);
-            if (inspectScale < 0.999d) {
-                pyHeader.put("inspect_scale", inspectScale);
+            if (!applyOriginalHeatmapSettings(pyHeader, responseHeader)) {
+                log.warn("ui heatmap skipped cam={} frame={} reason=incomplete_original_settings", cameraId, frameId);
+                return HeatmapArtifact.empty();
             }
             Path heatmapOutRequested = FrameJpegWriter.imlShmFilePath(
                     "iml_ui_heatmap_cam_" + cameraId + "_frame_" + frameId

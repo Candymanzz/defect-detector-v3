@@ -17,6 +17,14 @@ double msSince(Clock::time_point t) {
     return std::chrono::duration<double, std::milli>(Clock::now() - t).count();
 }
 
+// Shared visibility cutoff: keep the existing heatmap contrast and detection sensitivity.
+cv::Mat anomalyEnergy(const cv::Mat& diff, int pixelThreshold) {
+    cv::Mat energy;
+    diff.convertTo(energy, CV_8U, 128.0 / std::max(1, pixelThreshold));
+    cv::threshold(energy, energy, 63, 0, cv::THRESH_TOZERO);
+    return energy;
+}
+
 constexpr double kMinShiftResponse = 0.05;   // below this the shift estimate is not trusted
 // A shift beyond the limit rejects the frame only when the estimate is confident: on flat / overexposed
 // surfaces phase correlation returns a large shift with a response of ~0.05-0.1 that is just noise.
@@ -143,34 +151,36 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     const auto tAnomaly = Clock::now();
     const double sensitivity = std::clamp(s.sensitivity, 0.0, 1.0);
     const int thr = cvRound(80.0 - 75.0 * sensitivity);
-    cv::Mat bin;
-    cv::threshold(diff, bin, thr, 255, cv::THRESH_BINARY);
-    cv::morphologyEx(bin, bin, cv::MORPH_OPEN, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3)));
-
-    std::vector<std::vector<cv::Point>> contours;
-    cv::findContours(bin, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+    const cv::Mat energy = anomalyEnergy(diff, thr);
+    cv::Mat labels, stats, centroids;
+    const int components = cv::connectedComponentsWithStats(energy > 0, labels, stats, centroids, 8, CV_32S);
     const double minArea = std::max(1.0, s.minBlobArea * scale * scale);
-    cv::Mat kept = cv::Mat::zeros(bin.size(), CV_8U);
+    cv::Mat kept = cv::Mat::zeros(diff.size(), CV_8U);
     out.pixelThreshold = thr;
-    out.blobsTotal = static_cast<int>(contours.size());
-    for (size_t i = 0; i < contours.size(); ++i) {
-        const double area = cv::contourArea(contours[i]);
+    out.blobsTotal = components - 1;
+    for (int label = 1; label < components; ++label) {
+        // Count real pixels: contour area loses single pixels/thin scratches and fills holes.
+        const int area = stats.at<int>(label, cv::CC_STAT_AREA);
         if (area < minArea) {
-            out.largestDroppedBlob = std::max(out.largestDroppedBlob, area);
+            out.largestDroppedBlob = std::max(out.largestDroppedBlob, static_cast<double>(area));
             continue;
         }
-        cv::drawContours(kept, contours, static_cast<int>(i), 255, cv::FILLED);
-        cv::Rect bb = cv::boundingRect(contours[i]);
-        {
-            cv::Mat blobMask = cv::Mat::zeros(bb.size(), CV_8U);
-            cv::drawContours(blobMask, contours, static_cast<int>(i), 255, cv::FILLED, cv::LINE_8, cv::noArray(), INT_MAX, -bb.tl());
-            double mx = 0;
-            cv::minMaxLoc(diff(bb), nullptr, &mx, nullptr, nullptr, blobMask);
-            out.keptBlobMaxDiff.push_back(static_cast<int>(mx));
-            out.keptBlobAreas.push_back(area);
-        }
+        const cv::Rect bb(stats.at<int>(label, cv::CC_STAT_LEFT), stats.at<int>(label, cv::CC_STAT_TOP),
+                          stats.at<int>(label, cv::CC_STAT_WIDTH), stats.at<int>(label, cv::CC_STAT_HEIGHT));
+        const cv::Mat blobMask = labels(bb) == label;
+        kept(bb).setTo(255, blobMask);
+        double mx = 0;
+        cv::minMaxLoc(diff(bb), nullptr, &mx, nullptr, nullptr, blobMask);
+        out.keptBlobMaxDiff.push_back(static_cast<int>(mx));
+        out.keptBlobAreas.push_back(area);
         out.zones.emplace_back(cvRound((bb.x + region.x) / scale), cvRound((bb.y + region.y) / scale),
                                cvRound(bb.width / scale), cvRound(bb.height / scale));
+    }
+    if (sensitivity == 0.0) {
+        kept.setTo(0);
+        out.zones.clear();
+        out.keptBlobAreas.clear();
+        out.keptBlobMaxDiff.clear();
     }
     out.blobsKept = static_cast<int>(out.zones.size());
     const int flagged = cv::countNonZero(kept);
@@ -217,13 +227,9 @@ cv::Mat placeInCanvas(const InspectOutcome& out, const cv::Mat& regionImg) {
 }
 
 cv::Mat buildHeatmap(const InspectOutcome& out, const NormPolygon& roi, int maxWidth) {
-    // anomaly energy: diff normalised to the detection threshold (threshold -> mid grey, 2x threshold -> white),
-    // values below half of the threshold are dropped so that noise does not paint the whole object. Unlike a
-    // blob-gated map this also shows sub-threshold hints, so a near-miss is visible and a clean frame is empty.
-    const double thr = std::max(1, out.pixelThreshold);
-    cv::Mat core;
-    out.diff.convertTo(core, CV_8U, 128.0 / thr);
-    cv::threshold(core, core, 63, 0, cv::THRESH_TOZERO);
+    // Only scored components are visible; the halo below is decorative and adds no scored area.
+    cv::Mat core = anomalyEnergy(out.diff, out.pixelThreshold);
+    core.setTo(0, out.kept == 0);
     cv::Mat heat = placeInCanvas(out, core);
 
     // downscale first (the halo is a visual effect, so it is cheaper to blur the small image)

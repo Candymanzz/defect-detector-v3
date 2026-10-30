@@ -194,13 +194,13 @@ json inspectJson(const std::string& product, const Inspected& r, const Service::
     json j;
     j["product_type"] = product;
     j["status"] = o.reject ? "БРАК" : "ГОДЕН";
-    j["anomaly_score"] = round3(o.anomalyScore);
+    j["anomaly_score"] = o.anomalyScore;
     j["threshold"] = r.settings.threshold;
-    j["raw_anomaly_score"] = round3(o.anomalyScore);
+    j["raw_anomaly_score"] = o.anomalyScore;
     j["rechecked_zones_count"] = 0;
     j["recheck_adjustment"] = 0.0;
     j["rechecked_zone_ids"] = json::array();
-    j["main_roi_score"] = round3(o.anomalyScore);
+    j["main_roi_score"] = o.anomalyScore;
     j["sub_zone_scores"] = json::array();
     j["inspection_id"] = nullptr;
     j["learned_normal_matches_count"] = 0;
@@ -336,7 +336,7 @@ void logInspection(const char* endpoint, const InspectJob& job, const Inspected&
     j["profile"] = job.profile;
     j["status"] = o.reject ? "reject" : "ok";
     j["reason"] = o.reason;
-    j["score"] = round3(o.anomalyScore);
+    j["score"] = o.anomalyScore;
     j["threshold"] = r.settings.threshold;
     j["area_percent"] = round3(o.areaPercent);
     j["settings"] = r.settings.toJson();

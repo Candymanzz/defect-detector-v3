@@ -15,6 +15,8 @@ import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 
 import javax.imageio.ImageIO;
@@ -231,8 +233,9 @@ class UiTestAnalyzeServiceTest {
         assertEquals(404, ex.status());
     }
 
-    @Test
-    void submitHappyPathRunsGeometryPythonAndSidecar() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void submitHappyPathRunsGeometryPythonAndSidecar(boolean separateGeometryPool) throws Exception {
         FrameArchiveService archive = openArchive();
         writeArchiveFrame(archive, 0, 42L);
         PipelineReferenceRegistry refs = new PipelineReferenceRegistry();
@@ -260,7 +263,8 @@ class UiTestAnalyzeServiceTest {
                                           productType, detectorId, inspectionId, activeReference, decision,
                                           capture, pythonMsg, geometryMsg) -> sidecarCalled.set(true);
 
-        UiTestAnalyzeService service = service(archive, refs, List.of(dummySupervisor()), List.of(dummySupervisor()),
+        UiTestAnalyzeService service = service(archive, refs,
+                separateGeometryPool ? List.of(dummySupervisor()) : List.of(), List.of(dummySupervisor()),
                 geometry, python, decidePass(), sidecar);
 
         UiTestAnalyzeService.Accepted accepted = service.submit(new UiTestAnalyzeService.Request(

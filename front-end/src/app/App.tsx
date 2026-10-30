@@ -67,7 +67,15 @@ export function App() {
   };
 
   const handleAnalysisSettingsOpen = async (cameraId: number) => {
-    await orchestratorApi.setTestMode(true);
+    try {
+      await orchestratorApi.setTestMode(true);
+    } catch (error) {
+      const message = formatErrorMessage(error);
+      if (message === "reference required to enter TEST mode") {
+        throw new Error("Для проверки параметров сначала загрузите эталон. После перезапуска сервера эталон нужно загрузить заново.");
+      }
+      throw error;
+    }
     const inspectionState = await orchestratorApi.getInspectionStatus();
     window.dispatchEvent(new CustomEvent("inspection-control-changed", { detail: inspectionState }));
     setSelectedSettingsCameraId(cameraId);

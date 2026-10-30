@@ -18,6 +18,29 @@ class UiArtifactsSidecarPublishGateTest {
     private static final ReferenceSnapshot REFERENCE = new ReferenceSnapshot("bucket", Map.of("shm_name", "/ref"));
 
     @Test
+    void heatmapUsesDetachedOriginalSettingsAndRejectsIncompleteSnapshot() {
+        Map<String, Object> seam = new LinkedHashMap<>(Map.of("enabled", false,
+                "p0", java.util.List.of(0.1, 0.2), "p1", java.util.List.of(0.8, 0.9),
+                "band", 30, "tol_mid", 1, "tol_edge", 5, "edge_frac", 0.12));
+        Map<String, Object> original = new LinkedHashMap<>(Map.of("sensitivity", 0.8, "threshold", 0.25,
+                "shift_tolerance_x", 6, "shift_tolerance_y", 5, "min_blob_area", 1,
+                "inspect_scale", 0.7, "seam", seam));
+        Map<String, Object> request = new LinkedHashMap<>(Map.of("settings", Map.of("sensitivity", 0.1),
+                "seam_line_norm", java.util.List.of()));
+        assertTrue(UiArtifactsSidecar.applyOriginalHeatmapSettings(request, Map.of("settings", original)));
+        assertEquals(original, request.get("settings"));
+        assertFalse(request.containsKey("seam_line_norm"));
+        original.put("sensitivity", 0.2);
+        seam.put("band", 100);
+        Map<?, ?> snapshot = (Map<?, ?>) request.get("settings");
+        assertEquals(0.8, snapshot.get("sensitivity"));
+        assertEquals(30, ((Map<?, ?>) snapshot.get("seam")).get("band"));
+        assertFalse(UiArtifactsSidecar.applyOriginalHeatmapSettings(new LinkedHashMap<>(), Map.of()));
+        original.remove("inspect_scale");
+        assertFalse(UiArtifactsSidecar.applyOriginalHeatmapSettings(new LinkedHashMap<>(), Map.of("settings", original)));
+    }
+
+    @Test
     void immutableCaptureMovesToUiWithoutCopyingOnDecisionThread() throws Exception {
         String pin = "iml_line_pin_cam3_f1042";
         UiArtifactsSidecar.FrozenFrame frame = UiArtifactsSidecar.freezeInspectionFrame(

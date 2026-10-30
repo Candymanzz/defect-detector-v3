@@ -97,6 +97,47 @@ bool sameInspection(const cas::InspectOutcome& a, const cas::InspectOutcome& b) 
         && cv::norm(a.diff, b.diff, cv::NORM_INF) == 0 && cv::norm(a.kept, b.kept, cv::NORM_INF) == 0;
 }
 
+void heatmapScoreTests() {
+    auto frame = fixture();
+    // A textured background stabilises alignment/normalisation; the flat patch holds tiny defects.
+    cv::rectangle(frame, {120, 120, 80, 80}, {100, 100, 100}, cv::FILLED);
+    cas::Reference reference(frame.clone());
+    cas::Settings settings;
+    settings.sensitivity = 0.8;
+    settings.shiftToleranceX = settings.shiftToleranceY = 0;
+    settings.minBlobArea = 1;
+    const auto check = [&](const cv::Mat& current, int minimum) {
+        settings.minBlobArea = minimum;
+        const auto out = cas::inspectFrame(reference, current, settings, true);
+        cv::Mat energy;
+        out.diff.convertTo(energy, CV_8U, 128.0 / out.pixelThreshold);
+        const cv::Mat candidates = energy > 63;
+        if (minimum == 1)
+            require(cv::norm(candidates, out.kept, cv::NORM_INF) == 0,
+                    "every previously visible heatmap pixel must count when min area is one");
+        const int pixels = cv::countNonZero(out.kept);
+        require(std::abs(out.areaPercent - 100.0 * pixels / out.roiArea) < 1e-12,
+                "area must count exact component pixels");
+        const double normalizer = 0.2 + (0.001 - 0.2) * 0.6;
+        require(std::abs(out.anomalyScore - std::min(1.0, out.areaPercent / normalizer)) < 1e-12,
+                "score normalisation must remain unchanged");
+        const auto heat = cas::buildHeatmap(out, {}, 0);
+        require((cv::countNonZero(heat) > 0) == (pixels > 0), "heatmap and scored mask must agree");
+        return pixels;
+    };
+    auto weak = frame.clone();
+    weak.at<cv::Vec3b>(150, 150) = {180, 180, 180};
+    require(check(weak, 1) == 1, "a weak single-pixel defect must contribute");
+    require(check(weak, 2) == 0, "min area must remove defect from both score and heatmap");
+    auto scratch = frame.clone();
+    cv::line(scratch, {145, 150}, {164, 150}, {140, 140, 140}, 1);
+    const int scratchPixels = check(scratch, 1);
+    require(scratchPixels > 0, "thin scratch must survive without a 3x3 opening");
+    require(check(scratch, scratchPixels) == scratchPixels, "pixel area cutoff must be inclusive");
+    require(check(scratch, scratchPixels + 1) == 0, "pixel area cutoff must be exact");
+    require(check(frame, 1) == 0, "identical frame must have no heatmap or score");
+}
+
 void sensitivityTests() {
     const auto frame = fixture();
     cas::Reference reference(frame.clone());
@@ -247,6 +288,7 @@ int main() {
         settingsTests(dir);
         inspectionTests();
         sensitivityTests();
+        heatmapScoreTests();
         alignmentCacheTests();
         std::filesystem::remove(dir / "settings.json");
         std::filesystem::remove(dir / "settings.json.tmp");
