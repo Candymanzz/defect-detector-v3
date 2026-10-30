@@ -1062,7 +1062,7 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (!(response.get("settings") instanceof Map<?, ?> settings)) return false;
         Map<String, Object> snapshot = new LinkedHashMap<>();
         for (String key : java.util.List.of("sensitivity", "threshold", "shift_tolerance_x",
-                "shift_tolerance_y", "min_blob_area", "inspect_scale")) {
+                "shift_tolerance_y", "max_alignment_shift_x", "max_alignment_shift_y", "min_blob_area", "inspect_scale")) {
             if (!(settings.get(key) instanceof Number value) || !Double.isFinite(value.doubleValue())) return false;
             snapshot.put(key, value);
         }

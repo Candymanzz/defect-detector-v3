@@ -1,5 +1,6 @@
 #include "settings.h"
 #include <fstream>
+#include <algorithm>
 
 namespace cas {
 
@@ -11,6 +12,7 @@ json SeamSettings::toJson() const {
 json Settings::toJson() const {
     return {{"sensitivity", sensitivity}, {"threshold", threshold},
             {"shift_tolerance_x", shiftToleranceX}, {"shift_tolerance_y", shiftToleranceY},
+            {"max_alignment_shift_x", maxAlignmentShiftX}, {"max_alignment_shift_y", maxAlignmentShiftY},
             {"min_blob_area", minBlobArea}, {"inspect_scale", inspectScale}, {"seam", seam.toJson()}};
 }
 
@@ -86,6 +88,8 @@ std::string Settings::applyJson(const json& j) {
     v = tmp.shiftToleranceY;
     if (!readNumber(j, "shift_tolerance_y", 0, 30, false, v, err)) return err;
     tmp.shiftToleranceY = static_cast<int>(v);
+    if (!readNumber(j, "max_alignment_shift_x", 0, 160, false, tmp.maxAlignmentShiftX, err) ||
+        !readNumber(j, "max_alignment_shift_y", 0, 160, false, tmp.maxAlignmentShiftY, err)) return err;
     v = tmp.minBlobArea;
     if (!readNumber(j, "min_blob_area", 1, 100000, false, v, err)) return err;
     tmp.minBlobArea = static_cast<int>(v);
@@ -117,6 +121,8 @@ SettingsPatch SettingsPatch::fromJson(const json& j) {
     p.shiftToleranceY = p.shiftToleranceX;
     take("shift_tolerance_x", p.shiftToleranceX);
     take("shift_tolerance_y", p.shiftToleranceY);
+    take("max_alignment_shift_x", p.maxAlignmentShiftX);
+    take("max_alignment_shift_y", p.maxAlignmentShiftY);
     take("min_blob_area", p.minBlobArea);
     if (j.contains("seam") && j["seam"].is_object()) {
         SeamSettings probeSeam;
@@ -131,6 +137,8 @@ void SettingsPatch::applyTo(Settings& s) const {
     if (inspectScale) s.inspectScale = *inspectScale;
     if (shiftToleranceX) s.shiftToleranceX = *shiftToleranceX;
     if (shiftToleranceY) s.shiftToleranceY = *shiftToleranceY;
+    if (maxAlignmentShiftX) s.maxAlignmentShiftX = *maxAlignmentShiftX;
+    if (maxAlignmentShiftY) s.maxAlignmentShiftY = *maxAlignmentShiftY;
     if (minBlobArea) s.minBlobArea = *minBlobArea;
     if (seam.is_object()) s.seam.applyJson(seam);
 }
@@ -150,7 +158,15 @@ void SettingsStore::reloadIfStale() {
     map_.clear();
     for (auto it = j.begin(); it != j.end(); ++it) {
         Settings s;
-        if (s.applyJson(it.value()).empty()) map_[it.key()] = s;
+        if (s.applyJson(it.value()).empty()) {
+            // Migrate old stored profiles once on load; partial edits never couple the controls again.
+            const double scale = std::round(s.inspectScale * 1000.0) / 1000.0;
+            if (!it.value().contains("max_alignment_shift_x"))
+                s.maxAlignmentShiftX = std::max(8.0, 4.0 * std::round(s.shiftToleranceX * scale)) / scale;
+            if (!it.value().contains("max_alignment_shift_y"))
+                s.maxAlignmentShiftY = std::max(8.0, 4.0 * std::round(s.shiftToleranceY * scale)) / scale;
+            map_[it.key()] = s;
+        }
     }
 }
 

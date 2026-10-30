@@ -72,8 +72,8 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     if (response < kMinShiftResponse) sh = cv::Point2d(0, 0);
     out.rawShift = cv::Point2d(sh.x / scale, sh.y / scale);
 
-    const double maxShiftX = std::max(8.0, 4.0 * tolWorkX);
-    const double maxShiftY = std::max(8.0, 4.0 * tolWorkY);
+    const double maxShiftX = s.maxAlignmentShiftX * scale;
+    const double maxShiftY = s.maxAlignmentShiftY * scale;
     out.shiftLimit = cv::Point2d(maxShiftX / scale, maxShiftY / scale);
     if (std::abs(sh.x) > maxShiftX || std::abs(sh.y) > maxShiftY) {
         if (response >= kRejectShiftResponse) {

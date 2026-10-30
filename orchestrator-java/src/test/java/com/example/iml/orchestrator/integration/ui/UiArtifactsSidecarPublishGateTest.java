@@ -23,7 +23,8 @@ class UiArtifactsSidecarPublishGateTest {
                 "p0", java.util.List.of(0.1, 0.2), "p1", java.util.List.of(0.8, 0.9),
                 "band", 30, "tol_mid", 1, "tol_edge", 5, "edge_frac", 0.12));
         Map<String, Object> original = new LinkedHashMap<>(Map.of("sensitivity", 0.8, "threshold", 0.25,
-                "shift_tolerance_x", 6, "shift_tolerance_y", 5, "min_blob_area", 1,
+                "shift_tolerance_x", 6, "shift_tolerance_y", 5, "max_alignment_shift_x", 24,
+                "max_alignment_shift_y", 20, "min_blob_area", 1,
                 "inspect_scale", 0.7, "seam", seam));
         Map<String, Object> request = new LinkedHashMap<>(Map.of("settings", Map.of("sensitivity", 0.1),
                 "seam_line_norm", java.util.List.of()));

@@ -28,10 +28,20 @@ const DEFAULT_SETTINGS: DetectorSettings = {
   threshold: 0.6,
   shift_tolerance_x: 3,
   shift_tolerance_y: 3,
+  max_alignment_shift_x: 12,
+  max_alignment_shift_y: 12,
   min_blob_area: 20,
   inspect_scale: 1,
   seam: DEFAULT_SEAM,
 };
+
+// Keep the existing API fields compatible while exposing one shared comparison control.
+function withSharedRelaxation(values: Partial<DetectorSettings>): DetectorSettings {
+  const settings = { ...DEFAULT_SETTINGS, ...values };
+  // For old asymmetric profiles prefer stricter comparison to hiding additional defects.
+  const relaxation = Math.min(settings.shift_tolerance_x, settings.shift_tolerance_y);
+  return { ...settings, shift_tolerance_x: relaxation, shift_tolerance_y: relaxation };
+}
 
 type FieldName = Exclude<keyof DetectorSettings, "seam">;
 
@@ -63,15 +73,21 @@ const FIELDS: readonly Field[] = [
     min: 0.01, max: 1, step: 0.005, factor: 100, unit: "%", decimals: 1,
   },
   {
-    name: "shift_tolerance_x",
-    label: "Допуск на сдвиг X",
-    hint: "По горизонтали, влево/вправо: допуск сравнения в пикселях исходного кадра. Больше — меньше ложных зон при смещении; также увеличивается предел компенсации X. При масштабе 100% предел компенсации = max(8, допуск × 4) px.",
-    min: 0, max: 15, step: 1, factor: 1, unit: "px", decimals: 0,
+    name: "max_alignment_shift_x",
+    label: "Максимальное смещение X",
+    hint: "Максимальное перемещение этикетки целиком по оси X, в пикселях исходного кадра. Превышение при достоверном измерении — брак. Не ослабляет сравнение дефектов.",
+    min: 0, max: 160, step: 1, factor: 1, unit: "px", decimals: 2,
   },
   {
-    name: "shift_tolerance_y",
-    label: "Допуск на сдвиг Y",
-    hint: "По вертикали, вверх/вниз: допуск сравнения в пикселях исходного кадра. Больше — меньше ложных зон при смещении; также увеличивается предел компенсации Y. При масштабе 100% предел компенсации = max(8, допуск × 4) px.",
+    name: "max_alignment_shift_y",
+    label: "Максимальное смещение Y",
+    hint: "Максимальное перемещение этикетки целиком по оси Y, в пикселях исходного кадра. Превышение при достоверном измерении — брак. Не ослабляет сравнение дефектов.",
+    min: 0, max: 160, step: 1, factor: 1, unit: "px", decimals: 2,
+  },
+  {
+    name: "shift_tolerance_x",
+    label: "Ослабление сравнения",
+    hint: "Общий допуск по X и Y для несовпадения контуров после выравнивания, в пикселях исходного кадра. 0 — строгое сравнение. Большие значения могут скрывать дефекты возле печати. Не меняет предел общего смещения.",
     min: 0, max: 15, step: 1, factor: 1, unit: "px", decimals: 0,
   },
   {
@@ -147,7 +163,7 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
     loadSettings(selectedCameraId)
       .then((response) => {
         if (!active) return;
-        setSettings({ ...DEFAULT_SETTINGS, ...response.settings });
+        setSettings(withSharedRelaxation(response.settings));
         hydratedRef.current = true;
         setLoaded(true);
         setStatus({
@@ -225,7 +241,7 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
     try {
       const saved = await saveSettings(selectedCameraId, settings);
       if (saved) {
-        setSettings({ ...DEFAULT_SETTINGS, ...saved.settings });
+        setSettings(withSharedRelaxation(saved.settings));
       }
       userEditedRef.current = false;
       if (!hideSaveAction) {
@@ -256,7 +272,7 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
     setStatus({ kind: "saving", text: "Сброс к значениям по умолчанию…" });
     resetSettings(selectedCameraId)
       .then((response) => {
-        setSettings({ ...DEFAULT_SETTINGS, ...(response?.settings ?? {}) });
+        setSettings(withSharedRelaxation(response?.settings ?? {}));
         userEditedRef.current = false;
         setStatus({ kind: "success", text: "Настройки сброшены к значениям по умолчанию" });
       })
@@ -281,7 +297,9 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
           const clampValue = (next: number) => Math.min(field.max, Math.max(field.min, next));
           const updateValue = (next: number) => {
             userEditedRef.current = true;
-            setSettings((current) => ({ ...current, [field.name]: clampValue(next) }));
+            setSettings((current) => field.name === "shift_tolerance_x"
+              ? { ...current, shift_tolerance_x: clampValue(next), shift_tolerance_y: clampValue(next) }
+              : { ...current, [field.name]: clampValue(next) });
           };
           const stepShown = field.step * field.factor;
           return (

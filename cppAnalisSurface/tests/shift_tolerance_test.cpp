@@ -87,6 +87,9 @@ cas::InspectOutcome inspect(const cv::Mat& ref, const cv::Mat& cur, int x, int y
     s.shiftToleranceX = x;
     s.shiftToleranceY = y;
     s.inspectScale = scale;
+    // Explicit limits for the legacy-envelope fixtures below.
+    s.maxAlignmentShiftX = std::max(8.0, 4.0 * std::round(x * scale)) / scale;
+    s.maxAlignmentShiftY = std::max(8.0, 4.0 * std::round(y * scale)) / scale;
     return cas::inspectFrame(reference, cur, s, true);
 }
 
@@ -95,6 +98,72 @@ bool sameInspection(const cas::InspectOutcome& a, const cas::InspectOutcome& b) 
         && a.areaPercent == b.areaPercent && a.shift == b.shift && a.rawShift == b.rawShift
         && std::abs(a.shiftResponse - b.shiftResponse) < 1e-12 && a.zones == b.zones
         && cv::norm(a.diff, b.diff, cv::NORM_INF) == 0 && cv::norm(a.kept, b.kept, cv::NORM_INF) == 0;
+}
+
+void independentShiftTests(const std::filesystem::path& dir) {
+    auto frame = fixture();
+    cas::Reference reference(frame.clone());
+    reference.setRoi({{0.15, 0.15}, {0.85, 0.15}, {0.85, 0.85}, {0.15, 0.85}});
+    cas::Settings s;
+    s.minBlobArea = 1; s.sensitivity = 0.8;
+    s.shiftToleranceX = s.shiftToleranceY = 0;
+    s.maxAlignmentShiftX = s.maxAlignmentShiftY = 20;
+    for (double scale : {1.0, 0.5}) {
+        s.inspectScale = scale;
+        const auto shifted = translated(frame, 10, 0);
+        auto out = cas::inspectFrame(reference, shifted, s, true);
+        require(out.shiftLimit == cv::Point2d(20, 20) && std::abs(out.shift.x - 10) < 1,
+                "large displacement must align even with zero comparison relaxation");
+        s.shiftToleranceX = s.shiftToleranceY = 1;
+        const auto good = cas::inspectFrame(reference, shifted, s, true);
+        require(!good.reject, "a good translated label must pass with one-pixel contour relaxation");
+        s.shiftToleranceX = s.shiftToleranceY = 0;
+        s.maxAlignmentShiftX = 5;
+        out = cas::inspectFrame(reference, shifted, s, true);
+        require(out.reason == "shift_exceeded", "independent displacement limit must reject excessive motion");
+        s.shiftToleranceX = 15;
+        out = cas::inspectFrame(reference, shifted, s, true);
+        require(out.reason == "shift_exceeded" && out.shiftLimit.x == 5,
+                "comparison relaxation must not increase displacement limit");
+        s.shiftToleranceX = 0; s.maxAlignmentShiftX = 20;
+    }
+    s.inspectScale = 1;
+    cv::rectangle(frame, {100, 100, 100, 120}, {180, 180, 180}, cv::FILLED);
+    cv::rectangle(frame, {140, 110, 8, 100}, {30, 30, 30}, cv::FILLED);
+    cas::Reference printed(frame.clone());
+    auto damaged = frame.clone();
+    cv::rectangle(damaged, {148, 145, 3, 20}, {30, 30, 30}, cv::FILLED);
+    const auto strict = cas::inspectFrame(printed, damaged, s, true);
+    s.maxAlignmentShiftX = s.maxAlignmentShiftY = 60;
+    const auto wider = cas::inspectFrame(printed, damaged, s, true);
+    require(strict.anomalyScore > 0 && strict.anomalyScore == wider.anomalyScore,
+            "raising the displacement limit must not suppress a real defect near print");
+    const auto movedDefect = cas::inspectFrame(printed, translated(damaged, 5, -4), s, true);
+    require(movedDefect.anomalyScore > 0 && cv::countNonZero(movedDefect.kept) > 0,
+            "defect must survive alignment of a displaced label");
+    s.shiftToleranceX = s.shiftToleranceY = 3;
+    const auto relaxed = cas::inspectFrame(printed, damaged, s, true);
+    require(relaxed.anomalyScore < strict.anomalyScore && relaxed.shiftLimit == wider.shiftLimit,
+            "relaxation may suppress contour differences but must not change alignment limits");
+
+    const auto file = dir / "migration.json";
+    { std::ofstream out(file); out << cas::json({{"old", {{"shift_tolerance_x", 6},
+            {"shift_tolerance_y", 2}, {"inspect_scale", 0.5}}}}).dump(); }
+    cas::SettingsStore store(file);
+    auto migrated = store.get("old");
+    require(migrated.maxAlignmentShiftX == 24 && migrated.maxAlignmentShiftY == 16,
+            "legacy profile migration must preserve actual scaled displacement limits");
+    require(store.set("old", {{"shift_tolerance_x", 0}}, migrated).empty()
+            && migrated.maxAlignmentShiftX == 24, "editing relaxation must preserve migrated limit");
+    cas::SettingsStore restarted(file);
+    require(restarted.get("old").maxAlignmentShiftX == 24, "independent limits must survive restart");
+    cas::SettingsPatch::fromJson({{"max_alignment_shift_x", 0}}).applyTo(migrated);
+    require(migrated.maxAlignmentShiftX == 0 && migrated.maxAlignmentShiftY == 16,
+            "temporary zero limit must affect only its axis");
+    const auto before = migrated.toJson();
+    require(!migrated.applyJson({{"max_alignment_shift_y", -1}}).empty()
+            && before == migrated.toJson(), "invalid limit update must be atomic");
+    std::filesystem::remove(file);
 }
 
 void heatmapScoreTests() {
@@ -289,6 +358,7 @@ int main() {
         inspectionTests();
         sensitivityTests();
         heatmapScoreTests();
+        independentShiftTests(dir);
         alignmentCacheTests();
         std::filesystem::remove(dir / "settings.json");
         std::filesystem::remove(dir / "settings.json.tmp");

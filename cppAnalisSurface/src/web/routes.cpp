@@ -559,7 +559,7 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
             InspectJob job;
             job.product = product;
             json overrides = json::object();
-            for (const char* k : {"sensitivity", "threshold", "shift_tolerance", "shift_tolerance_x", "shift_tolerance_y", "min_blob_area", "inspect_scale"}) {
+            for (const char* k : {"sensitivity", "threshold", "shift_tolerance", "shift_tolerance_x", "shift_tolerance_y", "max_alignment_shift_x", "max_alignment_shift_y", "min_blob_area", "inspect_scale"}) {
                 std::string v = formField(req, k, 0);
                 if (!v.empty()) { try { overrides[k] = std::stod(v); } catch (...) {} }
             }
