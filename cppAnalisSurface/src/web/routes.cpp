@@ -196,6 +196,10 @@ json inspectJson(const std::string& product, const Inspected& r, const Service::
     j["status"] = o.reject ? "БРАК" : "ГОДЕН";
     j["anomaly_score"] = o.anomalyScore;
     j["threshold"] = r.settings.threshold;
+    j["learning_engine"] = r.settings.learningRobustEnabled ? "robust-v2" : "native-52aa31ea";
+    j["learning_robust_enabled"] = r.settings.learningRobustEnabled;
+    j["learning_diagnostics"] = o.learningDiagnostics;
+    j["learning_ms"] = round3(o.learningMs);
     j["raw_anomaly_score"] = o.rawAnomalyScore;
     j["rechecked_zones_count"] = 0;
     j["recheck_adjustment"] = 0.0;
@@ -336,6 +340,11 @@ void logInspection(const char* endpoint, const InspectJob& job, const Inspected&
     j["profile"] = job.profile;
     j["status"] = o.reject ? "reject" : "ok";
     j["reason"] = o.reason;
+    j["learning_engine"] = r.settings.learningRobustEnabled ? "robust-v2" : "native-52aa31ea";
+    j["learning_diagnostics"] = o.learningDiagnostics;
+    j["learning_ms"] = round3(o.learningMs);
+    j["raw_anomaly_score"] = o.rawAnomalyScore;
+    j["matched_accepted_case_ids"] = o.matchedCaseIds;
     j["score"] = o.anomalyScore;
     j["threshold"] = r.settings.threshold;
     j["area_percent"] = round3(o.areaPercent);
@@ -593,6 +602,17 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
             for (const char* k : {"sensitivity", "threshold", "shift_tolerance", "shift_tolerance_x", "shift_tolerance_y", "max_alignment_shift_x", "max_alignment_shift_y", "min_blob_area", "inspect_scale"}) {
                 std::string v = formField(req, k, 0);
                 if (!v.empty()) { try { overrides[k] = std::stod(v); } catch (...) {} }
+            }
+            const auto radius=formField(req,"learning_search_radius",0);
+            if(!radius.empty()) {
+                try {
+                    const auto value=json::parse(radius);
+                    if(value.is_number_integer()) overrides["learning_search_radius"]=value;
+                } catch(...) {}
+            }
+            for(const char* key:{"learning_robust_enabled","learning_shadow_enabled"}) {
+                const auto value=formField(req,key,0);
+                if(value=="true") overrides[key]=true;else if(value=="false") overrides[key]=false;
             }
             job.patch = SettingsPatch::fromJson(overrides);
             Inspected r = svc.inspectMat(job, img, false);

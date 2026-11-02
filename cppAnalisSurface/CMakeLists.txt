@@ -23,6 +23,7 @@ add_executable(cpp_analis_surface
   src/core/settings.cpp
   src/core/reference.cpp
   src/core/inspector.cpp
+  src/core/learning_matcher.cpp
   src/core/seam.cpp
   src/core/logger.cpp
   src/core/performance_log.cpp
@@ -42,15 +43,20 @@ target_link_libraries(cpp_analis_surface PRIVATE
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(moving_shadow_test tests/moving_shadow_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
+  target_include_directories(moving_shadow_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(moving_shadow_test PRIVATE opencv_core opencv_imgproc opencv_imgcodecs nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME moving_shadow_test COMMAND moving_shadow_test)
   add_executable(learned_region_test tests/learned_region_test.cpp
-    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/seam.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp src/core/seam.cpp
     src/core/shm_io.cpp src/service/service.cpp)
   target_include_directories(learned_region_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
   target_link_libraries(learned_region_test PRIVATE
     opencv_core opencv_imgproc opencv_imgcodecs nlohmann_json::nlohmann_json Threads::Threads)
   add_test(NAME learned_region_test COMMAND learned_region_test)
   add_executable(shift_tolerance_test tests/shift_tolerance_test.cpp
-    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp)
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
   target_include_directories(shift_tolerance_test PRIVATE src)
   target_link_libraries(shift_tolerance_test PRIVATE
     opencv_core opencv_imgproc nlohmann_json::nlohmann_json Threads::Threads)

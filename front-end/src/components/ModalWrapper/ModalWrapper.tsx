@@ -1,3 +1,4 @@
+import { LearningDiagnosticsPanel } from "./LearningDiagnosticsPanel";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { HttpError, orchestratorApi } from "../../shared/api";
@@ -755,6 +756,7 @@ function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPa
       ) : (
         <div className="modal-inspect-result__empty">Синхронизированного результата инспекции ещё нет</div>
       )}
+      <LearningDiagnosticsPanel learning={inspectResult?.learning} />
     </section>
   );
 }

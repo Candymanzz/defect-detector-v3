@@ -8,6 +8,8 @@
 namespace cas {
 
 struct InspectOutcome {
+    nlohmann::json learningDiagnostics = nlohmann::json::array();
+    double learningMs = 0;
     double rawAnomalyScore = 0.0;
     std::vector<std::string> matchedCaseIds;
     double areaPercent = 0.0;        // anomalous pixels / ROI pixels * 100

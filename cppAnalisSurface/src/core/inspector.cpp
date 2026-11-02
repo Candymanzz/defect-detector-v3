@@ -1,4 +1,5 @@
 #include "inspector.h"
+#include "learning_matcher.h"
 #include "request_timing.h"
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
@@ -159,7 +160,13 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     for (int i = 1; i < originalComponents; ++i)
         if (originalStats.at<int>(i, cv::CC_STAT_AREA) >= std::max(1.0, s.minBlobArea * scale * scale))
             originalFlagged += originalStats.at<int>(i, cv::CC_STAT_AREA);
-    for (const auto& learned : learnedRegions) {
+    if (s.learningRobustEnabled && !learnedRegions.empty()) {
+        const auto started=Clock::now();
+        compareLearned(ref,curR,diff,region,scale,s,out,
+            {s.learningRobustEnabled,s.learningShadowEnabled,s.learningSearchRadius},out.learningDiagnostics);
+        out.learningMs=msSince(started);
+        requestTiming.add("learning_ms",out.learningMs);
+    } else for (const auto& learned : learnedRegions) {
         cv::Rect box(cvRound(learned.bbox.x * scale), cvRound(learned.bbox.y * scale),
                      std::max(1, cvRound(learned.bbox.width * scale)), std::max(1, cvRound(learned.bbox.height * scale)));
         const cv::Rect overlap = box & region;

@@ -33,6 +33,9 @@ const DEFAULT_SETTINGS: DetectorSettings = {
   min_blob_area: 20,
   inspect_scale: 1,
   seam: DEFAULT_SEAM,
+  learning_robust_enabled: true,
+  learning_shadow_enabled: true,
+  learning_search_radius: 24,
 };
 
 // Keep the existing API fields compatible while exposing one shared comparison control.
@@ -43,7 +46,7 @@ function withSharedRelaxation(values: Partial<DetectorSettings>): DetectorSettin
   return { ...settings, shift_tolerance_x: relaxation, shift_tolerance_y: relaxation };
 }
 
-type FieldName = Exclude<keyof DetectorSettings, "seam">;
+type FieldName = Exclude<keyof DetectorSettings, "seam" | "learning_robust_enabled" | "learning_shadow_enabled">;
 
 type Field = {
   name: FieldName;
@@ -60,6 +63,11 @@ type Field = {
 };
 
 const FIELDS: readonly Field[] = [
+  {
+    name: "learning_search_radius", label: "Поиск образца нормы",
+    hint: "Насколько образец нормы может сместиться от сохранённого места. Независим от выравнивания камеры. Действует при устойчивом сопоставлении.",
+    min: 0, max: 64, step: 1, factor: 1, unit: "px", decimals: 0,
+  },
   {
     name: "sensitivity",
     label: "Чувствительность",
@@ -357,6 +365,23 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
           );
         })}
       </div>
+
+      <fieldset disabled={busy}>
+        <legend>Дополнительные образцы нормы</legend>
+        {([
+          ["learning_robust_enabled", "Устойчивое сопоставление образцов"],
+          ["learning_shadow_enabled", "Учитывать смещение плавной тени"],
+        ] as const).map(([key,label]) => (
+          <label key={key}>
+            <input type="checkbox" checked={settings[key]} onChange={(event) => {
+              const checked=event.target.checked;
+              userEditedRef.current=true;
+              setSettings((current)=>({...current,[key]:checked}));
+            }} /> {label}
+          </label>
+        ))}
+        <p>Для сравнения с прежним алгоритмом отключите устойчивое сопоставление. Сохранённые образцы останутся.</p>
+      </fieldset>
 
       {selectedCameraId !== null && (
         <SeamSettingsSection
