@@ -66,4 +66,13 @@ if(BUILD_TESTING)
   target_link_libraries(metric_tolerance_test PRIVATE
     opencv_core opencv_imgproc opencv_imgcodecs nlohmann_json::nlohmann_json Threads::Threads)
   add_test(NAME metric_tolerance_test COMMAND metric_tolerance_test)
+  add_executable(upper_corner_test tests/upper_corner_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp)
+  target_include_directories(upper_corner_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(upper_corner_test PRIVATE
+    opencv_core opencv_imgproc nlohmann_json::nlohmann_json Threads::Threads)
+  if(MSVC)
+    target_compile_options(upper_corner_test PRIVATE /utf-8)
+  endif()
+  add_test(NAME upper_corner_test COMMAND upper_corner_test)
 endif()

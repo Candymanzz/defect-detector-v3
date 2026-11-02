@@ -25,6 +25,12 @@ cv::Mat anomalyEnergy(const cv::Mat& diff, int pixelThreshold) {
     return energy;
 }
 
+double scoreNormalizer(double sensitivity) {
+    return sensitivity <= 0.5
+        ? 100.0 + (kScoreFullScalePercent - 100.0) * (2.0 * sensitivity)
+        : kScoreFullScalePercent + (0.001 - kScoreFullScalePercent) * (2.0 * sensitivity - 1.0);
+}
+
 constexpr double kMinShiftResponse = 0.05;   // below this the shift estimate is not trusted
 // A shift beyond the limit rejects the frame only when the estimate is confident: on flat / overexposed
 // surfaces phase correlation returns a large shift with a response of ~0.05-0.1 that is just noise.
@@ -152,7 +158,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     const auto tAnomaly = Clock::now();
     const double sensitivity = std::clamp(s.sensitivity, 0.0, 1.0);
     const int thr = cvRound(80.0 - 75.0 * sensitivity);
-    const cv::Mat energy = anomalyEnergy(diff, thr);
+    cv::Mat energy = anomalyEnergy(diff, thr);
     cv::Mat labels, stats, centroids;
     const int components = cv::connectedComponentsWithStats(energy > 0, labels, stats, centroids, 8, CV_32S);
     const double minArea = std::max(1.0, s.minBlobArea * scale * scale);
@@ -184,20 +190,71 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         out.keptBlobMaxDiff.clear();
     }
     out.blobsKept = static_cast<int>(out.zones.size());
-    const int flagged = cv::countNonZero(kept);
+    int flagged = cv::countNonZero(kept);
     out.areaPercent = prep->roiArea > 0 ? 100.0 * flagged / prep->roiArea : 0.0;
     // Piecewise linear scale preserves the existing score at the default sensitivity.
-    const double n = sensitivity <= 0.5
-        ? 100.0 + (kScoreFullScalePercent - 100.0) * (2.0 * sensitivity)
-        : kScoreFullScalePercent + (0.001 - kScoreFullScalePercent) * (2.0 * sensitivity - 1.0);
+    const double n = scoreNormalizer(sensitivity);
     out.anomalyScore = std::min(1.0, out.areaPercent / n);
+    out.mainRoiScore = out.anomalyScore;
+
+    // Only local sensitivity changes: alignment, blur, comparison relaxation and minimum
+    // component area remain those configured for the entire ROI. No extra local-density score.
+    out.upperCornerSensitivity = std::min(1.0, sensitivity * kUpperCornerSensitivityMultiplier);
+    out.upperCornerPixelThreshold = cvRound(80.0 - 75.0 * out.upperCornerSensitivity);
+    out.upperCornerArea = prep->upperCornerArea;
+    if (sensitivity > 0.0 && sensitivity < 1.0 && prep->upperCornerArea > 0) {
+        cv::Mat cornerEnergy = anomalyEnergy(diff, out.upperCornerPixelThreshold);
+        cornerEnergy.setTo(0, prep->upperCornerMask == 0);
+        cv::Mat cornerLabels, cornerStats, cornerCentroids;
+        const int cornerComponents = cv::connectedComponentsWithStats(cornerEnergy > 0,
+            cornerLabels, cornerStats, cornerCentroids, 8, CV_32S);
+        bool addedPixels = false;
+        for (int label = 1; label < cornerComponents; ++label) {
+            if (cornerStats.at<int>(label, cv::CC_STAT_AREA) < minArea) continue;
+            const cv::Rect bb(cornerStats.at<int>(label, cv::CC_STAT_LEFT),
+                cornerStats.at<int>(label, cv::CC_STAT_TOP), cornerStats.at<int>(label, cv::CC_STAT_WIDTH),
+                cornerStats.at<int>(label, cv::CC_STAT_HEIGHT));
+            const cv::Mat blob = cornerLabels(bb) == label;
+            cv::Mat extra;
+            cv::bitwise_and(blob, kept(bb) == 0, extra);
+            addedPixels = addedPixels || cv::countNonZero(extra) > 0;
+            kept(bb).setTo(255, blob);
+        }
+        flagged = cv::countNonZero(kept);
+        out.areaPercent = prep->roiArea > 0 ? 100.0 * flagged / prep->roiArea : 0.0;
+        // Keep n tied to the global setting. A local sensitivity crossing 0.5 must not
+        // introduce the sharp score-scale change independently of the rest of the ROI.
+        out.anomalyScore = std::max(out.mainRoiScore, std::min(1.0, out.areaPercent / n));
+        out.upperCornerExtraScore = out.anomalyScore - out.mainRoiScore;
+        cornerEnergy.copyTo(energy, prep->upperCornerMask);
+        if (addedPixels) {
+            // Rebuild components from the union: overlapping detections count exactly once.
+            out.zones.clear(); out.keptBlobAreas.clear(); out.keptBlobMaxDiff.clear();
+            const int count = cv::connectedComponentsWithStats(kept, labels, stats, centroids, 8, CV_32S);
+            out.blobsTotal = std::max(out.blobsTotal, count - 1);
+            for (int label = 1; label < count; ++label) {
+                const cv::Rect bb(stats.at<int>(label, cv::CC_STAT_LEFT), stats.at<int>(label, cv::CC_STAT_TOP),
+                    stats.at<int>(label, cv::CC_STAT_WIDTH), stats.at<int>(label, cv::CC_STAT_HEIGHT));
+                const cv::Mat blob = labels(bb) == label;
+                double peak = 0;
+                cv::minMaxLoc(diff(bb), nullptr, &peak, nullptr, nullptr, blob);
+                out.keptBlobAreas.push_back(stats.at<int>(label, cv::CC_STAT_AREA));
+                out.keptBlobMaxDiff.push_back(static_cast<int>(peak));
+                out.zones.emplace_back(cvRound((bb.x + region.x) / scale), cvRound((bb.y + region.y) / scale),
+                    cvRound(bb.width / scale), cvRound(bb.height / scale));
+            }
+            out.blobsKept = static_cast<int>(out.zones.size());
+        }
+    }
     // Division alone cannot guarantee the endpoints (e.g. zero anomalous pixels).
     if (sensitivity == 0.0) {
         out.anomalyScore = 0.0;
+        out.mainRoiScore = 0.0;
         out.reject = false;
         out.reason.clear();
     } else if (sensitivity == 1.0) {
         out.anomalyScore = 1.0;
+        out.mainRoiScore = 1.0;
         out.reject = true;
         out.reason = "score_over_threshold";
     }
@@ -212,6 +269,8 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         out.diff = diff;
         out.kept = kept;
         out.aligned = aligned;
+        energy.setTo(0, kept == 0);
+        out.scoredEnergy = energy;
     }
     out.totalMs = msSince(tStart);
     return out;
@@ -229,7 +288,7 @@ cv::Mat placeInCanvas(const InspectOutcome& out, const cv::Mat& regionImg) {
 
 cv::Mat buildHeatmap(const InspectOutcome& out, const NormPolygon& roi, int maxWidth) {
     // Only scored components are visible; the halo below is decorative and adds no scored area.
-    cv::Mat core = anomalyEnergy(out.diff, out.pixelThreshold);
+    cv::Mat core = out.scoredEnergy.empty() ? anomalyEnergy(out.diff, out.pixelThreshold) : out.scoredEnergy.clone();
     core.setTo(0, out.kept == 0);
     cv::Mat heat = placeInCanvas(out, core);
 

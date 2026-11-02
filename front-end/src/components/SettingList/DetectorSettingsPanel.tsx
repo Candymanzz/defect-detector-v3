@@ -293,6 +293,8 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
         </button>
       </p>
 
+      <p className="analysis-presets__intro">В верхних углах ROI порог контраста соответствует чувствительности на 10% выше общей: по 15% ширины с каждой стороны и 1/7 высоты. Ослабление сравнения и формула score общие для всего ROI.</p>
+
       <div className="analysis-presets__fields">
         {FIELDS.map((field) => {
           const value = settings[field.name];

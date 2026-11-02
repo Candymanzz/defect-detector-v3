@@ -201,6 +201,12 @@ void addMetricDiagnostics(json& j, const Inspected& r) {
     j["horizontal_shift_tolerance_mm"] = r.settings.horizontalShiftMm ? json(*r.settings.horizontalShiftMm) : json(nullptr);
     j["vertical_shift_tolerance_mm"] = r.settings.verticalShiftMm ? json(*r.settings.verticalShiftMm) : json(nullptr);
     if (r.out.scale > 0) j["analysis_pixel_mm"] = {units.x / r.out.scale, units.y / r.out.scale};
+    j["main_roi_score"] = r.out.mainRoiScore;
+    j["upper_corner_boost"] = {{"sensitivity_multiplier", kUpperCornerSensitivityMultiplier},
+        {"score_normalizer", "global"},
+        {"sensitivity", r.out.upperCornerSensitivity}, {"extra_score", r.out.upperCornerExtraScore},
+        {"width_fraction", kUpperCornerWidthFraction}, {"height_fraction", kUpperCornerHeightFraction},
+        {"area_px", r.out.upperCornerArea}, {"pixel_threshold", r.out.upperCornerPixelThreshold}};
 }
 
 json inspectJson(const std::string& product, const Inspected& r, const Service::Written* w, double totalMs) {
@@ -215,7 +221,7 @@ json inspectJson(const std::string& product, const Inspected& r, const Service::
     j["rechecked_zones_count"] = 0;
     j["recheck_adjustment"] = 0.0;
     j["rechecked_zone_ids"] = json::array();
-    j["main_roi_score"] = o.anomalyScore;
+    j["main_roi_score"] = o.mainRoiScore;
     j["sub_zone_scores"] = json::array();
     j["inspection_id"] = nullptr;
     j["learned_normal_matches_count"] = 0;

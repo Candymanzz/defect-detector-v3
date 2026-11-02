@@ -9,6 +9,9 @@ namespace cas {
 
 using NormPolygon = std::vector<cv::Point2d>;   // ROI points in 0..1 of the frame
 
+constexpr double kUpperCornerWidthFraction = 0.15;
+constexpr double kUpperCornerHeightFraction = 1.0 / 7.0;
+
 // Reference data prepared for one analysis scale and the current ROI (immutable, shared between threads).
 struct Prepared {
     double scale = 1.0;
@@ -17,6 +20,8 @@ struct Prepared {
     cv::Mat roiMask;          // CV_8U 0/255 at work size (full frame when no ROI)
     int roiArea = 0;          // pixels in roiMask
     cv::Rect region;          // ROI bounding box + padding (analysis is limited to it)
+    cv::Mat upperCornerMask;  // CV_8U, region-sized; top 1/7, outer 15% on each side of explicit ROI
+    int upperCornerArea = 0;
     cv::Size smallSize;       // size used for the cheap shift estimation
     cv::Mat refSmall;         // CV_32F reference region resized to smallSize
     cv::Mat hann;             // CV_32F Hanning window of smallSize

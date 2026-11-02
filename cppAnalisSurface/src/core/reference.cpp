@@ -9,6 +9,30 @@ namespace {
 
 constexpr int kShiftEstimateMaxSide = 256;   // shift is estimated on a thumbnail of the ROI box
 
+cv::Mat upperCornerMask(const cv::Mat& roi) {
+    std::vector<int> top(roi.cols, roi.rows), bottom(roi.cols, -1);
+    const cv::Rect bounds = cv::boundingRect(roi);
+    for (int y = 0; y < roi.rows; ++y) {
+        const auto* row = roi.ptr<uchar>(y);
+        for (int x = 0; x < roi.cols; ++x) if (row[x]) {
+            top[x] = std::min(top[x], y); bottom[x] = y;
+        }
+    }
+    cv::Mat mask = cv::Mat::zeros(roi.size(), CV_8U);
+    for (int y = 0; y < roi.rows; ++y) {
+        const auto* row = roi.ptr<uchar>(y);
+        auto* selected = mask.ptr<uchar>(y);
+        for (int x = bounds.x; x < bounds.x + bounds.width; ++x) if (row[x]) {
+            const bool side = x - bounds.x < bounds.width * kUpperCornerWidthFraction
+                || bounds.x + bounds.width - 1 - x < bounds.width * kUpperCornerWidthFraction;
+            // Follow the actual upper ROI edge at each column, including tilted labels.
+            if (side && (y - top[x]) * 7 < bottom[x] - top[x] + 1)
+                selected[x] = 255;
+        }
+    }
+    return mask;
+}
+
 cv::Mat toBlurredGray(const cv::Mat& bgr, double scale) {
     cv::Mat g;
     if (bgr.channels() == 1) g = bgr;
@@ -79,6 +103,9 @@ std::shared_ptr<const Prepared> Reference::build(double scale, const NormPolygon
     }
     p->roiArea = cv::countNonZero(p->roiMask);
     p->region = box;
+    p->upperCornerMask = roi.size() >= 3 ? upperCornerMask(p->roiMask(box))
+                                       : cv::Mat::zeros(box.size(), CV_8U);
+    p->upperCornerArea = cv::countNonZero(p->upperCornerMask);
 
     const double f = std::min(1.0, static_cast<double>(kShiftEstimateMaxSide) / std::max(box.width, box.height));
     p->smallSize = cv::Size(std::max(16, cvRound(box.width * f)), std::max(16, cvRound(box.height * f)));
