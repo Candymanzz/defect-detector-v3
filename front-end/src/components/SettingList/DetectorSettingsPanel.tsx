@@ -103,7 +103,7 @@ const FIELDS: readonly Field[] = [
     name: "inspect_scale",
     label: "Масштаб анализа",
     hint: "Во сколько раз кадр уменьшается перед анализом. Меньше — быстрее, но мелкие дефекты можно потерять. Влияет на скорость пачки из 10 кадров.",
-    min: 0.2, max: 1, step: 0.05, factor: 100, unit: "%", decimals: 0,
+    min: 0.2, max: 1, step: 0.01, factor: 100, unit: "%", decimals: 0,
   },
 ];
 
