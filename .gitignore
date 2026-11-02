@@ -27,8 +27,14 @@ node_modules/
 /.m2/
 /.maven-test-cache/
 /.verification/
-/.tmp/
+**/.tmp/
 /tools/
 **/__pycache__/
 analisSurface/backend/.venv
 analisSurface/backend/app/data/
+
+# Generated test images, JSON results, datasets and pytest caches (at any depth)
+**/.pytest-tmp*/
+**/.pytest_cache/
+**/pytest-cache-files-*/
+**/test_data/_timing_probe_*/

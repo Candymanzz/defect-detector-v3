@@ -453,6 +453,7 @@ public final class CppAnalisSurfaceHttpSupervisor implements BinaryRpcSupervisor
     }
 
     private static void putProfile(Map<String, Object> body, Map<String, Object> header, int cameraId) {
+        if (cameraId >= 0) body.put("camera_id", cameraId);
         Object explicit = header.get("analysis_profile");
         String profile = explicit == null ? "" : String.valueOf(explicit).trim();
         if (profile.isEmpty()) {
@@ -500,7 +501,9 @@ public final class CppAnalisSurfaceHttpSupervisor implements BinaryRpcSupervisor
             h.put(timing, YamlScalars.toDouble(json.get(timing), 0.0));
         }
         // нативные поля cppAnalisSurface
-        for (String key : List.of("area_percent", "reason", "shift", "zones", "settings", "frame_width", "frame_height", "seam")) {
+        for (String key : List.of("area_percent", "reason", "shift", "zones", "settings", "frame_width", "frame_height", "seam",
+                "shift_units", "shift_mm", "shift_raw_mm", "shift_limit_mm", "mm_per_pixel", "metric_scale_source",
+                "horizontal_shift_tolerance_mm", "vertical_shift_tolerance_mm", "analysis_pixel_mm")) {
             if (json.get(key) != null) {
                 h.put(key, json.get(key));
             }

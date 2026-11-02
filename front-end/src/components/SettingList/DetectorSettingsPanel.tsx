@@ -30,6 +30,8 @@ const DEFAULT_SETTINGS: DetectorSettings = {
   shift_tolerance_y: 3,
   max_alignment_shift_x: 12,
   max_alignment_shift_y: 12,
+  horizontal_shift_tolerance_mm: 3,
+  vertical_shift_tolerance_mm: 3.96,
   min_blob_area: 20,
   inspect_scale: 1,
   seam: DEFAULT_SEAM,
@@ -43,7 +45,8 @@ function withSharedRelaxation(values: Partial<DetectorSettings>): DetectorSettin
   return { ...settings, shift_tolerance_x: relaxation, shift_tolerance_y: relaxation };
 }
 
-type FieldName = Exclude<keyof DetectorSettings, "seam">;
+type FieldName = "sensitivity" | "threshold" | "horizontal_shift_tolerance_mm" | "vertical_shift_tolerance_mm"
+  | "shift_tolerance_x" | "min_blob_area" | "inspect_scale";
 
 type Field = {
   name: FieldName;
@@ -73,16 +76,16 @@ const FIELDS: readonly Field[] = [
     min: 0.01, max: 1, step: 0.005, factor: 100, unit: "%", decimals: 1,
   },
   {
-    name: "max_alignment_shift_x",
-    label: "Максимальное смещение X",
-    hint: "Максимальное перемещение этикетки целиком по оси X, в пикселях исходного кадра. Превышение при достоверном измерении — брак. Не ослабляет сравнение дефектов.",
-    min: 0, max: 160, step: 1, factor: 1, unit: "px", decimals: 2,
+    name: "horizontal_shift_tolerance_mm",
+    label: "Допуск проворота",
+    hint: "Допустимое горизонтальное перемещение этикетки при провороте ведра, в мм. Превышение при достоверном измерении — брак. Пересчёт учитывает разрешение кадра.",
+    min: 0, max: 10, step: 0.05, factor: 1, unit: "мм", decimals: 2,
   },
   {
-    name: "max_alignment_shift_y",
-    label: "Максимальное смещение Y",
-    hint: "Максимальное перемещение этикетки целиком по оси Y, в пикселях исходного кадра. Превышение при достоверном измерении — брак. Не ослабляет сравнение дефектов.",
-    min: 0, max: 160, step: 1, factor: 1, unit: "px", decimals: 2,
+    name: "vertical_shift_tolerance_mm",
+    label: "Допуск вертикального смещения",
+    hint: "Допустимое вертикальное перемещение этикетки, в мм. Превышение при достоверном измерении — брак. Пересчёт учитывает разрешение кадра.",
+    min: 0, max: 10, step: 0.05, factor: 1, unit: "мм", decimals: 2,
   },
   {
     name: "shift_tolerance_x",
@@ -265,7 +268,7 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
   useImperativeHandle(ref, () => ({
     save: persist,
     // линия стыка принадлежит конкретной камере: в режиме «все камеры» она в настройки не попадает
-    getDraft: () => ({ settings: selectedCameraId === null ? withoutSeam(settings) : settings }),
+    getDraft: () => ({ settings: editableSettings(settings, selectedCameraId !== null) }),
   }));
 
   const reset = () => {
@@ -358,6 +361,10 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
         })}
       </div>
 
+      {settings.metric_scale_source !== "calibrated" && (
+        <p className="analysis-presets__intro">Миллиметры пока приблизительные. Масштаб уточняется на машине для каждой камеры.</p>
+      )}
+
       {selectedCameraId !== null && (
         <SeamSettingsSection
           cameraId={selectedCameraId}
@@ -397,16 +404,19 @@ async function loadSettings(cameraId: number | null) {
     : orchestratorApi.getDefaultDetectorSettings();
 }
 
-function withoutSeam(settings: DetectorSettings): Partial<DetectorSettings> {
-  const rest: Partial<DetectorSettings> = { ...settings };
-  delete rest.seam;
-  return rest;
+export function editableSettings(settings: DetectorSettings, includeSeam: boolean): Partial<DetectorSettings> {
+  // Do not send effective pixel limits or copy one camera's metric scale to all cameras.
+  const result: Partial<DetectorSettings> = {};
+  for (const field of FIELDS) result[field.name] = settings[field.name];
+  result.shift_tolerance_y = settings.shift_tolerance_x;
+  if (includeSeam) result.seam = settings.seam;
+  return result;
 }
 
 async function saveSettings(cameraId: number | null, settings: DetectorSettings) {
-  if (cameraId !== null) return orchestratorApi.setCameraDetectorSettings(cameraId, settings);
+  if (cameraId !== null) return orchestratorApi.setCameraDetectorSettings(cameraId, editableSettings(settings, true));
   // стык задаётся отдельно для каждой камеры — общее сохранение его не трогает
-  const common = withoutSeam(settings);
+  const common = editableSettings(settings, false);
   const responses = await Promise.all((await allCameras()).map((id) => orchestratorApi.setCameraDetectorSettings(id, common)));
   return responses[0];
 }

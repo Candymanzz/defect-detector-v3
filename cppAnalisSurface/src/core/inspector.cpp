@@ -32,7 +32,7 @@ constexpr double kRejectShiftResponse = 0.3;
 
 }
 
-InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Settings& s, bool keepVisuals) {
+InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Settings& configured, bool keepVisuals) {
     TimingPhase algorithmTiming("algorithm_ms");
     const auto tStart = Clock::now();
     if (bgr.empty() || bgr.size() != ref.size()) {
@@ -41,6 +41,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
                                     std::to_string(ref.size().height));
     }
     InspectOutcome out;
+    const Settings s = configured.forFrame(bgr.size());
     auto prep = ref.prepared(s.inspectScale);
     out.workSize = prep->workSize;
     out.region = prep->region;

@@ -148,6 +148,8 @@ ShmFrame parseShmFrame(const json& b) {
 
 InspectJob parseJob(const json& b) {
     InspectJob job;
+    if (b.contains("camera_id") && b["camera_id"].is_number_integer() && b["camera_id"] >= 0 && b["camera_id"] < 100000)
+        job.cameraId = b["camera_id"].get<int>();
     job.product = requireString(b, "product_type");
     job.profile = optString(b, "analysis_profile");
     // flat overrides (threshold, sensitivity, ...) and an optional nested "settings" object
@@ -188,6 +190,19 @@ json imageJson(const std::optional<ImageInfo>& i) {
 }
 
 // Same field set as the Python InspectResponse (unsupported features report empty/zero), plus native fields.
+void addMetricDiagnostics(json& j, const Inspected& r) {
+    const auto units = r.settings.mmPerPixel(r.frameSize);
+    j["shift_units"] = "original_px";
+    j["mm_per_pixel"] = {units.x, units.y};
+    j["shift_mm"] = {r.out.shift.x * units.x, r.out.shift.y * units.y};
+    j["shift_raw_mm"] = {r.out.rawShift.x * units.x, r.out.rawShift.y * units.y};
+    j["shift_limit_mm"] = {r.out.shiftLimit.x * units.x, r.out.shiftLimit.y * units.y};
+    j["metric_scale_source"] = r.settings.calibration.ready() ? "calibrated" : "estimated";
+    j["horizontal_shift_tolerance_mm"] = r.settings.horizontalShiftMm ? json(*r.settings.horizontalShiftMm) : json(nullptr);
+    j["vertical_shift_tolerance_mm"] = r.settings.verticalShiftMm ? json(*r.settings.verticalShiftMm) : json(nullptr);
+    if (r.out.scale > 0) j["analysis_pixel_mm"] = {units.x / r.out.scale, units.y / r.out.scale};
+}
+
 json inspectJson(const std::string& product, const Inspected& r, const Service::Written* w, double totalMs) {
     TimingPhase timing("response_build_ms");
     const auto& o = r.out;
@@ -225,6 +240,7 @@ json inspectJson(const std::string& product, const Inspected& r, const Service::
     j["frame_width"] = r.frameSize.width;
     j["frame_height"] = r.frameSize.height;
     j["settings"] = r.settings.toJson();
+    addMetricDiagnostics(j, r);
     if (o.seamEnabled)
         j["seam"] = {{"found", o.seamFound}, {"reject", o.seamReject}, {"ratio", round3(o.seamRatio)},
                      {"max_dev", round3(o.seamMaxDev)}, {"worst_t", round3(o.seamWorstT)},
@@ -240,10 +256,20 @@ json visualsJson(json base, const Service::Written& w) {
     return base;
 }
 
-json settingsJson(Service& svc, const std::string& profile) {
+int settingsCamera(const httplib::Request& req) {
+    if (!req.has_param("camera_id")) return -1;
+    try {
+        const auto value = req.get_param_value("camera_id");
+        size_t end = 0;
+        const int cameraId = std::stoi(value, &end);
+        return end == value.size() && cameraId >= 0 && cameraId < 100000 ? cameraId : -1;
+    } catch (...) { return -1; }
+}
+
+json settingsJson(Service& svc, const std::string& profile, int cameraId = -1) {
     return {{"analysis_profile", profile},
-            {"settings", svc.settings().get(profile).toJson()},
-            {"defaults", Settings{}.toJson()},
+            {"settings", svc.settings().get(profile, cameraId).toJson()},
+            {"defaults", Settings{}.withMetricDefaults(cameraId).toJson()},
             {"saved", svc.settings().has(profile)}};
 }
 
@@ -340,6 +366,7 @@ void logInspection(const char* endpoint, const InspectJob& job, const Inspected&
     j["threshold"] = r.settings.threshold;
     j["area_percent"] = round3(o.areaPercent);
     j["settings"] = r.settings.toJson();
+    addMetricDiagnostics(j, r);
     j["frame"] = {r.frameSize.width, r.frameSize.height};
     j["work_size"] = {o.workSize.width, o.workSize.height};
     j["roi_points"] = r.roi.size();
@@ -451,28 +478,29 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
     });
 
     // ---- settings (per analysis profile) ----
-    svr.Get("/settings/defaults", [&](const httplib::Request&, httplib::Response& res) {
-        sendJson(res, {{"settings", Settings{}.toJson()}, {"defaults", Settings{}.toJson()}}, svc);
+    svr.Get("/settings/defaults", [&](const httplib::Request& req, httplib::Response& res) {
+        const auto defaults = Settings{}.withMetricDefaults(settingsCamera(req)).toJson();
+        sendJson(res, {{"settings", defaults}, {"defaults", defaults}}, svc);
     });
     svr.Get(R"(/settings/([^/]+))", [&](const httplib::Request& req, httplib::Response& res) {
-        sendJson(res, settingsJson(svc, req.matches[1].str()), svc);
+        sendJson(res, settingsJson(svc, req.matches[1].str(), settingsCamera(req)), svc);
     });
     svr.Put(R"(/settings/([^/]+))", [&](const httplib::Request& req, httplib::Response& res) {
         guarded(res, svc, [&] {
             std::string profile = req.matches[1].str();
             json b = parseBody(req);
             Settings saved;
-            std::string err = svc.settings().set(profile, b, saved);
+            std::string err = svc.settings().set(profile, b, saved, settingsCamera(req));
             if (!err.empty()) return sendError(res, svc, 400, err, "bad_settings");
             Logger::instance().info("settings saved profile=" + profile + " " + saved.toJson().dump());
-            sendJson(res, settingsJson(svc, profile), svc);
+            sendJson(res, settingsJson(svc, profile, settingsCamera(req)), svc);
         });
     });
     svr.Delete(R"(/settings/([^/]+))", [&](const httplib::Request& req, httplib::Response& res) {
         std::string profile = req.matches[1].str();
         svc.settings().reset(profile);
         Logger::instance().info("settings reset profile=" + profile);
-        sendJson(res, settingsJson(svc, profile), svc);
+        sendJson(res, settingsJson(svc, profile, settingsCamera(req)), svc);
     });
 
     // ---- inspection ----
@@ -559,7 +587,8 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
             InspectJob job;
             job.product = product;
             json overrides = json::object();
-            for (const char* k : {"sensitivity", "threshold", "shift_tolerance", "shift_tolerance_x", "shift_tolerance_y", "max_alignment_shift_x", "max_alignment_shift_y", "min_blob_area", "inspect_scale"}) {
+            for (const char* k : {"sensitivity", "threshold", "shift_tolerance", "shift_tolerance_x", "shift_tolerance_y", "max_alignment_shift_x", "max_alignment_shift_y", "min_blob_area", "inspect_scale",
+                                  "horizontal_shift_tolerance_mm", "vertical_shift_tolerance_mm"}) {
                 std::string v = formField(req, k, 0);
                 if (!v.empty()) { try { overrides[k] = std::stod(v); } catch (...) {} }
             }

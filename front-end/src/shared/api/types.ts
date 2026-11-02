@@ -578,6 +578,14 @@ export type DetectorSettings = {
   /** Максимальное общее смещение этикетки, px исходного кадра. */
   max_alignment_shift_x: number;
   max_alignment_shift_y: number;
+  /** Допуск проворота (горизонтального перемещения этикетки), мм. */
+  horizontal_shift_tolerance_mm: number;
+  /** Допуск вертикального смещения, мм. */
+  vertical_shift_tolerance_mm: number;
+  /** Приблизительные мм/пиксель при базовом разрешении камеры. */
+  estimated_mm_per_pixel?: [number, number];
+  metric_reference_size?: [number, number];
+  metric_scale_source?: "estimated" | "calibrated";
   /** Минимальная площадь дефекта, px исходного кадра. */
   min_blob_area: number;
   /** (0..1], во сколько раз кадр уменьшается перед анализом. */

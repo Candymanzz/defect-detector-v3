@@ -146,8 +146,16 @@ Inspected Service::run(const InspectJob& job, const cv::Mat& frame, bool keepVis
     if (job.roi) ref->setRoi(validated(*job.roi));
 
     Inspected r;
-    r.settings = settings_.get(job.profile.empty() ? job.product : job.profile);
+    int cameraId = job.cameraId;
+    if (cameraId < 0) {
+        const auto marker = job.product.rfind("#cam=");
+        if (marker != std::string::npos) {
+            try { cameraId = std::stoi(job.product.substr(marker + 5)); } catch (...) {}
+        }
+    }
+    r.settings = settings_.get(job.profile.empty() ? job.product : job.profile, cameraId);
     job.patch.applyTo(r.settings);
+    r.settings = r.settings.forFrame(frame.size());
     if (job.seamLine && job.seamLine->size() == 2) {
         const auto& line = *job.seamLine;
         r.settings.seam.p0x = line[0].x; r.settings.seam.p0y = line[0].y;
