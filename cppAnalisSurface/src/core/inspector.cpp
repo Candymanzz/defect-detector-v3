@@ -151,6 +151,57 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     const auto tAnomaly = Clock::now();
     const double sensitivity = std::clamp(s.sensitivity, 0.0, 1.0);
     const int thr = cvRound(80.0 - 75.0 * sensitivity);
+    const auto learnedRegions = ref.learned();
+    cv::Mat originalLabels, originalStats, originalCentroids;
+    const int originalComponents = learnedRegions.empty() ? 0 : cv::connectedComponentsWithStats(anomalyEnergy(diff, thr) > 0,
+        originalLabels, originalStats, originalCentroids, 8, CV_32S);
+    int originalFlagged = 0;
+    for (int i = 1; i < originalComponents; ++i)
+        if (originalStats.at<int>(i, cv::CC_STAT_AREA) >= std::max(1.0, s.minBlobArea * scale * scale))
+            originalFlagged += originalStats.at<int>(i, cv::CC_STAT_AREA);
+    for (const auto& learned : learnedRegions) {
+        cv::Rect box(cvRound(learned.bbox.x * scale), cvRound(learned.bbox.y * scale),
+                     std::max(1, cvRound(learned.bbox.width * scale)), std::max(1, cvRound(learned.bbox.height * scale)));
+        const cv::Rect overlap = box & region;
+        if (overlap.empty()) continue;
+        const cv::Rect local(overlap.x - region.x, overlap.y - region.y, overlap.width, overlap.height);
+        if (!cv::countNonZero(anomalyEnergy(diff(local), thr))) continue;
+        cv::Mat gray;
+        cv::cvtColor(learned.bgr, gray, cv::COLOR_BGR2GRAY);
+        cv::resize(gray, gray, box.size(), 0, 0, cv::INTER_AREA);
+        cv::GaussianBlur(gray, gray, {5, 5}, 0);
+        const cv::Rect patch(overlap.x - box.x, overlap.y - box.y, overlap.width, overlap.height);
+        cv::Mat valid(gray.size(), CV_8U, cv::Scalar(255));
+        // The saved crop is from the real frame, while curR has been aligned to the primary reference.
+        // Estimate the remaining crop translation independently, within the configured alignment limits.
+        if (overlap.width >= 16 && overlap.height >= 16) {
+            cv::Mat learnedF, currentF, hann;
+            gray(patch).convertTo(learnedF, CV_32F);
+            curR(local).convertTo(currentF, CV_32F);
+            cv::createHanningWindow(hann, overlap.size(), CV_32F);
+            double confidence = 0;
+            const auto offset = cv::phaseCorrelate(learnedF, currentF, hann, &confidence);
+            if (confidence >= 0.3 && std::abs(offset.x) <= s.maxAlignmentShiftX * scale &&
+                std::abs(offset.y) <= s.maxAlignmentShiftY * scale) {
+                const cv::Mat transform = (cv::Mat_<double>(2, 3) << 1, 0, offset.x, 0, 1, offset.y);
+                cv::warpAffine(gray, gray, transform, gray.size(), cv::INTER_LINEAR, cv::BORDER_REPLICATE);
+                cv::warpAffine(valid, valid, transform, valid.size(), cv::INTER_NEAREST, cv::BORDER_CONSTANT);
+            }
+        }
+        cv::Mat lo, hi, lower, upper, alternate;
+        const auto kernel = cv::getStructuringElement(cv::MORPH_RECT, kernelSize);
+        cv::erode(gray, lower, kernel); cv::dilate(gray, upper, kernel);
+        cv::subtract(lower(patch), curR(local), lo);
+        cv::subtract(curR(local), upper(patch), hi);
+        cv::max(lo, hi, alternate);
+        alternate.setTo(255, valid(patch) == 0);
+        // Both comparisons must agree that a pixel is anomalous for it to remain flagged.
+        const int before = cv::countNonZero(anomalyEnergy(diff(local), thr));
+        cv::Mat target = diff(local);
+        cv::min(target, alternate, target);
+        if (cv::countNonZero(anomalyEnergy(diff(local), thr)) < before)
+            out.matchedCaseIds.push_back(learned.id);
+    }
     const cv::Mat energy = anomalyEnergy(diff, thr);
     cv::Mat labels, stats, centroids;
     const int components = cv::connectedComponentsWithStats(energy > 0, labels, stats, centroids, 8, CV_32S);
@@ -184,12 +235,16 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     }
     out.blobsKept = static_cast<int>(out.zones.size());
     const int flagged = cv::countNonZero(kept);
+    if (learnedRegions.empty()) originalFlagged = flagged;
     out.areaPercent = prep->roiArea > 0 ? 100.0 * flagged / prep->roiArea : 0.0;
     // Piecewise linear scale preserves the existing score at the default sensitivity.
     const double n = sensitivity <= 0.5
         ? 100.0 + (kScoreFullScalePercent - 100.0) * (2.0 * sensitivity)
         : kScoreFullScalePercent + (0.001 - kScoreFullScalePercent) * (2.0 * sensitivity - 1.0);
     out.anomalyScore = std::min(1.0, out.areaPercent / n);
+    out.rawAnomalyScore = prep->roiArea > 0 ? std::min(1.0, 100.0 * originalFlagged / prep->roiArea / n) : 0.0;
+    if (sensitivity == 0.0) out.rawAnomalyScore = 0.0;
+    if (sensitivity == 1.0) out.rawAnomalyScore = 1.0;
     // Division alone cannot guarantee the endpoints (e.g. zero anomalous pixels).
     if (sensitivity == 0.0) {
         out.anomalyScore = 0.0;

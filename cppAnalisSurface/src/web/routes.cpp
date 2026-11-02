@@ -196,16 +196,16 @@ json inspectJson(const std::string& product, const Inspected& r, const Service::
     j["status"] = o.reject ? "БРАК" : "ГОДЕН";
     j["anomaly_score"] = o.anomalyScore;
     j["threshold"] = r.settings.threshold;
-    j["raw_anomaly_score"] = o.anomalyScore;
+    j["raw_anomaly_score"] = o.rawAnomalyScore;
     j["rechecked_zones_count"] = 0;
     j["recheck_adjustment"] = 0.0;
     j["rechecked_zone_ids"] = json::array();
     j["main_roi_score"] = o.anomalyScore;
     j["sub_zone_scores"] = json::array();
     j["inspection_id"] = nullptr;
-    j["learned_normal_matches_count"] = 0;
-    j["learned_normal_adjustment"] = 0.0;
-    j["matched_accepted_case_ids"] = json::array();
+    j["learned_normal_matches_count"] = o.matchedCaseIds.size();
+    j["learned_normal_adjustment"] = std::max(0.0, o.rawAnomalyScore - o.anomalyScore);
+    j["matched_accepted_case_ids"] = o.matchedCaseIds;
     j["excluded_normal_zones"] = json::array();
     j["fp_zone_scores"] = json::array();
     j["py_align_ms"] = round3(o.alignMs);
@@ -398,6 +398,37 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
             Logger::instance().info("context cleared " + cleared.dump());
             sendJson(res, {{"ok", true}, {"cleared", cleared}}, svc);
         });
+    });
+
+    // ---- additional normal references ----
+    svr.Post("/learning/regions", [&](const httplib::Request& req, httplib::Response& res) {
+        guarded(res, svc, [&] {
+            const auto product = req.get_param_value("product_type");
+            if (product.empty() || !hasFormFile(req, "file", 0)) throw std::invalid_argument("product_type and file required");
+            const auto b = json::parse(formField(req, "bbox", 0));
+            const auto size = json::parse(formField(req, "coordinate_space", 0));
+            const auto file = formFile(req, "file", 0);
+            std::vector<uchar> bytes(file.content.begin(), file.content.end());
+            const auto item = svc.addLearnedRegion(product, cv::imdecode(bytes, cv::IMREAD_COLOR),
+                {b.at("x"), b.at("y"), b.at("width"), b.at("height")},
+                {size.at("width"), size.at("height")}, formField(req, "source_inspection_id", 0));
+            sendJson(res, {{"saved", true}, {"accepted_count", 1}, {"accepted_cases", json::array({item})},
+                {"affects_original_pipeline_decision", true}}, svc);
+        });
+    });
+    svr.Get("/learning/accepted-cases", [&](const httplib::Request& req, httplib::Response& res) {
+        guarded(res, svc, [&] { sendJson(res, {{"cases", svc.learnedCases(req.get_param_value("product_type"))}}, svc); });
+    });
+    svr.Get(R"(/learning/accepted-cases/([a-zA-Z0-9-]+)/image)", [&](const httplib::Request& req, httplib::Response& res) {
+        guarded(res, svc, [&] {
+            auto img = svc.learnedImage(req.matches[1]);
+            if (img.empty()) { sendError(res, svc, 404, "case not found"); return; }
+            std::vector<uchar> png; cv::imencode(".png", img, png);
+            res.set_content(reinterpret_cast<const char*>(png.data()), png.size(), "image/png");
+        });
+    });
+    svr.Delete(R"(/learning/accepted-cases(?:/([a-zA-Z0-9-]+))?)", [&](const httplib::Request& req, httplib::Response& res) {
+        guarded(res, svc, [&] { sendJson(res, {{"deleted", svc.deleteLearned(req.matches[1])}}, svc); });
     });
 
     // ---- reference ----

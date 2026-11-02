@@ -8,6 +8,8 @@
 namespace cas {
 
 struct InspectOutcome {
+    double rawAnomalyScore = 0.0;
+    std::vector<std::string> matchedCaseIds;
     double areaPercent = 0.0;        // anomalous pixels / ROI pixels * 100
     double anomalyScore = 0.0;       // min(1, areaPercent / sensitivity-dependent scale); endpoints force 0/1
     bool reject = false;

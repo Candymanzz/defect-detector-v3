@@ -493,8 +493,9 @@ public final class CppAnalisSurfaceHttpSupervisor implements BinaryRpcSupervisor
         h.put("rechecked_zones_count", 0);
         h.put("recheck_adjustment", 0.0);
         h.put("rechecked_zone_ids", List.of());
-        h.put("learned_normal_matches_count", 0);
-        h.put("learned_normal_adjustment", 0.0);
+        h.put("learned_normal_matches_count", YamlScalars.toInt(json.get("learned_normal_matches_count"), 0));
+        h.put("learned_normal_adjustment", YamlScalars.toDouble(json.get("learned_normal_adjustment"), 0.0));
+        h.put("matched_accepted_case_ids", json.getOrDefault("matched_accepted_case_ids", List.of()));
         h.put("excluded_normal_zones", List.of());
         for (String timing : List.of("py_align_ms", "py_diff_ms", "py_anomaly_ms", "py_fp_recheck_ms", "py_heatmap_ms", "py_total_ms")) {
             h.put(timing, YamlScalars.toDouble(json.get(timing), 0.0));

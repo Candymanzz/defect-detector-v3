@@ -4,10 +4,17 @@
 #include <memory>
 #include <mutex>
 #include <vector>
+#include <string>
 
 namespace cas {
 
 using NormPolygon = std::vector<cv::Point2d>;   // ROI points in 0..1 of the frame
+
+struct LearnedRegion {
+    std::string id;
+    cv::Rect bbox;
+    cv::Mat bgr;
+};
 
 // Reference data prepared for one analysis scale and the current ROI (immutable, shared between threads).
 struct Prepared {
@@ -27,6 +34,9 @@ class Reference {
 public:
     explicit Reference(cv::Mat bgr);
 
+    std::string fingerprint() const;
+    void setLearned(std::vector<LearnedRegion> regions);
+    std::vector<LearnedRegion> learned() const;
     const cv::Mat& bgr() const { return bgr_; }
     cv::Size size() const { return bgr_.size(); }
 
@@ -42,6 +52,7 @@ private:
     cv::Mat bgr_;
     mutable std::mutex m_;
     NormPolygon roi_;
+    std::vector<LearnedRegion> learned_;
     mutable std::map<int, std::shared_ptr<const Prepared>> cache_;
 };
 

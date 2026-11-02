@@ -495,6 +495,19 @@ export const orchestratorApi = {
     });
   },
 
+  async addLearnedRegion(productType: string, cameraId: number, frameId: string,
+    image: Blob, bbox: { x: number; y: number; width: number; height: number },
+    frameSize: { width: number; height: number }) {
+    const body = new FormData();
+    body.set("file", image, "normal-region.png");
+    body.set("bbox", JSON.stringify(bbox));
+    body.set("coordinate_space", JSON.stringify(frameSize));
+    body.set("source_inspection_id", frameId);
+    return http.json<AcceptLearnedNormalsResponse>("/api/client/learning/regions", {
+      method: "POST", query: { productType, cameraId }, body,
+    });
+  },
+
   async acceptLearnedNormals(request: AcceptLearnedNormalsRequest) {
     return http.json<AcceptLearnedNormalsResponse>("/api/client/learning/accept-all-as-normal", {
       method: "POST",
