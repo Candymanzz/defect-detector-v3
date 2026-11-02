@@ -11,6 +11,9 @@ import type { FpZoneNorm, InspectResultPayload, InterestPointNorm, ServerWsMessa
 import { FpZoneEditor } from "../FpZoneEditor";
 import { GeometryDeviationViewer } from "../GeometryDeviationViewer";
 import { HeatmapViewer } from "../HeatmapViewer";
+import { loadHeatmapForCamera } from "../HeatmapViewer/HeatmapController";
+import { cropLearningFrame, learnedRegionBounds, loadLearningFrame } from "../../shared/learnedRegion";
+import type { PixelRoi } from "../../shared/ws";
 import "./ModalWrapper.css";
 
 type ModalWrapperProps = {
@@ -88,6 +91,7 @@ export function ModalWrapper({
     inspectResult?.server_ts_ms,
     inspectResult?.test_analyze,
   );
+  const [learningRegion, setLearningRegion] = useState<{ cameraId: number; frameId: string; bbox: PixelRoi; width: number; height: number } | null>(null);
   const [editedFpZones, setEditedFpZones] = useState<FpZoneNorm[]>(() => copyFpZones(referenceFpZones ?? []));
   const [fpZonesStatus, setFpZonesStatus] = useState<FpZonesStatus>({ state: "idle", text: "" });
 
@@ -132,6 +136,8 @@ export function ModalWrapper({
                   key={`${inspectResult.camera_id}-${inspectResult.frame_id}-${inspectResult.learned_review_id ?? "pending"}`}
                   inspectResult={inspectResult}
                   productType={inspectResult.detector.product_type}
+                  imageUrl={displayedCurrentImageUrl}
+                  onRegion={(bbox, width, height) => setLearningRegion({ cameraId: inspectResult.camera_id, frameId: inspectResult.frame_id, bbox, width, height })}
                 />
               )}
               {headerActions}
@@ -164,6 +170,12 @@ export function ModalWrapper({
             imageUrl={displayedCurrentImageUrl}
             label={inspectResult?.test_analyze ? "Зафиксированный кадр теста" : "Последний кадр инспекции"}
             retainPreviousWhileLoading={Boolean(inspectResult?.test_analyze)}
+            roiPoints={learningRegion && learningRegion.cameraId === inspectResult?.camera_id && learningRegion.frameId === inspectResult.frame_id ? [
+              { x: learningRegion.bbox.x / learningRegion.width, y: learningRegion.bbox.y / learningRegion.height },
+              { x: (learningRegion.bbox.x + learningRegion.bbox.width) / learningRegion.width, y: learningRegion.bbox.y / learningRegion.height },
+              { x: (learningRegion.bbox.x + learningRegion.bbox.width) / learningRegion.width, y: (learningRegion.bbox.y + learningRegion.bbox.height) / learningRegion.height },
+              { x: learningRegion.bbox.x / learningRegion.width, y: (learningRegion.bbox.y + learningRegion.bbox.height) / learningRegion.height },
+            ] : undefined}
           />
           <HeatmapPanel
             key={
@@ -229,7 +241,10 @@ export function ModalWrapper({
   );
 }
 
-function LearnFrameAction({ inspectResult, productType }: { inspectResult: InspectResultPayload; productType: string }) {
+function LearnFrameAction({ inspectResult, productType, imageUrl, onRegion }: {
+  inspectResult: InspectResultPayload; productType: string; imageUrl?: string;
+  onRegion: (bbox: PixelRoi, width: number, height: number) => void;
+}) {
   const [state, setState] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
 
@@ -237,12 +252,15 @@ function LearnFrameAction({ inspectResult, productType }: { inspectResult: Inspe
     setState("saving");
     setMessage(`Кадр ${inspectResult.frame_id}: отправка в дообучение…`);
     try {
-      const result = await orchestratorApi.acceptLearnedNormals({
-        frameId: inspectResult.frame_id,
-        cameraId: inspectResult.camera_id,
-        productType,
-        learnedReviewId: inspectResult.learned_review_id,
-      });
+      if (!imageUrl || !inspectResult.heatmap) throw new Error("Нет кадра или карты аномалий для дообучения");
+      const [image, bytes] = await Promise.all([
+        loadLearningFrame(imageUrl), loadHeatmapForCamera(inspectResult.heatmap),
+      ]);
+      const bbox = learnedRegionBounds(bytes, inspectResult.heatmap, image.naturalWidth, image.naturalHeight);
+      onRegion(bbox, image.naturalWidth, image.naturalHeight);
+      const crop = await cropLearningFrame(image, bbox);
+      const result = await orchestratorApi.addLearnedRegion(productType, inspectResult.camera_id,
+        inspectResult.frame_id, crop, bbox, { width: image.naturalWidth, height: image.naturalHeight });
       const acceptedCaseIds = result.accepted_case_ids ?? result.accepted_cases?.map((item) => item.id) ?? [];
       const acceptedCases =
         result.accepted_cases ??
@@ -258,7 +276,7 @@ function LearnFrameAction({ inspectResult, productType }: { inspectResult: Inspe
       setState("error");
       setMessage(
         status === 404
-          ? `Кадр ${inspectResult.frame_id}: review не найден (нет в архиве/сессии).`
+          ? `Кадр ${inspectResult.frame_id}: детектор не поддерживает сохранение фрагмента.`
           : status === 409
             ? `Кадр ${inspectResult.frame_id}: уже добавлен или нечего дообучать.`
             : error instanceof Error
@@ -275,7 +293,7 @@ function LearnFrameAction({ inspectResult, productType }: { inspectResult: Inspe
           ? "Добавление…"
           : state === "success"
             ? "Добавлено в анализ"
-            : `Добавить кадр ${inspectResult.frame_id} в анализ`}
+            : "Дообучить"}
       </button>
       {message && <span role={state === "error" ? "alert" : "status"}>{message}</span>}
     </div>

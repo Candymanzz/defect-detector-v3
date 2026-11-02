@@ -8,6 +8,8 @@
 #include <cmath>
 #include <cstdlib>
 #include <random>
+#include <fstream>
+#include <opencv2/imgcodecs.hpp>
 
 namespace cas {
 
@@ -79,10 +81,109 @@ private:
 };
 
 Service::Service(fs::path dataDir, int workers)
-    : detectorId_(makeDetectorId()),
+    : learningDir_(dataDir / "learned-regions"), detectorId_(makeDetectorId()),
       workers_(std::max(1, workers)),
       settings_(dataDir / "settings.json"),
-      freeSlots_(std::max(1, workers)) {}
+      freeSlots_(std::max(1, workers)) {
+    fs::create_directories(learningDir_);
+    std::ifstream input(learningDir_ / "cases.json");
+    if (input) {
+        input >> learnedMetadata_;
+        if (!learnedMetadata_.is_array()) throw std::runtime_error("Invalid learned-regions/cases.json");
+        for (const auto& item : learnedMetadata_) {
+            const auto id = item.at("id").get<std::string>();
+            auto image = cv::imread((learningDir_ / (id + ".png")).string());
+            if (!image.empty()) learnedImages_[id] = image;
+        }
+    }
+}
+
+void Service::saveLearned() {
+    const auto temp = learningDir_ / "cases.json.tmp";
+    { std::ofstream output(temp); output << learnedMetadata_.dump(2); output.flush();
+      if (!output) throw std::runtime_error("Cannot save learned region metadata"); }
+    fs::rename(temp, learningDir_ / "cases.json");
+}
+
+void Service::attachLearned(const std::string& product, const std::shared_ptr<Reference>& ref) {
+    std::vector<LearnedRegion> regions;
+    const auto fingerprint = ref->fingerprint();
+    for (const auto& item : learnedMetadata_) {
+        if (item.at("product_type") != product || item.at("reference_fingerprint") != fingerprint) continue;
+        const auto id = item.at("id").get<std::string>();
+        auto image = learnedImages_.find(id);
+        if (image == learnedImages_.end()) continue;
+        const auto& b = item.at("bbox");
+        regions.push_back({id, {b.at("x"), b.at("y"), b.at("width"), b.at("height")}, image->second});
+    }
+    ref->setLearned(std::move(regions));
+}
+
+nlohmann::json Service::addLearnedRegion(const std::string& product, cv::Mat crop, cv::Rect bbox,
+    cv::Size frameSize, const std::string& source) {
+    auto ref = reference(product);
+    if (!ref) throw NoReference(product);
+    if (frameSize.width <= 0 || frameSize.height <= 0 || bbox.empty() ||
+        (bbox & cv::Rect({}, frameSize)) != bbox || crop.empty() || crop.size() != bbox.size())
+        throw std::invalid_argument("Invalid learned crop dimensions or bounds");
+    // Archive previews may be smaller than the reference. Store camera-space coordinates and pixels.
+    const auto size = ref->size();
+    const int x = cvRound(bbox.x * double(size.width) / frameSize.width);
+    const int y = cvRound(bbox.y * double(size.height) / frameSize.height);
+    const int right = cvRound((bbox.x + bbox.width) * double(size.width) / frameSize.width);
+    const int bottom = cvRound((bbox.y + bbox.height) * double(size.height) / frameSize.height);
+    bbox = {x, y, right - x, bottom - y};
+    if (bbox.empty()) throw std::invalid_argument("Learned region too small");
+    cv::resize(crop, crop, bbox.size(), 0, 0, cv::INTER_LINEAR);
+    std::lock_guard<std::mutex> lock(learningM_);
+    const auto fingerprint = ref->fingerprint();
+    for (const auto& item : learnedMetadata_)
+        if (item.at("product_type") == product && item.at("source_inspection_id") == source &&
+            item.at("reference_fingerprint") == fingerprint) return item;
+    std::random_device random;
+    const auto id = "normal-" + std::to_string(random()) + "-" + std::to_string(random()) + "-" + std::to_string(random());
+    nlohmann::json item = {{"id", id}, {"product_type", product}, {"reference_fingerprint", fingerprint},
+        {"source_inspection_id", source}, {"bbox", {{"x", bbox.x}, {"y", bbox.y}, {"width", bbox.width}, {"height", bbox.height}}},
+        {"coordinate_space", {{"width", size.width}, {"height", size.height}}}};
+    if (!cv::imwrite((learningDir_ / (id + ".png")).string(), crop)) throw std::runtime_error("Cannot save learned crop");
+    learnedMetadata_.push_back(item); learnedImages_[id] = crop;
+    try { saveLearned(); } catch (...) { learnedMetadata_.erase(learnedMetadata_.size() - 1); learnedImages_.erase(id); throw; }
+    attachLearned(product, ref);
+    return item;
+}
+
+nlohmann::json Service::learnedCases(const std::string& product) {
+    std::lock_guard<std::mutex> lock(learningM_);
+    auto items = nlohmann::json::array();
+    for (const auto& item : learnedMetadata_) if (product.empty() || item.at("product_type") == product) items.push_back(item);
+    return items;
+}
+cv::Mat Service::learnedImage(const std::string& id) {
+    std::lock_guard<std::mutex> lock(learningM_);
+    const auto found = learnedImages_.find(id);
+    return found == learnedImages_.end() ? cv::Mat{} : found->second;
+}
+bool Service::deleteLearned(const std::string& id) {
+    std::lock_guard<std::mutex> lock(learningM_);
+    bool deleted = false;
+    auto next = nlohmann::json::array();
+    for (const auto& item : learnedMetadata_) {
+        if (id.empty() || item.at("id") == id) deleted = true;
+        else next.push_back(item);
+    }
+    auto previous = learnedMetadata_;
+    learnedMetadata_ = next;
+    try { saveLearned(); } catch (...) { learnedMetadata_ = previous; throw; }
+    // Refresh active references after the durable update.
+    { std::lock_guard<std::mutex> registry(regM_);
+      for (const auto& [product, ref] : refs_) attachLearned(product, ref); }
+    for (const auto& item : previous) if (id.empty() || item.at("id") == id) {
+        const auto key = item.at("id").get<std::string>();
+        learnedImages_.erase(key);
+        std::error_code ec; fs::remove(learningDir_ / (key + ".png"), ec);
+    }
+    return deleted;
+}
 
 NormPolygon Service::validated(NormPolygon pts) {
     if (pts.size() < 3) throw std::invalid_argument("ROI polygon must contain at least 3 points");
@@ -99,6 +200,8 @@ NormPolygon Service::validated(NormPolygon pts) {
 void Service::setReference(const std::string& product, cv::Mat bgr) {
     if (bgr.empty()) throw std::invalid_argument("empty reference image");
     auto ref = std::make_shared<Reference>(std::move(bgr));
+    std::lock_guard<std::mutex> learning(learningM_);
+    attachLearned(product, ref);
     std::lock_guard<std::mutex> lk(regM_);
     auto old = refs_.find(product);
     // a new reference of the same size keeps the camera ROI (the orchestrator may re-send it anyway)

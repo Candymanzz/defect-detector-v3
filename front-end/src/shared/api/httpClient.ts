@@ -71,7 +71,7 @@ export class HttpClient {
     const headers = new Headers(options.headers);
     const hasBody = options.body !== undefined;
 
-    if (hasBody && !headers.has("Content-Type")) {
+    if (hasBody && !(options.body instanceof FormData) && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json");
     }
 
@@ -91,7 +91,7 @@ export class HttpClient {
       const response = await fetch(this.url(path, options.query), {
         method: options.method ?? (hasBody ? "POST" : "GET"),
         headers,
-        body: hasBody ? JSON.stringify(options.body) : undefined,
+        body: options.body instanceof FormData ? options.body : hasBody ? JSON.stringify(options.body) : undefined,
         signal: controller.signal,
         cache: "no-store",
       });

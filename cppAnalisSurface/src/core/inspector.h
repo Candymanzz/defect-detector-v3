@@ -10,6 +10,8 @@ namespace cas {
 constexpr double kUpperCornerSensitivityMultiplier = 1.1;
 
 struct InspectOutcome {
+    double rawAnomalyScore = 0.0;
+    std::vector<std::string> matchedCaseIds;
     double areaPercent = 0.0;        // anomalous pixels / ROI pixels * 100
     double anomalyScore = 0.0;       // whole-ROI score; upper corners use a lower contrast threshold
     double mainRoiScore = 0.0;       // unchanged base inspection, before the upper-corner sensitivity boost

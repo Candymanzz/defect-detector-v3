@@ -67,6 +67,12 @@ public:
     std::optional<NormPolygon> roi(const std::string& product);
     nlohmann::json clearContext();
 
+    nlohmann::json addLearnedRegion(const std::string& product, cv::Mat crop, cv::Rect bbox,
+        cv::Size frameSize, const std::string& source);
+    nlohmann::json learnedCases(const std::string& product);
+    cv::Mat learnedImage(const std::string& id);
+    bool deleteLearned(const std::string& id);
+
     // Reads the frame from shared memory and inspects it (bounded by the worker limit).
     Inspected inspectShm(const InspectJob& job, const ShmFrame& frame, bool keepVisuals);
     // Inspects an already decoded frame (multipart upload / test frame).
@@ -84,6 +90,12 @@ private:
     Inspected run(const InspectJob& job, const cv::Mat& frame, bool keepVisuals);
     static NormPolygon validated(NormPolygon pts);
 
+    void saveLearned(); // learningM_ held
+    void attachLearned(const std::string& product, const std::shared_ptr<Reference>& ref); // learningM_ held
+    std::filesystem::path learningDir_;
+    std::mutex learningM_;
+    nlohmann::json learnedMetadata_ = nlohmann::json::array();
+    std::map<std::string, cv::Mat> learnedImages_;
     std::string detectorId_;
     int workers_;
     SettingsStore settings_;

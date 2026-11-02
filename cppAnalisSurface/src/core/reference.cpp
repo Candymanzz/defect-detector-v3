@@ -46,6 +46,20 @@ cv::Mat toBlurredGray(const cv::Mat& bgr, double scale) {
 
 Reference::Reference(cv::Mat bgr) : bgr_(std::move(bgr)) {}
 
+std::string Reference::fingerprint() const {
+    uint64_t hash = 14695981039346656037ull;
+    for (int y = 0; y < bgr_.rows; ++y) for (size_t x = 0; x < bgr_.cols * bgr_.elemSize(); ++x) {
+        hash ^= bgr_.ptr<uchar>(y)[x]; hash *= 1099511628211ull;
+    }
+    return std::to_string(bgr_.cols) + "x" + std::to_string(bgr_.rows) + "-" + std::to_string(hash);
+}
+void Reference::setLearned(std::vector<LearnedRegion> regions) {
+    std::lock_guard<std::mutex> lk(m_); learned_ = std::move(regions);
+}
+std::vector<LearnedRegion> Reference::learned() const {
+    std::lock_guard<std::mutex> lk(m_); return learned_;
+}
+
 bool Reference::setRoi(NormPolygon pts) {
     std::lock_guard<std::mutex> lk(m_);
     if (pts.size() == roi_.size()) {
