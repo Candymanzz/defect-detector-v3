@@ -1,3 +1,12 @@
+## Устойчивое дообучение (2026-11-02)
+
+Перенесён matcher из CppDetector: отдельный поиск образца, маска отличий и компенсация плавной тени.
+Поля профиля и временных settings: learning_robust_enabled=true, learning_shadow_enabled=true,
+learning_search_radius=24 (целое 0..64 исходных px). Выключение robust возвращает matcher 52aa31ea.
+Существующие образцы/профили совместимы. Ответ/логи включают learning_engine, learning_diagnostics,
+learning_ms; Java передаёт их в кадр WS/архива и карточку результата.
+[Поведение, проверки и ограничения](../knowledge/analis-surface/robust-learning-v2.md).
+
 # cppAnalisSurface
 
 Linux-интеграция с JNI-камерами, MVS IO и киоском: [инструкция](../deploy/linux/CPP-DETECTOR.md).
