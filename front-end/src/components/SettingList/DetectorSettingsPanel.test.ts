@@ -27,6 +27,7 @@ describe("DetectorSettingsPanel metric limits", () => {
       horizontal_shift_tolerance_mm: 0, vertical_shift_tolerance_mm: 4,
       estimated_mm_per_pixel: [.27, .34], metric_scale_source: "estimated",
       min_blob_area: 20, inspect_scale: .5,
+      learning_robust_enabled: true, learning_shadow_enabled: true, learning_search_radius: 24,
       seam: {enabled: false, p0: [0,0], p1: [0,0], band: 30, tol_mid: 1, tol_edge: 5, edge_frac: .12},
     };
     const common = editableSettings(settings, false);
@@ -39,5 +40,12 @@ describe("DetectorSettingsPanel metric limits", () => {
     expect(common).not.toHaveProperty("max_alignment_shift_y");
     expect(common).not.toHaveProperty("seam");
     expect(editableSettings(settings, true).seam).toEqual(settings.seam);
+  });
+  it("exposes a separate bounded learning radius and both fallback switches", () => {
+    const html = renderToStaticMarkup(createElement(DetectorSettingsPanel, { selectedCameraId: 1 }));
+    const radius = html.match(/<input[^>]*aria-label="Поиск образца нормы, px"[^>]*>/)?.[0];
+    for (const attribute of ['min="0"', 'max="64"', 'value="24"']) expect(radius).toContain(attribute);
+    expect(html).toContain("Устойчивое сопоставление образцов");
+    expect(html).toContain("Учитывать смещение плавной тени");
   });
 });

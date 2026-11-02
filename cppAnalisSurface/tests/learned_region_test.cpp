@@ -8,6 +8,18 @@ void require(bool ok, const char* message) { if (!ok) throw std::runtime_error(m
 int main() {
     const auto dir = std::filesystem::temp_directory_path() / ("cas-learning-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
     try {
+        cas::Settings settings;
+        require(settings.learningRobustEnabled && settings.learningShadowEnabled && settings.learningSearchRadius == 24,
+            "new and old profiles must receive the learning defaults");
+        require(!settings.applyJson({{"learning_search_radius", 65}}).empty(), "radius upper bound");
+        require(!settings.applyJson({{"learning_search_radius", 2.5}}).empty(), "radius must be an integer");
+        require(!settings.applyJson({{"learning_shadow_enabled", 1}}).empty(), "shadow flag must be boolean");
+        require(settings.learningSearchRadius == 24 && settings.learningShadowEnabled, "invalid update is transactional");
+        cas::SettingsPatch::fromJson({{"learning_robust_enabled", false}, {"learning_shadow_enabled", false}, {"learning_search_radius", 0}}).applyTo(settings);
+        require(!settings.learningRobustEnabled && !settings.learningShadowEnabled && settings.learningSearchRadius == 0,
+            "false and zero temporary overrides must be applied");
+        cas::SettingsPatch::fromJson({{"learning_search_radius", -1}, {"learning_shadow_enabled", "true"}}).applyTo(settings);
+        require(settings.learningSearchRadius == 0 && !settings.learningShadowEnabled, "invalid overrides ignored");
         cv::Mat base(320, 384, CV_8UC3);
         cv::RNG rng(42); rng.fill(base, cv::RNG::UNIFORM, 50, 180);
         cv::GaussianBlur(base, base, {5, 5}, 0);
