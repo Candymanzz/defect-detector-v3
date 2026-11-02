@@ -9,6 +9,10 @@
 #include <cstdlib>
 #include <random>
 #include <fstream>
+#ifdef _WIN32
+#define NOMINMAX
+#include <windows.h>
+#endif
 #include <opencv2/imgcodecs.hpp>
 
 namespace cas {
@@ -102,7 +106,13 @@ void Service::saveLearned() {
     const auto temp = learningDir_ / "cases.json.tmp";
     { std::ofstream output(temp); output << learnedMetadata_.dump(2); output.flush();
       if (!output) throw std::runtime_error("Cannot save learned region metadata"); }
+#ifdef _WIN32
+    const auto destination=learningDir_ / "cases.json";
+    if(!MoveFileExW(temp.c_str(),destination.c_str(),MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+        throw std::runtime_error("Cannot replace learned region metadata");
+#else
     fs::rename(temp, learningDir_ / "cases.json");
+#endif
 }
 
 void Service::attachLearned(const std::string& product, const std::shared_ptr<Reference>& ref) {

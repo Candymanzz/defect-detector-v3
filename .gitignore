@@ -38,3 +38,7 @@ analisSurface/backend/app/data/
 **/.pytest_cache/
 **/pytest-cache-files-*/
 **/test_data/_timing_probe_*/
+analisSurface/backend/test_data/
+rebuild-and-run.ps1 - Shortcut.lnk
+analisSurface/lab/
+

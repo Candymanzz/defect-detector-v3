@@ -64,7 +64,8 @@ public final class DefaultInspectionDecisionAggregator implements InspectionDeci
                 jointWidthMm,
                 jointVisibility,
                 jointPass,
-                GeometryUiPayload.fromGeomResponse(geomResp)
+                GeometryUiPayload.fromGeomResponse(geomResp),
+                com.example.iml.orchestrator.integration.pipeline.LearningDiagnostics.fromResponse(pyResp)
         );
         if (log != null) {
             log.info(

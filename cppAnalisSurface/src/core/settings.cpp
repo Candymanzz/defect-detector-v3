@@ -51,7 +51,8 @@ json Settings::toJson() const {
     json j = {{"sensitivity", sensitivity}, {"threshold", threshold},
             {"shift_tolerance_x", shiftToleranceX}, {"shift_tolerance_y", shiftToleranceY},
             {"max_alignment_shift_x", maxAlignmentShiftX}, {"max_alignment_shift_y", maxAlignmentShiftY},
-            {"min_blob_area", minBlobArea}, {"inspect_scale", inspectScale}, {"seam", seam.toJson()}};
+            {"learning_robust_enabled", learningRobustEnabled}, {"learning_shadow_enabled", learningShadowEnabled},
+            {"learning_search_radius", learningSearchRadius}, {"min_blob_area", minBlobArea}, {"inspect_scale", inspectScale}, {"seam", seam.toJson()}};
     j["horizontal_shift_tolerance_mm"] = horizontalShiftMm ? json(*horizontalShiftMm) : json(nullptr);
     j["vertical_shift_tolerance_mm"] = verticalShiftMm ? json(*verticalShiftMm) : json(nullptr);
     j["estimated_mm_per_pixel"] = {estimatedMmPerPixel.x, estimatedMmPerPixel.y};
@@ -186,6 +187,15 @@ std::string Settings::applyJson(const json& j) {
     v = tmp.inspectScale;
     if (!readNumber(j, "inspect_scale", 0.1, 1, false, v, err)) return err;
     tmp.inspectScale = v;
+    for (auto field : {"learning_robust_enabled", "learning_shadow_enabled"}) {
+        if (j.contains(field) && !j[field].is_boolean()) return std::string(field)+" must be a boolean";
+    }
+    if(j.contains("learning_robust_enabled")) tmp.learningRobustEnabled=j["learning_robust_enabled"].get<bool>();
+    if(j.contains("learning_shadow_enabled")) tmp.learningShadowEnabled=j["learning_shadow_enabled"].get<bool>();
+    v=tmp.learningSearchRadius;
+    if(j.contains("learning_search_radius") && !j["learning_search_radius"].is_number_integer()) return "learning_search_radius must be an integer";
+    if(!readNumber(j,"learning_search_radius",0,64,false,v,err)) return err;
+    tmp.learningSearchRadius=static_cast<int>(v);
     if (j.contains("seam")) {
         err = tmp.seam.applyJson(j["seam"]);
         if (!err.empty()) return err;
@@ -220,6 +230,9 @@ SettingsPatch SettingsPatch::fromJson(const json& j) {
         Settings candidate;
         if (candidate.applyJson({{key, j[key]}}).empty()) p.metric[key] = j[key];
     }
+    take("learning_search_radius", p.learningSearchRadius);
+    if(j.contains("learning_robust_enabled") && j["learning_robust_enabled"].is_boolean()) p.learningRobustEnabled=j["learning_robust_enabled"].get<bool>();
+    if(j.contains("learning_shadow_enabled") && j["learning_shadow_enabled"].is_boolean()) p.learningShadowEnabled=j["learning_shadow_enabled"].get<bool>();
     if (j.contains("seam") && j["seam"].is_object()) {
         SeamSettings probeSeam;
         if (probeSeam.applyJson(j["seam"]).empty()) p.seam = j["seam"];   // invalid seam override is ignored as a whole
@@ -236,6 +249,9 @@ void SettingsPatch::applyTo(Settings& s) const {
     if (maxAlignmentShiftX) { s.maxAlignmentShiftX = *maxAlignmentShiftX; s.horizontalShiftMm.reset(); }
     if (maxAlignmentShiftY) { s.maxAlignmentShiftY = *maxAlignmentShiftY; s.verticalShiftMm.reset(); }
     if (minBlobArea) s.minBlobArea = *minBlobArea;
+    if(learningRobustEnabled) s.learningRobustEnabled=*learningRobustEnabled;
+    if(learningShadowEnabled) s.learningShadowEnabled=*learningShadowEnabled;
+    if(learningSearchRadius) s.learningSearchRadius=*learningSearchRadius;
     if (seam.is_object()) s.seam.applyJson(seam);
     if (metric.is_object()) s.applyJson(metric);
 }

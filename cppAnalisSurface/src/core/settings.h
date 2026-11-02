@@ -47,6 +47,9 @@ struct Settings {
     MetricCalibration calibration;
     int minBlobArea = 20;         // px of the original frame, smaller anomalies are noise
     double inspectScale = 1.0;    // (0..1], frame is downscaled by this factor before analysis
+    bool learningRobustEnabled = true;
+    bool learningShadowEnabled = true;
+    int learningSearchRadius = 24; // original pixels, independent from global alignment
     SeamSettings seam;            // seam straightness check
 
     Settings withMetricDefaults(int cameraId = -1) const;
@@ -63,6 +66,8 @@ struct SettingsPatch {
     std::optional<int> shiftToleranceX, shiftToleranceY, minBlobArea;
     std::optional<double> maxAlignmentShiftX, maxAlignmentShiftY;
     json metric;
+    std::optional<bool> learningRobustEnabled, learningShadowEnabled;
+    std::optional<int> learningSearchRadius;
     json seam;                                       // partial seam settings (null = none)
     static SettingsPatch fromJson(const json& j);   // ignores missing, wrong-typed or out-of-range fields
     void applyTo(Settings& s) const;

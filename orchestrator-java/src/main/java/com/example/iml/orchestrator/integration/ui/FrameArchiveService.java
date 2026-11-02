@@ -125,9 +125,11 @@ public final class FrameArchiveService implements AutoCloseable {
             int frameWidth,
             int frameHeight,
             String learnedReviewId,
-            Map<String, Object> geometry
+            Map<String, Object> geometry,
+            Map<String, Object> learning
     ) {
         public ArchivedFrame {
+            learning=learning==null||learning.isEmpty()?Map.of():Map.copyOf(learning);
             geometry = geometry == null || geometry.isEmpty() ? Map.of() : Map.copyOf(geometry);
         }
     }
@@ -515,6 +517,7 @@ public final class FrameArchiveService implements AutoCloseable {
             }
             root.put("python_status", decision.pythonStatus());
             root.put("geometry_status", decision.geometryStatus());
+            if(!decision.learning().isEmpty()) root.set("learning",JSON.valueToTree(decision.learning()));
             if (decision.geometry() != null && !decision.geometry().isEmpty()) {
                 root.set("geometry", JSON.valueToTree(decision.geometry()));
             }
@@ -628,6 +631,12 @@ public final class FrameArchiveService implements AutoCloseable {
                 }
                 geometry = copied;
             }
+            Map<String,Object> learning=Map.of();
+            if(root.get("learning") instanceof Map<?,?> rawLearning) {
+                Map<String,Object> copy=new java.util.LinkedHashMap<>();
+                rawLearning.forEach((key,value)->{if(key!=null && value!=null)copy.put(String.valueOf(key),value);});
+                learning=copy;
+            }
             return Optional.of(new ArchivedFrame(
                     frameId,
                     inspectionId,
@@ -645,7 +654,8 @@ public final class FrameArchiveService implements AutoCloseable {
                     frameWidth,
                     frameHeight,
                     learnedReviewId,
-                    geometry
+                    geometry,
+                    learning
             ));
         } catch (IOException e) {
             LOG.debug("frame archive metadata read failed {}: {}", frameDir, e.getMessage());

@@ -270,7 +270,27 @@ export type ServerWsPayloadByType = {
 export type WsMessageHandler = (message: ServerWsMessage) => void;
 export type WsStatusHandler = (status: WsConnectionStatus) => void;
 
+export type LearningCaseDiagnostic = {
+  id: string;
+  status: string;
+  method: string;
+  shift?: [number, number] | null;
+  removed_pixels: number;
+  pattern_correlation?: number | null;
+  shadow_correlation?: number | null;
+  shadow_skip_reason?: string;
+};
+export type LearningDetails = {
+  learning_engine?: string;
+  learning_robust_enabled?: boolean;
+  learning_ms?: number;
+  raw_anomaly_score?: number;
+  learned_normal_matches_count?: number;
+  learning_diagnostics?: LearningCaseDiagnostic[];
+};
+
 export type InspectResultPayload = {
+  learning?: LearningDetails;
   camera_id: number;
   frame_id: string;
   inspection_id?: string;

@@ -17,10 +17,21 @@ public record InspectionDecision(
         double jointVisibility,
         boolean jointPass,
         /** Компактный geometry header для UI (WS/archive); может быть пустым. */
-        Map<String, Object> geometry
+        Map<String, Object> geometry,
+        /** Frame-bound detector learning diagnostics; empty for old/Python responses. */
+        Map<String, Object> learning
 ) {
     public InspectionDecision {
+        learning = learning == null || learning.isEmpty() ? Map.of() : Map.copyOf(learning);
         geometry = geometry == null || geometry.isEmpty() ? Map.of() : Map.copyOf(geometry);
+    }
+
+    /** Compatibility for existing producers without learning diagnostics. */
+    public InspectionDecision(int cameraId, long frameId, boolean overallPass, String action, double anomalyScore,
+            String pythonStatus, String geometryStatus, boolean jointCamera, double jointParallelismDeg,
+            double jointWidthMm, double jointVisibility, boolean jointPass, Map<String,Object> geometry) {
+        this(cameraId,frameId,overallPass,action,anomalyScore,pythonStatus,geometryStatus,jointCamera,
+            jointParallelismDeg,jointWidthMm,jointVisibility,jointPass,geometry,Map.of());
     }
 
     /**

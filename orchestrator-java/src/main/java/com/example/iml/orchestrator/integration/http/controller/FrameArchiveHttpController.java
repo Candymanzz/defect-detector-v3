@@ -216,6 +216,7 @@ public final class FrameArchiveHttpController implements HttpController {
             item.put("anomaly_score", frame.anomalyScore());
             item.put("python_status", frame.pythonStatus());
             item.put("geometry_status", frame.geometryStatus());
+            if(!frame.learning().isEmpty()) item.set("learning",JSON.valueToTree(frame.learning()));
             item.put("product_type", frame.productType());
             item.put("detector_id", frame.detectorId());
             item.put("saved_at_ms", frame.savedAtEpochMs());

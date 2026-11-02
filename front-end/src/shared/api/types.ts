@@ -294,6 +294,7 @@ export type FrameArchiveHistoryFrame = {
   heatmap_height?: number;
   result_url: string;
   learned_review_id?: string;
+  learning?: import("../ws/types").LearningDetails;
   geometry?: GeometryInspectResponse;
 };
 
@@ -586,6 +587,10 @@ export type DetectorSettings = {
   estimated_mm_per_pixel?: [number, number];
   metric_reference_size?: [number, number];
   metric_scale_source?: "estimated" | "calibrated";
+  learning_robust_enabled: boolean;
+  learning_shadow_enabled: boolean;
+  /** Поиск сохранённого образца вокруг исходного места, 0..64 исходных px. */
+  learning_search_radius: number;
   /** Минимальная площадь дефекта, px исходного кадра. */
   min_blob_area: number;
   /** (0..1], во сколько раз кадр уменьшается перед анализом. */
