@@ -27,7 +27,9 @@ int main() {
         cv::rectangle(normal, {100, 100, 60, 60}, {240, 240, 240}, -1);
         const cv::Rect bbox(85, 85, 90, 90);
         cas::InspectJob job; job.product = "bucket#cam=1";
-        job.patch = cas::SettingsPatch::fromJson({{"inspect_scale", 1.0}, {"sensitivity", 0.5}, {"threshold", 0.1}, {"min_blob_area", 3}});
+        // This synthetic fixture tests 7/-4 px translation, independently of camera metric defaults.
+        job.patch = cas::SettingsPatch::fromJson({{"inspect_scale", 1.0}, {"sensitivity", 0.5}, {"threshold", 0.1},
+            {"min_blob_area", 3}, {"max_alignment_shift_x", 12}, {"max_alignment_shift_y", 12}});
         std::string id;
         {
             cas::Service svc(dir, 2); svc.setReference(job.product, base);

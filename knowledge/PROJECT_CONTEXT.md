@@ -1,3 +1,10 @@
+# Текущий контекст — 2026-11-03, boobs+pasha
+
+Дообучение из `lin-cpp-doob` интегрировано с метрическими допусками и усилением верхних углов ROI.
+Defaults: robust=true, shadows=true, радиус=24 исходных px. Старые профили и данные совместимы.
+Подтверждены Linux Release, 7/7 CTest, HTTP, Java (421 тест, 15 skipped), frontend 73/73 и build.
+Деплой не выполнялся. [Точный объём, решения и границы](analis-surface/2026-11-03-integration-boobs-pasha.md).
+
 # Текущий контекст — 2026-11-02
 
 Checkout: lin-cpp-doob, исходный HEAD 52aa31ea. Базовое C++-дообучение уже было в коде;

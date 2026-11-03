@@ -160,13 +160,26 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     const double sensitivity = std::clamp(s.sensitivity, 0.0, 1.0);
     const int thr = cvRound(80.0 - 75.0 * sensitivity);
     const auto learnedRegions = ref.learned();
-    cv::Mat originalLabels, originalStats, originalCentroids;
-    const int originalComponents = learnedRegions.empty() ? 0 : cv::connectedComponentsWithStats(anomalyEnergy(diff, thr) > 0,
-        originalLabels, originalStats, originalCentroids, 8, CV_32S);
+    const int learningThreshold = prep->upperCornerArea > 0
+        ? cvRound(80.0 - 75.0 * std::min(1.0, sensitivity * kUpperCornerSensitivityMultiplier)) : thr;
     int originalFlagged = 0;
-    for (int i = 1; i < originalComponents; ++i)
-        if (originalStats.at<int>(i, cv::CC_STAT_AREA) >= std::max(1.0, s.minBlobArea * scale * scale))
-            originalFlagged += originalStats.at<int>(i, cv::CC_STAT_AREA);
+    if (!learnedRegions.empty()) {
+        // Raw score uses the same union and component filtering as the final score, including corners.
+        cv::Mat originalKept = cv::Mat::zeros(diff.size(), CV_8U);
+        auto collect = [&](int threshold, const cv::Mat& mask) {
+            cv::Mat binary = anomalyEnergy(diff, threshold) > 0;
+            if (!mask.empty()) binary.setTo(0, mask == 0);
+            cv::Mat labels, stats, centroids;
+            const int count = cv::connectedComponentsWithStats(binary, labels, stats, centroids, 8, CV_32S);
+            for (int label = 1; label < count; ++label)
+                if (stats.at<int>(label, cv::CC_STAT_AREA) >= std::max(1.0, s.minBlobArea * scale * scale))
+                    originalKept.setTo(255, labels == label);
+        };
+        collect(thr, {});
+        if (sensitivity > 0.0 && sensitivity < 1.0 && prep->upperCornerArea > 0)
+            collect(learningThreshold, prep->upperCornerMask);
+        originalFlagged = cv::countNonZero(originalKept);
+    }
     if (s.learningRobustEnabled && !learnedRegions.empty()) {
         const auto started=Clock::now();
         compareLearned(ref,curR,diff,region,scale,s,out,
@@ -179,7 +192,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         const cv::Rect overlap = box & region;
         if (overlap.empty()) continue;
         const cv::Rect local(overlap.x - region.x, overlap.y - region.y, overlap.width, overlap.height);
-        if (!cv::countNonZero(anomalyEnergy(diff(local), thr))) continue;
+        if (!cv::countNonZero(anomalyEnergy(diff(local), learningThreshold))) continue;
         cv::Mat gray;
         cv::cvtColor(learned.bgr, gray, cv::COLOR_BGR2GRAY);
         cv::resize(gray, gray, box.size(), 0, 0, cv::INTER_AREA);
@@ -210,10 +223,10 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         cv::max(lo, hi, alternate);
         alternate.setTo(255, valid(patch) == 0);
         // Both comparisons must agree that a pixel is anomalous for it to remain flagged.
-        const int before = cv::countNonZero(anomalyEnergy(diff(local), thr));
+        const int before = cv::countNonZero(anomalyEnergy(diff(local), learningThreshold));
         cv::Mat target = diff(local);
         cv::min(target, alternate, target);
-        if (cv::countNonZero(anomalyEnergy(diff(local), thr)) < before)
+        if (cv::countNonZero(anomalyEnergy(diff(local), learningThreshold)) < before)
             out.matchedCaseIds.push_back(learned.id);
     }
     cv::Mat energy = anomalyEnergy(diff, thr);
@@ -249,7 +262,6 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     }
     out.blobsKept = static_cast<int>(out.zones.size());
     int flagged = cv::countNonZero(kept);
-    if (learnedRegions.empty()) originalFlagged = flagged;
     out.areaPercent = prep->roiArea > 0 ? 100.0 * flagged / prep->roiArea : 0.0;
     // Piecewise linear scale preserves the existing score at the default sensitivity.
     const double n = scoreNormalizer(sensitivity);
@@ -305,6 +317,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
             out.blobsKept = static_cast<int>(out.zones.size());
         }
     }
+    if (learnedRegions.empty()) originalFlagged = flagged;
     out.rawAnomalyScore = prep->roiArea > 0 ? std::min(1.0, 100.0 * originalFlagged / prep->roiArea / n) : 0.0;
     if (sensitivity == 0.0) out.rawAnomalyScore = 0.0;
     if (sensitivity == 1.0) out.rawAnomalyScore = 1.0;

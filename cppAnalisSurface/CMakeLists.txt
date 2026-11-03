@@ -73,14 +73,14 @@ if(BUILD_TESTING)
   endif()
   add_test(NAME performance_http_test COMMAND performance_http_test)
   add_executable(metric_tolerance_test tests/metric_tolerance_test.cpp
-    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/seam.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp src/core/seam.cpp
     src/core/shm_io.cpp src/service/service.cpp)
   target_include_directories(metric_tolerance_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
   target_link_libraries(metric_tolerance_test PRIVATE
     opencv_core opencv_imgproc opencv_imgcodecs nlohmann_json::nlohmann_json Threads::Threads)
   add_test(NAME metric_tolerance_test COMMAND metric_tolerance_test)
   add_executable(upper_corner_test tests/upper_corner_test.cpp
-    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp)
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
   target_include_directories(upper_corner_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
   target_link_libraries(upper_corner_test PRIVATE
     opencv_core opencv_imgproc nlohmann_json::nlohmann_json Threads::Threads)

@@ -44,7 +44,10 @@ void compareLearned(const cas::Reference& reference,const cv::Mat& current,cv::M
                     cv::Rect region,double scale,const cas::Settings& s,cas::InspectOutcome& out,
                     const LearningOptions& options,nlohmann::json& diagnostics) {
     diagnostics=nlohmann::json::array();
-    const int threshold=cvRound(80-75*std::clamp(s.sensitivity,0.0,1.0));
+    const double sensitivity = std::clamp(s.sensitivity, 0.0, 1.0);
+    const bool hasCorners = reference.prepared(scale)->upperCornerArea > 0;
+    const int threshold = cvRound(80 - 75 * (hasCorners
+        ? std::min(1.0, sensitivity * kUpperCornerSensitivityMultiplier) : sensitivity));
     const int radius=std::max(0,cvRound(options.searchRadius*scale));
     const cv::Size kernel(2*std::max(0,cvRound(s.shiftToleranceX*scale))+1,
                           2*std::max(0,cvRound(s.shiftToleranceY*scale))+1);

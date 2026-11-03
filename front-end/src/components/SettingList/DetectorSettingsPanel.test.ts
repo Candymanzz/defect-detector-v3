@@ -27,10 +27,13 @@ describe("DetectorSettingsPanel metric limits", () => {
       horizontal_shift_tolerance_mm: 0, vertical_shift_tolerance_mm: 4,
       estimated_mm_per_pixel: [.27, .34], metric_scale_source: "estimated",
       min_blob_area: 20, inspect_scale: .5,
-      learning_robust_enabled: true, learning_shadow_enabled: true, learning_search_radius: 24,
+      learning_robust_enabled: false, learning_shadow_enabled: false, learning_search_radius: 24,
       seam: {enabled: false, p0: [0,0], p1: [0,0], band: 30, tol_mid: 1, tol_edge: 5, edge_frac: .12},
     };
     const common = editableSettings(settings, false);
+    expect(common.learning_robust_enabled).toBe(false);
+    expect(common.learning_shadow_enabled).toBe(false);
+    expect(common.learning_search_radius).toBe(24);
     expect(common.horizontal_shift_tolerance_mm).toBe(0);
     expect(common.vertical_shift_tolerance_mm).toBe(4);
     expect(common.shift_tolerance_x).toBe(2);

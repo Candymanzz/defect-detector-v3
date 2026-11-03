@@ -119,6 +119,28 @@ void sensitivityAndMask() {
     require(cas::inspectFrame(reference,image,settings,false).reject, "Global full sensitivity retains endpoint behavior");
 }
 
+void learnedCorners() {
+    const auto image = fixture();
+    auto normal = image.clone();
+    cv::rectangle(normal, {65,40,10,14}, cv::Scalar::all(120), cv::FILLED);
+    const cv::Rect box(55,30,35,35);
+    for (bool robust : {false, true}) {
+        cas::Reference reference(image.clone()); reference.setRoi(polygon);
+        cas::Settings settings; settings.threshold = .01; settings.learningRobustEnabled = robust;
+        const auto before = cas::inspectFrame(reference, normal, settings, true);
+        require(before.mainRoiScore == 0 && before.reject, "Fixture is visible only through corner boost");
+        require(near(before.rawAnomalyScore, before.anomalyScore), "Raw score includes corner boost without learning");
+        reference.setLearned({{"weak-corner", box, normal(box).clone()}});
+        const auto after = cas::inspectFrame(reference, normal, settings, true);
+        require(!after.reject && after.anomalyScore == 0, "Both matchers learn weak corner-only anomalies");
+        require(!after.matchedCaseIds.empty(), "Corner-only match reports its accepted case");
+        require(near(after.rawAnomalyScore, before.anomalyScore), "Learning preserves the full original corner score");
+        auto defect = normal.clone();
+        cv::rectangle(defect, {65,40,10,14}, cv::Scalar::all(0), cv::FILLED);
+        require(cas::inspectFrame(reference, defect, settings, true).reject, "New defect in learned corner still rejects");
+    }
+}
+
 void concurrentInspections() {
     const auto image = fixture(); cas::Reference reference(image.clone()); reference.setRoi(polygon);
     const auto cached = reference.prepared(1); const auto original = cached->upperCornerMask.clone();
@@ -134,6 +156,6 @@ void concurrentInspections() {
     require(cv::norm(original,cached->upperCornerMask,cv::NORM_INF)==0,"Cached corner geometry stays immutable");
 }
 }
-int main(){try{cv::setNumThreads(1);geometry();sensitivityAndMask();concurrentInspections();
+int main(){try{cv::setNumThreads(1);geometry();sensitivityAndMask();learnedCorners();concurrentInspections();
     std::cout<<"upper corner geometry, relative sensitivity, shared relaxation, score, heatmap and concurrency passed\n";
     return 0;}catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}

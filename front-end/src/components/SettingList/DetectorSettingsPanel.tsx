@@ -435,6 +435,8 @@ export function editableSettings(settings: DetectorSettings, includeSeam: boolea
   const result: Partial<DetectorSettings> = {};
   for (const field of FIELDS) result[field.name] = settings[field.name];
   result.shift_tolerance_y = settings.shift_tolerance_x;
+  result.learning_robust_enabled = settings.learning_robust_enabled;
+  result.learning_shadow_enabled = settings.learning_shadow_enabled;
   if (includeSeam) result.seam = settings.seam;
   return result;
 }
