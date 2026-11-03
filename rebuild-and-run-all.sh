@@ -27,9 +27,9 @@ fail() { echo "ERROR: $*" >&2; exit 1; }
 as_root() {
   if ((EUID == 0)); then
     "$@"
-  elif command -v sudo >/dev/null && sudo -n -l "$@" >/dev/null 2>&1; then
-    sudo -n "$@"
   elif command -v pkexec >/dev/null; then
+    # sudo -n -l only checks policy: success does not mean the command can
+    # run without a password. Prefer the desktop authentication helper.
     pkexec "$@"
   else
     sudo "$@"

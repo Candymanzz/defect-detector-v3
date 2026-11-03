@@ -17,6 +17,11 @@ static void test_pixel_formats(void) {
     assert(cw_parse_pixel_format_pref("RGB8") == CW_PIXEL_PREF_RGB8);
     assert(cw_parse_pixel_format_pref("unknown") == CW_PIXEL_PREF_BGR8);
     assert(strcmp(cw_pixel_format_pref_name(CW_PIXEL_PREF_MONO8), "Mono8") == 0);
+    for (int pref = CW_PIXEL_PREF_BAYER8; pref <= CW_PIXEL_PREF_BAYER_BG8; ++pref) {
+        assert(cw_parse_pixel_format_pref(cw_pixel_format_pref_name(pref)) == pref);
+    }
+    assert(cw_parse_pixel_format_pref("bayer8") == CW_PIXEL_PREF_BAYER8);
+    assert(cw_parse_pixel_format_pref("BAYERrg8") == CW_PIXEL_PREF_BAYER_RG8);
 }
 
 static void test_u32_endian(void) {

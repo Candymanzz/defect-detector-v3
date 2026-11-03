@@ -51,6 +51,9 @@ int cw_parse_pixel_format_pref(const char *raw) {
     if (CW_STRICMP(raw, "RGB8") == 0 || CW_STRICMP(raw, "RGB8Packed") == 0) {
         return CW_PIXEL_PREF_RGB8;
     }
+    for (int pref = CW_PIXEL_PREF_BAYER8; pref <= CW_PIXEL_PREF_BAYER_BG8; ++pref) {
+        if (CW_STRICMP(raw, cw_pixel_format_pref_name(pref)) == 0) return pref;
+    }
     return CW_PIXEL_PREF_BGR8;
 }
 
@@ -60,6 +63,16 @@ const char *cw_pixel_format_pref_name(int pref) {
             return "Mono8";
         case CW_PIXEL_PREF_RGB8:
             return "RGB8";
+        case CW_PIXEL_PREF_BAYER8:
+            return "Bayer8";
+        case CW_PIXEL_PREF_BAYER_GR8:
+            return "BayerGR8";
+        case CW_PIXEL_PREF_BAYER_RG8:
+            return "BayerRG8";
+        case CW_PIXEL_PREF_BAYER_GB8:
+            return "BayerGB8";
+        case CW_PIXEL_PREF_BAYER_BG8:
+            return "BayerBG8";
         default:
             return "BGR8";
     }

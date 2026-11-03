@@ -795,13 +795,21 @@ static int hik_apply_gain(void *handle, float gain_db) {
     return MV_OK;
 }
 
-static int hik_apply_gamma(void *handle, float gamma) {
-    int r = MV_CC_SetFloatValue(handle, "Gamma", gamma);
+static int hik_uses_bayer8(const worker_state_t *st) {
+    return st->hik_pixel_format_active >= CW_PIXEL_PREF_BAYER8 &&
+           st->hik_pixel_format_active <= CW_PIXEL_PREF_BAYER_BG8;
+}
+
+static int hik_apply_gamma(worker_state_t *st, float gamma) {
+    // Raw Bayer bypasses the camera's Gamma node. Apply the configured gamma
+    // in the SDK converter instead, once per settings update, never twice.
+    int r = hik_uses_bayer8(st) ? MV_CC_SetBayerGammaValue(st->hik_handle, gamma)
+                              : MV_CC_SetFloatValue(st->hik_handle, "Gamma", gamma);
     if (r != MV_OK) {
         fprintf(stderr, "hik: Gamma=%.3f not applied (0x%x)\n", gamma, r);
         return r;
     }
-    fprintf(stderr, "hik: Gamma=%.3f\n", gamma);
+    fprintf(stderr, "hik: Gamma=%.3f (%s)\n", gamma, hik_uses_bayer8(st) ? "host Bayer conversion" : "camera");
     return MV_OK;
 }
 
@@ -851,7 +859,7 @@ static int hik_read_balance_ratio_channel(void *handle, const char *selector, co
         MVCC_INTVALUE iv;
         memset(&iv, 0, sizeof(iv));
         if (MV_CC_GetIntValue(handle, "BalanceRatio", &iv) == MV_OK) {
-            *out = (float)iv.nCurValue;
+            *out = (float)iv.nCurValue / 1024.0f;
             return MV_OK;
         }
     }
@@ -863,7 +871,7 @@ static int hik_read_balance_ratio_channel(void *handle, const char *selector, co
         MVCC_INTVALUE iv;
         memset(&iv, 0, sizeof(iv));
         if (MV_CC_GetIntValue(handle, direct_node, &iv) == MV_OK) {
-            *out = (float)iv.nCurValue;
+            *out = (float)iv.nCurValue / 1024.0f;
             return MV_OK;
         }
     }
@@ -893,7 +901,7 @@ static void hik_read_runtime_tuning(worker_state_t *st) {
     if (hik_read_float(st->hik_handle, "Gain", &value) == MV_OK) {
         st->gain_db = value;
     }
-    if (hik_read_float(st->hik_handle, "Gamma", &value) == MV_OK) {
+    if (!hik_uses_bayer8(st) && hik_read_float(st->hik_handle, "Gamma", &value) == MV_OK) {
         st->gamma = value;
     }
     MVCC_INTVALUE black;
@@ -1035,7 +1043,7 @@ static void format_settings_json(const worker_state_t *st, char *out, size_t out
         if (hik_read_float(st->hik_handle, "Gain", &value) == MV_OK) {
             gain_db = value;
         }
-        if (hik_read_float(st->hik_handle, "Gamma", &value) == MV_OK) {
+        if (!hik_uses_bayer8(st) && hik_read_float(st->hik_handle, "Gamma", &value) == MV_OK) {
             gamma = value;
         }
         MVCC_INTVALUE black;
@@ -1184,7 +1192,7 @@ static int apply_settings_from_header(worker_state_t *st, const char *header_jso
             }
         }
         if (has_gamma) {
-            if (hik_apply_gamma(st->hik_handle, gamma) == MV_OK) {
+            if (hik_apply_gamma(st, gamma) == MV_OK) {
                 st->gamma = gamma;
             }
         }
@@ -1354,12 +1362,69 @@ static void hik_copy_rows_mono8_to_bgr(uint8_t *dst, const uint8_t *src, int wid
     }
 }
 
+static int hik_bayer8_pixel_pref(enum MvGvspPixelType type) {
+    switch (type) {
+        case PixelType_Gvsp_BayerGR8: return CW_PIXEL_PREF_BAYER_GR8;
+        case PixelType_Gvsp_BayerRG8: return CW_PIXEL_PREF_BAYER_RG8;
+        case PixelType_Gvsp_BayerGB8: return CW_PIXEL_PREF_BAYER_GB8;
+        case PixelType_Gvsp_BayerBG8: return CW_PIXEL_PREF_BAYER_BG8;
+        default: return -1;
+    }
+}
+
+static int hik_copy_bayer8_to_bgr(worker_state_t *st, const MV_FRAME_OUT_INFO_EX *info, uint8_t *frame) {
+    const size_t pixels = (size_t)st->width * (size_t)st->height;
+    const size_t bgr_bytes = pixels * 3;
+    if (!st->hik_raw_frame || st->width <= 0 || st->height <= 0 ||
+        st->stride < st->width * 3 || bgr_bytes > UINT_MAX ||
+        st->frame_bytes < (size_t)st->stride * st->height ||
+        info->nFrameLen < pixels || info->nFrameLen > st->hik_raw_capacity ||
+        info->nFrameLen % (unsigned int)st->height != 0) return -1;
+
+    // MVS conversion accepts tightly packed input/output. Compact padded source rows
+    // in the reusable raw buffer; expand destination rows backwards after conversion.
+    const int src_stride = hik_src_row_stride(info, st->width, 1);
+    if (src_stride != st->width) {
+        for (int y = 1; y < st->height; ++y)
+            memmove(st->hik_raw_frame + (size_t)y * st->width,
+                    st->hik_raw_frame + (size_t)y * src_stride, (size_t)st->width);
+    }
+    MV_CC_PIXEL_CONVERT_PARAM_EX conversion;
+    memset(&conversion, 0, sizeof(conversion));
+    conversion.nWidth = (unsigned int)st->width;
+    conversion.nHeight = (unsigned int)st->height;
+    conversion.enSrcPixelType = info->enPixelType;
+    conversion.pSrcData = st->hik_raw_frame;
+    conversion.nSrcDataLen = (unsigned int)pixels;
+    conversion.enDstPixelType = PixelType_Gvsp_BGR8_Packed;
+    conversion.pDstBuffer = frame;
+    conversion.nDstBufferSize = (unsigned int)bgr_bytes;
+    const int result = MV_CC_ConvertPixelTypeEx(st->hik_handle, &conversion);
+    if (result != MV_OK || conversion.nDstLen != bgr_bytes) {
+        fprintf(stderr, "hik: cam=%d Bayer8 conversion failed (0x%x), bytes=%u expected=%zu\n",
+                st->camera_id, result, conversion.nDstLen, bgr_bytes);
+        return -1;
+    }
+    const size_t row_bytes = (size_t)st->width * 3;
+    if ((size_t)st->stride != row_bytes) {
+        for (int y = st->height - 1; y >= 0; --y) {
+            uint8_t *row = frame + (size_t)y * st->stride;
+            memmove(row, frame + (size_t)y * row_bytes, row_bytes);
+            memset(row + row_bytes, 0, (size_t)st->stride - row_bytes);
+        }
+    }
+    return 0;
+}
+
 static int hik_copy_frame_to_bgr(worker_state_t *st, MV_FRAME_OUT_INFO_EX *info, uint8_t *frame) {
     if ((int)info->nWidth != st->width || (int)info->nHeight != st->height) {
         return -1;
     }
     const uint8_t *src = st->hik_raw_frame;
     int dst_stride = st->stride;
+    if (hik_bayer8_pixel_pref(info->enPixelType) >= 0) {
+        return hik_copy_bayer8_to_bgr(st, info, frame);
+    }
     if (info->enPixelType == PixelType_Gvsp_Mono8) {
         int src_stride = hik_src_row_stride(info, st->width, 1);
         hik_copy_rows_mono8_to_bgr(frame, src, st->width, st->height, src_stride, dst_stride);
@@ -1813,6 +1878,44 @@ static int hik_apply_pixel_format(void *handle, int camera_id, int pixel_format_
     if (active_pref_out) {
         *active_pref_out = pixel_format_pref;
     }
+    if (pixel_format_pref >= CW_PIXEL_PREF_BAYER8 && pixel_format_pref <= CW_PIXEL_PREF_BAYER_BG8) {
+        if (pixel_format_pref != CW_PIXEL_PREF_BAYER8) {
+            const char *name = pixel_format_pref_name(pixel_format_pref);
+            const int result = MV_CC_SetEnumValueByString(handle, "PixelFormat", name);
+            fprintf(stderr, "hik: cam=%d PixelFormat=%s (set=0x%x, host BGR conversion)\n",
+                    camera_id, name, result);
+            return result == MV_OK ? 0 : -1;
+        }
+        MVCC_ENUMVALUE formats;
+        memset(&formats, 0, sizeof(formats));
+        const int result = MV_CC_GetEnumValue(handle, "PixelFormat", &formats);
+        if (result != MV_OK) {
+            fprintf(stderr, "hik: cam=%d cannot enumerate Bayer8 formats (0x%x)\n", camera_id, result);
+            return -1;
+        }
+        // Preserve an existing Bayer order, otherwise select an order actually advertised
+        // by this camera. Unsupported Bayer8 is an error, never an implicit 3x RGB fallback.
+        unsigned int selected = formats.nCurValue;
+        if (hik_bayer8_pixel_pref((enum MvGvspPixelType)selected) < 0) {
+            selected = 0;
+            const size_t capacity = sizeof(formats.nSupportValue) / sizeof(formats.nSupportValue[0]);
+            for (size_t i = 0; i < formats.nSupportedNum && i < capacity; ++i) {
+                if (hik_bayer8_pixel_pref((enum MvGvspPixelType)formats.nSupportValue[i]) >= 0) {
+                    selected = formats.nSupportValue[i];
+                    break;
+                }
+            }
+        }
+        if (!selected || MV_CC_SetEnumValue(handle, "PixelFormat", selected) != MV_OK) {
+            fprintf(stderr, "hik: cam=%d requested Bayer8 is unavailable\n", camera_id);
+            return -1;
+        }
+        const int active = hik_bayer8_pixel_pref((enum MvGvspPixelType)selected);
+        if (active_pref_out) *active_pref_out = active;
+        fprintf(stderr, "hik: cam=%d PixelFormat=%s (Bayer8, 1 byte/pixel, host BGR conversion)\n",
+                camera_id, pixel_format_pref_name(active));
+        return 0;
+    }
     if (pixel_format_pref == PIXEL_PREF_MONO8) {
         int r = MV_CC_SetEnumValueByString(handle, "PixelFormat", "Mono8");
         if (r == MV_OK) {
@@ -2215,7 +2318,7 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
             return -1;
         }
         unsigned int min_frame_len = (unsigned int)st->width * (unsigned int)st->height * 3u;
-        if (info.enPixelType == PixelType_Gvsp_Mono8) {
+        if (info.enPixelType == PixelType_Gvsp_Mono8 || hik_bayer8_pixel_pref(info.enPixelType) >= 0) {
             min_frame_len = (unsigned int)st->width * (unsigned int)st->height;
         }
         if (info.nFrameLen > 0 && info.nFrameLen < min_frame_len) {
@@ -2223,7 +2326,7 @@ static int capture_from_source(worker_state_t *st, uint8_t *frame, uint64_t fram
             return -1;
         }
         if (hik_copy_frame_to_bgr(st, &info, frame) != 0) {
-            snprintf(err, err_len, "hik unsupported pixel type: 0x%x", (unsigned int)info.enPixelType);
+            snprintf(err, err_len, "hik pixel conversion failed: pixel_type=0x%x", (unsigned int)info.enPixelType);
             return -1;
         }
         (void)frame_id;

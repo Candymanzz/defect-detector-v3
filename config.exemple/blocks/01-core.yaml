@@ -4,6 +4,8 @@ frame:
   width: 1224
   height: 1024
   # Mono8 с камеры: меньше GigE-трафик; в SHM кадр разворачивается в серый BGR8.
+  # Bayer8 для цветных MVS-камер: тот же 1 байт/пиксель по сети, BGR8 восстанавливается на ПК.
+  # При переключении также изменить frame.format в config.json и перезапустить backend.
   format: Mono8
   # Binning 2×2 в MVS; если SDK вернёт 0x80000109 — worker применит ROI 1224×1024 по центру.
   binning_horizontal: 2

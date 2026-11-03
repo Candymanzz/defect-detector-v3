@@ -98,6 +98,11 @@ add_executable(cw_config_tests
         src/cw_config.c
 )
 target_include_directories(cw_config_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+if(MSVC)
+    target_compile_options(cw_config_tests PRIVATE /UNDEBUG)
+else()
+    target_compile_options(cw_config_tests PRIVATE -UNDEBUG)
+endif()
 add_test(NAME cw_config_tests COMMAND cw_config_tests)
 
 add_executable(cw_roi_tests tests/test_cw_roi.c)
@@ -114,4 +119,12 @@ if(UNIX AND CAMERA_ENABLE_MVS AND EXISTS "${MVS_ROOT}/include/MvCameraControl.h"
             "${MVS_ROOT}/lib/64/libMvCameraControl.so")
     set_target_properties(cw_roi_mvs_tests PROPERTIES BUILD_RPATH "${MVS_ROOT}/lib/64")
     add_test(NAME cw_roi_mvs_tests COMMAND cw_roi_mvs_tests)
+    add_executable(cw_bayer_mvs_tests tests/test_bayer_mvs.c src/cw_config.c)
+    target_compile_definitions(cw_bayer_mvs_tests PRIVATE HAVE_HIK_MVS=1)
+    target_compile_options(cw_bayer_mvs_tests PRIVATE -UNDEBUG)
+    target_include_directories(cw_bayer_mvs_tests PRIVATE deps include "${MVS_ROOT}/include")
+    target_link_libraries(cw_bayer_mvs_tests PRIVATE Threads::Threads ${CMAKE_DL_LIBS}
+            "${MVS_ROOT}/lib/64/libMvCameraControl.so")
+    set_target_properties(cw_bayer_mvs_tests PROPERTIES BUILD_RPATH "${MVS_ROOT}/lib/64")
+    add_test(NAME cw_bayer_mvs_tests COMMAND cw_bayer_mvs_tests)
 endif()
