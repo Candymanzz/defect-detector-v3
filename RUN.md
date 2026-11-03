@@ -15,6 +15,23 @@ OpenCV, cpp-httplib, nlohmann-json, Node.js >=20.19 и npm. Для оборуд�
 Разделы `python_detector` и `integration.analis_surface_*` сохраняют прежние
 имена для совместимости конфигурации, но задают C++-анализатор.
 
+Полная пересборка с загрузкой новых backend и UI одной командой:
+
+```bash
+bash ./rebuild-and-run-all.sh
+IML_BUILD_JOBS=4 bash ./rebuild-and-run-all.sh # Параллельная сборка C++
+bash ./rebuild-and-run-all.sh --build-only   # Сборка и установка без перезапуска
+```
+
+Используются существующие кэши сборки. После успешной сборки скрипт перезапускает
+`defect-detector.service`, ждёт ответа backend и API дообучения, затем перезапускает
+киоск. Запускайте от обычного пользователя; для привилегированных операций
+используются `sudo`/`pkexec`. Нужны установленный systemd-сервис из этого checkout
+и помощник киоска (`sudo bash deploy/linux/setup-frontend-updates.sh` — один раз).
+Тесты запускаются отдельно через `run-all-tests.sh`.
+
+Сборка отдельных компонентов прежним скриптом:
+
 ```bash
 bash ./rebuild-and-run.sh          # Все три компонента и JNI камер
 bash ./rebuild-and-run.sh -c       # Без пересборки JNI
