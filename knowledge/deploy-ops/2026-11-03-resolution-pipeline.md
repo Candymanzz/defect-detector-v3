@@ -129,3 +129,62 @@ Heatmap — карта аномалий, это не исходное фото; 
 - `CameraStreamService`, `LivePreviewPublisher`: клиентское видео/preview.
 
 Тестовые наборы не запускались: код и параметры не менялись; проверка read-only.
+
+## Повторная трассировка конфигурации и вызовов
+
+Повторно проверено на HEAD `0b6165e8` (`boobs+pasha`). Реальный
+`YamlFileConfigLoader` из собранного JAR прочитал `config/config.yaml` со всеми
+imports. `IntegrationFeatureConfig.parseCaptureFrameDownscale` вернул enabled=false,
+scale=1.0 и **все три apply-флага false**. `ChildProcessStartupService` при этом
+не создаёт `CaptureFrameDownscaleService` (передаёт null), а
+`WorkerCaptureCoordinator` возвращает исходные SHM-дескрипторы. Наличие true
+в исходном YAML у apply-флагов само по себе ничего не уменьшает.
+Проба загрузчика: `/tmp/TraceCoreDownscale.java`, без запуска приложения/камер.
+
+Тот же загрузчик подтвердил backend=cpp, legacy inspect_scale 0.7 для камер
+0/1/3/4/5/6/8/9 и 0.2 для 2/7, heatmap detector=512 и UI=384.
+Цепочка legacy scale: `InspectionScaleConfig.resolve` →
+`InspectPythonExecutor` → top-level header.inspect_scale →
+`CppAnalisSurfaceHttpSupervisor.shmFrameBody`/`ephemeralSettings` (ключ не копируется).
+У `PythonInspectDownscaleSupport` нет вызовов в production Java-коде — само
+наличие класса не доказывает работу дополнительного ресайза SHM.
+Повторный GET настроек 10/10 камер и профилей подтвердил прежнюю таблицу ROI,
+BayerRG8 и settings.inspect_scale=1.0. Снимок:
+`/tmp/core-dev-downscale-runtime-current.json`. Запросы только GET.
+
+Legacy scale при этом не полностью неиспользуемый: `ClientWsConfig` читает
+общее 0.7; `ReferenceBundleWsHandler` и `FpZonesUpdateWsHandler` умножают на него
+размеры **пространства координат heatmap/FP-зон**. Они не ресайзят пиксели frame
+и не учитывают inspect_scale_by_camera. Поэтому нельзя ни считать этот ключ
+рабочим масштабом C++-кадра, ни объявлять его безопасно удаляемым. Правильность
+координат FP-зон этой проверкой не испытывалась.
+
+У аппаратной цепочки есть ещё два существенных условия:
+
+- Native читает frame из `config/config.json` (путь по умолчанию в
+  `CameraWorkerPaths`), затем `hik_apply_frame_geometry` **пропускает
+  установку binning**, если Width/Height уже совпали с целью 1224×1024.
+- При несовпадении вызывается setter binning; переход к center ROI после него
+  **не возвращает BinningHorizontal/Vertical в 1**. Лог `binning not effective`
+  проверяет лишь несовпадение текущего Width/Height с целью. В сохранённом
+  runtime-логе команды binning=2×2 приняты SDK, после них виден fallback ROI.
+  Это не readback binning и не подтверждение его отключения.
+
+После init_hik_mvs → init_roi_limits → apply_capture_roi native выставляет
+сохранённые OffsetX/OffsetY/Width/Height: это аппаратная обрезка кадра.
+Достоверного readback binning по-прежнему нет; повторно открывать камеры,
+останавливать линию или отбирать доступ не пытались.
+
+Дополнительные cv::resize, не являющиеся глобальным уменьшением живого кадра:
+
+- `Service::loadTestFrame`: если тестовый файл отличается по размерам от эталона,
+  подгоняет его к размеру эталона INTER_LINEAR; возможно уменьшение или увеличение.
+- `Service::addLearnedRegion`: переводит bbox из пространства исходного кадра
+  в пространство эталона и подгоняет crop к этому bbox INTER_LINEAR.
+- `learning_matcher.cpp` и legacy-ветка inspector: приводят сохранённый crop
+  дообучения к рабочему bbox с учётом inspect_scale, INTER_AREA; при scale=1
+  и совпадающих размерах это не дополнительное уменьшение.
+
+Изменены только заметки знаний; рабочие конфиги, код и сервис не менялись.
+Тестовые наборы не запускались: выполнены чтение конфигурации производственным
+загрузчиком, трассировка исходников и GET текущих настроек.
