@@ -45,9 +45,8 @@ public final class TriggerRuntimeBootstrapService {
                         : IntegrationFeatureConfig.resolveInspectionTriggerMode(ctx.integration());
         if (inspectionTriggerConfig.ioInput().di3Only()) {
             log.info(
-                    "inspection_trigger di3_only=true — съёмка по фронту DI{}, направление по текущему DI{}",
-                    inspectionTriggerConfig.ioInput().triggerPort(),
-                    inspectionTriggerConfig.ioInput().directionPort()
+                    "inspection_trigger di3_only=true — съёмка по фронту DI{}, DI2 и выбор направления в UI не влияют на съёмку",
+                    inspectionTriggerConfig.ioInput().triggerPort()
             );
             if (IntegrationFeatureConfig.parseDevAutoTriggerStub(ctx.integration()).enabled()) {
                 log.warn("di3_only=true: dev_auto_trigger_stub включён в конфиге, но игнорируется");
@@ -55,14 +54,6 @@ public final class TriggerRuntimeBootstrapService {
             if (continuousInspection.enabled()) {
                 log.warn("di3_only=true: continuous_inspection включён в конфиге, но игнорируется");
             }
-        }
-        if (inspectionTriggerConfig.ioInput().di3Only()
-                && inspectionTriggerConfig.ioInput().requireDirection()) {
-            log.info(
-                    "inspection_trigger DI2→DI3: съёмка по DI{}↑ только при DI{}=1",
-                    inspectionTriggerConfig.ioInput().triggerPort(),
-                    inspectionTriggerConfig.ioInput().directionPort()
-            );
         }
         if (inspectionTriggerConfig.ioInput().directionLatchOnWork()) {
             log.info(

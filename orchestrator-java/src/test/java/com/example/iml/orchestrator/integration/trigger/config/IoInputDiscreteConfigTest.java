@@ -33,7 +33,7 @@ class IoInputDiscreteConfigTest {
                 "inspection_trigger",
                 Map.of(
                         "io_input",
-                        Map.of("direction_latch_on_work", true)
+                        Map.of("di3_only", false, "direction_latch_on_work", true, "require_direction", true)
                 )
         );
 
@@ -45,7 +45,7 @@ class IoInputDiscreteConfigTest {
     }
 
     @Test
-    void di3OnlyKeepsDirectionRequirementWhenConfigured() {
+    void di3OnlyIgnoresLegacyDirectionRequirements() {
         Map<String, Object> integration = Map.of(
                 "inspection_trigger",
                 Map.of(
@@ -53,7 +53,9 @@ class IoInputDiscreteConfigTest {
                         Map.of(
                                 "di3_only", true,
                                 "require_direction", true,
-                                "require_work", false
+                                "direction_latch", true,
+                                "direction_latch_on_work", true,
+                                "direction_arm_next_di3", true
                         )
                 )
         );
@@ -61,7 +63,10 @@ class IoInputDiscreteConfigTest {
         IoInputDiscreteConfig cfg = IoInputDiscreteConfig.parse(integration, 0);
 
         assertTrue(cfg.di3Only());
-        assertTrue(cfg.requireDirection());
+        assertFalse(cfg.requireDirection());
+        assertFalse(cfg.directionLatch());
+        assertFalse(cfg.directionLatchOnWork());
+        assertFalse(cfg.directionArmNextDi3());
         assertFalse(cfg.requireWork());
         assertEquals(TriggerEdgeMode.RISING, cfg.triggerEdge());
     }
@@ -97,9 +102,13 @@ class IoInputDiscreteConfigTest {
     }
 
     @Test
-    void directionLatchDefaultsTrue() {
+    void defaultsListenOnlyToDi3WithoutDirectionLatch() {
         IoInputDiscreteConfig cfg = IoInputDiscreteConfig.defaults();
-        assertTrue(cfg.directionLatch());
+        assertTrue(cfg.di3Only());
+        assertFalse(cfg.requireDirection());
+        assertFalse(cfg.requireWork());
+        assertFalse(cfg.directionLatch());
+        assertEquals(3, cfg.triggerPort());
     }
 
     @Test
@@ -115,6 +124,17 @@ class IoInputDiscreteConfigTest {
         IoInputDiscreteConfig cfg = IoInputDiscreteConfig.parse(integration, 0);
 
         assertFalse(cfg.directionLatch());
+    }
+
+    @Test
+    void parsesLegacyDirectionGateWhenDi3OnlyIsExplicitlyDisabled() {
+        IoInputDiscreteConfig cfg = IoInputDiscreteConfig.parse(Map.of(
+                "inspection_trigger", Map.of("io_input", Map.of(
+                        "di3_only", false, "require_direction", true, "direction_latch", true))), 0);
+
+        assertFalse(cfg.di3Only());
+        assertTrue(cfg.requireDirection());
+        assertTrue(cfg.directionLatch());
     }
 
     @Test

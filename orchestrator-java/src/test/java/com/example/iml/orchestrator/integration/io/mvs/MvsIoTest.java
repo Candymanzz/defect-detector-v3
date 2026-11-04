@@ -35,7 +35,7 @@ class MvsIoTest {
         assertEquals(84, new JnaMvsIoDevice.EnumEntry().size());
     }
 
-    @Test void twoTriggers80msApartAreAcceptedInSameDirectionWindowDespiteOldDebounceSetting() throws Exception {
+    @Test void nativeDi3TriggersIgnoreDirectionAndOldDebounceSetting() throws Exception {
         InspectionTriggerConfig cfg = InspectionTriggerConfig.parse(integration());
         try (InspectionTriggerBus bus = new InspectionTriggerBus(List.of(1));
              IoInputTriggerTransport processor = new IoInputTriggerTransport(
@@ -54,12 +54,12 @@ class MvsIoTest {
             processor.applyDiChange(new IoInputDiChange(2, false));
             processor.applyDiChange(new IoInputDiChange(3, false));
             processor.applyDiChange(new IoInputDiChange(3, true));
-            assertEquals(observedSequence, bus.lastDispatchedSequence(), "direction gate must remain active");
+            assertTrue(bus.lastDispatchedSequence() > observedSequence, "DI2 must not gate DI3-only capture");
             assertEquals(0, prefires.get());
         }
     }
 
-    @Test void nativeFrameReceptionRequiresDi2EvenWhenDirectionFilteringIsDisabled() throws Exception {
+    @Test void nativeFrameReceptionWorksWithUnknownLowAndHighDi2() throws Exception {
         InspectionTriggerConfig cfg = InspectionTriggerConfig.parse(Map.of("inspection_trigger", Map.of(
                 "mvs_io", Map.of("enabled", true),
                 "io_input", Map.of("di3_only", true, "direction_latch", false,
@@ -69,13 +69,17 @@ class MvsIoTest {
              IoInputTriggerTransport processor = new IoInputTriggerTransport(
                      LOG, cfg.udp(), cfg.ioInput(), bus, null)) {
             processor.setHardwareObservationSource();
+            processor.applyDiChange(new IoInputDiChange(3, true));
+            long unknownDirection = bus.lastDispatchedSequence();
+            assertTrue(unknownDirection > 0, "no DI2 notification is required");
             processor.applyDiChange(new IoInputDiChange(2, false));
             processor.applyDiChange(new IoInputDiChange(3, true));
-            assertEquals(0, bus.lastDispatchedSequence());
+            long lowDirection = bus.lastDispatchedSequence();
+            assertTrue(lowDirection > unknownDirection);
             processor.applyDiChange(new IoInputDiChange(3, false));
             processor.applyDiChange(new IoInputDiChange(2, true));
             processor.applyDiChange(new IoInputDiChange(3, true));
-            assertTrue(bus.lastDispatchedSequence() > 0);
+            assertTrue(bus.lastDispatchedSequence() > lowDirection);
         }
     }
 

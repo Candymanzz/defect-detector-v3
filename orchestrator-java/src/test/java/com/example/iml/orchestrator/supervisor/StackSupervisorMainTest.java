@@ -9,10 +9,10 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -52,16 +52,25 @@ class StackSupervisorMainTest {
 
     @Test
     void destroyProcessTreeTerminatesChild() throws Exception {
-        Path script = Files.createTempFile("supervisor-child-", ".sh");
-        script.toFile().deleteOnExit();
-        Files.writeString(script, "#!/bin/sh\nsleep 30\n");
-        script.toFile().setExecutable(true);
+        String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
+        Process child = new ProcessBuilder(java, "-cp", System.getProperty("java.class.path"),
+                SleepingChild.class.getName()).start();
+        try {
+            assertEquals("ready", child.inputReader(StandardCharsets.UTF_8).readLine());
+            assertTrue(child.isAlive());
+            StackSupervisorMain.destroyProcessTree(child, true);
+            assertTrue(child.waitFor(5, TimeUnit.SECONDS));
+            assertFalse(child.isAlive());
+        } finally {
+            child.destroyForcibly();
+        }
+    }
 
-        Process child = new ProcessBuilder(script.toString()).start();
-        assertTrue(child.isAlive());
-        StackSupervisorMain.destroyProcessTree(child, true);
-        assertTrue(child.waitFor(5, TimeUnit.SECONDS));
-        assertFalse(child.isAlive());
+    public static final class SleepingChild {
+        public static void main(String[] args) throws InterruptedException {
+            System.out.println("ready");
+            Thread.sleep(30_000L);
+        }
     }
 
     private int startHealthServer(String body) throws IOException {

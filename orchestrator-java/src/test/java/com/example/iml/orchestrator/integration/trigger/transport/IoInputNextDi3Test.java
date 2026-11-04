@@ -11,7 +11,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class IoInputNextDi3Test {
-    @Test void captureRequiresDirectionHighAndIgnoresReturnStroke() {
+    @Test void everyDi3PulseCapturesWithoutDirectionRearmingIncludingAfterReconnect() {
         var config = IoInputDiscreteConfig.parse(Map.of("inspection_trigger", Map.of("io_input", Map.of(
                 "di3_only", true, "direction_arm_next_di3", false, "direction_latch", false,
                 "require_direction", true, "require_work", false))), 0);
@@ -20,18 +20,19 @@ class IoInputNextDi3Test {
                      UdpTriggerConfig.defaults(), config, bus, () -> {})) {
             transport.setHardwareObservationSource();
             pulse(transport, 3);
-            assertEquals(0, bus.lastDispatchedSequence());
+            long expectedSequence = 1;
+            assertEquals(expectedSequence, bus.lastDispatchedSequence());
             for (int cycle = 1; cycle <= 3; cycle++) {
                 transport.applyDiChange(new IoInputDiChange(2, true));
                 pulse(transport, 3);
-                assertEquals(cycle, bus.lastDispatchedSequence());
+                assertEquals(++expectedSequence, bus.lastDispatchedSequence());
                 transport.applyDiChange(new IoInputDiChange(2, false));
                 pulse(transport, 3);
-                assertEquals(cycle, bus.lastDispatchedSequence());
+                assertEquals(++expectedSequence, bus.lastDispatchedSequence());
             }
             transport.applyDiChange(null);
             pulse(transport, 3);
-            assertEquals(3, bus.lastDispatchedSequence());
+            assertEquals(++expectedSequence, bus.lastDispatchedSequence());
         }
     }
 

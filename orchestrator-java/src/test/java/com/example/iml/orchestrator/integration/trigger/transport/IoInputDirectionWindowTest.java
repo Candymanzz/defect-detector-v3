@@ -9,9 +9,9 @@ import java.util.*;
 import java.nio.file.*;
 import static org.junit.jupiter.api.Assertions.*;
 class IoInputDirectionWindowTest {
-    @Test void opensBeforeDi3ClosesAtDirectionFallAndRejectsOldTokens() throws Exception {
+    @Test void explicitLegacyModeOpensBeforeDi3ClosesAtDirectionFallAndRejectsOldTokens() throws Exception {
         var cfg = IoInputDiscreteConfig.parse(Map.of("inspection_trigger", Map.of("io_input", Map.of(
-            "di3_only", true, "direction_latch", false, "external_hardware_capture", true,
+            "di3_only", false, "direction_latch", false, "external_hardware_capture", true,
             "require_direction", true, "require_work", false))), 0);
         try (var bus = new InspectionTriggerBus(List.of(0));
              var t = new IoInputTriggerTransport(LogManager.getLogger(getClass()), UdpTriggerConfig.defaults(), cfg, bus, () -> {})) {

@@ -3,8 +3,8 @@ package com.example.iml.orchestrator.integration.trigger;
 import java.util.function.Consumer;
 
 /**
- * Направление хода с UI. На DI3 съёмка только если DI2 совпал с выбором
- * (например «Обратный ход» → снимаем при ходе назад, игнорируем DI3 при ходе вперёд).
+ * Направление хода с UI для legacy-режима с require_direction.
+ * В режиме di3_only выбор направления не влияет на съёмку.
  */
 public final class ManualLineDirectionService {
 
