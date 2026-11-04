@@ -1,5 +1,6 @@
 #include "inspector.h"
 #include "learning_matcher.h"
+#include "preprocessing.h"
 #include "request_timing.h"
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
@@ -56,10 +57,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     const cv::Rect region = prep->region;
 
     // ---- current frame at work resolution ----
-    cv::Mat cur;
-    cv::cvtColor(bgr, cur, cv::COLOR_BGR2GRAY);
-    if (scale != 1.0) cv::resize(cur, cur, prep->workSize, 0, 0, cv::INTER_AREA);
-    cv::GaussianBlur(cur, cur, cv::Size(5, 5), 0);
+    cv::Mat cur = prepareInspectionGray(bgr, prep->workSize);
 
     // ---- cheap translation estimate on a thumbnail of the ROI box ----
     requestTiming.add("prepare_ms", msSince(tStart));
@@ -69,6 +67,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     cv::Mat small, smallF;
     cv::resize(cur(region), small, prep->smallSize, 0, 0, cv::INTER_AREA);
     small.convertTo(smallF, CV_32F);
+    padShiftInput(smallF, prep->refSmall.size());
     double response = 0;
     // OpenCV may apply the Hann window in-place when no DFT padding is needed.
     // Never pass the shared immutable cache as its writable working buffer.

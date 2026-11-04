@@ -30,8 +30,8 @@ struct Prepared {
     cv::Mat upperCornerMask;  // CV_8U, region-sized; top 1/7, outer 15% on each side of explicit ROI
     int upperCornerArea = 0;
     cv::Size smallSize;       // size used for the cheap shift estimation
-    cv::Mat refSmall;         // CV_32F reference region resized to smallSize
-    cv::Mat hann;             // CV_32F Hanning window of smallSize
+    cv::Mat refSmall;         // CV_32F smallSize thumbnail, zero-padded to an even optimal DFT size
+    cv::Mat hann;             // CV_32F smallSize Hanning window, zero-padded like refSmall
 };
 
 // One reference frame of one camera-scoped product plus its ROI.

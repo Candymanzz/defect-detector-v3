@@ -1,4 +1,5 @@
 #include "reference.h"
+#include "preprocessing.h"
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
 #include <cmath>
@@ -31,15 +32,6 @@ cv::Mat upperCornerMask(const cv::Mat& roi) {
         }
     }
     return mask;
-}
-
-cv::Mat toBlurredGray(const cv::Mat& bgr, double scale) {
-    cv::Mat g;
-    if (bgr.channels() == 1) g = bgr;
-    else cv::cvtColor(bgr, g, cv::COLOR_BGR2GRAY);
-    if (scale != 1.0) cv::resize(g, g, cv::Size(), scale, scale, cv::INTER_AREA);
-    cv::GaussianBlur(g, g, cv::Size(5, 5), 0);
-    return g;
 }
 
 }
@@ -96,8 +88,8 @@ std::shared_ptr<const Prepared> Reference::prepared(double scale) const {
 std::shared_ptr<const Prepared> Reference::build(double scale, const NormPolygon& roi) const {
     auto p = std::make_shared<Prepared>();
     p->scale = scale;
-    p->refGray = toBlurredGray(bgr_, scale);
-    p->workSize = p->refGray.size();
+    p->workSize = inspectionWorkSize(bgr_.size(), scale);
+    p->refGray = prepareInspectionGray(bgr_, p->workSize);
 
     p->roiMask = cv::Mat::zeros(p->workSize, CV_8U);
     cv::Rect box(0, 0, p->workSize.width, p->workSize.height);
@@ -127,6 +119,9 @@ std::shared_ptr<const Prepared> Reference::build(double scale, const NormPolygon
     cv::resize(p->refGray(box), small, p->smallSize, 0, 0, cv::INTER_AREA);
     small.convertTo(p->refSmall, CV_32F);
     cv::createHanningWindow(p->hann, p->smallSize, CV_32F);
+    const auto dftSize = shiftDftSize(p->smallSize);
+    padShiftInput(p->refSmall, dftSize);
+    padShiftInput(p->hann, dftSize);
     return p;
 }
 

@@ -43,6 +43,12 @@ target_link_libraries(cpp_analis_surface PRIVATE
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(preprocessing_test tests/preprocessing_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
+  target_include_directories(preprocessing_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(preprocessing_test PRIVATE
+    opencv_core opencv_imgproc nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME preprocessing_test COMMAND preprocessing_test)
   add_executable(learned_placement_test tests/learned_placement_test.cpp
     src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
   target_include_directories(learned_placement_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
