@@ -34,6 +34,9 @@
 #endif
 #ifdef HAVE_HIK_MVS
 #include <MvCameraControl.h>
+#ifndef _WIN32
+#include "cw_hik_events.h"
+#endif
 #endif
 
 #define TOK_POOL 2048 /* was 512: config.json ~516 tokens after gige_transfer_slot */
@@ -123,6 +126,9 @@ typedef struct {
 #endif
 #ifdef HAVE_HIK_MVS
     void *hik_handle;
+#ifndef _WIN32
+    cw_hik_events *hik_events;
+#endif
     unsigned char *hik_raw_frame;
     unsigned int hik_raw_capacity;
 #endif
@@ -2111,6 +2117,9 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
         hik_apply_gige_frame_transfer_delay(st);
     }
 
+#ifndef _WIN32
+    st->hik_events = cw_hik_events_start(st->hik_handle, st->camera_id);
+#endif
     st->capture_backend_ready = 1;
     snprintf(st->capture_backend_info, sizeof(st->capture_backend_info), "hik_mvs");
     return 0;
@@ -2118,10 +2127,17 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
 
 static void shutdown_hik_mvs(worker_state_t *st) {
     if (st->hik_handle) {
+#ifndef _WIN32
+        cw_hik_events_restore(st->hik_handle, st->hik_events);
+#endif
         (void)MV_CC_StopGrabbing(st->hik_handle);
         (void)MV_CC_CloseDevice(st->hik_handle);
         (void)MV_CC_DestroyHandle(st->hik_handle);
         st->hik_handle = NULL;
+#ifndef _WIN32
+        cw_hik_events_destroy(st->hik_events);
+        st->hik_events = NULL;
+#endif
         (void)hik_sdk_finalize();
     }
     if (st->hik_raw_frame) {
