@@ -11,8 +11,10 @@
 #include <time.h>
 #include <sys/stat.h>
 #include <MvCameraControl.h>
+#include "../include/cw_runtime.h"
 
 #define CW_EVENT_CAPACITY 256
+#define CW_EVENT_KINDS 3
 typedef struct {
     uint64_t device_ticks, block_id, host_mono_ns, host_epoch_ns;
     unsigned short id;
@@ -25,13 +27,14 @@ typedef struct {
     atomic_ulong dropped;
     cw_hik_event_record records[CW_EVENT_CAPACITY];
     unsigned int head, count;
-    int camera_id, enabled[2], registered[2];
-    unsigned int old_notification[2], old_selector;
+    int camera_id, enabled[CW_EVENT_KINDS], registered[CW_EVENT_KINDS];
+    unsigned int old_notification[CW_EVENT_KINDS], old_selector;
     int selector_saved;
     uint64_t frequency;
     FILE *file;
+    cw_camera_event_listener listener;
 } cw_hik_events;
-static const char *cw_hik_event_names[2] = {"Line0RisingEdge", "ExposureStart"};
+static const char *cw_hik_event_names[CW_EVENT_KINDS] = {"Line0RisingEdge", "ExposureStart", "ExposureEnd"};
 
 static uint64_t cw_event_clock(clockid_t clock) {
     struct timespec ts;
@@ -44,7 +47,10 @@ static void __stdcall cw_hik_event_callback(MV_EVENT_OUT_INFO *event, void *user
     cw_hik_event_record record = {0};
     record.host_mono_ns = cw_event_clock(CLOCK_MONOTONIC);
     record.host_epoch_ns = cw_event_clock(CLOCK_REALTIME);
-    record.kind = strncmp(event->EventName, cw_hik_event_names[0], MAX_EVENT_NAME_SIZE) == 0 ? 0 : 1;
+    record.kind = -1;
+    for (int i = 0; i < CW_EVENT_KINDS; ++i)
+        if (strncmp(event->EventName, cw_hik_event_names[i], MAX_EVENT_NAME_SIZE) == 0) record.kind = i;
+    if (record.kind < 0) return;
     record.device_ticks = ((uint64_t)event->nTimestampHigh << 32) | event->nTimestampLow;
     record.block_id = ((uint64_t)event->nBlockIdHigh << 32) | event->nBlockIdLow;
     record.id = event->nEventID;
@@ -77,6 +83,9 @@ static void *cw_hik_event_writer(void *user) {
             nanosleep(&wait, NULL);
             continue;
         }
+        /* Control delivery precedes disk IO; Java only queues work on its light executor. */
+        if (state->listener) state->listener(state->camera_id, record.kind, record.device_ticks,
+                                             record.host_mono_ns, atomic_load(&state->dropped));
         fprintf(state->file,
             "{\"type\":\"camera_event\",\"camera_id\":%d,\"event\":\"%s\","
             "\"event_id\":%u,\"device_timestamp_ticks\":%" PRIu64 ","
@@ -90,10 +99,10 @@ static void *cw_hik_event_writer(void *user) {
     }
     return NULL;
 }
-static cw_hik_events *cw_hik_events_start(void *handle, int camera_id) {
+static cw_hik_events *cw_hik_events_start(void *handle, int camera_id, cw_camera_event_listener listener) {
     const char *setting = getenv("IML_CAMERA_EVENT_CAMERA");
-    int selected = setting ? atoi(setting) : 0;
-    if (camera_id != selected) return NULL; /* -1 disables; one diagnostic camera. */
+    int selected = setting ? atoi(setting) : (listener ? -2 : 0);
+    if (selected != -2 && camera_id != selected) return NULL; /* -2 all, -1 disabled. */
     MVCC_ENUMVALUE selector = {0};
     int result = MV_CC_GetEnumValue(handle, "EventSelector", &selector);
     if (result != MV_OK) {
@@ -108,6 +117,7 @@ static cw_hik_events *cw_hik_events_start(void *handle, int camera_id) {
     cw_hik_events *state = calloc(1, sizeof(*state));
     if (!state) return NULL;
     state->camera_id = camera_id;
+    state->listener = listener;
     state->old_selector = selector.nCurValue;
     state->selector_saved = 1;
     atomic_init(&state->stopping, 0); atomic_init(&state->dropped, 0);
@@ -124,7 +134,7 @@ static cw_hik_events *cw_hik_events_start(void *handle, int camera_id) {
     }
     fprintf(state->file, "{\"type\":\"session_start\",\"camera_id\":%d,\"host_epoch_ns\":%" PRIu64 "}\n",
             camera_id, cw_event_clock(CLOCK_REALTIME));
-    for (int kind = 0; kind < 2; ++kind) {
+    for (int kind = 0; kind < CW_EVENT_KINDS; ++kind) {
         const char *name = cw_hik_event_names[kind];
         result = MV_CC_SetEnumValueByString(handle, "EventSelector", name);
         MVCC_ENUMVALUE old = {0};
@@ -150,7 +160,7 @@ static cw_hik_events *cw_hik_events_start(void *handle, int camera_id) {
 static void cw_hik_events_restore(void *handle, cw_hik_events *state) {
     if (!state) return;
     atomic_store(&state->stopping, 1);
-    for (int i = 0; i < 2; ++i) if (state->enabled[i]) {
+    for (int i = 0; i < CW_EVENT_KINDS; ++i) if (state->enabled[i]) {
         if (MV_CC_SetEnumValueByString(handle, "EventSelector", cw_hik_event_names[i]) == MV_OK)
             MV_CC_SetEnumValue(handle, "EventNotification", state->old_notification[i]);
     }

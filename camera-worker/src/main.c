@@ -4,6 +4,11 @@
 #include "cw_roi.h"
 #include "cw_runtime.h"
 
+static cw_camera_event_listener camera_event_listener;
+void cw_camera_set_event_listener(cw_camera_event_listener listener) {
+    camera_event_listener = listener;
+}
+
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -2118,7 +2123,7 @@ static int init_hik_mvs(worker_state_t *st, char *err, size_t err_len) {
     }
 
 #ifndef _WIN32
-    st->hik_events = cw_hik_events_start(st->hik_handle, st->camera_id);
+    st->hik_events = cw_hik_events_start(st->hik_handle, st->camera_id, camera_event_listener);
 #endif
     st->capture_backend_ready = 1;
     snprintf(st->capture_backend_info, sizeof(st->capture_backend_info), "hik_mvs");
