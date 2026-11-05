@@ -7,6 +7,7 @@ import com.example.iml.orchestrator.integration.config.YamlScalars;
 import com.example.iml.orchestrator.protocol.BinaryProtocol;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import com.example.iml.orchestrator.integration.logging.PerformanceTrace;
@@ -75,6 +76,31 @@ public final class CppAnalisSurfaceHttpSupervisor implements BinaryRpcSupervisor
 
     public String baseUrl() {
         return baseUrl;
+    }
+
+    /** Called once by application bootstrap, never by client/worker recovery or Stop/Start. */
+    public void resetLearnedNormalsForApplicationStart() throws IOException {
+        HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/learning/accepted-cases"))
+                .timeout(Duration.ofMillis(commandTimeoutMs))
+                .header("Accept", "application/json")
+                .DELETE()
+                .build();
+        HttpResponse<byte[]> response = send(request);
+        if (response.statusCode() / 100 != 2) {
+            throw new IOException(errorText("reset learned normals", response));
+        }
+        JsonNode deletion = MAPPER.readTree(response.body());
+        if (deletion == null || !deletion.isObject() || !deletion.path("deleted").isBoolean()) {
+            throw new IOException("reset learned normals: invalid deletion response from " + baseUrl);
+        }
+        HttpResponse<byte[]> verified = get("/learning/accepted-cases");
+        if (verified.statusCode() / 100 != 2) {
+            throw new IOException(errorText("verify learned normals reset", verified));
+        }
+        JsonNode confirmation = MAPPER.readTree(verified.body());
+        if (confirmation == null || !confirmation.path("cases").isArray() || !confirmation.path("cases").isEmpty()) {
+            throw new IOException("reset learned normals: detector did not confirm an empty list at " + baseUrl);
+        }
     }
 
     @Override

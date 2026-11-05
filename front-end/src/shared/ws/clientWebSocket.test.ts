@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { OrchestratorWebSocketClient } from "./clientWebSocket";
+import * as references from "../referenceImages";
 
 class FakeSocket extends EventTarget {
   static CONNECTING = 0;
@@ -12,20 +13,33 @@ class FakeSocket extends EventTarget {
   }
   close() { this.readyState = 3; }
   open() { this.readyState = FakeSocket.OPEN; this.dispatchEvent(new Event("open")); }
-  message() {
+  message(message = { type: "server.light_brightness_ack", payload: { brightness_percent: 57 } }) {
     this.dispatchEvent(new MessageEvent("message", {
-      data: JSON.stringify({ type: "server.light_brightness_ack", payload: { brightness_percent: 57 } }),
+      data: JSON.stringify(message),
     }));
   }
 }
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   vi.useRealTimers();
   FakeSocket.instances = [];
 });
 
 describe("WebSocket session isolation", () => {
+  it("reconciles stored learned crops on hello without resetting detector learning", () => {
+    vi.stubGlobal("window", { setTimeout, clearTimeout });
+    vi.stubGlobal("WebSocket", FakeSocket);
+    const reconcile = vi.spyOn(references, "reconcileLearnedCasesWithDetector").mockResolvedValue(undefined);
+    const client = new OrchestratorWebSocketClient("ws://localhost/");
+    client.connect();FakeSocket.instances[0].open();
+    FakeSocket.instances[0].dispatchEvent(new MessageEvent("message", {
+      data: JSON.stringify({ type: "server.hello", payload: { session_state: "READY", server_ts_ms: 1 } }),
+    }));
+    expect(reconcile).toHaveBeenCalledOnce();
+    client.disconnect();
+  });
   it("ignores late brightness, status and close events from a previous connection", () => {
     vi.useFakeTimers();
     vi.stubGlobal("window", { setTimeout, clearTimeout });

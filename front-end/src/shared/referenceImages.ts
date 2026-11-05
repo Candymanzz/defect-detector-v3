@@ -76,7 +76,7 @@ type PersistedReferenceState = {
   blobs: Array<[string, Blob]>;
 };
 
-void hydratePersistedReferenceState();
+const referenceStateReady = hydratePersistedReferenceState();
 
 export function stageReferenceBundleImages(
   messageId: string,
@@ -616,20 +616,41 @@ export async function attachLearnedCasesToActiveReference(cameraId: number, case
 }
 
 export function detachLearnedCaseFromReferences(caseId: string) {
+  detachLearnedCasesFromReferences(new Set([caseId]));
+}
+
+/** Reconnect/browser reload preserves live norms, while a full application reset removes stale local copies. */
+export async function reconcileLearnedCasesWithDetector() {
+  await referenceStateReady;
+  const snapshotIds = new Set(archivedReferenceGroups.flatMap((archive) => [
+    ...Object.values(archive.learnedCaseIdsByCameraId).flat(),
+    ...Object.values(archive.learnedCasesByCameraId).flat().map((item) => item.id),
+  ]));
+  if (snapshotIds.size === 0) return;
+  const payload = await orchestratorApi.getLearnedNormals();
+  if (!Array.isArray(payload.cases) || payload.cases.some((item) => typeof item?.id !== "string")) {
+    throw new Error("Некорректный ответ со списком образцов нормы");
+  }
+  const liveIds = new Set(payload.cases.map((item) => item.id));
+  // Only touch IDs observed before the request: a new norm can be added while GET is in flight.
+  detachLearnedCasesFromReferences(new Set([...snapshotIds].filter((id) => !liveIds.has(id))));
+}
+
+function detachLearnedCasesFromReferences(removedIds: ReadonlySet<string>) {
   let changed = false;
   const removedImageUrls = new Set<string>();
   for (const archive of archivedReferenceGroups) {
     for (const [cameraId, caseIds] of Object.entries(archive.learnedCaseIdsByCameraId)) {
-      const nextIds = caseIds.filter((id) => id !== caseId);
+      const nextIds = caseIds.filter((id) => !removedIds.has(id));
       if (nextIds.length === caseIds.length) continue;
       archive.learnedCaseIdsByCameraId[Number(cameraId)] = nextIds;
       changed = true;
     }
     for (const [cameraId, cases] of Object.entries(archive.learnedCasesByCameraId)) {
-      const removed = cases.filter((item) => item.id === caseId);
+      const removed = cases.filter((item) => removedIds.has(item.id));
       if (removed.length === 0) continue;
       removed.forEach((item) => removedImageUrls.add(item.imageUrl));
-      archive.learnedCasesByCameraId[Number(cameraId)] = cases.filter((item) => item.id !== caseId);
+      archive.learnedCasesByCameraId[Number(cameraId)] = cases.filter((item) => !removedIds.has(item.id));
       changed = true;
     }
   }

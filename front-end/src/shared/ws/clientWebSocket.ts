@@ -1,6 +1,6 @@
 import { logDiagnostic } from "../diagnostics";
 import { appEnv } from "../config/env";
-import { resolveReferenceBundleImages, stageReferenceBundleImages } from "../referenceImages";
+import { reconcileLearnedCasesWithDetector, resolveReferenceBundleImages, stageReferenceBundleImages } from "../referenceImages";
 import type {
   ClientFpZonesUpdatePayload,
   ClientLightBrightnessPayload,
@@ -224,6 +224,11 @@ export class OrchestratorWebSocketClient {
           overall_pass: message.payload.overall_pass, action: message.payload.action,
           python_status: message.payload.python_status, geometry_status: message.payload.geometry_status,
           anomaly_score: message.payload.anomaly_score });
+      }
+      if (message.type === "server.hello") {
+        void reconcileLearnedCasesWithDetector().catch((error) => {
+          console.warn("Не удалось обновить список образцов нормы после подключения", error);
+        });
       }
       if (message.type === "server.reference_bundle_ack") {
         resolveReferenceBundleImages(message.message_id, message.payload.ok);

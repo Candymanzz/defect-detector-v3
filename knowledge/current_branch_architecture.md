@@ -1,3 +1,16 @@
+# Сброс норм на bootstrap приложения — 2026-11-05
+
+ChildProcessStartupService вызывает новый метод C++ HTTP-клиента для каждого
+уникального baseUrl: DELETE accepted-cases и GET-подтверждение пустого
+списка. Ошибка останавливает bootstrap. Client.start/restart и WS Stop/Start
+этот метод не вызывают; нативное сохранение norm metadata/PNG остаётся для
+восстановления C++ процесса. Сопоставление/score не менялись.
+WS hello запускает в UI сверку с GET всех cases после hydration библиотеки.
+Отсутствующие IDs и миниатюры убираются одним обновлением, новые во время
+запроса сохраняются. Эталоны и контуры не очищаются.
+[Подробности, проверки и ограничения](analis-surface/2026-11-05-learning-session-reset.md).
+
+
 # Позиционирование — дополнение 2026-11-05, boobs+pasha
 
 `Reference::prepared(scale)` использует общий неизменяемый `AlignmentPrepared`
