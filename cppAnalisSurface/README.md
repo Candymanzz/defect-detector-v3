@@ -1,3 +1,15 @@
+## Точное измерение сдвига (2026-11-05)
+
+Положение измеряется в исходном разрешении независимо от `inspect_scale`:
+фазовая корреляция на ROI до 256 px, затем ECC до 512 px только для переноса X/Y.
+При недостаточной текстуре, несходимости или недостоверном уточнении сохраняется
+грубая оценка. Допуски в мм и локальное ослабление сравнения остаются независимыми.
+`shift_estimator` в ответе: `phase256_ecc512` либо `phase256_fallback`;
+`shift_response` содержит принятую ECC-корреляцию либо исходную phase response,
+`shift_coarse_response` всегда содержит phase response. Эти коэффициенты не являются
+вероятностью брака. Для сборки дополнительно нужен модуль OpenCV `video`.
+[Устройство и проверки](../knowledge/analis-surface/2026-11-05-ecc512-positioning.md).
+
 ## Устойчивое дообучение (2026-11-02)
 
 Перенесён matcher из CppDetector: отдельный поиск образца, маска отличий и компенсация плавной тени.
@@ -38,7 +50,7 @@ Multipart-поля: `file`, `bbox` (JSON: x/y/width/height), `coordinate_space` 
 
 ## Сборка на Linux
 
-Требуются CMake >=3.25, C++17, OpenCV (core, imgproc, imgcodecs),
+Требуются CMake >=3.25, C++17, OpenCV (core, imgproc, imgcodecs, video),
 cpp-httplib >=0.14 и nlohmann-json. Установка зависимостей:
 
 ```bash

@@ -31,11 +31,21 @@ public record IoInputDiscreteConfig(
         boolean externalHardwareCapture
 ) {
 
+    public IoInputDiscreteConfig {
+        // DI3-only capture must not inherit direction gates from older YAML files.
+        if (di3Only) {
+            requireDirection = false;
+            directionLatchOnWork = false;
+            directionArmNextDi3 = false;
+            directionLatch = false;
+        }
+    }
+
     public static IoInputDiscreteConfig defaults() {
-        // Согласовано с config/blocks/01-core.yaml integration.inspection_trigger.io_input
+        // Согласовано с config.exemple/blocks/52-io.yaml integration.inspection_trigger.io_input
         return new IoInputDiscreteConfig(
                 1, 2, 3, 4, 0, "json", false, TriggerEdgeMode.RISING,
-                true, false, false, false, false, false, true,
+                false, false, true, false, false, false, false,
                 5000, 1, 0, true
         );
     }
@@ -67,7 +77,7 @@ public record IoInputDiscreteConfig(
                 : defaults.payloadFormat();
         boolean stubWorkActive = YamlScalars.toBool(io.get("stub_work_active"), defaults.stubWorkActive());
         boolean di3Only = YamlScalars.toBool(io.get("di3_only"), defaults.di3Only());
-        boolean directionLatchOnWork = YamlScalars.toBool(
+        boolean directionLatchOnWork = !di3Only && YamlScalars.toBool(
                 io.get("direction_latch_on_work"),
                 defaults.directionLatchOnWork()
         );

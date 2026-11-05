@@ -26,7 +26,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
- * UDP-слушатель DI: DI2 — направление, DI3 — триггер съёмки, DI4 — безопасное выключение (listener).
+ * Обработчик DI от UDP/MVS: DI3 — триггер съёмки, DI4 — безопасное выключение (listener).
+ * При di3_only вход DI2 передаётся только сырым подписчикам (подсветка).
  */
 public final class IoInputTriggerTransport implements TriggerTransport {
 
@@ -309,6 +310,10 @@ public final class IoInputTriggerTransport implements TriggerTransport {
             return;
         }
         if (port == ioInputConfig.directionPort()) {
+            // Raw listeners (lighting) receive DI2, but DI3-only capture ignores it.
+            if (ioInputConfig.di3Only()) {
+                return;
+            }
             boolean previousRaw = directionRawActive;
             if (usesAutoDirection()) {
                 directionRawActive = active;
@@ -460,27 +465,8 @@ public final class IoInputTriggerTransport implements TriggerTransport {
                 } else if (ioInputConfig.di3Only()) {
                     captureFiredThisPulse = false;
                     di3RiseEpochMs = System.currentTimeMillis();
-                    boolean directionOk = !ioInputConfig.requireDirection()
-                            || (ioInputConfig.directionLatch() ? directionLatched : directionMatchesSelected());
-                    if (!directionOk) {
-                        log.info(
-                                "io_input_trigger skip DI3↑: направление ещё не зафиксировано (жди DI2=1), source={}",
-                                directionSourceLabel()
-                        );
-                    } else if (!hardwareObservationSource && directionMatchesSelected() && captureFiredThisDi2Window) {
-                        log.info(
-                                "io_input_trigger skip DI3↑: холостой (уже сняли при DI2=1), source={}",
-                                directionSourceLabel()
-                        );
-                    } else {
-                        log.info(
-                                "io_input_trigger DI3↑ capture — direction={} latched={} source={}",
-                                effectiveDirectionWire(),
-                                directionLatched ? 1 : 0,
-                                directionSourceLabel()
-                        );
-                        fireLineCapture();
-                    }
+                    log.info("io_input_trigger DI{}↑ capture — direction ignored", port);
+                    fireLineCapture();
                 } else {
                     log.info("io_input_trigger DI3 capture edge direction={}", directionActive ? 1 : 0);
                 }
@@ -722,7 +708,8 @@ public final class IoInputTriggerTransport implements TriggerTransport {
         if (captureFiredThisPulse) {
             return;
         }
-        if (!hardwareObservationSource && directionMatchesSelected() && captureFiredThisDi2Window) {
+        if (ioInputConfig.requireDirection() && !hardwareObservationSource
+                && directionMatchesSelected() && captureFiredThisDi2Window) {
             log.info("io_input_trigger skip: холостой DI3 (уже сняли в выбранном направлении)");
             return;
         }
@@ -742,7 +729,7 @@ public final class IoInputTriggerTransport implements TriggerTransport {
         int published = publishLineCapture(targetCameras);
         if (published > 0) {
             captureFiredThisPulse = true;
-            if (directionMatchesSelected()) {
+            if (ioInputConfig.requireDirection() && directionMatchesSelected()) {
                 captureFiredThisDi2Window = true;
             }
             long dispatchMs = System.currentTimeMillis() - triggerReceivedMs;
@@ -758,8 +745,12 @@ public final class IoInputTriggerTransport implements TriggerTransport {
         }
     }
 
-    /** Direct native source uses the same direction/work rules without opening UDP. */
+    /** Legacy direction windows are ignored when capture listens only to DI3. */
     public void setDirectionWindowCapture() {
+        if (ioInputConfig.di3Only()) {
+            log.info("io_input_trigger direction_window_capture ignored: DI3-only capture");
+            return;
+        }
         if (!hardwareObservationSource || !ioInputConfig.externalHardwareCapture())
             throw new IllegalArgumentException("direction_window_capture requires native hardware capture");
         com.example.iml.orchestrator.integration.capture.DirectionCaptureWindow.enable();
@@ -771,10 +762,6 @@ public final class IoInputTriggerTransport implements TriggerTransport {
     }
 
     private int publishLineCapture(List<Integer> targetCameras) {
-        if (hardwareObservationSource && !directionActive) {
-            log.info("io_input_trigger skip: hardware frame reception requires DI{}=1", ioInputConfig.directionPort());
-            return 0;
-        }
         if (hardwareObservationSource || ioInputConfig.externalHardwareCapture()) {
             int published = bus.dispatchLineBroadcastWithoutPrefire("io_input", targetCameras);
             log.info("io_input_trigger event=hardware_frame_request direction_di={} direction={} work={} cameras={} published={} sequence={}",
@@ -807,6 +794,9 @@ public final class IoInputTriggerTransport implements TriggerTransport {
     }
 
     private String effectiveDirectionWire() {
+        if (!ioInputConfig.requireDirection()) {
+            return "ignored";
+        }
         if (ioInputConfig.directionLatch() && directionLatched) {
             return "forward";
         }
@@ -814,7 +804,7 @@ public final class IoInputTriggerTransport implements TriggerTransport {
     }
 
     private String directionSourceLabel() {
-        return "di2";
+        return ioInputConfig.requireDirection() ? "di2" : "none";
     }
 
     /** Всегда все камеры; фильтр — только направление хода (UI ↔ DI2), не группа. */

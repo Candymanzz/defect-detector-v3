@@ -7,7 +7,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs)
+find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs video)
 find_package(httplib CONFIG QUIET)
 if(NOT TARGET httplib::httplib)
   # Ubuntu/Debian ship cpp-httplib through pkg-config rather than a CMake config.
@@ -38,28 +38,46 @@ else()
   target_compile_options(cpp_analis_surface PRIVATE -Wall -Wextra -O2)
 endif()
 target_link_libraries(cpp_analis_surface PRIVATE
-  opencv_core opencv_imgproc opencv_imgcodecs
+  opencv_core opencv_imgproc opencv_video opencv_imgcodecs
   httplib::httplib nlohmann_json::nlohmann_json Threads::Threads)
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(shift_accuracy_test tests/shift_accuracy_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
+  target_include_directories(shift_accuracy_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(shift_accuracy_test PRIVATE
+    opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME shift_accuracy_test COMMAND shift_accuracy_test)
+  add_executable(preprocessing_test tests/preprocessing_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
+  target_include_directories(preprocessing_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(preprocessing_test PRIVATE
+    opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME preprocessing_test COMMAND preprocessing_test)
+  add_executable(learned_placement_test tests/learned_placement_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
+  target_include_directories(learned_placement_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(learned_placement_test PRIVATE
+    opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME learned_placement_test COMMAND learned_placement_test)
   add_executable(moving_shadow_test tests/moving_shadow_test.cpp
     src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
   target_include_directories(moving_shadow_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
-  target_link_libraries(moving_shadow_test PRIVATE opencv_core opencv_imgproc opencv_imgcodecs nlohmann_json::nlohmann_json Threads::Threads)
+  target_link_libraries(moving_shadow_test PRIVATE opencv_core opencv_imgproc opencv_video opencv_imgcodecs nlohmann_json::nlohmann_json Threads::Threads)
   add_test(NAME moving_shadow_test COMMAND moving_shadow_test)
   add_executable(learned_region_test tests/learned_region_test.cpp
     src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp src/core/seam.cpp
     src/core/shm_io.cpp src/service/service.cpp)
   target_include_directories(learned_region_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
   target_link_libraries(learned_region_test PRIVATE
-    opencv_core opencv_imgproc opencv_imgcodecs nlohmann_json::nlohmann_json Threads::Threads)
+    opencv_core opencv_imgproc opencv_video opencv_imgcodecs nlohmann_json::nlohmann_json Threads::Threads)
   add_test(NAME learned_region_test COMMAND learned_region_test)
   add_executable(shift_tolerance_test tests/shift_tolerance_test.cpp
     src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
   target_include_directories(shift_tolerance_test PRIVATE src)
   target_link_libraries(shift_tolerance_test PRIVATE
-    opencv_core opencv_imgproc nlohmann_json::nlohmann_json Threads::Threads)
+    opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
   add_test(NAME shift_tolerance_test COMMAND shift_tolerance_test)
   add_executable(performance_log_test tests/performance_log_test.cpp src/core/performance_log.cpp)
   target_include_directories(performance_log_test PRIVATE src)
@@ -77,13 +95,13 @@ if(BUILD_TESTING)
     src/core/shm_io.cpp src/service/service.cpp)
   target_include_directories(metric_tolerance_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
   target_link_libraries(metric_tolerance_test PRIVATE
-    opencv_core opencv_imgproc opencv_imgcodecs nlohmann_json::nlohmann_json Threads::Threads)
+    opencv_core opencv_imgproc opencv_video opencv_imgcodecs nlohmann_json::nlohmann_json Threads::Threads)
   add_test(NAME metric_tolerance_test COMMAND metric_tolerance_test)
   add_executable(upper_corner_test tests/upper_corner_test.cpp
     src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
   target_include_directories(upper_corner_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
   target_link_libraries(upper_corner_test PRIVATE
-    opencv_core opencv_imgproc nlohmann_json::nlohmann_json Threads::Threads)
+    opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
   if(MSVC)
     target_compile_options(upper_corner_test PRIVATE /utf-8)
   endif()

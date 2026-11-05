@@ -75,18 +75,26 @@ void compareLearned(const cas::Reference& reference,const cv::Mat& current,cv::M
         sample.convertTo(sampleF,CV_32F);cv::subtract(sampleF,primary(box),residual,cv::noArray(),CV_32F);
         // Application mask is the changed part of the saved crop, not its whole rectangular background.
         cv::Mat support=cv::abs(residual)>6.0;
-        if(!cv::countNonZero(support)) {d["status"]="no_learned_difference";diagnostics.push_back(d);continue;}
-        d["mask_pixels"]=cv::countNonZero(support);
-        int removed=0;
+        const int sourceMaskPixels=cv::countNonZero(support);
         auto placement=locate(current,sample,box,radius);
         d["pattern_correlation"]=placement.correlation;
         d["pattern_aligned"]=placement.valid;
         // Always allow the original position even on a plain patch: pixel comparison itself decides.
         const auto patternBox=placement.valid?placement.box:box;
+        // Current is globally aligned, while the saved crop is from the raw frame.
+        // Compare the sample to the primary at its matched position: translating
+        // a mask made at the source position can miss the learned ROI boundary.
+        cv::Mat placedResidual;
+        cv::absdiff(sample,primary(patternBox),placedResidual);
+        cv::Mat placedSupport=placedResidual>6.0;
+        const int placedMaskPixels=cv::countNonZero(placedSupport);
+        if(!sourceMaskPixels && !placedMaskPixels) {d["status"]="no_learned_difference";diagnostics.push_back(d);continue;}
+        d["mask_pixels"]=sourceMaskPixels;
+        int removed=0;
         cv::Mat alternate=envelopeDifference(sample,current(patternBox),kernel);
         bool shadowFit=false;
 
-        if(options.shadows) {
+        if(options.shadows && sourceMaskPixels) {
             cv::Mat smooth,high;
             cv::GaussianBlur(residual,smooth,{},sigma);
             cv::absdiff(residual,smooth,high);
@@ -137,7 +145,8 @@ void compareLearned(const cas::Reference& reference,const cv::Mat& current,cv::M
             } else d["shadow_skip_reason"]="not_smooth";
         }
         if(!shadowFit) {
-            removed+=apply(diff,patternBox,alternate,support,threshold);
+            d["mask_pixels"]=placedMaskPixels;
+            removed+=apply(diff,patternBox,alternate,placedSupport,threshold);
             if(removed) {d["method"]="pattern";d["shift"]={(patternBox.x-box.x)/scale,(patternBox.y-box.y)/scale};}
         }
         d["remaining_pixels"]=flagged(diff(search),threshold);

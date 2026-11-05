@@ -1,7 +1,9 @@
 #include "inspector.h"
 #include "learning_matcher.h"
+#include "preprocessing.h"
 #include "request_timing.h"
 #include <opencv2/imgproc.hpp>
+#include <opencv2/video/tracking.hpp>
 #include <algorithm>
 #include <chrono>
 #include <climits>
@@ -36,6 +38,57 @@ constexpr double kMinShiftResponse = 0.05;   // below this the shift estimate is
 // A shift beyond the limit rejects the frame only when the estimate is confident: on flat / overexposed
 // surfaces phase correlation returns a large shift with a response of ~0.05-0.1 that is just noise.
 constexpr double kRejectShiftResponse = 0.3;
+constexpr double kShiftNumericalEpsilon = 1e-4; // original pixels; only floating-point residue
+
+struct ShiftEstimate {
+    cv::Point2d pixels;
+    double response = 0;
+    double coarseResponse = 0;
+    bool refined = false;
+};
+
+ShiftEstimate estimateShift(const AlignmentPrepared& a, const cv::Mat& nativeGray) {
+    ShiftEstimate result;
+    const auto current = nativeGray(a.region);
+    cv::Mat small, smallFloat;
+    cv::resize(current, small, a.smallSize, 0, 0, cv::INTER_AREA);
+    small.convertTo(smallFloat, CV_32F);
+    padShiftInput(smallFloat, a.refSmall.size());
+    // phaseCorrelate can window its inputs in place; never mutate the shared cache.
+    auto referenceFloat = a.refSmall.clone();
+    const auto coarse = cv::phaseCorrelate(referenceFloat, smallFloat, a.hann, &result.coarseResponse);
+    result.response = result.coarseResponse;
+    if (!std::isfinite(coarse.x) || !std::isfinite(coarse.y) || !std::isfinite(result.response)) {
+        result.response = result.coarseResponse = 0;
+        return result;
+    }
+    if (result.response < kMinShiftResponse) return result;
+    result.pixels = {coarse.x * a.coarseToNative.x, coarse.y * a.coarseToNative.y};
+
+    if (a.canRefine) {
+        cv::Mat fine;
+        cv::resize(current, fine, a.fineGray.size(), 0, 0, cv::INTER_AREA);
+        cv::Mat warp = (cv::Mat_<float>(2, 3) << 1, 0, float(result.pixels.x / a.fineToNative.x),
+                                                  0, 1, float(result.pixels.y / a.fineToNative.y));
+        try {
+            const double confidence = cv::findTransformECC(a.fineGray, fine, warp, cv::MOTION_TRANSLATION,
+                cv::TermCriteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS, 30, 1e-6), a.fineMask, 5);
+            const cv::Point2d refined(warp.at<float>(0, 2) * a.fineToNative.x,
+                                     warp.at<float>(1, 2) * a.fineToNative.y);
+            if (std::isfinite(confidence) && confidence >= .8 && std::isfinite(refined.x)
+                    && std::isfinite(refined.y) && cv::norm(refined - result.pixels) <= 8.0) {
+                result.pixels = refined;
+                result.response = confidence;
+                result.refined = true;
+            }
+        } catch (const cv::Exception&) {
+            // Non-convergence, low texture or poor overlap: retain the coarse estimate and confidence.
+        }
+    }
+    if (std::abs(result.pixels.x) < kShiftNumericalEpsilon) result.pixels.x = 0;
+    if (std::abs(result.pixels.y) < kShiftNumericalEpsilon) result.pixels.y = 0;
+    return result;
+}
 
 }
 
@@ -56,41 +109,32 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     const cv::Rect region = prep->region;
 
     // ---- current frame at work resolution ----
-    cv::Mat cur;
-    cv::cvtColor(bgr, cur, cv::COLOR_BGR2GRAY);
-    if (scale != 1.0) cv::resize(cur, cur, prep->workSize, 0, 0, cv::INTER_AREA);
-    cv::GaussianBlur(cur, cur, cv::Size(5, 5), 0);
+    cv::Mat cur = prepareInspectionGray(bgr, prep->workSize);
 
-    // ---- cheap translation estimate on a thumbnail of the ROI box ----
+    // ---- native-resolution positioning, independent of the defect inspection scale ----
     requestTiming.add("prepare_ms", msSince(tStart));
     const auto tAlign = Clock::now();
     const int tolWorkX = std::max(0, static_cast<int>(std::lround(s.shiftToleranceX * scale)));
     const int tolWorkY = std::max(0, static_cast<int>(std::lround(s.shiftToleranceY * scale)));
-    cv::Mat small, smallF;
-    cv::resize(cur(region), small, prep->smallSize, 0, 0, cv::INTER_AREA);
-    small.convertTo(smallF, CV_32F);
-    double response = 0;
-    // OpenCV may apply the Hann window in-place when no DFT padding is needed.
-    // Never pass the shared immutable cache as its writable working buffer.
-    cv::Mat referenceSmall = prep->refSmall.clone();
-    cv::Point2d sh = cv::phaseCorrelate(referenceSmall, smallF, prep->hann, &response);
-    sh.x *= static_cast<double>(region.width) / prep->smallSize.width;
-    sh.y *= static_cast<double>(region.height) / prep->smallSize.height;
-    out.shiftResponse = response;
-    if (response < kMinShiftResponse) sh = cv::Point2d(0, 0);
-    out.rawShift = cv::Point2d(sh.x / scale, sh.y / scale);
-
-    const double maxShiftX = s.maxAlignmentShiftX * scale;
-    const double maxShiftY = s.maxAlignmentShiftY * scale;
-    out.shiftLimit = cv::Point2d(maxShiftX / scale, maxShiftY / scale);
-    if (std::abs(sh.x) > maxShiftX || std::abs(sh.y) > maxShiftY) {
-        if (response >= kRejectShiftResponse) {
+    const auto nativeGray = prep->workSize == bgr.size() ? cur : prepareInspectionGray(bgr, bgr.size());
+    const auto estimate = estimateShift(*prep->alignment, nativeGray);
+    out.shiftResponse = estimate.response;
+    out.coarseShiftResponse = estimate.coarseResponse;
+    out.shiftRefined = estimate.refined;
+    out.rawShift = estimate.pixels;
+    auto applied = estimate.pixels;
+    out.shiftLimit = {s.maxAlignmentShiftX, s.maxAlignmentShiftY};
+    if (std::abs(applied.x) > s.maxAlignmentShiftX || std::abs(applied.y) > s.maxAlignmentShiftY) {
+        if (estimate.response >= kRejectShiftResponse) {
             out.reject = true;
             out.reason = "shift_exceeded";
         }
-        sh = cv::Point2d(0, 0);   // a shift this large cannot be compensated reliably
+        applied = cv::Point2d(0, 0);   // a shift this large cannot be compensated reliably
     }
-    out.shift = cv::Point2d(sh.x / scale, sh.y / scale);
+    out.shift = applied;
+    // Rounded work dimensions may have slightly different X/Y ratios on odd-size frames.
+    const cv::Point2d sh(applied.x * prep->workSize.width / bgr.cols,
+                         applied.y * prep->workSize.height / bgr.rows);
 
     cv::Mat curR = cur(region);
     if (std::abs(sh.x) >= 0.15 || std::abs(sh.y) >= 0.15) {
