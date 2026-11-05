@@ -1,3 +1,18 @@
+# Позиционирование — дополнение 2026-11-05, boobs+pasha
+
+`Reference::prepared(scale)` использует общий неизменяемый `AlignmentPrepared`
+для текущего эталона/ROI: native bbox, phase256 float/Hann и ECC512 gray/mask.
+Смена ROI сбрасывает его вместе с картами инспекции; построение использует
+один снимок ROI. `inspectFrame` получает coarse перенос по native gray/blur5,
+уточняет ECC (только X/Y), проверяет глобальные пределы в original px и
+пересчитывает компенсацию по фактическим размерам work/native. Ослабление
+сравнения, score, learning и seam используют прежние настройки.
+Fallback сохраняет coarse response; нативный ответ и performance-контекст
+позволяют различить точное/грубое измерение. Java/UI поля не отображают.
+OpenCV video добавлен в сборку; аппаратный runtime не обновлялся.
+[Условия принятия, кэш, проверки и ограничения](analis-surface/2026-11-05-ecc512-positioning.md).
+
+
 # Триггер — дополнение 2026-11-04, boobs+pasha
 
 Срабатывание задаётся DI3↑; `IoInputTriggerTransport` не использует DI2

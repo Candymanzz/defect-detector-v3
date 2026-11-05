@@ -9,6 +9,43 @@ namespace cas {
 namespace {
 
 constexpr int kShiftEstimateMaxSide = 256;   // shift is estimated on a thumbnail of the ROI box
+constexpr int kShiftRefineMaxSide = 512;
+
+cv::Size thumbnailSize(cv::Size source, int maxSide) {
+    const double factor = std::min(1.0, static_cast<double>(maxSide) / std::max(source.width, source.height));
+    return {std::max(16, cvRound(source.width * factor)), std::max(16, cvRound(source.height * factor))};
+}
+
+std::shared_ptr<const AlignmentPrepared> buildAlignment(const Prepared& native) {
+    auto a = std::make_shared<AlignmentPrepared>();
+    a->region = native.region;
+    const auto gray = native.refGray(a->region);
+    a->smallSize = thumbnailSize(gray.size(), kShiftEstimateMaxSide);
+    cv::Mat small;
+    cv::resize(gray, small, a->smallSize, 0, 0, cv::INTER_AREA);
+    small.convertTo(a->refSmall, CV_32F);
+    cv::createHanningWindow(a->hann, a->smallSize, CV_32F);
+    const auto dftSize = shiftDftSize(a->smallSize);
+    padShiftInput(a->refSmall, dftSize);
+    padShiftInput(a->hann, dftSize);
+    a->coarseToNative = {double(gray.cols) / a->smallSize.width, double(gray.rows) / a->smallSize.height};
+
+    const auto fineSize = thumbnailSize(gray.size(), kShiftRefineMaxSide);
+    cv::resize(gray, a->fineGray, fineSize, 0, 0, cv::INTER_AREA);
+    cv::resize(native.roiMask(a->region), a->fineMask, fineSize, 0, 0, cv::INTER_NEAREST);
+    cv::erode(a->fineMask, a->fineMask, cv::getStructuringElement(cv::MORPH_RECT, {9, 9}));
+    a->fineMask.rowRange(0, 6).setTo(0);
+    a->fineMask.rowRange(fineSize.height - 6, fineSize.height).setTo(0);
+    a->fineMask.colRange(0, 6).setTo(0);
+    a->fineMask.colRange(fineSize.width - 6, fineSize.width).setTo(0);
+    a->fineToNative = {double(gray.cols) / fineSize.width, double(gray.rows) / fineSize.height};
+    cv::Scalar mean, deviation;
+    if (cv::countNonZero(a->fineMask) >= 64) {
+        cv::meanStdDev(a->fineGray, mean, deviation, a->fineMask);
+        a->canRefine = deviation[0] > 1.0;
+    }
+    return a;
+}
 
 cv::Mat upperCornerMask(const cv::Mat& roi) {
     std::vector<int> top(roi.cols, roi.rows), bottom(roi.cols, -1);
@@ -61,6 +98,7 @@ bool Reference::setRoi(NormPolygon pts) {
     }
     roi_ = std::move(pts);
     cache_.clear();
+    alignment_.reset();
     return true;
 }
 
@@ -72,20 +110,34 @@ NormPolygon Reference::roi() const {
 std::shared_ptr<const Prepared> Reference::prepared(double scale) const {
     const int key = static_cast<int>(std::lround(scale * 1000.0));
     NormPolygon roi;
+    std::shared_ptr<const AlignmentPrepared> alignment;
     {
         std::lock_guard<std::mutex> lk(m_);
         auto it = cache_.find(key);
         if (it != cache_.end()) return it->second;
         roi = roi_;
+        alignment = alignment_;
     }
-    auto built = build(key / 1000.0, roi);
+    // Build the positioning data once from native pixels, never from the inspection thumbnail.
+    // Keep the same ROI snapshot for positioning and comparison, even if it changes during a build.
+    std::shared_ptr<Prepared> native;
+    if (!alignment) {
+        native = build(1.0, roi);
+        alignment = buildAlignment(*native);
+    }
+    auto built = key == 1000 && native ? native : build(key / 1000.0, roi);
+    built->alignment = alignment;
     std::lock_guard<std::mutex> lk(m_);
     // the ROI may have changed while building: only cache when it is still the same
-    if (roi == roi_) cache_[key] = built;
+    if (roi == roi_) {
+        if (!alignment_) alignment_ = alignment;
+        built->alignment = alignment_;
+        cache_[key] = built;
+    }
     return built;
 }
 
-std::shared_ptr<const Prepared> Reference::build(double scale, const NormPolygon& roi) const {
+std::shared_ptr<Prepared> Reference::build(double scale, const NormPolygon& roi) const {
     auto p = std::make_shared<Prepared>();
     p->scale = scale;
     p->workSize = inspectionWorkSize(bgr_.size(), scale);
@@ -113,15 +165,6 @@ std::shared_ptr<const Prepared> Reference::build(double scale, const NormPolygon
                                        : cv::Mat::zeros(box.size(), CV_8U);
     p->upperCornerArea = cv::countNonZero(p->upperCornerMask);
 
-    const double f = std::min(1.0, static_cast<double>(kShiftEstimateMaxSide) / std::max(box.width, box.height));
-    p->smallSize = cv::Size(std::max(16, cvRound(box.width * f)), std::max(16, cvRound(box.height * f)));
-    cv::Mat small;
-    cv::resize(p->refGray(box), small, p->smallSize, 0, 0, cv::INTER_AREA);
-    small.convertTo(p->refSmall, CV_32F);
-    cv::createHanningWindow(p->hann, p->smallSize, CV_32F);
-    const auto dftSize = shiftDftSize(p->smallSize);
-    padShiftInput(p->refSmall, dftSize);
-    padShiftInput(p->hann, dftSize);
     return p;
 }
 

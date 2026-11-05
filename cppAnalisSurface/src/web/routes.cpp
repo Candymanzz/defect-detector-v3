@@ -193,6 +193,9 @@ json imageJson(const std::optional<ImageInfo>& i) {
 void addMetricDiagnostics(json& j, const Inspected& r) {
     const auto units = r.settings.mmPerPixel(r.frameSize);
     j["shift_units"] = "original_px";
+    j["shift_estimator"] = r.out.shiftRefined ? "phase256_ecc512" : "phase256_fallback";
+    j["shift_coarse_response"] = r.out.coarseShiftResponse;
+    j["shift_response"] = r.out.shiftResponse;
     j["mm_per_pixel"] = {units.x, units.y};
     j["shift_mm"] = {r.out.shift.x * units.x, r.out.shift.y * units.y};
     j["shift_raw_mm"] = {r.out.rawShift.x * units.x, r.out.rawShift.y * units.y};
@@ -340,6 +343,8 @@ void logInspection(const char* endpoint, const InspectJob& job, const Inspected&
         requestTiming.context["reason"] = r.out.reason;
         requestTiming.context["shift_raw"] = {r.out.rawShift.x, r.out.rawShift.y};
         requestTiming.context["shift_response"] = r.out.shiftResponse;
+        requestTiming.context["shift_refined"] = r.out.shiftRefined;
+        requestTiming.context["shift_coarse_response"] = r.out.coarseShiftResponse;
     }
     const auto& o = r.out;
     bool full = o.reject || o.anomalyScore >= 0.5 * r.settings.threshold || totalMs > 400.0 || endpoint != std::string("inspect-shm");
