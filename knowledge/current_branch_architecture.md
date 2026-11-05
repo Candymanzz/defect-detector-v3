@@ -1,3 +1,14 @@
+# Совмещены lifecycle норм и события света — 2026-11-05
+
+Вместе присутствуют bootstrap-сброс learned normals из 389c3f20 и ExposureEnd
+из 1e0a973b. ChildProcessStartupService управляет нормами на полный запуск;
+TriggerRuntimeBootstrapService подключает event-based interval flash.
+Съёмка остаётся DI3-only; DI2 относится к окну света/fallback выключения.
+ECC/сравнение и frontend не редактировались, исходники сверены с родителями.
+Проверены Java и Windows native без SDK; Linux/MVS/оборудование не запускались.
+[Проверки и состав](deploy-ops/2026-11-05-merge-norms-exposure-end.md).
+
+
 # Сброс норм на bootstrap приложения — 2026-11-05
 
 ChildProcessStartupService вызывает новый метод C++ HTTP-клиента для каждого
@@ -11,6 +22,38 @@ WS hello запускает в UI сверку с GET всех cases после 
 [Подробности, проверки и ограничения](analis-surface/2026-11-05-learning-session-reset.md).
 
 
+# Граница исходники/runtime после merge — 2026-11-05
+
+Исходники объединяют ExposureEnd из 4b5e8efd и DI3-only/ECC512 из 37499f9e.
+Wiring всех камер и проверка 30 окон сохранены. Работающий backend после
+аппаратного замера не перезапускался: новое DI3-only/ECC поведение не
+считается проверенным на станке. Ниже сохранены заметки обеих историй.
+[Проверки слияния и состав](deploy-ops/2026-11-05-merge-exposure-end.md).
+
+# Управление светом по ExposureEnd — 2026-11-05
+
+Текущая локальная JNI подписывает все камеры на Line0/ExposureStart/ExposureEnd.
+SDK callback → ограниченная native очередь → dispatcher → JNI NativeCameraEvents
+→ ExposureEndFlashGate → последовательный executor банка света.
+DI2↑ включает банк; последние ExposureEnd всех открытых камер выключают
+его после 30 полных проверенных окон. DI2↓ сохраняется как fallback.
+События старого окна, дубли и потери не могут дать допуск раннему Off.
+[Архитектура, параметры и реальные проверки](deploy-ops/2026-11-05-exposure-end-flash.md).
+
+# Срез исходников — 2026-11-05, fd442c97
+
+Локальная ветка теперь указывает на fd442c97. По Git diff относительно 20909141
+изменён только нативный camera-worker: добавлен журнал событий Line0RisingEdge/
+ExposureStart и его тест. Java, C++-детектор, frontend и Git-шаблоны не изменились.
+Сборка и развёртывание в этой задаче не выполнялись; сведения о работе сервиса ниже
+относятся к прежним проверкам. [Переход и границы](deploy-ops/2026-11-05-head-fd442c97.md).
+
+# Архитектура после отката — 2026-11-04
+
+Исходники возвращены к `20909141`. Работает прежний trigger/capture путь
+коммита, без последующих DI3-only и постоянного HardwareFrameReception.
+Более поздние результаты не являются проверками этой версии.
+[Откат, резервные копии и проверки](deploy-ops/2026-11-04-rollback-20909141.md).
 # Позиционирование — дополнение 2026-11-05, boobs+pasha
 
 `Reference::prepared(scale)` использует общий неизменяемый `AlignmentPrepared`

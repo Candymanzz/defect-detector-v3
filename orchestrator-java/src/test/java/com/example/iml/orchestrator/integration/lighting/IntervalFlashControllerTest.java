@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
+import com.example.iml.orchestrator.integration.camera.NativeCameraEvents;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -14,6 +16,53 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class IntervalFlashControllerTest {
+
+    @Test
+    void exposureEndTurnsOffOnlyAfterValidationAndEveryCameraEnds() throws Exception {
+        AtomicInteger offs = new AtomicInteger();
+        var config = IntervalFlashConfig.fromRootYaml(Map.of("light_servers", Map.of("interval_flash", Map.of(
+                "enabled", true, "off_on_exposure_end", true, "exposure_end_validation_cycles", 1))));
+        assertTrue(config.offOnExposureEnd());
+        assertEquals(1, config.exposureEndValidationCycles());
+        var lights = new IntervalFlashController.Lights() {
+            public boolean lightAllOn(String phase) { return true; }
+            public void forceAllOff() { offs.incrementAndGet(); }
+        };
+        try (var controller = new IntervalFlashController(LogManager.getLogger(getClass()), lights, config)) {
+            controller.enableExposureEnd(Set.of(0, 1));
+            controller.onDiChange(new IoInputDiChange(2, true));
+            cameraPair(controller, 0, 100); cameraPair(controller, 1, 100);
+            controller.awaitLightTasks(500);
+            assertTrue(controller.lightsOn(), "first window only validates");
+            controller.onDiChange(new IoInputDiChange(2, false));
+            controller.awaitLightTasks(500);
+            assertEquals(1, offs.get());
+            controller.onDiChange(new IoInputDiChange(2, true));
+            cameraPair(controller, 0, 200);
+            controller.awaitLightTasks(500);
+            assertTrue(controller.lightsOn(), "camera 1 has not finished");
+            assertEquals(1, offs.get());
+            cameraPair(controller, 1, 200);
+            controller.awaitLightTasks(500);
+            assertFalse(controller.lightsOn());
+            assertFalse(controller.captureLightingActive());
+            assertEquals(2, offs.get(), "one early bank Off");
+            controller.onDiChange(new IoInputDiChange(2, false));
+            controller.onDiChange(new IoInputDiChange(2, true));
+            // Old events delivered after the next rising edge cannot turn off its light.
+            controller.onCameraEvent(new NativeCameraEvents.Event(0, 2, 210, 1, 0));
+            controller.awaitLightTasks(500);
+            assertTrue(controller.lightsOn());
+            controller.onDiChange(new IoInputDiChange(2, false));
+            controller.awaitLightTasks(500);
+            assertFalse(controller.lightsOn(), "missing end uses the DI falling fallback");
+        }
+    }
+
+    private void cameraPair(IntervalFlashController controller, int camera, long tick) {
+        controller.onCameraEvent(new NativeCameraEvents.Event(camera, 1, tick, System.nanoTime(), 0));
+        controller.onCameraEvent(new NativeCameraEvents.Event(camera, 2, tick + 10, System.nanoTime(), 0));
+    }
 
     private static IntervalFlashConfig di2PulseConfig() {
         return new IntervalFlashConfig(
