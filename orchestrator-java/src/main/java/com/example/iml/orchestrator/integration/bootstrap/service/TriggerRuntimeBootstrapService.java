@@ -234,8 +234,9 @@ public final class TriggerRuntimeBootstrapService {
             }
             intervalFlashController.armStartDark();
             log.info(
-                    "interval_flash enabled — DI{}↑ → On, DI{}↓ → fallback Off; hold_mode={}",
+                    "interval_flash enabled — DI{}↑ + {} ms → On, DI{}↓ → fallback Off; hold_mode={}",
                     intervalFlashCfg.idlePort(),
+                    intervalFlashCfg.onDelayMs(),
                     intervalFlashCfg.idlePort(),
                     ctx.lightClient().isHoldMode()
             );

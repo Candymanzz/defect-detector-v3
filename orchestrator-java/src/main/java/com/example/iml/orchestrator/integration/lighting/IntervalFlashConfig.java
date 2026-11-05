@@ -29,8 +29,19 @@ public record IntervalFlashConfig(
         /** Legacy YAML: не используется; готовый кадр не управляет светом. */
         boolean offOnFirstFrame,
         boolean offOnExposureEnd,
-        int exposureEndValidationCycles
+        int exposureEndValidationCycles,
+        /** Delay from DI rising to the bank On command; zero preserves immediate On. */
+        int onDelayMs
 ) {
+    /** Compatibility constructor for the ExposureEnd configuration without an On delay. */
+    public IntervalFlashConfig(boolean enabled, int idlePort, int triggerPort, TriggerEdgeMode idleEdge,
+            TriggerEdgeMode triggerEdge, int offDelayMs, int onReengageDelayMs, boolean startDark,
+            boolean idleOnEnabled, boolean offOnFirstFrame, boolean offOnExposureEnd,
+            int exposureEndValidationCycles) {
+        this(enabled, idlePort, triggerPort, idleEdge, triggerEdge, offDelayMs, onReengageDelayMs,
+                startDark, idleOnEnabled, offOnFirstFrame, offOnExposureEnd, exposureEndValidationCycles, 0);
+    }
+
     /** Compatibility constructor for the DI-only configuration. */
     public IntervalFlashConfig(boolean enabled, int idlePort, int triggerPort, TriggerEdgeMode idleEdge,
             TriggerEdgeMode triggerEdge, int offDelayMs, int onReengageDelayMs, boolean startDark,
@@ -112,7 +123,8 @@ public record IntervalFlashConfig(
                 idleOnEnabled,
                 offOnFirstFrame,
                 YamlScalars.toBool(m.get("off_on_exposure_end"), false),
-                Math.max(1, YamlScalars.toInt(m.get("exposure_end_validation_cycles"), 30))
+                Math.max(1, YamlScalars.toInt(m.get("exposure_end_validation_cycles"), 30)),
+                Math.max(0, YamlScalars.toInt(m.get("on_delay_ms"), 0))
         );
     }
 

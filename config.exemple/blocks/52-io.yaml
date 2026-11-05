@@ -97,11 +97,14 @@ integration:
 
 light_servers:
   # Интервальный режим (отдельный контур от съёмки):
-  # DI2↑ (начало импульса направления) → bank On;
+  # DI2↑ + on_delay_ms → bank On;
   # All-camera ExposureEnd → bank Off after validation; DI2↓ remains fallback.
   # On/Off — POST /api/camera-flash/bank (не трогает capture pipeline).
   interval_flash:
     enabled: true
+    # Measured DI2↑ → ExposureStart is about 2.4 s; cold bank On took 205 ms.
+    # Cancel pending On on DI2↓ or a validated all-camera ExposureEnd.
+    on_delay_ms: 2000
     # After 30 consecutive complete windows, all cameras' ExposureEnd → bank Off.
     # A missing event keeps the DI2 falling fallback and restarts validation.
     off_on_exposure_end: true

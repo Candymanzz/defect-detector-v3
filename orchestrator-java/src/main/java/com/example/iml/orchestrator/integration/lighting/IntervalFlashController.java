@@ -8,12 +8,14 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Интервальные вспышки по импульсу DI (обычно DI2):
  * <ul>
- *   <li>начало импульса (Rising / active=true) → bank On</li>
+ *   <li>начало импульса (Rising / active=true) → bank On after on_delay_ms</li>
  *   <li>конец импульса (Falling / active=false) → bank Off</li>
  * </ul>
  * Optional ExposureEnd from all cameras can extinguish early after validation; DI falling is fallback.
@@ -43,6 +45,8 @@ public final class IntervalFlashController implements AutoCloseable {
     private ExposureEndFlashGate exposureGate;
     private AutoCloseable exposureSubscription;
     private long pulseGeneration;
+    private long pulseStartedNs;
+    private ScheduledFuture<?> pendingOn;
     private boolean exposureOffScheduled;
     private volatile boolean closed;
 
@@ -109,6 +113,7 @@ public final class IntervalFlashController implements AutoCloseable {
             if (exposureOffScheduled) return;
             exposureOffScheduled = true;
             pulseActive.set(false);
+            cancelPendingOn();
             long generation = pulseGeneration;
             lightExecutor.execute(() -> {
                 synchronized (stateLock) { if (closed || generation != pulseGeneration) return; }
@@ -135,8 +140,9 @@ public final class IntervalFlashController implements AutoCloseable {
             lightsOn.set(false);
         });
         log.info(
-                "interval_flash start_dark: DI{}↑ → On; DI{}↓ → Off (импульс направления)",
+                "interval_flash start_dark: DI{}↑ + {} ms → On; DI{}↓ → Off (импульс направления)",
                 config.idlePort(),
+                config.onDelayMs(),
                 config.idlePort()
         );
     }
@@ -172,6 +178,7 @@ public final class IntervalFlashController implements AutoCloseable {
         boolean rising;
         boolean falling;
         synchronized (stateLock) {
+            boolean firstSample = !pulsePortInitialized;
             if (!pulsePortInitialized) {
                 pulsePortInitialized = true;
                 pulsePortLevel = active;
@@ -184,10 +191,11 @@ public final class IntervalFlashController implements AutoCloseable {
             }
             if (rising) {
                 pulseGeneration++;
+                pulseStartedNs = System.nanoTime();
                 exposureOffScheduled = false;
                 if (exposureGate != null) exposureGate.begin(System.nanoTime());
                 pulseActive.set(true);
-                scheduleOn("DI" + config.idlePort() + " rising");
+                scheduleOn("DI" + config.idlePort() + " rising", firstSample);
             } else if (falling) {
                 if (exposureGate != null) {
                     boolean good = exposureGate.finish();
@@ -195,13 +203,46 @@ public final class IntervalFlashController implements AutoCloseable {
                             good, exposureGate.consecutive(), exposureGate.requiredCycles(), exposureOffScheduled);
                 }
                 pulseActive.set(false);
+                cancelPendingOn();
                 scheduleOff("DI" + config.idlePort() + " falling");
             }
         }
     }
 
-    private void scheduleOn(String reason) {
-        lightExecutor.execute(() -> engageLights(reason));
+    private void scheduleOn(String reason, boolean initialHigh) {
+        if (config.onDelayMs() <= 0) {
+            lightExecutor.execute(() -> engageLights(reason));
+            return;
+        }
+        cancelPendingOn();
+        long generation = pulseGeneration;
+        long startedNs = pulseStartedNs;
+        // An initial HIGH is a level snapshot, not a timestamped rising edge.
+        // Its exposure may be imminent; apply the delay only after observing LOW.
+        int delayMs = initialHigh ? 0 : config.onDelayMs();
+        log.info("interval_flash event=bank_on_scheduled generation={} delay_ms={} initial_high={}",
+                generation, delayMs, initialHigh);
+        pendingOn = lightExecutor.schedule(() -> {
+            synchronized (stateLock) {
+                if (closed || generation != pulseGeneration || !pulseActive.get() || exposureOffScheduled) return;
+                pendingOn = null;
+            }
+            log.info("interval_flash event=bank_on_started generation={} di2_age_ms={}",
+                    generation, (System.nanoTime() - startedNs) / 1_000_000.0);
+            long commandStartedNs = System.nanoTime();
+            engageLights(reason);
+            log.info("interval_flash event=bank_on_complete generation={} ok={} duration_ms={} di2_age_ms={}",
+                    generation, lightsOn.get(), (System.nanoTime() - commandStartedNs) / 1_000_000.0,
+                    (System.nanoTime() - startedNs) / 1_000_000.0);
+        }, delayMs, TimeUnit.MILLISECONDS);
+    }
+
+    /** Caller holds stateLock; commands already in flight are followed by the queued Off. */
+    private void cancelPendingOn() {
+        if (pendingOn != null) {
+            pendingOn.cancel(false);
+            pendingOn = null;
+        }
     }
 
     private void scheduleOff(String reason) {
@@ -273,6 +314,7 @@ public final class IntervalFlashController implements AutoCloseable {
         synchronized (stateLock) {
             closed = true;
             pulseGeneration++;
+            cancelPendingOn();
             if (exposureSubscription != null) {
                 try { exposureSubscription.close(); }
                 catch (Exception e) { log.warn("ExposureEnd unsubscribe failed", e); }
