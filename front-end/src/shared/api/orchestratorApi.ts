@@ -529,9 +529,12 @@ export const orchestratorApi = {
     return http.json<{ reviews: unknown[] }>(`/api/client/learning/reviews?${query}`);
   },
 
-  async getLearnedNormals(productType: string, cameraId: number) {
-    const query = new URLSearchParams({ productType, cameraId: String(cameraId) });
-    return http.json<{ cases: LearnedNormalCase[] }>(`/api/client/learning/accepted-cases?${query}`);
+  async getLearnedNormals(productType?: string, cameraId?: number) {
+    const query = new URLSearchParams();
+    if (productType !== undefined) query.set("productType", productType);
+    if (cameraId !== undefined) query.set("cameraId", String(cameraId));
+    const suffix = query.size > 0 ? `?${query}` : "";
+    return http.json<{ cases: LearnedNormalCase[] }>(`/api/client/learning/accepted-cases${suffix}`);
   },
 
   learnedNormalImageUrl(caseId: string) {

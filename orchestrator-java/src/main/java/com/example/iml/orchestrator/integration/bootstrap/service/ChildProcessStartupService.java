@@ -4,6 +4,8 @@ import com.example.iml.orchestrator.integration.bootstrap.context.IntegrationRun
 import com.example.iml.orchestrator.integration.bootstrap.factory.IntegrationServicePoolFactory;
 import com.example.iml.orchestrator.integration.capture.FrameJpegWriter;
 import com.example.iml.orchestrator.integration.clientapi.ClientApiMount;
+import com.example.iml.orchestrator.integration.clientapi.CppAnalisSurfaceHttpSupervisor;
+import com.example.iml.orchestrator.integration.binaryrpc.BinaryRpcSupervisor;
 import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeConfig;
 import com.example.iml.orchestrator.integration.clientapi.GeometryRuntimeStore;
 import com.example.iml.orchestrator.integration.config.IntegrationFeatureConfig;
@@ -26,6 +28,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -49,7 +52,7 @@ public final class ChildProcessStartupService {
     }
 
     /**
-     * @return {@code false} при пустом HTTP-пуле анализатора
+     * @return {@code false} при пустом HTTP-пуле или неудачном сбросе норм нового запуска
      */
     @SuppressWarnings("unchecked")
     public boolean start(IntegrationRuntimeContext ctx, IntegrationServicePoolFactory poolFactory) {
@@ -134,6 +137,16 @@ public final class ChildProcessStartupService {
                 }
                 return false;
             }
+            if (cppDetector) {
+                try {
+                    resetLearnedNormalsForApplicationStart(ctx.pythonPool());
+                    log.info("learned normals reset for the new application run");
+                } catch (IOException error) {
+                    log.error("Cannot start application with previous learned normals: {}", error.getMessage());
+                    for (ExternalServiceProcess process : ctx.analisSurfaceProcesses()) process.close();
+                    return false;
+                }
+            }
             log.info(
                     "surface detector transport=http servers={} clients={} autostart={} urls={}",
                     analisSurfacePool.baseUrls().size(),
@@ -162,6 +175,15 @@ public final class ChildProcessStartupService {
         ctx.setPositioningCfg(positioningCfg);
         ctx.setUiCfg((Map<String, Object>) ctx.root().get("ui_http"));
         return true;
+    }
+
+    static void resetLearnedNormalsForApplicationStart(List<BinaryRpcSupervisor> pool) throws IOException {
+        var resetServers = new HashSet<String>();
+        for (BinaryRpcSupervisor client : pool) {
+            if (client instanceof CppAnalisSurfaceHttpSupervisor cpp && resetServers.add(cpp.baseUrl())) {
+                cpp.resetLearnedNormalsForApplicationStart();
+            }
+        }
     }
 
     private void assembleCoreCollaborators(IntegrationRuntimeContext ctx) {

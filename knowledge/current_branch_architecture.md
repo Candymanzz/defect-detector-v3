@@ -1,3 +1,11 @@
+# 2026-11-05 — Задержка света и сброс норм объединены перед push
+
+Сохранены локальный ee22b3eb (задержка света 2000 мс) и входящий c83d2b3c
+(сброс норм при полном запуске и сверка миниатюр UI). Пять конфликтов
+knowledge разрешены с сохранением обеих историй; код объединён Git.
+Рабочий runtime в этой Git-задаче не обновлялся и нормы не очищались.
+[Состав, проверки и границы](deploy-ops/2026-11-05-merge-delayed-flash-reset.md).
+
 # Включение света с задержкой — 2026-11-05
 
 DI2↑ ставит bank On через `light_servers.interval_flash.on_delay_ms`
@@ -10,6 +18,29 @@ DI2↑ ставит bank On через `light_servers.interval_flash.on_delay_ms
 не развёрнут. Финальная сессия 13:30:13: шесть полных окон, запас On до
 ExposureStart 219–360 мс; на срезе NO_REFERENCE, требуется активация эталона.
 [Проверки и детали](deploy-ops/2026-11-05-delayed-flash.md).
+# Совмещены lifecycle норм и события света — 2026-11-05
+
+Вместе присутствуют bootstrap-сброс learned normals из 389c3f20 и ExposureEnd
+из 1e0a973b. ChildProcessStartupService управляет нормами на полный запуск;
+TriggerRuntimeBootstrapService подключает event-based interval flash.
+Съёмка остаётся DI3-only; DI2 относится к окну света/fallback выключения.
+ECC/сравнение и frontend не редактировались, исходники сверены с родителями.
+Проверены Java и Windows native без SDK; Linux/MVS/оборудование не запускались.
+[Проверки и состав](deploy-ops/2026-11-05-merge-norms-exposure-end.md).
+
+
+# Сброс норм на bootstrap приложения — 2026-11-05
+
+ChildProcessStartupService вызывает новый метод C++ HTTP-клиента для каждого
+уникального baseUrl: DELETE accepted-cases и GET-подтверждение пустого
+списка. Ошибка останавливает bootstrap. Client.start/restart и WS Stop/Start
+этот метод не вызывают; нативное сохранение norm metadata/PNG остаётся для
+восстановления C++ процесса. Сопоставление/score не менялись.
+WS hello запускает в UI сверку с GET всех cases после hydration библиотеки.
+Отсутствующие IDs и миниатюры убираются одним обновлением, новые во время
+запроса сохраняются. Эталоны и контуры не очищаются.
+[Подробности, проверки и ограничения](analis-surface/2026-11-05-learning-session-reset.md).
+
 
 # Граница исходники/runtime после merge — 2026-11-05
 
