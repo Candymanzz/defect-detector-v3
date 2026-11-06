@@ -8,7 +8,8 @@
 
 namespace cas {
 
-using NormPolygon = std::vector<cv::Point2d>;   // ROI points in 0..1 of the frame
+using NormPolygon = std::vector<cv::Point2d>; // points in 0..1 of the reference frame
+using NormPolygons = std::vector<NormPolygon>;
 
 constexpr double kUpperCornerWidthFraction = 0.15;
 constexpr double kUpperCornerHeightFraction = 1.0 / 7.0;
@@ -21,6 +22,7 @@ struct LearnedRegion {
 
 // Reference data prepared for one analysis scale and the current ROI (immutable, shared between threads).
 struct Prepared {
+    NormPolygons exclusions; // immutable per-inspection mask cache identity
     double scale = 1.0;
     cv::Size workSize;        // frame size at this scale
     cv::Mat refGray;          // CV_8U blurred gray of the reference at work size
@@ -49,10 +51,10 @@ public:
     bool setRoi(NormPolygon pts);
     NormPolygon roi() const;
 
-    std::shared_ptr<const Prepared> prepared(double scale) const;
+    std::shared_ptr<const Prepared> prepared(double scale, const NormPolygons& exclusions = {}) const;
 
 private:
-    std::shared_ptr<const Prepared> build(double scale, const NormPolygon& roi) const;
+    std::shared_ptr<const Prepared> build(double scale, const NormPolygon& roi, const std::vector<NormPolygon>& exclusions) const;
 
     cv::Mat bgr_;
     mutable std::mutex m_;

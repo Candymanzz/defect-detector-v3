@@ -1,6 +1,7 @@
 #include "routes.h"
 #include "performance_http.h"
 #include "core/logger.h"
+#include "core/exclusion_zones.h"
 #include "core/request_timing.h"
 #include "core/shm_io.h"
 #include "service/service.h"
@@ -232,6 +233,8 @@ json inspectJson(const std::string& product, const Inspected& r, const Service::
     j["learned_normal_adjustment"] = std::max(0.0, o.rawAnomalyScore - o.anomalyScore);
     j["matched_accepted_case_ids"] = o.matchedCaseIds;
     j["excluded_normal_zones"] = json::array();
+    j["inspection_exclusions"] = {{"polygons", exclusionsJson(o.exclusions)}, {"coordinate_space", "normalized"},
+        {"surface_skipped", o.surfaceSkipped}, {"remaining_area_work_px", o.roiArea}};
     j["fp_zone_scores"] = json::array();
     j["py_align_ms"] = round3(o.alignMs);
     j["py_diff_ms"] = round3(o.diffMs);
@@ -403,6 +406,8 @@ void logInspection(const char* endpoint, const InspectJob& job, const Inspected&
     j["diff_p99"] = o.diffP99;
     j["diff_max"] = o.diffMax;
     j["blobs_total"] = o.blobsTotal;
+    j["inspection_exclusions"] = {{"polygons", exclusionsJson(o.exclusions)}, {"coordinate_space", "normalized"},
+        {"surface_skipped", o.surfaceSkipped}, {"remaining_area_work_px", o.roiArea}};
     j["blobs_kept"] = o.blobsKept;
     if (o.seamEnabled)
         j["seam"] = {{"found", o.seamFound}, {"reject", o.seamReject}, {"ratio", round3(o.seamRatio)},
@@ -649,6 +654,13 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
                 const auto value=formField(req,key,0);
                 if(value=="true") overrides[key]=true;else if(value=="false") overrides[key]=false;
             }
+            const auto exclusions = formField(req, "exclusions", 0);
+            if (!exclusions.empty()) {
+                const auto parsed = json::parse(exclusions, nullptr, false);
+                if (parsed.is_discarded()) throw std::invalid_argument("exclusions must be valid JSON");
+                overrides["exclusions"] = parsed;
+            }
+            job.profile = formField(req, "analysis_profile", 0);
             job.patch = SettingsPatch::fromJson(overrides);
             Inspected r = svc.inspectMat(job, img, false);
             logInspection("inspect", job, r, msSince(t));

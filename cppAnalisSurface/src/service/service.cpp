@@ -1,6 +1,7 @@
 #include "service.h"
 #include "core/request_timing.h"
 #include "core/seam.h"
+#include "core/exclusion_zones.h"
 #include "core/shm_io.h"
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
@@ -25,7 +26,8 @@ namespace {
 // reference comparison (if any) stays the primary one. The bounding box of the bad points is added as an anomaly zone.
 void applySeam(const cv::Mat& frame, const SeamSettings& seam, InspectOutcome& out) {
     if (!seam.enabled || !seam.hasLine() || out.reason == "size_mismatch") return;
-    SeamResult sr = measureSeam(frame, seam);
+    const cv::Mat excluded = out.exclusions.empty() ? cv::Mat{} : exclusionMask(out.exclusions, frame.size(), out.shift);
+    SeamResult sr = measureSeam(frame, seam, excluded);
     out.seamEnabled = true;
     out.seamFound = sr.found;
     out.seamReject = sr.reject;
@@ -37,7 +39,7 @@ void applySeam(const cv::Mat& frame, const SeamSettings& seam, InspectOutcome& o
     out.totalMs += sr.ms;
     if (!sr.reject) return;
     out.reject = true;
-    if (out.reason.empty()) out.reason = "seam_deviation";
+    if (out.reason.empty() || out.reason == "inspection_excluded") out.reason = "seam_deviation";
     if (!sr.badPts.empty()) {
         cv::Rect bb = cv::boundingRect(sr.badPts);
         bb.x -= 12; bb.y -= 12; bb.width += 24; bb.height += 24;

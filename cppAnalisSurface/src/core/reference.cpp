@@ -1,4 +1,5 @@
 #include "reference.h"
+#include "exclusion_zones.h"
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
 #include <cmath>
@@ -77,25 +78,26 @@ NormPolygon Reference::roi() const {
     return roi_;
 }
 
-std::shared_ptr<const Prepared> Reference::prepared(double scale) const {
+std::shared_ptr<const Prepared> Reference::prepared(double scale, const NormPolygons& exclusions) const {
     const int key = static_cast<int>(std::lround(scale * 1000.0));
     NormPolygon roi;
     {
         std::lock_guard<std::mutex> lk(m_);
         auto it = cache_.find(key);
-        if (it != cache_.end()) return it->second;
+        if (it != cache_.end() && it->second->exclusions == exclusions) return it->second;
         roi = roi_;
     }
-    auto built = build(key / 1000.0, roi);
+    auto built = build(key / 1000.0, roi, exclusions);
     std::lock_guard<std::mutex> lk(m_);
     // the ROI may have changed while building: only cache when it is still the same
-    if (roi == roi_) cache_[key] = built;
+    if (roi == roi_) cache_[key] = built; // one immutable variant per scale; concurrent requests retain their own shared_ptr
     return built;
 }
 
-std::shared_ptr<const Prepared> Reference::build(double scale, const NormPolygon& roi) const {
+std::shared_ptr<const Prepared> Reference::build(double scale, const NormPolygon& roi, const std::vector<NormPolygon>& exclusions) const {
     auto p = std::make_shared<Prepared>();
     p->scale = scale;
+    p->exclusions = exclusions;
     p->refGray = toBlurredGray(bgr_, scale);
     p->workSize = p->refGray.size();
 
@@ -115,10 +117,17 @@ std::shared_ptr<const Prepared> Reference::build(double scale, const NormPolygon
     } else {
         p->roiMask.setTo(255);
     }
-    p->roiArea = cv::countNonZero(p->roiMask);
+    // Compute corners before subtracting holes: an exclusion must not move the upper edge.
     p->region = box;
     p->upperCornerMask = roi.size() >= 3 ? upperCornerMask(p->roiMask(box))
                                        : cv::Mat::zeros(box.size(), CV_8U);
+    cv::Mat excluded;
+    if (!exclusions.empty()) {
+        excluded = exclusionMask(exclusions, p->workSize);
+        p->roiMask.setTo(0, excluded);
+        p->upperCornerMask.setTo(0, excluded(box));
+    }
+    p->roiArea = cv::countNonZero(p->roiMask);
     p->upperCornerArea = cv::countNonZero(p->upperCornerMask);
 
     const double f = std::min(1.0, static_cast<double>(kShiftEstimateMaxSide) / std::max(box.width, box.height));
@@ -127,6 +136,11 @@ std::shared_ptr<const Prepared> Reference::build(double scale, const NormPolygon
     cv::resize(p->refGray(box), small, p->smallSize, 0, 0, cv::INTER_AREA);
     small.convertTo(p->refSmall, CV_32F);
     cv::createHanningWindow(p->hann, p->smallSize, CV_32F);
+    if (!exclusions.empty()) {
+        cv::Mat smallExcluded;
+        cv::resize(excluded(box), smallExcluded, p->smallSize, 0, 0, cv::INTER_AREA);
+        p->hann.setTo(0, smallExcluded > 0);
+    }
     return p;
 }
 

@@ -73,13 +73,16 @@ class ClientWebSocketServerNotificationTest {
                     "frame_id", 42L, "shm_name", "/iml_line_pin_cam0_f42", "width", 2, "height", 2, "stride", 6));
             producer.submit(() -> server.notifyInspectResult(0, "bench", "test", 100L,
                     new InspectionDecision(0,42L,true,"ACCEPT",0.01,"PASS","PASS",false,0,0,0,true,Map.of(),
-                        Map.of("learning_engine","robust-v2","learning_diagnostics",List.of(Map.of("id","normal-42","method","shadow")))), capture,
+                        Map.of("learning_engine","robust-v2","learning_diagnostics",List.of(Map.of("id","normal-42","method","shadow"))),
+                        Map.of("polygons",List.of(List.of(List.of(.2,.3),List.of(.4,.3),List.of(.3,.5))),"coordinate_space","normalized","surface_skipped",false)), capture,
                     Path.of("already-cleaned-temporary-heatmap.u8"), 2, 2, null, "heatmap-42", false, null
             )).get(1, TimeUnit.SECONDS);
             capture.put("frame_id", 99L);
             releaseSend.countDown();
             assertTrue(resultSent.await(1, TimeUnit.SECONDS));
             assertTrue(resultMessage.get().contains("normal-42"), "learning diagnostics must survive the queued WS notification");
+            assertTrue(resultMessage.get().contains("\"inspection_exclusions\""), "mask snapshot must survive the queued WS notification");
+            assertTrue(resultMessage.get().contains("\"surface_skipped\":false"), "exclusion diagnostics must retain the actual frame state");
             assertTrue(resultMessage.get().contains("\"frame_id\":\"42\""), "queued message must own its metadata");
             assertTrue(resultMessage.get().contains("\"artifact_id\":\"heatmap-42\""), "registered heatmap must survive source cleanup");
         } finally {

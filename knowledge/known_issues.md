@@ -1,3 +1,12 @@
+# 2026-11-06 — Границы переноса зон исключения
+
+Backend зон исключения перенесён и локально проверен: Windows Release 9/9 CTest,
+HTTP и 28/28 JUnit, Java compilation. UI по запросу не реализован, runtime ещё
+не обновлён; фронтендеру подготовлена [инструкция API](frontend/inspection-exclusions.md).
+Linux/браузер/оборудование и цикл 500 мс не проверены. Список зон заменяется
+целиком без revision/ETag; новый эталон сохраняет относительные зоны профиля.
+[Поведение, компромиссы и проверенные границы](analis-surface/inspection-exclusions.md).
+
 # 2026-11-04 — Итоговая проверка после Git-синхронизации
 
 Java 416 passed, 1 skipped, 1 assumption-aborted, 0 failed. Старый тест

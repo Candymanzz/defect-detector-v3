@@ -1,5 +1,6 @@
 #pragma once
 #include "calibration.h"
+#include "reference.h"
 #include <nlohmann/json.hpp>
 #include <cmath>
 #include <filesystem>
@@ -35,7 +36,7 @@ struct SeamSettings {
 
 // The real, user-facing inspection settings (per analysis profile = camera).
 struct Settings {
-    double sensitivity = 0.5;     // 0..1, higher = stricter; 0 always accepts, 1 always rejects
+    double sensitivity = 0.5;     // 0..1, higher = stricter; forced endpoints apply to a nonempty inspection ROI
     double threshold = 0.6;     // (0..1], reject when anomaly_score >= threshold
     int shiftToleranceX = 3;      // original-frame px, horizontal comparison relaxation only
     int shiftToleranceY = 3;      // original-frame px, vertical comparison relaxation only
@@ -50,6 +51,7 @@ struct Settings {
     bool learningRobustEnabled = true;
     bool learningShadowEnabled = true;
     int learningSearchRadius = 24; // original pixels, independent from global alignment
+    NormPolygons exclusions; // normalized polygon holes, persisted per analysis profile
     SeamSettings seam;            // seam straightness check
 
     Settings withMetricDefaults(int cameraId = -1) const;
@@ -68,8 +70,10 @@ struct SettingsPatch {
     json metric;
     std::optional<bool> learningRobustEnabled, learningShadowEnabled;
     std::optional<int> learningSearchRadius;
+    std::optional<NormPolygons> exclusions;
     json seam;                                       // partial seam settings (null = none)
-    static SettingsPatch fromJson(const json& j);   // ignores missing, wrong-typed or out-of-range fields
+    // Invalid legacy controls are ignored; invalid explicit exclusions throw std::invalid_argument.
+    static SettingsPatch fromJson(const json& j);
     void applyTo(Settings& s) const;
 };
 

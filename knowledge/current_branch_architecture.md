@@ -1,3 +1,13 @@
+# Маски исключений — 2026-11-06, boobs+pasha
+
+SettingsStore сохраняет `exclusions` в профиле; Java detector-settings proxy уже
+передаёт их. Reference::prepared(scale, exclusions) кэширует неизменяемый вариант
+маски для каждой инспекции, без общего изменяемого поля. Зоны ограничивают
+статистику/diff/score, позиционирование, heatmap и проверку сечений шва.
+InspectionDecision несёт `inspectionExclusions` в WS/архив; sidecar повторяет
+heatmap с исходным списком зон. UI не менялся; новые API/поля доступны после
+пересборки C++/Java runtime. [Архитектура, конкуренция и проверки](analis-surface/inspection-exclusions.md).
+
 # Триггер — дополнение 2026-11-04, boobs+pasha
 
 Срабатывание задаётся DI3↑; `IoInputTriggerTransport` не использует DI2

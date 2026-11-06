@@ -43,6 +43,13 @@ target_link_libraries(cpp_analis_surface PRIVATE
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(exclusion_test tests/exclusion_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp src/core/seam.cpp
+    src/core/shm_io.cpp src/service/service.cpp)
+  target_include_directories(exclusion_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(exclusion_test PRIVATE
+    opencv_core opencv_imgproc opencv_imgcodecs nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME exclusion_test COMMAND exclusion_test)
   add_executable(learned_placement_test tests/learned_placement_test.cpp
     src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
   target_include_directories(learned_placement_test PRIVATE src ${OpenCV_INCLUDE_DIRS})

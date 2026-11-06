@@ -26,6 +26,9 @@ class UiArtifactsSidecarPublishGateTest {
                 "shift_tolerance_x", 6, "shift_tolerance_y", 5, "max_alignment_shift_x", 24,
                 "max_alignment_shift_y", 20, "min_blob_area", 1,
                 "inspect_scale", 0.7, "seam", seam));
+        var exclusions = new java.util.ArrayList<>(java.util.List.of(java.util.List.of(
+                java.util.List.of(.2,.3), java.util.List.of(.4,.3), java.util.List.of(.3,.6))));
+        original.put("exclusions", exclusions);
         Map<String, Object> request = new LinkedHashMap<>(Map.of("settings", Map.of("sensitivity", 0.1),
                 "seam_line_norm", java.util.List.of()));
         assertTrue(UiArtifactsSidecar.applyOriginalHeatmapSettings(request, Map.of("settings", original)));
@@ -33,9 +36,14 @@ class UiArtifactsSidecarPublishGateTest {
         assertFalse(request.containsKey("seam_line_norm"));
         original.put("sensitivity", 0.2);
         seam.put("band", 100);
+        exclusions.clear();
         Map<?, ?> snapshot = (Map<?, ?>) request.get("settings");
         assertEquals(0.8, snapshot.get("sensitivity"));
         assertEquals(30, ((Map<?, ?>) snapshot.get("seam")).get("band"));
+        assertEquals(1, ((java.util.List<?>) snapshot.get("exclusions")).size());
+        original.remove("exclusions");
+        assertTrue(UiArtifactsSidecar.applyOriginalHeatmapSettings(request, Map.of("settings", original)));
+        assertEquals(java.util.List.of(), ((Map<?, ?>) request.get("settings")).get("exclusions"));
         assertFalse(UiArtifactsSidecar.applyOriginalHeatmapSettings(new LinkedHashMap<>(), Map.of()));
         original.remove("inspect_scale");
         assertFalse(UiArtifactsSidecar.applyOriginalHeatmapSettings(new LinkedHashMap<>(), Map.of("settings", original)));

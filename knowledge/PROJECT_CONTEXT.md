@@ -1,3 +1,11 @@
+# Зоны исключения инспекции — 2026-11-06, boobs+pasha
+
+В основном C++/Java добавлены `settings.exclusions` (нормализованные многоугольники
+профиля камеры), временные overrides и `inspection_exclusions` в WS/архиве.
+Поверхность/сечения шва внутри зон исключаются, остальные проверки сохраняются.
+UI остаётся задачей фронтендера; runtime не обновлялся. Старые профили совместимы.
+[Контракт для frontend](frontend/inspection-exclusions.md), [решение и проверки](analis-surface/inspection-exclusions.md).
+
 # Триггер съёмки — 2026-11-04, boobs+pasha
 
 В исходниках DI3-only включён по умолчанию: DI2, direction latch/окно и

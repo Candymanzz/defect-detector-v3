@@ -21,8 +21,10 @@ struct InspectOutcome {
     double upperCornerExtraScore = 0.0; // final score minus mainRoiScore (after saturation)
     int upperCornerPixelThreshold = 0;
     int upperCornerArea = 0;         // selected ROI pixels at work resolution
+    bool surfaceSkipped = false;
+    NormPolygons exclusions; // exact mask configuration used by this inspection
     bool reject = false;
-    std::string reason;              // "", "score_over_threshold", "shift_exceeded"
+    std::string reason;              // "", "score_over_threshold", "shift_exceeded", "inspection_excluded"
     cv::Point2d shift;               // detected translation, original-frame pixels
     cv::Point2d rawShift;            // estimate before the limit/ignore rules (diagnostics)
     double shiftResponse = 0.0;      // phase-correlation confidence
