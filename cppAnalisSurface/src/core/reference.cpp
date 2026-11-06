@@ -1,5 +1,6 @@
 #include "reference.h"
 #include "exclusion_zones.h"
+#include "preprocessing.h"
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
 #include <cmath>
@@ -9,6 +10,50 @@ namespace cas {
 namespace {
 
 constexpr int kShiftEstimateMaxSide = 256;   // shift is estimated on a thumbnail of the ROI box
+constexpr int kShiftRefineMaxSide = 512;
+
+cv::Size thumbnailSize(cv::Size source, int maxSide) {
+    const double factor = std::min(1.0, static_cast<double>(maxSide) / std::max(source.width, source.height));
+    return {std::max(16, cvRound(source.width * factor)), std::max(16, cvRound(source.height * factor))};
+}
+
+std::shared_ptr<const AlignmentPrepared> buildAlignment(const Prepared& native) {
+    auto a = std::make_shared<AlignmentPrepared>();
+    a->region = native.region;
+    a->exclusions = native.exclusions;
+    const auto gray = native.refGray(a->region);
+    a->smallSize = thumbnailSize(gray.size(), kShiftEstimateMaxSide);
+    cv::Mat small;
+    cv::resize(gray, small, a->smallSize, 0, 0, cv::INTER_AREA);
+    small.convertTo(a->refSmall, CV_32F);
+    cv::createHanningWindow(a->hann, a->smallSize, CV_32F);
+    if (!native.exclusions.empty()) {
+        const auto excluded = exclusionMask(native.exclusions, native.workSize);
+        cv::Mat smallExcluded;
+        cv::resize(excluded(a->region), smallExcluded, a->smallSize, 0, 0, cv::INTER_AREA);
+        a->hann.setTo(0, smallExcluded > 0);
+    }
+    const auto dftSize = shiftDftSize(a->smallSize);
+    padShiftInput(a->refSmall, dftSize);
+    padShiftInput(a->hann, dftSize);
+    a->coarseToNative = {double(gray.cols) / a->smallSize.width, double(gray.rows) / a->smallSize.height};
+
+    const auto fineSize = thumbnailSize(gray.size(), kShiftRefineMaxSide);
+    cv::resize(gray, a->fineGray, fineSize, 0, 0, cv::INTER_AREA);
+    cv::resize(native.roiMask(a->region), a->fineMask, fineSize, 0, 0, cv::INTER_NEAREST);
+    cv::erode(a->fineMask, a->fineMask, cv::getStructuringElement(cv::MORPH_RECT, {9, 9}));
+    a->fineMask.rowRange(0, 6).setTo(0);
+    a->fineMask.rowRange(fineSize.height - 6, fineSize.height).setTo(0);
+    a->fineMask.colRange(0, 6).setTo(0);
+    a->fineMask.colRange(fineSize.width - 6, fineSize.width).setTo(0);
+    a->fineToNative = {double(gray.cols) / fineSize.width, double(gray.rows) / fineSize.height};
+    cv::Scalar mean, deviation;
+    if (cv::countNonZero(a->fineMask) >= 64) {
+        cv::meanStdDev(a->fineGray, mean, deviation, a->fineMask);
+        a->canRefine = deviation[0] > 1.0;
+    }
+    return a;
+}
 
 cv::Mat upperCornerMask(const cv::Mat& roi) {
     std::vector<int> top(roi.cols, roi.rows), bottom(roi.cols, -1);
@@ -32,15 +77,6 @@ cv::Mat upperCornerMask(const cv::Mat& roi) {
         }
     }
     return mask;
-}
-
-cv::Mat toBlurredGray(const cv::Mat& bgr, double scale) {
-    cv::Mat g;
-    if (bgr.channels() == 1) g = bgr;
-    else cv::cvtColor(bgr, g, cv::COLOR_BGR2GRAY);
-    if (scale != 1.0) cv::resize(g, g, cv::Size(), scale, scale, cv::INTER_AREA);
-    cv::GaussianBlur(g, g, cv::Size(5, 5), 0);
-    return g;
 }
 
 }
@@ -70,6 +106,7 @@ bool Reference::setRoi(NormPolygon pts) {
     }
     roi_ = std::move(pts);
     cache_.clear();
+    alignment_.reset();
     return true;
 }
 
@@ -81,25 +118,39 @@ NormPolygon Reference::roi() const {
 std::shared_ptr<const Prepared> Reference::prepared(double scale, const NormPolygons& exclusions) const {
     const int key = static_cast<int>(std::lround(scale * 1000.0));
     NormPolygon roi;
+    std::shared_ptr<const AlignmentPrepared> alignment;
     {
         std::lock_guard<std::mutex> lk(m_);
         auto it = cache_.find(key);
         if (it != cache_.end() && it->second->exclusions == exclusions) return it->second;
         roi = roi_;
+        if (alignment_ && alignment_->exclusions == exclusions) alignment = alignment_;
     }
-    auto built = build(key / 1000.0, roi, exclusions);
+    // Build the positioning data once from native pixels, never from the inspection thumbnail.
+    // Keep the same ROI snapshot for positioning and comparison, even if it changes during a build.
+    std::shared_ptr<Prepared> native;
+    if (!alignment) {
+        native = build(1.0, roi, exclusions);
+        alignment = buildAlignment(*native);
+    }
+    auto built = key == 1000 && native ? native : build(key / 1000.0, roi, exclusions);
+    built->alignment = alignment;
     std::lock_guard<std::mutex> lk(m_);
     // the ROI may have changed while building: only cache when it is still the same
-    if (roi == roi_) cache_[key] = built; // one immutable variant per scale; concurrent requests retain their own shared_ptr
+    if (roi == roi_) {
+        if (!alignment_ || alignment_->exclusions != exclusions) alignment_ = alignment;
+        built->alignment = alignment_;
+        cache_[key] = built;
+    }
     return built;
 }
 
-std::shared_ptr<const Prepared> Reference::build(double scale, const NormPolygon& roi, const std::vector<NormPolygon>& exclusions) const {
+std::shared_ptr<Prepared> Reference::build(double scale, const NormPolygon& roi, const NormPolygons& exclusions) const {
     auto p = std::make_shared<Prepared>();
     p->scale = scale;
     p->exclusions = exclusions;
-    p->refGray = toBlurredGray(bgr_, scale);
-    p->workSize = p->refGray.size();
+    p->workSize = inspectionWorkSize(bgr_.size(), scale);
+    p->refGray = prepareInspectionGray(bgr_, p->workSize);
 
     p->roiMask = cv::Mat::zeros(p->workSize, CV_8U);
     cv::Rect box(0, 0, p->workSize.width, p->workSize.height);
@@ -117,30 +168,18 @@ std::shared_ptr<const Prepared> Reference::build(double scale, const NormPolygon
     } else {
         p->roiMask.setTo(255);
     }
-    // Compute corners before subtracting holes: an exclusion must not move the upper edge.
     p->region = box;
     p->upperCornerMask = roi.size() >= 3 ? upperCornerMask(p->roiMask(box))
                                        : cv::Mat::zeros(box.size(), CV_8U);
-    cv::Mat excluded;
+    // Keep the original upper-edge geometry, then subtract holes from both masks.
     if (!exclusions.empty()) {
-        excluded = exclusionMask(exclusions, p->workSize);
+        const auto excluded = exclusionMask(exclusions, p->workSize);
         p->roiMask.setTo(0, excluded);
         p->upperCornerMask.setTo(0, excluded(box));
     }
     p->roiArea = cv::countNonZero(p->roiMask);
     p->upperCornerArea = cv::countNonZero(p->upperCornerMask);
 
-    const double f = std::min(1.0, static_cast<double>(kShiftEstimateMaxSide) / std::max(box.width, box.height));
-    p->smallSize = cv::Size(std::max(16, cvRound(box.width * f)), std::max(16, cvRound(box.height * f)));
-    cv::Mat small;
-    cv::resize(p->refGray(box), small, p->smallSize, 0, 0, cv::INTER_AREA);
-    small.convertTo(p->refSmall, CV_32F);
-    cv::createHanningWindow(p->hann, p->smallSize, CV_32F);
-    if (!exclusions.empty()) {
-        cv::Mat smallExcluded;
-        cv::resize(excluded(box), smallExcluded, p->smallSize, 0, 0, cv::INTER_AREA);
-        p->hann.setTo(0, smallExcluded > 0);
-    }
     return p;
 }
 

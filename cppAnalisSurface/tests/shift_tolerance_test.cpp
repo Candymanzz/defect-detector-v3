@@ -244,11 +244,11 @@ void alignmentCacheTests() {
         settings.inspectScale = scale;
         const auto prepared = reference.prepared(scale);
         if (squareRoi && scale == 1.0)
-            require(prepared->smallSize == cv::Size(256, 256), "regression fixture must exercise the unpadded DFT path");
-        const auto originalSmall = prepared->refSmall.clone(), originalHann = prepared->hann.clone();
+            require(prepared->alignment->smallSize == cv::Size(256, 256), "regression fixture must exercise the unpadded DFT path");
+        const auto originalSmall = prepared->alignment->refSmall.clone(), originalHann = prepared->alignment->hann.clone();
         const auto originalGray = prepared->refGray.clone(), originalBgr = reference.bgr().clone();
         const auto expected = cas::inspectFrame(reference, moved, settings, true);
-        require(cv::norm(originalSmall, prepared->refSmall, cv::NORM_INF) == 0,
+        require(cv::norm(originalSmall, prepared->alignment->refSmall, cv::NORM_INF) == 0,
                 "phase correlation must not modify the cached alignment thumbnail");
         require(!expected.reject && std::abs(expected.shift.x - 6) < 1.5 && std::abs(expected.shift.y + 4) < 1.5,
                 "a small translation must align without adding a defect");
@@ -265,8 +265,8 @@ void alignmentCacheTests() {
         }));
         for (auto& worker : workers) require(worker.get(), "concurrent inspections must not corrupt shared cached data");
         require(reference.prepared(scale).get() == prepared.get(), "inspection must reuse the immutable prepared cache");
-        require(cv::norm(originalSmall, prepared->refSmall, cv::NORM_INF) == 0, "shared alignment thumbnail must stay unchanged");
-        require(cv::norm(originalHann, prepared->hann, cv::NORM_INF) == 0, "Hann window must stay unchanged");
+        require(cv::norm(originalSmall, prepared->alignment->refSmall, cv::NORM_INF) == 0, "shared alignment thumbnail must stay unchanged");
+        require(cv::norm(originalHann, prepared->alignment->hann, cv::NORM_INF) == 0, "Hann window must stay unchanged");
         require(cv::norm(originalGray, prepared->refGray, cv::NORM_INF) == 0, "prepared reference image must stay unchanged");
         require(cv::norm(originalBgr, reference.bgr(), cv::NORM_INF) == 0, "original reference image must stay unchanged");
 
@@ -277,7 +277,7 @@ void alignmentCacheTests() {
             return sameInspection(cas::inspectFrame(coldReference, moved, settings, true), expected);
         }));
         for (auto& worker : workers) require(worker.get(), "concurrent first inspections must also be stable");
-        require(cv::norm(originalSmall, coldReference.prepared(scale)->refSmall, cv::NORM_INF) == 0,
+        require(cv::norm(originalSmall, coldReference.prepared(scale)->alignment->refSmall, cv::NORM_INF) == 0,
                 "concurrent preparation must not publish a mutated thumbnail");
     }
 }

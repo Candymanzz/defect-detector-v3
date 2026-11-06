@@ -224,6 +224,7 @@ public final class TriggerRuntimeBootstrapService {
             IntervalFlashController intervalFlashController =
                     new IntervalFlashController(log, ctx.lightClient(), intervalFlashCfg);
             ctx.setIntervalFlashController(intervalFlashController);
+            intervalFlashController.enableExposureEnd(java.util.Set.copyOf(ctx.workersByCamera().keySet()));
             LightsShutdown.bindIntervalFlash(intervalFlashController);
             ctx.triggerRuntime().addDiChangeListener(intervalFlashController::onDiChange);
             ctx.lightClient().setCaptureLightingActive(intervalFlashController::captureLightingActive);
@@ -233,8 +234,9 @@ public final class TriggerRuntimeBootstrapService {
             }
             intervalFlashController.armStartDark();
             log.info(
-                    "interval_flash enabled — DI{}↑ → On, DI{}↓ → Off (импульс направления); hold_mode={}",
+                    "interval_flash enabled — DI{}↑ + {} ms → On, DI{}↓ → fallback Off; hold_mode={}",
                     intervalFlashCfg.idlePort(),
+                    intervalFlashCfg.onDelayMs(),
                     intervalFlashCfg.idlePort(),
                     ctx.lightClient().isHoldMode()
             );

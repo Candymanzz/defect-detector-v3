@@ -28,6 +28,7 @@ final class NativeCameraBindings {
                 vendorRuntime = MvsNativeLibrary.load(vendorDll.toString());
             }
             System.load(resolved.toString());
+            enableEvents(NativeCameraEvents.class);
             loadedLibrary = resolved;
         } catch (LinkageError | RuntimeException error) {
             throw new IOException("Cannot load camera JNI library " + resolved + ": " + error.getMessage(), error);
@@ -35,6 +36,7 @@ final class NativeCameraBindings {
     }
 
     static native String sdkLibrary() throws IOException;
+    private static native void enableEvents(Class<?> target);
     static native void initializeSdk() throws IOException;
     static native void finalizeSdk();
     static native long open(byte[] configPath, int cameraId) throws IOException;

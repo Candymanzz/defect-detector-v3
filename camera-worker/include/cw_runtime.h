@@ -2,6 +2,12 @@
 #define CW_RUNTIME_H
 
 #include <stddef.h>
+#include <stdint.h>
+
+/* Called by the event dispatcher, never by the vendor SDK callback. Set before opening cameras. */
+typedef void (*cw_camera_event_listener)(int camera_id, int kind, uint64_t device_ticks,
+                                         uint64_t host_mono_ns, unsigned long dropped);
+void cw_camera_set_event_listener(cw_camera_event_listener listener);
 
 typedef struct cw_camera cw_camera;
 typedef struct {

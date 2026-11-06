@@ -22,6 +22,36 @@
 
 #define JNI_NAME(name) Java_com_example_iml_orchestrator_integration_camera_NativeCameraBindings_##name
 
+static JavaVM *event_vm;
+static jclass event_class;
+static jmethodID event_method;
+
+static void dispatch_camera_event(int camera_id, int kind, uint64_t ticks, uint64_t mono, unsigned long dropped) {
+    JNIEnv *env = NULL;
+    int attached = 0;
+    if ((*event_vm)->GetEnv(event_vm, (void **)&env, JNI_VERSION_1_8) != JNI_OK) {
+        if ((*event_vm)->AttachCurrentThreadAsDaemon(event_vm, (void **)&env, NULL) != JNI_OK) return;
+        attached = 1;
+    }
+    (*env)->CallStaticVoidMethod(env, event_class, event_method, (jint)camera_id, (jint)kind,
+                                (jlong)ticks, (jlong)mono, (jlong)dropped);
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionDescribe(env);
+        (*env)->ExceptionClear(env);
+    }
+    if (attached) (*event_vm)->DetachCurrentThread(event_vm);
+}
+
+JNIEXPORT void JNICALL JNI_NAME(enableEvents)(JNIEnv *env, jclass cls, jclass target) {
+    (void)cls;
+    if (event_class) return;
+    if ((*env)->GetJavaVM(env, &event_vm) != JNI_OK) return;
+    event_method = (*env)->GetStaticMethodID(env, target, "onNativeEvent", "(IIJJJ)V");
+    if (!event_method) return;
+    event_class = (*env)->NewGlobalRef(env, target);
+    if (event_class) cw_camera_set_event_listener(dispatch_camera_event);
+}
+
 static void throw_io(JNIEnv *env, const char *message) {
     jclass cls = (*env)->FindClass(env, "java/io/IOException");
     if (cls) (*env)->ThrowNew(env, cls, message);

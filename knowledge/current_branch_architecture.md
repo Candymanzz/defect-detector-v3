@@ -1,3 +1,12 @@
+# Маски и native positioning объединены — 2026-11-06
+
+Reference::prepared(scale, exclusions) строит карты через общую предобработку,
+а native AlignmentPrepared — с той же ROI и списком зон. Exclusions вычитаются
+из comparison/corner masks, coarse Hann и ECC fineMask. Shared alignment
+переиспользуется между масштабами только для одинакового списка; другой
+конкурентный вариант не изменяет уже выданные Prepared. API зон не менялся.
+[Решение merge и проверки](deploy-ops/2026-11-06-merge-exclusions-ecc.md).
+
 # Маски исключений — 2026-11-06, boobs+pasha
 
 SettingsStore сохраняет `exclusions` в профиле; Java detector-settings proxy уже
@@ -7,6 +16,97 @@ SettingsStore сохраняет `exclusions` в профиле; Java detector-s
 InspectionDecision несёт `inspectionExclusions` в WS/архив; sidecar повторяет
 heatmap с исходным списком зон. UI не менялся; новые API/поля доступны после
 пересборки C++/Java runtime. [Архитектура, конкуренция и проверки](analis-surface/inspection-exclusions.md).
+
+# 2026-11-05 — Задержка света и сброс норм объединены перед push
+
+Сохранены локальный ee22b3eb (задержка света 2000 мс) и входящий c83d2b3c
+(сброс норм при полном запуске и сверка миниатюр UI). Пять конфликтов
+knowledge разрешены с сохранением обеих историй; код объединён Git.
+Рабочий runtime в этой Git-задаче не обновлялся и нормы не очищались.
+[Состав, проверки и границы](deploy-ops/2026-11-05-merge-delayed-flash-reset.md).
+
+# Включение света с задержкой — 2026-11-05
+
+DI2↑ ставит bank On через `light_servers.interval_flash.on_delay_ms`
+(рабочее значение 2000 мс, default без ключа 0). DI2↓/допущенный ExposureEnd
+и close отменяют ожидающий On; поколение окна защищает от старой задачи.
+Резервирование света/яркости действует и во время задержки.
+Для первой выборки HIGH применяется немедленный On: время её фронта неизвестно.
+Для последующих наблюдаемых 0→1 действует задержка. В runtime
+заменены только классы света поверх прежнего JAR; остальной merge отдельно
+не развёрнут. Финальная сессия 13:30:13: шесть полных окон, запас On до
+ExposureStart 219–360 мс; на срезе NO_REFERENCE, требуется активация эталона.
+[Проверки и детали](deploy-ops/2026-11-05-delayed-flash.md).
+# Совмещены lifecycle норм и события света — 2026-11-05
+
+Вместе присутствуют bootstrap-сброс learned normals из 389c3f20 и ExposureEnd
+из 1e0a973b. ChildProcessStartupService управляет нормами на полный запуск;
+TriggerRuntimeBootstrapService подключает event-based interval flash.
+Съёмка остаётся DI3-only; DI2 относится к окну света/fallback выключения.
+ECC/сравнение и frontend не редактировались, исходники сверены с родителями.
+Проверены Java и Windows native без SDK; Linux/MVS/оборудование не запускались.
+[Проверки и состав](deploy-ops/2026-11-05-merge-norms-exposure-end.md).
+
+
+# Сброс норм на bootstrap приложения — 2026-11-05
+
+ChildProcessStartupService вызывает новый метод C++ HTTP-клиента для каждого
+уникального baseUrl: DELETE accepted-cases и GET-подтверждение пустого
+списка. Ошибка останавливает bootstrap. Client.start/restart и WS Stop/Start
+этот метод не вызывают; нативное сохранение norm metadata/PNG остаётся для
+восстановления C++ процесса. Сопоставление/score не менялись.
+WS hello запускает в UI сверку с GET всех cases после hydration библиотеки.
+Отсутствующие IDs и миниатюры убираются одним обновлением, новые во время
+запроса сохраняются. Эталоны и контуры не очищаются.
+[Подробности, проверки и ограничения](analis-surface/2026-11-05-learning-session-reset.md).
+
+
+# Граница исходники/runtime после merge — 2026-11-05
+
+Исходники объединяют ExposureEnd из 4b5e8efd и DI3-only/ECC512 из 37499f9e.
+Wiring всех камер и проверка 30 окон сохранены. Работающий backend после
+аппаратного замера не перезапускался: новое DI3-only/ECC поведение не
+считается проверенным на станке. Ниже сохранены заметки обеих историй.
+[Проверки слияния и состав](deploy-ops/2026-11-05-merge-exposure-end.md).
+
+# Управление светом по ExposureEnd — 2026-11-05
+
+Текущая локальная JNI подписывает все камеры на Line0/ExposureStart/ExposureEnd.
+SDK callback → ограниченная native очередь → dispatcher → JNI NativeCameraEvents
+→ ExposureEndFlashGate → последовательный executor банка света.
+DI2↑ включает банк; последние ExposureEnd всех открытых камер выключают
+его после 30 полных проверенных окон. DI2↓ сохраняется как fallback.
+События старого окна, дубли и потери не могут дать допуск раннему Off.
+[Архитектура, параметры и реальные проверки](deploy-ops/2026-11-05-exposure-end-flash.md).
+
+# Срез исходников — 2026-11-05, fd442c97
+
+Локальная ветка теперь указывает на fd442c97. По Git diff относительно 20909141
+изменён только нативный camera-worker: добавлен журнал событий Line0RisingEdge/
+ExposureStart и его тест. Java, C++-детектор, frontend и Git-шаблоны не изменились.
+Сборка и развёртывание в этой задаче не выполнялись; сведения о работе сервиса ниже
+относятся к прежним проверкам. [Переход и границы](deploy-ops/2026-11-05-head-fd442c97.md).
+
+# Архитектура после отката — 2026-11-04
+
+Исходники возвращены к `20909141`. Работает прежний trigger/capture путь
+коммита, без последующих DI3-only и постоянного HardwareFrameReception.
+Более поздние результаты не являются проверками этой версии.
+[Откат, резервные копии и проверки](deploy-ops/2026-11-04-rollback-20909141.md).
+# Позиционирование — дополнение 2026-11-05, boobs+pasha
+
+`Reference::prepared(scale)` использует общий неизменяемый `AlignmentPrepared`
+для текущего эталона/ROI: native bbox, phase256 float/Hann и ECC512 gray/mask.
+Смена ROI сбрасывает его вместе с картами инспекции; построение использует
+один снимок ROI. `inspectFrame` получает coarse перенос по native gray/blur5,
+уточняет ECC (только X/Y), проверяет глобальные пределы в original px и
+пересчитывает компенсацию по фактическим размерам work/native. Ослабление
+сравнения, score, learning и seam используют прежние настройки.
+Fallback сохраняет coarse response; нативный ответ и performance-контекст
+позволяют различить точное/грубое измерение. Java/UI поля не отображают.
+OpenCV video добавлен в сборку; аппаратный runtime не обновлялся.
+[Условия принятия, кэш, проверки и ограничения](analis-surface/2026-11-05-ecc512-positioning.md).
+
 
 # Триггер — дополнение 2026-11-04, boobs+pasha
 

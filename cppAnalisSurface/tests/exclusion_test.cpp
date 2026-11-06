@@ -51,6 +51,14 @@ void inspectionAndConcurrency() {
         require(result.roiArea<original->roiArea,"excluded pixels removed from score denominator");
         require(cas::inspectFrame(ref,outside,s,true).reject,"outside defect still rejects at all scales");
         const auto masked=ref.prepared(scale,hole);
+        require(masked->alignment->exclusions==hole,"native alignment cache must belong to the same exclusions as comparison");
+        const auto alignment=masked->alignment;
+        const int coarseX=cvRound((140-alignment->region.x)/alignment->coarseToNative.x);
+        const int coarseY=cvRound((140-alignment->region.y)/alignment->coarseToNative.y);
+        require(alignment->hann.at<float>(coarseY,coarseX)==0,"ignored pixels must stay outside the coarse phase window");
+        const int fineX=cvRound((140-alignment->region.x)/alignment->fineToNative.x);
+        const int fineY=cvRound((140-alignment->region.y)/alignment->fineToNative.y);
+        require(alignment->fineMask.at<uchar>(fineY,fineX)==0,"ignored pixels must stay outside ECC refinement");
         require(cv::norm(masked->upperCornerMask,original->upperCornerMask,cv::NORM_INF)==0,"interior hole does not relocate corners");
         auto duplicated=hole;duplicated.push_back(hole[0]);require(ref.prepared(scale,duplicated)->roiArea==masked->roiArea,"overlap is union");
         const auto visual=cas::inspectFrame(ref,outside,s,true);const auto heat=cas::buildHeatmap(visual,roi,128);
@@ -71,6 +79,17 @@ void inspectionAndConcurrency() {
     const auto skipped=cas::inspectFrame(ref,outside,s,true);
     require(skipped.surfaceSkipped&&!skipped.reject&&skipped.anomalyScore==0&&skipped.reason=="inspection_excluded","full ROI exclusion overrides forced sensitivity rejection");
     require(ref.prepared(1)->roiArea>0,"default prepared call has no mutable exclusion state");
+    cas::Reference freshCache(base);freshCache.setRoi(roi);
+    auto withHole=freshCache.prepared(.5,hole);
+    require(freshCache.prepared(.73,hole)->alignment==withHole->alignment,"same exclusions reuse native positioning across inspection scales");
+    require(freshCache.prepared(.73)->alignment->exclusions.empty(),"another mask cannot inherit the previous alignment variant");
+    cv::Mat odd(337,391,CV_8UC3);cv::RNG(73).fill(odd,cv::RNG::UNIFORM,40,210);cas::Reference oddRef(odd);
+    s.exclusions=hole;s.sensitivity=.5;
+    for(double scale:{.21,.73,1.}) {
+        s.inspectScale=scale;
+        const auto self=cas::inspectFrame(oddRef,odd,s,true);
+        require(!self.reject&&self.anomalyScore==0&&cv::countNonZero(self.diff)==0,"odd-size masked self-comparison preserves shared preprocessing");
+    }
 }
 void seamAndService(const std::filesystem::path& dir) {
     cv::Mat image(320,384,CV_8UC3,cv::Scalar(40,40,40));
