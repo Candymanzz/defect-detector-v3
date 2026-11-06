@@ -22,6 +22,7 @@ struct LearnedRegion {
 // Native-frame positioning cache, shared by all inspection scales for one ROI.
 struct AlignmentPrepared {
     cv::Rect region;          // original-frame coordinates
+    cv::Mat nativeRoiMask;    // shared source-pixel ROI snapshot for comparison
     cv::Size smallSize;       // coarse phase-correlation thumbnail, at most 256 px
     cv::Mat refSmall, hann;   // CV_32F, padded to the same even DFT size
     cv::Mat fineGray;         // CV_8U, ECC template, at most 512 px
@@ -35,6 +36,9 @@ struct Prepared {
     double scale = 1.0;
     cv::Size workSize;        // frame size at this scale
     cv::Mat refGray;          // CV_8U blurred gray of the reference at work size
+    cv::Mat nativeRoiMask;    // explicit label ROI in source pixels; empty for whole-frame inspection
+    cv::Mat roiWeights;       // cached resize/Gaussian weights; never changed by inspection
+    cv::Mat refComparisonGray; // ROI-aware smoothing for comparison; positioning keeps refGray
     cv::Mat roiMask;          // CV_8U 0/255 at work size (full frame when no ROI)
     int roiArea = 0;          // pixels in roiMask
     cv::Rect region;          // ROI bounding box + padding (analysis is limited to it)

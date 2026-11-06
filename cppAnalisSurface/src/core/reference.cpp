@@ -19,6 +19,7 @@ cv::Size thumbnailSize(cv::Size source, int maxSide) {
 std::shared_ptr<const AlignmentPrepared> buildAlignment(const Prepared& native) {
     auto a = std::make_shared<AlignmentPrepared>();
     a->region = native.region;
+    a->nativeRoiMask = native.nativeRoiMask;
     const auto gray = native.refGray(a->region);
     a->smallSize = thumbnailSize(gray.size(), kShiftEstimateMaxSide);
     cv::Mat small;
@@ -127,6 +128,7 @@ std::shared_ptr<const Prepared> Reference::prepared(double scale) const {
     }
     auto built = key == 1000 && native ? native : build(key / 1000.0, roi);
     built->alignment = alignment;
+    built->nativeRoiMask = alignment->nativeRoiMask;
     std::lock_guard<std::mutex> lk(m_);
     // the ROI may have changed while building: only cache when it is still the same
     if (roi == roi_) {
@@ -142,6 +144,18 @@ std::shared_ptr<Prepared> Reference::build(double scale, const NormPolygon& roi)
     p->scale = scale;
     p->workSize = inspectionWorkSize(bgr_.size(), scale);
     p->refGray = prepareInspectionGray(bgr_, p->workSize);
+
+    if (roi.size() >= 3) {
+        p->nativeRoiMask = cv::Mat::zeros(bgr_.size(), CV_8U);
+        std::vector<cv::Point> nativePoints;
+        for (const auto& q : roi)
+            nativePoints.emplace_back(cvRound(q.x * (bgr_.cols - 1)), cvRound(q.y * (bgr_.rows - 1)));
+        cv::fillPoly(p->nativeRoiMask, std::vector<std::vector<cv::Point>>{nativePoints}, 255);
+        p->roiWeights = prepareRoiWeights(p->nativeRoiMask, p->workSize);
+        p->refComparisonGray = prepareRoiInspectionGray(bgr_, p->workSize, p->nativeRoiMask, p->roiWeights);
+    } else {
+        p->refComparisonGray = p->refGray;
+    }
 
     p->roiMask = cv::Mat::zeros(p->workSize, CV_8U);
     cv::Rect box(0, 0, p->workSize.width, p->workSize.height);

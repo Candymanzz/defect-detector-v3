@@ -138,15 +138,18 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
 
     cv::Mat cur;
     if (std::abs(sh.x) >= 0.15 || std::abs(sh.y) >= 0.15) {
-        // Warp the full source: pixels outside the ROI are still valid context.
-        // Blurring before this warp can carry a newly exposed bright strip into
-        // the comparison even when the translation itself is compensated.
-        cv::Mat m = (cv::Mat_<double>(2, 3) << 1, 0, -applied.x, 0, 1, -applied.y);
-        cv::Mat warped;
-        cv::warpAffine(bgr, warped, m, bgr.size(), cv::INTER_LINEAR, cv::BORDER_REPLICATE);
-        cur = prepareInspectionGray(warped, prep->workSize);
+        if (!prep->nativeRoiMask.empty()) {
+            cur = alignRoiInspectionGray(bgr, prep->workSize, prep->nativeRoiMask, applied);
+        } else {
+            // Full-frame inspection retains its existing border handling.
+            cv::Mat m = (cv::Mat_<double>(2, 3) << 1, 0, -applied.x, 0, 1, -applied.y);
+            cv::Mat warped;
+            cv::warpAffine(bgr, warped, m, bgr.size(), cv::INTER_LINEAR, cv::BORDER_REPLICATE);
+            cur = prepareInspectionGray(warped, prep->workSize);
+        }
     } else {
-        cur = prep->workSize == bgr.size() ? nativeGray : prepareInspectionGray(bgr, prep->workSize);
+        cur = prep->nativeRoiMask.empty() && prep->workSize == bgr.size() ? nativeGray
+            : prepareRoiInspectionGray(bgr, prep->workSize, prep->nativeRoiMask, prep->roiWeights);
     }
     const cv::Mat curR = cur(region);
     out.alignMs = msSince(tAlign);
@@ -154,7 +157,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
 
     // ---- difference map with brightness normalisation and shift-tolerant envelope ----
     const auto tDiff = Clock::now();
-    cv::Mat refR = prep->refGray(region);
+    cv::Mat refR = prep->refComparisonGray(region);
     cv::Mat maskR = prep->roiMask(region);
     cv::Scalar mr, sr, mc, sc;
     cv::meanStdDev(refR, mr, sr, maskR);
@@ -168,8 +171,11 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     if (kernelSize.width > 1 || kernelSize.height > 1) {
         cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, kernelSize);
         cv::Mat refMin, refMax, lo, hi;
-        cv::erode(refR, refMin, kernel);
-        cv::dilate(refR, refMax, kernel);
+        // Comparison relaxation must use label pixels, not background outside ROI.
+        cv::Mat lower = refR.clone(), upper = refR.clone();
+        lower.setTo(255, ~maskR); upper.setTo(0, ~maskR);
+        cv::erode(lower, refMin, kernel);
+        cv::dilate(upper, refMax, kernel);
         cv::subtract(refMin, aligned, lo);
         cv::subtract(aligned, refMax, hi);
         cv::max(lo, hi, diff);

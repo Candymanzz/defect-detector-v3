@@ -43,6 +43,12 @@ target_link_libraries(cpp_analis_surface PRIVATE
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(label_roi_test tests/label_roi_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
+  target_include_directories(label_roi_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(label_roi_test PRIVATE
+    opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME label_roi_test COMMAND label_roi_test)
   add_executable(alignment_preprocessing_test tests/alignment_preprocessing_test.cpp
     src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
   target_include_directories(alignment_preprocessing_test PRIVATE src ${OpenCV_INCLUDE_DIRS})

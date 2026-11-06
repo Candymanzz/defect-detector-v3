@@ -1,3 +1,14 @@
+# 2026-11-06 — Компенсация ROI с учётом опоры пикселей, compensation
+
+База 663ee885. Native phase256/ECC512 и проверка допуска прежние. Для заданного
+ROI маска проецируется в текущий кадр; яркость внутри маски и веса компенсируются
+согласованно, затем resize/Gaussian5 и деление на веса. Эталон использует ту же
+подготовку; его отдельный refGray для измерителя сохранён. Prepared кэширует
+refComparisonGray/roiWeights и разделяет nativeRoiMask между масштабами одного ROI.
+Robust learning получает тот же основной эталон. Min/max-конверт не использует
+внешние пиксели ROI. Mask/area/score/мм прежние; без ROI старый full-frame путь.
+[Тесты, затраты и ограничения](analis-surface/2026-11-06-label-roi-compensation.md).
+
 # 2026-11-06 — Порядок компенсации в ветке compensation
 
 База c43e9d4d. `inspectFrame`: native-gray → phase256/ECC512 → проверка допуска →
