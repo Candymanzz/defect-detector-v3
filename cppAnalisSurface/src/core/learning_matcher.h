@@ -13,5 +13,5 @@ struct LearningOptions {
 void compareLearned(const cas::Reference& reference, const cv::Mat& current,
                     cv::Mat& diff, cv::Rect region, double scale, const cas::Settings& settings,
                     cas::InspectOutcome& outcome, const LearningOptions& options,
-                    nlohmann::json& diagnostics);
+                    nlohmann::json& diagnostics, const cv::Mat& primaryOverride = {});
 }

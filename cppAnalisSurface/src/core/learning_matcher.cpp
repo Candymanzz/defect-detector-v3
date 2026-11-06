@@ -42,7 +42,7 @@ int apply(cv::Mat& diff,cv::Rect box,const cv::Mat& alternate,const cv::Mat& mas
 
 void compareLearned(const cas::Reference& reference,const cv::Mat& current,cv::Mat& diff,
                     cv::Rect region,double scale,const cas::Settings& s,cas::InspectOutcome& out,
-                    const LearningOptions& options,nlohmann::json& diagnostics) {
+                    const LearningOptions& options,nlohmann::json& diagnostics, const cv::Mat& primaryOverride) {
     diagnostics=nlohmann::json::array();
     const double sensitivity = std::clamp(s.sensitivity, 0.0, 1.0);
     const bool hasCorners = reference.prepared(scale)->upperCornerArea > 0;
@@ -51,7 +51,7 @@ void compareLearned(const cas::Reference& reference,const cv::Mat& current,cv::M
     const int radius=std::max(0,cvRound(options.searchRadius*scale));
     const cv::Size kernel(2*std::max(0,cvRound(s.shiftToleranceX*scale))+1,
                           2*std::max(0,cvRound(s.shiftToleranceY*scale))+1);
-    const cv::Mat primary=reference.prepared(scale)->refComparisonGray(region);
+    const cv::Mat primary=primaryOverride.empty() ? reference.prepared(scale)->refComparisonGray(region) : primaryOverride;
     const double sigma=std::max(1.0,6.0*scale);
 
     for(const auto& learned:reference.learned()) {

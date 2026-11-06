@@ -136,10 +136,10 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     const cv::Point2d sh(applied.x * prep->workSize.width / bgr.cols,
                          applied.y * prep->workSize.height / bgr.rows);
 
-    cv::Mat cur;
+    cv::Mat cur, comparisonReference = prep->refComparisonGray;
     if (std::abs(sh.x) >= 0.15 || std::abs(sh.y) >= 0.15) {
         if (!prep->nativeRoiMask.empty()) {
-            cur = alignRoiInspectionGray(bgr, prep->workSize, prep->nativeRoiMask, applied);
+            cur = alignRoiInspectionGray(bgr, ref.bgr(), prep->workSize, prep->nativeRoiMask, applied, comparisonReference);
         } else {
             // Full-frame inspection retains its existing border handling.
             cv::Mat m = (cv::Mat_<double>(2, 3) << 1, 0, -applied.x, 0, 1, -applied.y);
@@ -157,7 +157,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
 
     // ---- difference map with brightness normalisation and shift-tolerant envelope ----
     const auto tDiff = Clock::now();
-    cv::Mat refR = prep->refComparisonGray(region);
+    cv::Mat refR = comparisonReference(region);
     cv::Mat maskR = prep->roiMask(region);
     cv::Scalar mr, sr, mc, sc;
     cv::meanStdDev(refR, mr, sr, maskR);
@@ -239,7 +239,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     if (s.learningRobustEnabled && !learnedRegions.empty()) {
         const auto started=Clock::now();
         compareLearned(ref,curR,diff,region,scale,s,out,
-            {s.learningRobustEnabled,s.learningShadowEnabled,s.learningSearchRadius},out.learningDiagnostics);
+            {s.learningRobustEnabled,s.learningShadowEnabled,s.learningSearchRadius},out.learningDiagnostics, refR);
         out.learningMs=msSince(started);
         requestTiming.add("learning_ms",out.learningMs);
     } else for (const auto& learned : learnedRegions) {

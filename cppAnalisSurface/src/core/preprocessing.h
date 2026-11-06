@@ -63,14 +63,22 @@ inline cv::Mat prepareRoiInspectionGray(const cv::Mat& frame, cv::Size workSize,
     return result;
 }
 
-// Translate foreground intensities and their support together. Sampling the
-// original background during a fractional warp would contaminate the ROI edge
-// before the ROI-aware smoothing even starts.
-inline cv::Mat alignRoiInspectionGray(const cv::Mat& frame, cv::Size workSize,
-                                     const cv::Mat& nativeMask, cv::Point2d shift) {
-    cv::Mat movedMask;
+// Compensate using only fully covered source pixels. Fractional boundary pixels
+// may already contain background, which cannot be removed by inverse warping.
+// Both images use the same restored support and normalised smoothing weights.
+inline cv::Mat alignRoiInspectionGray(const cv::Mat& frame, const cv::Mat& reference,
+                                     cv::Size workSize, const cv::Mat& nativeMask,
+                                     cv::Point2d shift, cv::Mat& referenceGray) {
+    cv::Mat inner, movedMask;
+    cv::erode(nativeMask, inner, cv::getStructuringElement(cv::MORPH_RECT, {3, 3}),
+              {-1, -1}, 1, cv::BORDER_CONSTANT, 0);
+    // A very narrow ROI must not turn into two empty images and pass silently.
+    const bool hasInterior = cv::countNonZero(inner) != 0;
+    if (!hasInterior) inner = nativeMask;
     const cv::Mat forward = (cv::Mat_<double>(2, 3) << 1, 0, shift.x, 0, 1, shift.y);
-    cv::warpAffine(nativeMask, movedMask, forward, frame.size(), cv::INTER_NEAREST, cv::BORDER_CONSTANT, 0);
+    cv::warpAffine(inner, movedMask, forward, frame.size(),
+        hasInterior ? cv::INTER_LINEAR : cv::INTER_NEAREST, cv::BORDER_CONSTANT, 0);
+    cv::compare(movedMask, 255, movedMask, cv::CMP_EQ);
     cv::Mat gray, source, support;
     if (frame.channels() == 1) gray = frame;
     else cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
@@ -81,17 +89,29 @@ inline cv::Mat alignRoiInspectionGray(const cv::Mat& frame, cv::Size workSize,
     cv::Mat numerator, weights;
     cv::warpAffine(source, numerator, inverse, frame.size(), cv::INTER_LINEAR, cv::BORDER_CONSTANT, 0);
     cv::warpAffine(support, weights, inverse, frame.size(), cv::INTER_LINEAR, cv::BORDER_CONSTANT, 0);
-    numerator.setTo(0, nativeMask == 0);
-    weights.setTo(0, nativeMask == 0);
+    numerator.setTo(0, inner == 0);
+    weights.setTo(0, inner == 0);
+    cv::Mat refGray, refNumerator;
+    if (reference.channels() == 1) refGray = reference;
+    else cv::cvtColor(reference, refGray, cv::COLOR_BGR2GRAY);
+    refGray.convertTo(refNumerator, CV_32F);
+    cv::multiply(refNumerator, weights, refNumerator);
     if (frame.size() != workSize) {
         cv::resize(numerator, numerator, workSize, 0, 0, cv::INTER_AREA);
+        cv::resize(refNumerator, refNumerator, workSize, 0, 0, cv::INTER_AREA);
         cv::resize(weights, weights, workSize, 0, 0, cv::INTER_AREA);
     }
     cv::GaussianBlur(numerator, numerator, {5, 5}, 0);
+    cv::GaussianBlur(refNumerator, refNumerator, {5, 5}, 0);
     cv::GaussianBlur(weights, weights, {5, 5}, 0);
-    cv::divide(numerator, cv::max(weights, 1e-6), numerator);
+    weights = cv::max(weights, 1e-6);
+    cv::divide(numerator, weights, numerator);
+    cv::divide(refNumerator, weights, refNumerator);
     cv::Mat result;
     numerator.convertTo(result, CV_8U);
+    cv::Mat preparedReference;
+    refNumerator.convertTo(preparedReference, CV_8U);
+    referenceGray = preparedReference; // Never write through the shared reference cache.
     return result;
 }
 
