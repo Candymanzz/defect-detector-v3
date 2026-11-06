@@ -24,11 +24,11 @@ Settings Settings::withMetricDefaults(int cameraId) const {
     const auto units = s.mmPerPixel({1224, 1024});
     // Migrate the existing global limits, independently of local comparison relaxation.
     if (!s.horizontalShiftMm) {
-        s.horizontalShiftMm = std::min(10.0, s.maxAlignmentShiftX * units.x);
+        s.horizontalShiftMm = std::min(15.0, s.maxAlignmentShiftX * units.x);
         s.maxAlignmentShiftX = *s.horizontalShiftMm / units.x;
     }
     if (!s.verticalShiftMm) {
-        s.verticalShiftMm = std::min(10.0, s.maxAlignmentShiftY * units.y);
+        s.verticalShiftMm = std::min(15.0, s.maxAlignmentShiftY * units.y);
         s.maxAlignmentShiftY = *s.verticalShiftMm / units.y;
     }
     return s;
@@ -158,7 +158,7 @@ std::string Settings::applyJson(const json& j) {
         if (j[field.first].is_null()) field.second->reset();
         else {
             double value = 0;
-            if (!readNumber(j, field.first, 0, 10, false, value, err)) return err;
+            if (!readNumber(j, field.first, 0, 15, false, value, err)) return err;
             *field.second = value;
         }
     }

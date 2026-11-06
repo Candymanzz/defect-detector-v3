@@ -14,7 +14,7 @@ describe("DetectorSettingsPanel metric limits", () => {
     for (const label of ["Допуск проворота", "Допуск вертикального смещения"]) {
       const input = html.match(new RegExp(`<input[^>]*aria-label="${label}, мм"[^>]*>`))?.[0];
       expect(input).toBeDefined();
-      for (const attribute of ['type="number"', 'min="0"', 'max="10"', 'step="0.05"']) {
+      for (const attribute of ['type="number"', 'min="0"', 'max="15"', 'step="0.05"']) {
         expect(input).toContain(attribute);
       }
     }
