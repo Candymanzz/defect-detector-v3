@@ -51,6 +51,12 @@ if(BUILD_TESTING)
     opencv_core opencv_imgproc opencv_video opencv_imgcodecs nlohmann_json::nlohmann_json Threads::Threads)
   add_test(NAME exclusion_test COMMAND exclusion_test)
 
+  add_executable(alignment_preprocessing_test tests/alignment_preprocessing_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
+  target_include_directories(alignment_preprocessing_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(alignment_preprocessing_test PRIVATE
+    opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME alignment_preprocessing_test COMMAND alignment_preprocessing_test)
   add_executable(shift_accuracy_test tests/shift_accuracy_test.cpp
     src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
   target_include_directories(shift_accuracy_test PRIVATE src ${OpenCV_INCLUDE_DIRS})

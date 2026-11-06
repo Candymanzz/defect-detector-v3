@@ -14,11 +14,21 @@ bool near(double a, double b) { return std::abs(a-b) < 1e-8; }
 void settingsAndPersistence(const std::filesystem::path& dir) {
     auto s = cas::Settings{}.withMetricDefaults(4);
     require(near(*s.horizontalShiftMm, 3.24) && near(*s.verticalShiftMm, 4.08), "migrate existing 12px global limits using camera 4 scale");
+    for (double mm : {10.01, 12.5, 15.0}) {
+        require(s.applyJson({{"horizontal_shift_tolerance_mm", mm}, {"vertical_shift_tolerance_mm", mm}}).empty(), "accept extended metric range on both axes");
+        const auto units = s.mmPerPixel({2448, 2048});
+        const auto pixels = s.forFrame({2448, 2048});
+        require(near(pixels.maxAlignmentShiftX * units.x, mm) && near(pixels.maxAlignmentShiftY * units.y, mm), "extended mm range converts to frame pixels");
+    }
     require(s.applyJson({{"horizontal_shift_tolerance_mm", .5}, {"vertical_shift_tolerance_mm", 4}}).empty(), "fractional metric update");
     const auto before = s.toJson();
-    for (const auto& bad : {cas::json(-1), cas::json(10.01), cas::json("bad"), cas::json(std::numeric_limits<double>::infinity())}) {
-        require(!s.applyJson({{"horizontal_shift_tolerance_mm", 2}, {"vertical_shift_tolerance_mm", bad}}).empty(), "reject invalid mm");
-        require(s.toJson() == before, "metric update is atomic");
+    for (const auto& bad : {cas::json(-1), cas::json(15.01), cas::json("bad"), cas::json(std::numeric_limits<double>::infinity())}) {
+        for (const auto* key : {"horizontal_shift_tolerance_mm", "vertical_shift_tolerance_mm"}) {
+            cas::json update = {{"horizontal_shift_tolerance_mm", 2}, {"vertical_shift_tolerance_mm", 2}};
+            update[key] = bad;
+            require(!s.applyJson(update).empty(), "reject invalid mm on either axis");
+            require(s.toJson() == before, "metric update is atomic");
+        }
     }
     require(!s.applyJson({{"estimated_mm_per_pixel", {0, .34}}}).empty(), "reject zero scale");
     cas::SettingsPatch::fromJson({{"shift_tolerance_x", 0}, {"shift_tolerance_y", 0}}).applyTo(s);
@@ -27,23 +37,29 @@ void settingsAndPersistence(const std::filesystem::path& dir) {
     require(!s.horizontalShiftMm && s.verticalShiftMm == 4 && s.maxAlignmentShiftX == 5, "legacy pixel override resets its metric axis only");
     cas::SettingsPatch::fromJson({{"horizontal_shift_tolerance_mm", 0}}).applyTo(s);
     require(s.horizontalShiftMm == 0, "zero metric override is preserved");
+    cas::SettingsPatch::fromJson({{"horizontal_shift_tolerance_mm", 15}, {"vertical_shift_tolerance_mm", 12.5}}).applyTo(s);
+    require(s.horizontalShiftMm == 15 && s.verticalShiftMm == 12.5, "extended metric overrides are applied");
+    cas::SettingsPatch::fromJson({{"horizontal_shift_tolerance_mm", 15.01}, {"vertical_shift_tolerance_mm", 15.01}}).applyTo(s);
+    require(s.horizontalShiftMm == 15 && s.verticalShiftMm == 12.5, "out-of-range metric overrides are ignored");
 
     const auto file = dir / "settings.json";
     { std::ofstream out(file); out << cas::json{{"legacy", {{"max_alignment_shift_x", 8}, {"max_alignment_shift_y", 10}, {"threshold", .4}}},
+                                               {"wide-legacy", {{"max_alignment_shift_x", 80}, {"max_alignment_shift_y", 80}}},
                                                {"untouched", {{"shift_tolerance", 30}, {"inspect_scale", .1}}}}; }
     {
         cas::SettingsStore store(file);
         require(near(*store.get("legacy", 4).horizontalShiftMm, 2.16), "migrate stored global limits, not local tolerance");
         cas::Settings saved;
-        require(store.set("legacy", {{"horizontal_shift_tolerance_mm", .5}, {"vertical_shift_tolerance_mm", 4}}, saved, 4).empty(), "save camera metric settings");
+        require(store.set("legacy", {{"horizontal_shift_tolerance_mm", 15}, {"vertical_shift_tolerance_mm", 12.5}}, saved, 4).empty(), "save extended camera metric settings");
         require(saved.threshold == .4, "migration preserves the anomaly threshold");
         require(store.set("other", {{"sensitivity", .7}}, saved, 1).empty(), "save another profile");
         require(near(store.get("untouched", 4).estimatedMmPerPixel.x, .27), "another save must not pin generic camera scale");
     }
     cas::SettingsStore restarted(file);
     const auto saved = restarted.get("legacy", 4);
-    require(saved.horizontalShiftMm == .5 && saved.verticalShiftMm == 4 && saved.threshold == .4, "metric values survive restart");
-    require(*restarted.get("untouched", 4).verticalShiftMm <= 10, "large legacy limits migrate into the mm range");
+    require(saved.horizontalShiftMm == 15 && saved.verticalShiftMm == 12.5 && saved.threshold == .4, "extended metric values survive restart");
+    const auto wide = restarted.get("wide-legacy", 4);
+    require(wide.horizontalShiftMm == 15 && wide.verticalShiftMm == 15, "large legacy limits migrate into the extended mm range");
 }
 
 cv::Mat fixture() {

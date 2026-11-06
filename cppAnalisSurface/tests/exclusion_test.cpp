@@ -68,7 +68,10 @@ void inspectionAndConcurrency() {
     s.inspectScale=1;s.exclusions=hole;
     cv::Mat shifted;cv::Mat matrix=(cv::Mat_<double>(2,3)<<1,0,3,0,1,2);
     cv::warpAffine(inside,shifted,matrix,inside.size(),cv::INTER_LINEAR,cv::BORDER_REPLICATE);
-    require(!cas::inspectFrame(ref,shifted,s,true).reject,"zones remain attached to reference after translation");
+    for(double scale:{.21,.73,1.}) {
+        s.inspectScale=scale;
+        require(!cas::inspectFrame(ref,shifted,s,true).reject,"zones remain attached to reference after source compensation at every inspection scale");
+    }
     std::vector<std::future<void>> requests;
     for(int worker=0;worker<4;++worker) requests.push_back(std::async(std::launch::async,[&,worker]{
         cas::Settings local=s;if(worker%2==0)local.exclusions.clear();

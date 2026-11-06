@@ -14,8 +14,9 @@ light_hardware:
       model_prefixes: [MV-LE]
       brightness_min: 0  # SDK brightness range; API remains 0..255 / UI 0..100%
       brightness_max: 255
-      com_port_windows: COM1
-      com_port_linux: ""  # REQUIRED: SDK port of the flash controller, e.g. COM_Port#ttyUSB0; not the IO port
+      com_port_windows: COM2
+      com_port_linux: "COM_Port#ttyS1"  # COM2: MV-LE DA8782413; IO controller uses ttyS4
+      serial: "DA8782413"
       channels: 2
     - id: mv-le-1
       enabled: true
@@ -23,7 +24,8 @@ light_hardware:
       model_prefixes: [MV-LE]
       brightness_min: 0
       brightness_max: 255
-      ip: "169.254.220.23"
+      ip: "169.254.220.3"
+      serial: "DA8793671"
       channels: 4
     - id: mv-le-2
       enabled: true
@@ -31,7 +33,8 @@ light_hardware:
       model_prefixes: [MV-LE]
       brightness_min: 0
       brightness_max: 255
-      ip: "169.254.220.22"
+      ip: "169.254.220.4"
+      serial: "DA8793676"
       channels: 4
     - id: mv-le-3
       enabled: true
@@ -40,6 +43,7 @@ light_hardware:
       brightness_min: 0
       brightness_max: 255
       ip: "169.254.220.2"
+      serial: "DA8793670"
       channels: 4
     - id: mv-le-4
       enabled: true
@@ -48,6 +52,7 @@ light_hardware:
       brightness_min: 0
       brightness_max: 255
       ip: "169.254.220.1"
+      serial: "DA8793669"
       channels: 4
 
   # POST /api/camera-flash/pair — routes с 2+ каналами; /single — 1 канал (COM).

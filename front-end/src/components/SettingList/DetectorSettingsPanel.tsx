@@ -87,13 +87,13 @@ const FIELDS: readonly Field[] = [
     name: "horizontal_shift_tolerance_mm",
     label: "Допуск проворота",
     hint: "Допустимое горизонтальное перемещение этикетки при провороте ведра, в мм. Превышение при достоверном измерении — брак. Пересчёт учитывает разрешение кадра.",
-    min: 0, max: 10, step: 0.05, factor: 1, unit: "мм", decimals: 2,
+    min: 0, max: 15, step: 0.05, factor: 1, unit: "мм", decimals: 2,
   },
   {
     name: "vertical_shift_tolerance_mm",
     label: "Допуск вертикального смещения",
     hint: "Допустимое вертикальное перемещение этикетки, в мм. Превышение при достоверном измерении — брак. Пересчёт учитывает разрешение кадра.",
-    min: 0, max: 10, step: 0.05, factor: 1, unit: "мм", decimals: 2,
+    min: 0, max: 15, step: 0.05, factor: 1, unit: "мм", decimals: 2,
   },
   {
     name: "shift_tolerance_x",

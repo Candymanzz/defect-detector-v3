@@ -117,15 +117,15 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         out.totalMs = msSince(tStart); return out;
     }
 
-    // ---- current frame at work resolution ----
-    cv::Mat cur = prepareInspectionGray(bgr, prep->workSize);
+    // Positioning uses its own native-resolution image. Prepare the comparison
+    // image only after compensating the source pixels, before resize and blur.
+    const cv::Mat nativeGray = prepareInspectionGray(bgr, bgr.size());
 
     // ---- native-resolution positioning, independent of the defect inspection scale ----
     requestTiming.add("prepare_ms", msSince(tStart));
     const auto tAlign = Clock::now();
     const int tolWorkX = std::max(0, static_cast<int>(std::lround(s.shiftToleranceX * scale)));
     const int tolWorkY = std::max(0, static_cast<int>(std::lround(s.shiftToleranceY * scale)));
-    const auto nativeGray = prep->workSize == bgr.size() ? cur : prepareInspectionGray(bgr, bgr.size());
     const auto estimate = estimateShift(*prep->alignment, nativeGray);
     out.shiftResponse = estimate.response;
     out.coarseShiftResponse = estimate.coarseResponse;
@@ -145,13 +145,19 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     const cv::Point2d sh(applied.x * prep->workSize.width / bgr.cols,
                          applied.y * prep->workSize.height / bgr.rows);
 
-    cv::Mat curR = cur(region);
+    cv::Mat cur;
     if (std::abs(sh.x) >= 0.15 || std::abs(sh.y) >= 0.15) {
-        cv::Mat m = (cv::Mat_<double>(2, 3) << 1, 0, -sh.x, 0, 1, -sh.y);
+        // Warp the full source: pixels outside the ROI are still valid context.
+        // Blurring before this warp can carry a newly exposed bright strip into
+        // the comparison even when the translation itself is compensated.
+        cv::Mat m = (cv::Mat_<double>(2, 3) << 1, 0, -applied.x, 0, 1, -applied.y);
         cv::Mat warped;
-        cv::warpAffine(curR, warped, m, curR.size(), cv::INTER_LINEAR, cv::BORDER_REPLICATE);
-        curR = warped;
+        cv::warpAffine(bgr, warped, m, bgr.size(), cv::INTER_LINEAR, cv::BORDER_REPLICATE);
+        cur = prepareInspectionGray(warped, prep->workSize);
+    } else {
+        cur = prep->workSize == bgr.size() ? nativeGray : prepareInspectionGray(bgr, prep->workSize);
     }
+    const cv::Mat curR = cur(region);
     out.alignMs = msSince(tAlign);
     requestTiming.add("align_ms", out.alignMs);
 

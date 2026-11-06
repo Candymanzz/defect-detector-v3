@@ -1,11 +1,2 @@
-## Главный конфиг-агрегатор.
-## Камеры работают внутри JVM через JNI; config.json содержит настройки захвата.
 imports:
-  - "blocks/01-core.yaml"
-  - "blocks/10-cameras.yaml"
-  - "blocks/20-detectors.yaml"
-  - "blocks/30-ui-and-client.yaml"
-  - "blocks/45-plc-fins.yaml"
-  - "blocks/50-lighting.yaml"
-  - "blocks/51-light-hardware.yaml"
-  - "blocks/52-io.yaml"
+  - "cpp-linux-femboy36-20261021.yaml"

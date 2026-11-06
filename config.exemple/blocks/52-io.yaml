@@ -37,12 +37,12 @@ integration:
     mvs_io:
       enabled: true
       backend: mv_camera    # one SDK connection for DI and software timers
-      input_mode: poll      # supplied MV_IO event DLL exposes no timer command
+      input_mode: poll      # Linux SDK: у этого контроллера нет EventSelector; IO SDK событий .so не установлен
       library_windows: "orchestrator-java/native/mvs/win64/MvCameraControl.dll"
       port_windows: ""      # exact SDK port from MvsIoDiagnosticMain --list
       library_linux: "/opt/MVS/lib/64/libMvCameraControl.so"
-      port_linux: ""        # exact SDK name, e.g. COM_Port#ttyS4; empty requires one controller
-      serial: ""            # optional controller serial filter
+      port_linux: "COM_Port#ttyS4"
+      serial: "DA8813541"
       dependencies: []      # optional full library paths to preload
       configure_inputs: true # configures/rearms DI edges only; restores original DI settings on close
       health_check_ms: 1000
@@ -65,7 +65,7 @@ integration:
       inputs:
         2: {line: In2, port: 2, edge: both, invert: false}
         4: {line: In4, port: 4, edge: both, invert: false}
-        3: {line: In3, port: 3, edge: rising, invert: false}
+        # In3 аппаратно запускает Timer5/DO5; Java ждёт кадр в окне In2.
     udp:
       enabled: false
       bind_host: "0.0.0.0"
@@ -81,29 +81,30 @@ integration:
       # DI4=1 → LightsShutdown + остановка оркестратора и всех сервисов. 0 = выкл.
       shutdown_port: 4
       direction_latch_on_work: false
-      di3_only: true
-      # Каждый DI3↑ → wait_frame; DI2 и выбор направления в UI не влияют на съёмку.
+      di3_only: false
+      direction_window_capture: true  # DI2↑: clear SDK queue + wait_frame; DI2↓: cancel
+      # По DI2↑ ждать новый аппаратный кадр; DI2↓ отменяет ожидание.
+      direction_arm_next_di3: false
       repeat_di3_capture: true
       direction_latch: false
       capture_delay_ms: 0
       trigger_edge: rising
       payload_format: json
       debounce_ms: 0
-      require_direction: false
+      require_direction: true
       require_work: false
       external_hardware_capture: true
       direction_poll_ms: 1
-  # DI2 используется только отдельным контуром interval_flash ниже.
+  # UI «Прямой/Обратный» не фильтрует; гейт съёмки — уровень DI2.
 
 light_servers:
   # Интервальный режим (отдельный контур от съёмки):
-  # DI2↑ + on_delay_ms → bank On;
+  # DI2↑ (начало импульса направления) → bank On;
   # All-camera ExposureEnd → bank Off after validation; DI2↓ remains fallback.
   # On/Off — POST /api/camera-flash/bank (не трогает capture pipeline).
   interval_flash:
     enabled: true
-    # Measured DI2↑ → ExposureStart is about 2.4 s; cold bank On took 205 ms.
-    # Cancel pending On on DI2↓ or a validated all-camera ExposureEnd.
+    # DI2 rising -> wait 2.0 s -> bank On; cancel if the window closes.
     on_delay_ms: 2000
     # After 30 consecutive complete windows, all cameras' ExposureEnd → bank Off.
     # A missing event keeps the DI2 falling fallback and restarts validation.
