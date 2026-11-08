@@ -11,18 +11,18 @@ checkout-front-end:
     image: node:24-bookworm 
     tags: 
       - oleg-furer 
-    variables:
-      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    variables: 
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1" 
     script: 
-      - cd front-end
-      - npm ci
-      - npm test -- --reporter=default --reporter=junit --outputFile=test-results.xml
-      - npm run build
-      artifacts: 
-        when: always 
-        expire_in: 14 days 
-        reports: 
-          junit: front-end/test-results.xml
+      - cd front-end 
+      - npm ci 
+      - npm test -- --reporter=default --reporter=junit --outputFile=test-results.xml 
+      - npm run build 
+    artifacts: 
+      when: always 
+      expire_in: 14 days 
+      reports: 
+        junit: front-end/test-results.xml
 
 checkout-java:
     image: maven:3.9-eclipse-temurin-17 
