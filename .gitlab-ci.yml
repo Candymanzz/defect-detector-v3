@@ -1,4 +1,4 @@
-test-runner: 
+checkout-front-end: 
     image: node:24-bookworm 
     tags: 
       - oleg-furer 
