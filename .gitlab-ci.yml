@@ -1,3 +1,7 @@
+stages: 
+    - test 
+    - package
+
 test-runner: 
     image: ubuntu:24.04 
     tags: 
@@ -137,3 +141,52 @@ check-mvs:
         - camera-worker/build-mvs/libcamera_jni.so 
       reports: 
         junit: camera-worker/build-mvs/test-results.xml
+
+package-release: 
+    stage: package 
+    image: ubuntu:24.04 
+    tags: 
+      - oleg-furer 
+    needs: 
+      - job: checkout-front-end 
+        artifacts: true 
+      - job: checkout-java 
+        artifacts: true 
+      - job: check-cpp 
+        artifacts: true 
+      - job: check-mvs 
+        artifacts: true 
+    script: 
+      - | 
+        set -eu 
+ 
+        RELEASE="defect-detector-${CI_PIPELINE_IID}-${CI_COMMIT_SHORT_SHA}" 
+        mkdir -p release/core-dev/orchestrator-java/target 
+        mkdir -p release/core-dev/cppAnalisSurface/build 
+        mkdir -p release/core-dev/camera-worker/build 
+        mkdir -p release/defect-detector-ui 
+ 
+        cp orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar \ 
+          release/core-dev/orchestrator-java/target/ 
+ 
+        cp cppAnalisSurface/build-test/cpp_analis_surface \ 
+          release/core-dev/cppAnalisSurface/build/
+        
+        cp camera-worker/build-mvs/libcamera_jni.so \ 
+          release/core-dev/camera-worker/build/ 
+ 
+        cp -a front-end/dist front-end/electron \ 
+          front-end/package.json front-end/package-lock.json \ 
+          release/defect-detector-ui/ 
+ 
+        printf 'pipeline=%s\ncommit=%s\n' \ 
+          "$CI_PIPELINE_IID" "$CI_COMMIT_SHA" \ 
+          > release/version.txt 
+ 
+        tar -czf "${RELEASE}.tar.gz" -C release . 
+        sha256sum "${RELEASE}.tar.gz" > "${RELEASE}.tar.gz.sha256" 
+    artifacts: 
+      expire_in: 30 days 
+      paths: 
+        - defect-detector-*.tar.gz 
+        - defect-detector-*.tar.gz.sha256
