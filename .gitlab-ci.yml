@@ -26,6 +26,11 @@ checkout-java:
     script: 
       - cd orchestrator-java 
       - mvn --batch-mode --no-transfer-progress verify
+artifacts: 
+      when: always 
+      expire_in: 14 days 
+      reports: 
+        junit: orchestrator-java/target/surefire-reports/TEST-*.xml
 
 check-cpp: 
     image: ubuntu:24.04 
