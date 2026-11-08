@@ -1,0 +1,8 @@
+test-runner: 
+    image: ubuntu:24.04 
+    tags: 
+      - oleg-furer 
+    script: 
+      - echo "Runner работает!" 
+      - uname -a 
+      - cat /etc/os-release
