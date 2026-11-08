@@ -1,3 +1,12 @@
+test-runner: 
+    image: ubuntu:24.04 
+    tags: 
+      - oleg-furer 
+    script: 
+      - echo "Runner работает!" 
+      - uname -a 
+      - cat /etc/os-release
+
 checkout-front-end: 
     image: node:24-bookworm 
     tags: 
@@ -9,3 +18,11 @@ checkout-front-end:
       - npm ci
       - npm test
       - npm run build
+
+checkout-java:
+    image: maven:3.9-eclipse-temurin-17 
+    tags: 
+      - oleg-furer 
+    script: 
+      - cd orchestrator-java 
+      - mvn --batch-mode --no-transfer-progress verify
