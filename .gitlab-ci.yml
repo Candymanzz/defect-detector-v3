@@ -96,3 +96,33 @@ check-cpp:
         expire_in: 14 days 
         reports: 
           junit: cppAnalisSurface/build-test/test-results.xml
+
+check-mvs: 
+    image: ubuntu:24.04 
+    tags: 
+      - oleg-furer 
+    variables: 
+      DEBIAN_FRONTEND: noninteractive 
+    before_script: 
+      - apt-get update 
+      - apt-get install -y --no-install-recommends build-essential cmake openjdk-17-jdk-headless 
+      - export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")" 
+    script: 
+      - test -f /opt/MVS/include/MvCameraControl.h 
+      - test -f /opt/MVS/lib/64/libMvCameraControl.so 
+      - > 
+        cmake -S camera-worker -B camera-worker/build-mvs 
+        -DCMAKE_BUILD_TYPE=Release 
+        -DCAMERA_BUILD_JNI=ON 
+        -DCAMERA_ENABLE_MVS=ON 
+        -DCAMERA_ENABLE_ARAVIS=OFF 
+        -DMVS_ROOT=/opt/MVS 
+      - cmake --build camera-worker/build-mvs --parallel 2 
+      - > 
+        ctest --test-dir camera-worker/build-mvs 
+        --output-on-failure --output-junit test-results.xml 
+    artifacts: 
+      when: always 
+      expire_in: 14 days 
+      reports: 
+        junit: camera-worker/build-mvs/test-results.xml
