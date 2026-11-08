@@ -26,3 +26,17 @@ checkout-java:
     script: 
       - cd orchestrator-java 
       - mvn --batch-mode --no-transfer-progress verify
+
+check-cpp: 
+    image: ubuntu:24.04 
+    tags: 
+      - oleg-furer 
+    variables: 
+      DEBIAN_FRONTEND: noninteractive 
+    before_script: 
+      - apt-get update 
+      - apt-get install -y --no-install-recommends build-essential cmake pkg-config libopencv-dev libcpp-httplib-dev nlohmann-json3-dev 
+    script: 
+      - cmake -S cppAnalisSurface -B cppAnalisSurface/build-test -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON 
+      - cmake --build cppAnalisSurface/build-test --parallel 2 
+      - ctest --test-dir cppAnalisSurface/build-test --output-on-failure
