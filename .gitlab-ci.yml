@@ -1,8 +1,11 @@
 test-runner: 
-    image: ubuntu:24.04 
+    image: node:24-bookworm 
     tags: 
       - oleg-furer 
+    variables:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
     script: 
-      - echo "Runner работает!" 
-      - uname -a 
-      - cat /etc/os-release
+      - cd front-end
+      - npm ci
+      - npm test
+      - npm run build
