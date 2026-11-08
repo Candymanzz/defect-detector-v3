@@ -166,22 +166,11 @@ package-release:
         mkdir -p release/core-dev/camera-worker/build 
         mkdir -p release/defect-detector-ui 
  
-        cp orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar \ 
-          release/core-dev/orchestrator-java/target/ 
- 
-        cp cppAnalisSurface/build-test/cpp_analis_surface \ 
-          release/core-dev/cppAnalisSurface/build/
-        
-        cp camera-worker/build-mvs/libcamera_jni.so \ 
-          release/core-dev/camera-worker/build/ 
- 
-        cp -a front-end/dist front-end/electron \ 
-          front-end/package.json front-end/package-lock.json \ 
-          release/defect-detector-ui/ 
- 
-        printf 'pipeline=%s\ncommit=%s\n' \ 
-          "$CI_PIPELINE_IID" "$CI_COMMIT_SHA" \ 
-          > release/version.txt 
+        cp orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar release/core-dev/orchestrator-java/target/ 
+        cp cppAnalisSurface/build-test/cpp_analis_surface release/core-dev/cppAnalisSurface/build/ 
+        cp camera-worker/build-mvs/libcamera_jni.so release/core-dev/camera-worker/build/ 
+        cp -a front-end/dist front-end/electron front-end/package.json front-end/package-lock.json release/defect-detector-ui/ 
+        printf 'pipeline=%s\ncommit=%s\n' "$CI_PIPELINE_IID" "$CI_COMMIT_SHA" > release/version.txt
  
         tar -czf "${RELEASE}.tar.gz" -C release . 
         sha256sum "${RELEASE}.tar.gz" > "${RELEASE}.tar.gz.sha256" 
