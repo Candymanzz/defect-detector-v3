@@ -44,4 +44,9 @@ check-cpp:
     script: 
       - cmake -S cppAnalisSurface -B cppAnalisSurface/build-test -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON 
       - cmake --build cppAnalisSurface/build-test --parallel 2 
-      - ctest --test-dir cppAnalisSurface/build-test --output-on-failure
+      - ctest --test-dir cppAnalisSurface/build-test --output-on-failure --output-junit test-results.xml
+    artifacts: 
+        when: always 
+        expire_in: 14 days 
+        reports: 
+          junit: cppAnalisSurface/build-test/test-results.xml
