@@ -16,8 +16,13 @@ checkout-front-end:
     script: 
       - cd front-end
       - npm ci
-      - npm test
+      - npm test -- --reporter=default --reporter=junit --outputFile=test-results.xml
       - npm run build
+      artifacts: 
+        when: always 
+        expire_in: 14 days 
+        reports: 
+          junit: front-end/test-results.xml
 
 checkout-java:
     image: maven:3.9-eclipse-temurin-17 
