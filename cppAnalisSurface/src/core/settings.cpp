@@ -1,12 +1,126 @@
 #include "settings.h"
 #include <fstream>
 #include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <system_error>
+#include <utility>
+#ifdef _WIN32
+#define NOMINMAX
+#include <windows.h>
+#else
+#include <cerrno>
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 
 namespace cas {
 
 namespace {
 json axisJson(const CalibrationAxis& axis) {
     return {{"p0", {axis.p0.x, axis.p0.y}}, {"p1", {axis.p1.x, axis.p1.y}}, {"length_mm", axis.lengthMm}};
+}
+
+[[noreturn]] void settingsIoError(const char* operation, const std::filesystem::path& file,
+                                const std::error_code& error) {
+    throw std::runtime_error(std::string("Cannot ") + operation + " settings '" + file.u8string() + "': " + error.message());
+}
+
+// Keep the old file intact until a complete, flushed replacement is ready.
+// Exclusive, per-process temporary files also keep separate backends from
+// truncating each other's in-progress writes. This is not a cross-process lock.
+void writeSettingsAtomically(const std::filesystem::path& file, const std::string& payload) {
+    std::error_code error;
+    if (!file.parent_path().empty()) {
+        std::filesystem::create_directories(file.parent_path(), error);
+        if (error) settingsIoError("create directory for", file, error);
+    }
+    static std::atomic<unsigned long long> sequence{0};
+#ifdef _WIN32
+    const auto process = GetCurrentProcessId();
+#else
+    const auto process = getpid();
+#endif
+    auto temporary = file;
+    temporary += ".tmp-" + std::to_string(process) + "-" +
+        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + "-" +
+        std::to_string(sequence.fetch_add(1, std::memory_order_relaxed));
+    struct PendingFile {
+        std::filesystem::path path;
+        bool created = false;
+#ifdef _WIN32
+        HANDLE handle = INVALID_HANDLE_VALUE;
+#else
+        int handle = -1;
+#endif
+        ~PendingFile() {
+#ifdef _WIN32
+            if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
+#else
+            if (handle >= 0) ::close(handle);
+#endif
+            if (created) {
+                std::error_code ignored;
+                std::filesystem::remove(path, ignored);
+            }
+        }
+    } pending{temporary};
+#ifdef _WIN32
+    pending.handle = CreateFileW(temporary.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW,
+                                 FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (pending.handle == INVALID_HANDLE_VALUE)
+        settingsIoError("create temporary file for", file, {int(GetLastError()), std::system_category()});
+    pending.created = true;
+    size_t offset = 0;
+    while (offset < payload.size()) {
+        DWORD written = 0;
+        const auto chunk = static_cast<DWORD>(std::min<size_t>(payload.size() - offset, 1024 * 1024));
+        if (!WriteFile(pending.handle, payload.data() + offset, chunk, &written, nullptr))
+            settingsIoError("write", file, {int(GetLastError()), std::system_category()});
+        if (!written) settingsIoError("write", file, std::make_error_code(std::errc::io_error));
+        offset += written;
+    }
+    if (!FlushFileBuffers(pending.handle))
+        settingsIoError("flush", file, {int(GetLastError()), std::system_category()});
+    const auto handle = std::exchange(pending.handle, INVALID_HANDLE_VALUE);
+    if (!CloseHandle(handle))
+        settingsIoError("close", file, {int(GetLastError()), std::system_category()});
+    DWORD replaceError = ERROR_SUCCESS;
+    for (unsigned attempt = 0; attempt < 5; ++attempt) {
+        if (MoveFileExW(temporary.c_str(), file.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+            replaceError = ERROR_SUCCESS;
+            break;
+        }
+        replaceError = GetLastError();
+        // A short-lived reader or scanner can hold the destination across rename.
+        // Retry only sharing/access conflicts, for at most 75 ms in total.
+        if ((replaceError != ERROR_SHARING_VIOLATION && replaceError != ERROR_ACCESS_DENIED) || attempt == 4) break;
+        Sleep(5u << attempt);
+    }
+    if (replaceError != ERROR_SUCCESS)
+        settingsIoError("replace", file, {int(replaceError), std::system_category()});
+#else
+    pending.handle = ::open(temporary.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0666);
+    if (pending.handle < 0) settingsIoError("create temporary file for", file, {errno, std::generic_category()});
+    pending.created = true;
+    size_t offset = 0;
+    while (offset < payload.size()) {
+        const auto written = ::write(pending.handle, payload.data() + offset,
+                                    std::min<size_t>(payload.size() - offset, 1024 * 1024));
+        if (written < 0 && errno == EINTR) continue;
+        if (written < 0) settingsIoError("write", file, {errno, std::generic_category()});
+        if (!written) settingsIoError("write", file, std::make_error_code(std::errc::io_error));
+        offset += static_cast<size_t>(written);
+    }
+    int synced;
+    do { synced = ::fsync(pending.handle); } while (synced < 0 && errno == EINTR);
+    if (synced < 0) settingsIoError("flush", file, {errno, std::generic_category()});
+    if (::close(std::exchange(pending.handle, -1)) < 0)
+        settingsIoError("close", file, {errno, std::generic_category()});
+    std::filesystem::rename(temporary, file, error);
+    if (error) settingsIoError("replace", file, error);
+#endif
+    pending.created = false;
 }
 }
 
@@ -283,21 +397,13 @@ void SettingsStore::reloadIfStale() {
     }
 }
 
-void SettingsStore::save() {
+void SettingsStore::save(const std::map<std::string, Settings>& next) {
     json j = json::object();
-    for (auto& [k, v] : map_) {
+    for (const auto& [k, v] : next) {
         j[k] = v.toJson();
         if (!v.estimatedScaleExplicit) j[k].erase("estimated_mm_per_pixel");
     }
-    std::error_code ec;
-    std::filesystem::create_directories(file_.parent_path(), ec);
-    auto tmp = file_;
-    tmp += ".tmp";
-    { std::ofstream(tmp) << j.dump(2); }
-    std::filesystem::rename(tmp, file_, ec);
-    if (ec) { std::ofstream(file_) << j.dump(2); }
-    stamp_ = std::filesystem::last_write_time(file_, ec);
-    haveStamp_ = !ec;
+    writeSettingsAtomically(file_, j.dump(2));
 }
 
 Settings SettingsStore::get(const std::string& profile, int cameraId) {
@@ -320,8 +426,11 @@ std::string SettingsStore::set(const std::string& profile, const json& body, Set
     std::string err = s.applyJson(body);
     if (!err.empty()) return err;
     s = s.withMetricDefaults(cameraId);
-    map_[profile] = s;
-    save();
+    auto next = map_;
+    next[profile] = s;
+    save(next); // May throw; the live map and caller's output still have their old values.
+    map_.swap(next);
+    haveStamp_ = false; // Re-read once; another backend may have committed since our replacement.
     out = s;
     return "";
 }
@@ -329,7 +438,12 @@ std::string SettingsStore::set(const std::string& profile, const json& body, Set
 void SettingsStore::reset(const std::string& profile) {
     std::lock_guard<std::mutex> lk(m_);
     reloadIfStale();
-    if (map_.erase(profile)) save();
+    if (!map_.count(profile)) return;
+    auto next = map_;
+    next.erase(profile);
+    save(next);
+    map_.swap(next);
+    haveStamp_ = false;
 }
 
 }

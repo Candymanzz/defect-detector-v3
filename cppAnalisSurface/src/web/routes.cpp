@@ -548,10 +548,12 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
         });
     });
     svr.Delete(R"(/settings/([^/]+))", [&](const httplib::Request& req, httplib::Response& res) {
-        std::string profile = req.matches[1].str();
-        svc.settings().reset(profile);
-        Logger::instance().info("settings reset profile=" + profile);
-        sendJson(res, settingsJson(svc, profile, settingsCamera(req)), svc);
+        guarded(res, svc, [&] {
+            std::string profile = req.matches[1].str();
+            svc.settings().reset(profile);
+            Logger::instance().info("settings reset profile=" + profile);
+            sendJson(res, settingsJson(svc, profile, settingsCamera(req)), svc);
+        });
     });
 
     // ---- inspection ----
