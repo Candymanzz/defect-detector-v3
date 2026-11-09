@@ -60,9 +60,8 @@ class NativeLightConfigTest {
         assertFalse(config.runtime().refreshBeforeOn());
     }
 
-    @Test @SuppressWarnings("unchecked") void shippedYamlImportsPreserveSourceSymbolsAndHardwareRoutes() throws Exception {
-        java.nio.file.Path folder = java.nio.file.Files.isDirectory(java.nio.file.Path.of("config.exemple"))
-                ? java.nio.file.Path.of("config.exemple") : java.nio.file.Path.of("../config.exemple");
+    @Test @SuppressWarnings("unchecked") void shippedYamlImportsPreserveSourceSymbolsAndHardwareRoutes(@org.junit.jupiter.api.io.TempDir java.nio.file.Path directory) throws Exception {
+        java.nio.file.Path folder = com.example.iml.orchestrator.config.ShippedConfigFixture.copyTo(directory);
         var root = new com.example.iml.orchestrator.config.YamlFileConfigLoader().load(folder.resolve("config.yaml"));
         var hardware = (Map<String, Object>)root.get("light_hardware");
         var devices = (List<Map<String, Object>>)hardware.get("devices");

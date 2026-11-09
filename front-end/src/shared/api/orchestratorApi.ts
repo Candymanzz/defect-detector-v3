@@ -1,5 +1,6 @@
 import { appEnv } from "../config/env";
 import { HttpClient } from "./httpClient";
+import { waitForDetectorSettingsWrites, writeDetectorSettings } from "./detectorSettingsQueue";
 import type {
   AnalysisSettingsResponse,
   AnalysisSettingsUpdateRequest,
@@ -277,20 +278,21 @@ export const orchestratorApi = {
 
   /** Настройки C++ анализатора (cppAnalisSurface) камеры: чувствительность, порог, допуск сдвига, мин. площадь, масштаб. */
   async getCameraDetectorSettings(cameraId: number) {
+    await waitForDetectorSettingsWrites(cameraId);
     return http.json<DetectorSettingsResponse>(`${DETECTOR_SETTINGS_PATH}/camera/${cameraId}`);
   },
 
   async setCameraDetectorSettings(cameraId: number, update: DetectorSettingsUpdate) {
-    return http.json<DetectorSettingsResponse>(`${DETECTOR_SETTINGS_PATH}/camera/${cameraId}`, {
+    return writeDetectorSettings(cameraId, () => http.json<DetectorSettingsResponse>(`${DETECTOR_SETTINGS_PATH}/camera/${cameraId}`, {
       method: "PUT",
       body: update,
-    });
+    }));
   },
 
   async resetCameraDetectorSettings(cameraId: number) {
-    return http.json<DetectorSettingsResponse>(`${DETECTOR_SETTINGS_PATH}/camera/${cameraId}`, {
+    return writeDetectorSettings(cameraId, () => http.json<DetectorSettingsResponse>(`${DETECTOR_SETTINGS_PATH}/camera/${cameraId}`, {
       method: "DELETE",
-    });
+    }));
   },
 
   async getDefaultDetectorSettings() {

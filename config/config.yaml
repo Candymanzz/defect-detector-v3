@@ -1,0 +1,40 @@
+imports:
+- blocks/01-core.yaml
+- blocks/10-cameras.yaml
+- blocks/20-detectors.yaml
+- blocks/30-ui-and-client.yaml
+- blocks/45-plc-fins.yaml
+- blocks/50-lighting.yaml
+- blocks/51-light-hardware.yaml
+- blocks/52-io.yaml
+python_detector:
+  backend: cpp
+  base_url: http://${ip:loopback}:8000
+  server_concurrency: 10
+  defer_heatmap: false
+  defer_learning_review: false
+  include_visuals: false
+  heatmap_preview_max_width: 512
+integration:
+  python_parallelism: 10
+  python_request_parallelism: 10
+  python_server_pool_size: 1
+  analis_surface_autostart:
+    enabled: true
+    inspect_workers: 4
+    working_dir: cppAnalisSurface
+    startup_timeout_ms: 30000
+    health_path: /health
+  analis_surface_command_linux:
+  - cppAnalisSurface/build/cpp_analis_surface
+  - --host
+  - ${ip:loopback}
+  - --port
+  - '8000'
+  - --data-dir
+  - data
+  performance_log:
+    enabled: true
+    directory: logs/performance
+    queue_capacity: 8192
+ip_config: ips.yaml

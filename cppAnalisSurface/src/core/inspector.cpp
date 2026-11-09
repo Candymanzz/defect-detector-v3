@@ -1,4 +1,5 @@
 #include "inspector.h"
+#include "exclusion_zones.h"
 #include "learning_matcher.h"
 #include "preprocessing.h"
 #include "request_timing.h"
@@ -102,11 +103,19 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     }
     InspectOutcome out;
     const Settings s = configured.forFrame(bgr.size());
-    auto prep = ref.prepared(s.inspectScale);
+    auto prep = ref.prepared(s.inspectScale, s.exclusions);
+    out.exclusions = s.exclusions;
     out.workSize = prep->workSize;
     out.region = prep->region;
     const double scale = prep->scale;
     const cv::Rect region = prep->region;
+
+    if (prep->roiArea == 0) {
+        out.scale = scale; out.reason = "inspection_excluded"; out.surfaceSkipped = true;
+        out.diff = cv::Mat::zeros(region.size(), CV_8U);
+        out.kept = out.diff.clone(); out.scoredEnergy = out.diff.clone();
+        out.totalMs = msSince(tStart); return out;
+    }
 
     // Positioning uses its own native-resolution image. Prepare the comparison
     // image only after compensating the source pixels, before resize and blur.
@@ -443,6 +452,7 @@ cv::Mat buildHeatmap(const InspectOutcome& out, const NormPolygon& roi, int maxW
         heat.copyTo(masked, mask);
         heat = masked;
     }
+    if (!out.exclusions.empty()) heat.setTo(0, exclusionMask(out.exclusions, heat.size()));
     return heat;
 }
 

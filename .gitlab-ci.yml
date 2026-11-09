@@ -1,0 +1,181 @@
+stages: 
+    - test 
+    - package
+
+test-runner: 
+    image: ubuntu:24.04 
+    tags: 
+      - oleg-furer 
+    script: 
+      - echo "Runner работает!" 
+      - uname -a 
+      - cat /etc/os-release
+
+checkout-front-end: 
+    image: node:24-bookworm 
+    tags: 
+      - oleg-furer 
+    variables: 
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1" 
+    script: 
+      - cd front-end 
+      - npm ci 
+      - npm test -- --reporter=default --reporter=junit --outputFile=test-results.xml 
+      - npm run build 
+    artifacts: 
+      when: always 
+      expire_in: 14 days 
+      paths: 
+        - front-end/dist/ 
+        - front-end/electron/ 
+        - front-end/package.json 
+        - front-end/package-lock.json 
+      reports: 
+        junit: front-end/test-results.xml
+
+checkout-java: 
+    image: ubuntu:24.04 
+    tags: 
+      - oleg-furer 
+    variables: 
+      DEBIAN_FRONTEND: noninteractive 
+    before_script: 
+      - apt-get update 
+      - apt-get install -y --no-install-recommends ca-certificates openjdk-17-jdk-headless maven build-essential cmake pkg-config libopencv-dev libcpp-httplib-dev nlohmann-json3-dev locales 
+      - export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")" 
+      - localedef -i de_DE -f UTF-8 de_DE.UTF-8 
+    script: 
+      # Собираем JNI без подключения SDK реальных камер. 
+      - > 
+        cmake -S camera-worker -B camera-worker/build-test 
+        -DCMAKE_BUILD_TYPE=Debug 
+        -DCAMERA_BUILD_JNI=ON 
+        -DCAMERA_ENABLE_MVS=OFF 
+        -DCAMERA_ENABLE_ARAVIS=OFF 
+      - > 
+        cmake --build camera-worker/build-test --parallel 2 
+        --target camera_jni cw_config_tests cw_roi_tests 
+ 
+      # Проверяем нативный код камер. 
+      - > 
+        ctest --test-dir camera-worker/build-test 
+        --output-on-failure --output-junit test-results.xml
+      # Собираем анализатор для интеграционного теста Java. 
+      - > 
+        cmake -S cppAnalisSurface -B cppAnalisSurface/build-integration 
+        -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF 
+      - > 
+        cmake --build cppAnalisSurface/build-integration 
+        --parallel 2 --target cpp_analis_surface 
+ 
+      # Проверяем, что нужные файлы действительно созданы. 
+      - test -f "$CI_PROJECT_DIR/camera-worker/build-test/libcamera_jni.so" 
+      - test -x "$CI_PROJECT_DIR/cppAnalisSurface/build-integration/cpp_analis_surface" 
+ 
+      # Запускаем Java-тесты с подключёнными JNI и анализатором. 
+      - > 
+        mvn --batch-mode --no-transfer-progress 
+        -f orchestrator-java/pom.xml 
+        "-Diml.camera.native.library=$CI_PROJECT_DIR/camera-worker/build-test/libcamera_jni.so" 
+        "-Diml.cpp.detector.binary=$CI_PROJECT_DIR/cppAnalisSurface/build-integration/cpp_analis_surface" 
+        verify 
+    artifacts: 
+      when: always 
+      expire_in: 14 days 
+      paths: 
+        - orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar 
+      reports: 
+        junit: 
+          - orchestrator-java/target/surefire-reports/TEST-*.xml 
+          - camera-worker/build-test/test-results.xml
+
+check-cpp: 
+    image: ubuntu:24.04 
+    tags: 
+      - oleg-furer 
+    variables: 
+      DEBIAN_FRONTEND: noninteractive 
+    before_script: 
+      - apt-get update 
+      - apt-get install -y --no-install-recommends build-essential cmake pkg-config libopencv-dev libcpp-httplib-dev nlohmann-json3-dev 
+    script: 
+      - cmake -S cppAnalisSurface -B cppAnalisSurface/build-test -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON 
+      - cmake --build cppAnalisSurface/build-test --parallel 2 
+      - ctest --test-dir cppAnalisSurface/build-test --output-on-failure --output-junit test-results.xml
+    artifacts: 
+      when: always 
+      expire_in: 14 days 
+      paths: 
+        - cppAnalisSurface/build-test/cpp_analis_surface 
+      reports: 
+        junit: cppAnalisSurface/build-test/test-results.xml
+
+check-mvs: 
+    image: ubuntu:24.04 
+    tags: 
+      - oleg-furer 
+    variables: 
+      DEBIAN_FRONTEND: noninteractive 
+    before_script: 
+      - apt-get update 
+      - apt-get install -y --no-install-recommends build-essential cmake openjdk-17-jdk-headless 
+      - export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")" 
+    script: 
+      - test -f /opt/MVS/include/MvCameraControl.h 
+      - test -f /opt/MVS/lib/64/libMvCameraControl.so 
+      - > 
+        cmake -S camera-worker -B camera-worker/build-mvs 
+        -DCMAKE_BUILD_TYPE=Release 
+        -DCAMERA_BUILD_JNI=ON 
+        -DCAMERA_ENABLE_MVS=ON 
+        -DCAMERA_ENABLE_ARAVIS=OFF 
+        -DMVS_ROOT=/opt/MVS 
+      - cmake --build camera-worker/build-mvs --parallel 2 
+      - > 
+        ctest --test-dir camera-worker/build-mvs 
+        --output-on-failure --output-junit test-results.xml 
+    artifacts: 
+      when: always 
+      expire_in: 14 days 
+      paths: 
+        - camera-worker/build-mvs/libcamera_jni.so 
+      reports: 
+        junit: camera-worker/build-mvs/test-results.xml
+
+package-release: 
+    stage: package 
+    image: ubuntu:24.04 
+    tags: 
+      - oleg-furer 
+    needs: 
+      - job: checkout-front-end 
+        artifacts: true 
+      - job: checkout-java 
+        artifacts: true 
+      - job: check-cpp 
+        artifacts: true 
+      - job: check-mvs 
+        artifacts: true 
+    script: 
+      - | 
+        set -eu 
+ 
+        RELEASE="defect-detector-${CI_PIPELINE_IID}-${CI_COMMIT_SHORT_SHA}" 
+        mkdir -p release/core-dev/orchestrator-java/target 
+        mkdir -p release/core-dev/cppAnalisSurface/build 
+        mkdir -p release/core-dev/camera-worker/build 
+        mkdir -p release/defect-detector-ui 
+ 
+        cp orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar release/core-dev/orchestrator-java/target/ 
+        cp cppAnalisSurface/build-test/cpp_analis_surface release/core-dev/cppAnalisSurface/build/ 
+        cp camera-worker/build-mvs/libcamera_jni.so release/core-dev/camera-worker/build/ 
+        cp -a front-end/dist front-end/electron front-end/package.json front-end/package-lock.json release/defect-detector-ui/ 
+        printf 'pipeline=%s\ncommit=%s\n' "$CI_PIPELINE_IID" "$CI_COMMIT_SHA" > release/version.txt
+ 
+        tar -czf "${RELEASE}.tar.gz" -C release . 
+        sha256sum "${RELEASE}.tar.gz" > "${RELEASE}.tar.gz.sha256" 
+    artifacts: 
+      expire_in: 30 days 
+      paths: 
+        - defect-detector-*.tar.gz 
+        - defect-detector-*.tar.gz.sha256

@@ -58,7 +58,13 @@ public final class IntegrationPreflightService {
                 .withPoolCommands(List.of(), geometryCommand);
         ctx.setBootConfig(cfg);
 
-        Path workerConfigPath = CameraWorkerPaths.resolveWorkerConfigPath(ctx.projectRoot(), integration);
+        final Path workerConfigPath;
+        try {
+            workerConfigPath = CameraWorkerPaths.prepareWorkerConfig(ctx.projectRoot(), ctx.root());
+        } catch (java.io.IOException ex) {
+            log.error("Cannot generate native camera configuration from YAML", ex);
+            return false;
+        }
         ctx.setWorkerConfigPath(workerConfigPath);
         if (!Files.isRegularFile(workerConfigPath)) {
             log.error("Файл конфигурации camera-worker не найден: {} (integration.worker_config_json)", workerConfigPath.toAbsolutePath());

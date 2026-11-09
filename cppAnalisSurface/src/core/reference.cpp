@@ -1,4 +1,5 @@
 #include "reference.h"
+#include "exclusion_zones.h"
 #include "preprocessing.h"
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
@@ -20,12 +21,19 @@ std::shared_ptr<const AlignmentPrepared> buildAlignment(const Prepared& native) 
     auto a = std::make_shared<AlignmentPrepared>();
     a->region = native.region;
     a->nativeRoiMask = native.nativeRoiMask;
+    a->exclusions = native.exclusions;
     const auto gray = native.refGray(a->region);
     a->smallSize = thumbnailSize(gray.size(), kShiftEstimateMaxSide);
     cv::Mat small;
     cv::resize(gray, small, a->smallSize, 0, 0, cv::INTER_AREA);
     small.convertTo(a->refSmall, CV_32F);
     cv::createHanningWindow(a->hann, a->smallSize, CV_32F);
+    if (!native.exclusions.empty()) {
+        const auto excluded = exclusionMask(native.exclusions, native.workSize);
+        cv::Mat smallExcluded;
+        cv::resize(excluded(a->region), smallExcluded, a->smallSize, 0, 0, cv::INTER_AREA);
+        a->hann.setTo(0, smallExcluded > 0);
+    }
     const auto dftSize = shiftDftSize(a->smallSize);
     padShiftInput(a->refSmall, dftSize);
     padShiftInput(a->hann, dftSize);
@@ -108,40 +116,41 @@ NormPolygon Reference::roi() const {
     return roi_;
 }
 
-std::shared_ptr<const Prepared> Reference::prepared(double scale) const {
+std::shared_ptr<const Prepared> Reference::prepared(double scale, const NormPolygons& exclusions) const {
     const int key = static_cast<int>(std::lround(scale * 1000.0));
     NormPolygon roi;
     std::shared_ptr<const AlignmentPrepared> alignment;
     {
         std::lock_guard<std::mutex> lk(m_);
         auto it = cache_.find(key);
-        if (it != cache_.end()) return it->second;
+        if (it != cache_.end() && it->second->exclusions == exclusions) return it->second;
         roi = roi_;
-        alignment = alignment_;
+        if (alignment_ && alignment_->exclusions == exclusions) alignment = alignment_;
     }
     // Build the positioning data once from native pixels, never from the inspection thumbnail.
     // Keep the same ROI snapshot for positioning and comparison, even if it changes during a build.
     std::shared_ptr<Prepared> native;
     if (!alignment) {
-        native = build(1.0, roi);
+        native = build(1.0, roi, exclusions);
         alignment = buildAlignment(*native);
     }
-    auto built = key == 1000 && native ? native : build(key / 1000.0, roi);
+    auto built = key == 1000 && native ? native : build(key / 1000.0, roi, exclusions);
     built->alignment = alignment;
     built->nativeRoiMask = alignment->nativeRoiMask;
     std::lock_guard<std::mutex> lk(m_);
     // the ROI may have changed while building: only cache when it is still the same
     if (roi == roi_) {
-        if (!alignment_) alignment_ = alignment;
+        if (!alignment_ || alignment_->exclusions != exclusions) alignment_ = alignment;
         built->alignment = alignment_;
         cache_[key] = built;
     }
     return built;
 }
 
-std::shared_ptr<Prepared> Reference::build(double scale, const NormPolygon& roi) const {
+std::shared_ptr<Prepared> Reference::build(double scale, const NormPolygon& roi, const NormPolygons& exclusions) const {
     auto p = std::make_shared<Prepared>();
     p->scale = scale;
+    p->exclusions = exclusions;
     p->workSize = inspectionWorkSize(bgr_.size(), scale);
     p->refGray = prepareInspectionGray(bgr_, p->workSize);
 
@@ -173,10 +182,16 @@ std::shared_ptr<Prepared> Reference::build(double scale, const NormPolygon& roi)
     } else {
         p->roiMask.setTo(255);
     }
-    p->roiArea = cv::countNonZero(p->roiMask);
     p->region = box;
     p->upperCornerMask = roi.size() >= 3 ? upperCornerMask(p->roiMask(box))
                                        : cv::Mat::zeros(box.size(), CV_8U);
+    // Keep the original upper-edge geometry, then subtract holes from both masks.
+    if (!exclusions.empty()) {
+        const auto excluded = exclusionMask(exclusions, p->workSize);
+        p->roiMask.setTo(0, excluded);
+        p->upperCornerMask.setTo(0, excluded(box));
+    }
+    p->roiArea = cv::countNonZero(p->roiMask);
     p->upperCornerArea = cv::countNonZero(p->upperCornerMask);
 
     return p;

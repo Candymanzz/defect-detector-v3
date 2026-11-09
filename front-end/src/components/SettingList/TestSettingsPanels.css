@@ -2,17 +2,19 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  flex: 0 0 auto;
-  max-height: none;
-  overflow: visible;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .modal__test-settings-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
   padding-right: 12px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 0 8px;
 }
 
 .modal__test-settings-header > h3 {
@@ -37,6 +39,8 @@
   border-top: 1px solid rgba(117, 143, 164, 0.2);
   color: #b8c7cf;
   font-size: 12px;
+  flex: 0 0 auto;
+  overflow-wrap: anywhere;
 }
 
 .modal__test-settings-status[data-state="complete"] {
@@ -60,13 +64,22 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   padding: 12px;
+  flex: 1 1 0;
+  min-height: 0;
+  align-content: start;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
 }
 
 .modal__test-settings-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 0 12px 12px;
+  padding: 10px 12px;
+  flex-wrap: wrap;
 }
 
 .modal__test-settings-section {

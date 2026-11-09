@@ -42,7 +42,7 @@ public record IoInputDiscreteConfig(
     }
 
     public static IoInputDiscreteConfig defaults() {
-        // Согласовано с config.exemple/blocks/52-io.yaml integration.inspection_trigger.io_input
+        // Согласовано с config/blocks/52-io.yaml integration.inspection_trigger.io_input
         return new IoInputDiscreteConfig(
                 1, 2, 3, 4, 0, "json", false, TriggerEdgeMode.RISING,
                 false, false, true, false, false, false, false,

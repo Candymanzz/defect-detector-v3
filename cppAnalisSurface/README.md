@@ -1,3 +1,13 @@
+## Зоны исключения инспекции (2026-11-06)
+
+В настройках профиля добавлено `exclusions`: список многоугольников `[x,y]` в 0..1.
+Они исключают участки поверхности и сечения шва до расчёта вердикта. Сохраняются
+через существующий Java GET/PUT `/api/orchestrator/detector-settings/camera/{id}`;
+пустой список очищает зоны, остальные настройки сохраняются. Временные зоны
+поддержаны в settings запросов инспекции. UI в этой задаче не менялся.
+[Инструкция для фронтендера: редактор, запросы, ответы, WS/архив](../knowledge/frontend/inspection-exclusions.md),
+[алгоритм и проверки переноса](../knowledge/analis-surface/inspection-exclusions.md).
+
 ## Жизненный цикл норм (2026-11-05)
 
 Дообученные нормы сбрасываются при полном запуске основного Java-приложения:
@@ -96,7 +106,7 @@ python_detector:
   base_url: "http://127.0.0.1:8000"
 ```
 
-`config/blocks/01-core.yaml` (см. `config.exemple`): `analis_surface_autostart.working_dir: cppAnalisSurface`,
+`config/blocks/01-core.yaml` (см. `config`): `analis_surface_autostart.working_dir: cppAnalisSurface`,
 `analis_surface_command_linux` (путь к бинарнику, `--port`, `--data-dir data`),
 `python_parallelism: 10` (потоков стадии детектора = камер одновременно; НЕ 1), `python_server_pool_size: 1`, `python_request_parallelism: 10`.
 

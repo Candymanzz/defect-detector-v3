@@ -621,6 +621,7 @@ public final class WsOutboundMessenger {
             payload.put("action", decision.action());
             putAnomalyScore(payload, decision);
             if (!decision.learning().isEmpty()) payload.set("learning", JSON.valueToTree(decision.learning()));
+            if (!decision.inspectionExclusions().isEmpty()) payload.set("inspection_exclusions", JSON.valueToTree(decision.inspectionExclusions()));
             payload.put("python_status", decision.pythonStatus());
             payload.put("geometry_status", decision.geometryStatus());
             if (decision.geometry() != null && !decision.geometry().isEmpty()) {

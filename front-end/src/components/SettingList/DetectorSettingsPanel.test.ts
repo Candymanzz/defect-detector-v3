@@ -14,7 +14,7 @@ describe("DetectorSettingsPanel metric limits", () => {
     for (const label of ["Допуск проворота", "Допуск вертикального смещения"]) {
       const input = html.match(new RegExp(`<input[^>]*aria-label="${label}, мм"[^>]*>`))?.[0];
       expect(input).toBeDefined();
-      for (const attribute of ['type="number"', 'min="0"', 'max="10"', 'step="0.05"']) {
+      for (const attribute of ['type="number"', 'min="0"', 'max="15"', 'step="0.05"']) {
         expect(input).toContain(attribute);
       }
     }
@@ -28,6 +28,7 @@ describe("DetectorSettingsPanel metric limits", () => {
       estimated_mm_per_pixel: [.27, .34], metric_scale_source: "estimated",
       min_blob_area: 20, inspect_scale: .5,
       learning_robust_enabled: false, learning_shadow_enabled: false, learning_search_radius: 24,
+      exclusions: [[[0, 0], [1, 0], [0, 1]]],
       seam: {enabled: false, p0: [0,0], p1: [0,0], band: 30, tol_mid: 1, tol_edge: 5, edge_frac: .12},
     };
     const common = editableSettings(settings, false);
@@ -42,6 +43,7 @@ describe("DetectorSettingsPanel metric limits", () => {
     expect(common).not.toHaveProperty("max_alignment_shift_x");
     expect(common).not.toHaveProperty("max_alignment_shift_y");
     expect(common).not.toHaveProperty("seam");
+    expect(common).not.toHaveProperty("exclusions");
     expect(editableSettings(settings, true).seam).toEqual(settings.seam);
   });
   it("exposes a separate bounded learning radius and both fallback switches", () => {

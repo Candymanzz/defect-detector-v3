@@ -1,4 +1,5 @@
 #include "settings.h"
+#include "exclusion_zones.h"
 #include <fstream>
 #include <algorithm>
 #include <atomic>
@@ -138,11 +139,11 @@ Settings Settings::withMetricDefaults(int cameraId) const {
     const auto units = s.mmPerPixel({1224, 1024});
     // Migrate the existing global limits, independently of local comparison relaxation.
     if (!s.horizontalShiftMm) {
-        s.horizontalShiftMm = std::min(10.0, s.maxAlignmentShiftX * units.x);
+        s.horizontalShiftMm = std::min(15.0, s.maxAlignmentShiftX * units.x);
         s.maxAlignmentShiftX = *s.horizontalShiftMm / units.x;
     }
     if (!s.verticalShiftMm) {
-        s.verticalShiftMm = std::min(10.0, s.maxAlignmentShiftY * units.y);
+        s.verticalShiftMm = std::min(15.0, s.maxAlignmentShiftY * units.y);
         s.maxAlignmentShiftY = *s.verticalShiftMm / units.y;
     }
     return s;
@@ -167,6 +168,7 @@ json Settings::toJson() const {
             {"max_alignment_shift_x", maxAlignmentShiftX}, {"max_alignment_shift_y", maxAlignmentShiftY},
             {"learning_robust_enabled", learningRobustEnabled}, {"learning_shadow_enabled", learningShadowEnabled},
             {"learning_search_radius", learningSearchRadius}, {"min_blob_area", minBlobArea}, {"inspect_scale", inspectScale}, {"seam", seam.toJson()}};
+    j["exclusions"] = exclusionsJson(exclusions);
     j["horizontal_shift_tolerance_mm"] = horizontalShiftMm ? json(*horizontalShiftMm) : json(nullptr);
     j["vertical_shift_tolerance_mm"] = verticalShiftMm ? json(*verticalShiftMm) : json(nullptr);
     j["estimated_mm_per_pixel"] = {estimatedMmPerPixel.x, estimatedMmPerPixel.y};
@@ -272,7 +274,7 @@ std::string Settings::applyJson(const json& j) {
         if (j[field.first].is_null()) field.second->reset();
         else {
             double value = 0;
-            if (!readNumber(j, field.first, 0, 10, false, value, err)) return err;
+            if (!readNumber(j, field.first, 0, 15, false, value, err)) return err;
             *field.second = value;
         }
     }
@@ -314,6 +316,10 @@ std::string Settings::applyJson(const json& j) {
         err = tmp.seam.applyJson(j["seam"]);
         if (!err.empty()) return err;
     }
+    if (j.contains("exclusions")) {
+        try { tmp.exclusions = parseExclusions(j["exclusions"]); }
+        catch (const std::invalid_argument& e) { return e.what(); }
+    }
     *this = tmp;
     return "";
 }
@@ -351,6 +357,7 @@ SettingsPatch SettingsPatch::fromJson(const json& j) {
         SeamSettings probeSeam;
         if (probeSeam.applyJson(j["seam"]).empty()) p.seam = j["seam"];   // invalid seam override is ignored as a whole
     }
+    if (j.contains("exclusions")) p.exclusions = parseExclusions(j["exclusions"]);
     return p;
 }
 
@@ -366,6 +373,7 @@ void SettingsPatch::applyTo(Settings& s) const {
     if(learningRobustEnabled) s.learningRobustEnabled=*learningRobustEnabled;
     if(learningShadowEnabled) s.learningShadowEnabled=*learningShadowEnabled;
     if(learningSearchRadius) s.learningSearchRadius=*learningSearchRadius;
+    if (exclusions) s.exclusions = *exclusions;
     if (seam.is_object()) s.seam.applyJson(seam);
     if (metric.is_object()) s.applyJson(metric);
 }

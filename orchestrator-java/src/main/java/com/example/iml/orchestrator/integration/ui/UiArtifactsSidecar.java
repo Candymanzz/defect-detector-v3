@@ -885,6 +885,10 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         if (captureHeader == null || pyResp == null || pyResp.header() == null) {
             return;
         }
+        Object inspectionExclusions = pyResp.header().get("inspection_exclusions");
+        if (inspectionExclusions instanceof Map<?, ?>) {
+            captureHeader.put("inspection_exclusions", com.example.iml.orchestrator.integration.pipeline.InspectionExclusionDiagnostics.snapshot(inspectionExclusions));
+        }
         Object excludedZones = pyResp.header().get("excluded_normal_zones");
         if (excludedZones instanceof List<?>) {
             captureHeader.put("excluded_normal_zones", excludedZones);
@@ -1074,6 +1078,12 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
             seamSnapshot.put(key, value instanceof java.util.List<?> list ? java.util.List.copyOf(list) : value);
         }
         snapshot.put("seam", Map.copyOf(seamSnapshot));
+        Object exclusions = settings.get("exclusions");
+        if (exclusions != null && !(exclusions instanceof java.util.List<?>)) return false;
+        // A deferred map must use the original mask even after the operator edits the profile.
+        Object polygons = com.example.iml.orchestrator.integration.pipeline.InspectionExclusionDiagnostics
+                .snapshot(Map.of("polygons", exclusions == null ? java.util.List.of() : exclusions)).get("polygons");
+        snapshot.put("exclusions", polygons);
         request.put("settings", Map.copyOf(snapshot));
         // The original effective seam coordinates already include the reference line override.
         request.remove("seam_line_norm");

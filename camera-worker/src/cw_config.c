@@ -44,6 +44,8 @@ int cw_parse_pixel_format_pref(const char *raw) {
     if (!raw || raw[0] == '\0') {
         return CW_PIXEL_PREF_BGR8;
     }
+    if (CW_STRICMP(raw, "Bayer RG 12 Packed") == 0 || CW_STRICMP(raw, "BayerRG12Packed") == 0)
+        return CW_PIXEL_PREF_BAYER_RG12_PACKED;
     if (CW_STRICMP(raw, "Mono8") == 0 || CW_STRICMP(raw, "MONO8") == 0 || CW_STRICMP(raw, "gray") == 0
         || CW_STRICMP(raw, "Gray8") == 0) {
         return CW_PIXEL_PREF_MONO8;
@@ -59,6 +61,8 @@ int cw_parse_pixel_format_pref(const char *raw) {
 
 const char *cw_pixel_format_pref_name(int pref) {
     switch (pref) {
+        case CW_PIXEL_PREF_BAYER_RG12_PACKED:
+            return "BayerRG12Packed";
         case CW_PIXEL_PREF_MONO8:
             return "Mono8";
         case CW_PIXEL_PREF_RGB8:

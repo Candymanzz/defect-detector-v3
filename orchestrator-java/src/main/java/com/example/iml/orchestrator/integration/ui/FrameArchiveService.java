@@ -126,9 +126,11 @@ public final class FrameArchiveService implements AutoCloseable {
             int frameHeight,
             String learnedReviewId,
             Map<String, Object> geometry,
-            Map<String, Object> learning
+            Map<String, Object> learning,
+            Map<String, Object> inspectionExclusions
     ) {
         public ArchivedFrame {
+            inspectionExclusions = com.example.iml.orchestrator.integration.pipeline.InspectionExclusionDiagnostics.snapshot(inspectionExclusions);
             learning=learning==null||learning.isEmpty()?Map.of():Map.copyOf(learning);
             geometry = geometry == null || geometry.isEmpty() ? Map.of() : Map.copyOf(geometry);
         }
@@ -518,6 +520,7 @@ public final class FrameArchiveService implements AutoCloseable {
             root.put("python_status", decision.pythonStatus());
             root.put("geometry_status", decision.geometryStatus());
             if(!decision.learning().isEmpty()) root.set("learning",JSON.valueToTree(decision.learning()));
+            if(!decision.inspectionExclusions().isEmpty()) root.set("inspection_exclusions",JSON.valueToTree(decision.inspectionExclusions()));
             if (decision.geometry() != null && !decision.geometry().isEmpty()) {
                 root.set("geometry", JSON.valueToTree(decision.geometry()));
             }
@@ -655,7 +658,8 @@ public final class FrameArchiveService implements AutoCloseable {
                     frameHeight,
                     learnedReviewId,
                     geometry,
-                    learning
+                    learning,
+                    com.example.iml.orchestrator.integration.pipeline.InspectionExclusionDiagnostics.snapshot(root.get("inspection_exclusions"))
             ));
         } catch (IOException e) {
             LOG.debug("frame archive metadata read failed {}: {}", frameDir, e.getMessage());

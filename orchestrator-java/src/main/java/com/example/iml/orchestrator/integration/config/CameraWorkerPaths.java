@@ -1,10 +1,15 @@
 package com.example.iml.orchestrator.integration.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 
 /**
  * Пути к бинарнику camera-worker и к его JSON-конфигу относительно корня репозитория.
@@ -47,9 +52,9 @@ public final class CameraWorkerPaths {
         return base.resolve("camera_worker");
     }
 
-    /** Второй аргумент командной строки camera-worker: JSON с настройками захвата. */
+    /** Internal native input; the editable configuration is YAML. */
     public static Path resolveWorkerConfigPath(Path projectRoot, Map<String, Object> integration) {
-        String rel = "config/config.json";
+        String rel = "config/.camera-worker.generated.json";
         if (integration != null && integration.get("worker_config_json") != null) {
             String s = String.valueOf(integration.get("worker_config_json")).trim();
             if (!s.isEmpty()) {
@@ -57,6 +62,36 @@ public final class CameraWorkerPaths {
             }
         }
         return projectRoot.resolve(rel).normalize();
+    }
+
+    /** Export the already merged and resolved YAML, without another set of camera defaults. */
+    @SuppressWarnings("unchecked")
+    public static Path prepareWorkerConfig(Path projectRoot, Map<String, Object> root) throws IOException {
+        Map<String, Object> integration = (Map<String, Object>) root.get("integration");
+        Path destination = resolveWorkerConfigPath(projectRoot, integration);
+        // Explicit legacy JSON inputs remain supported for older installations and native tests.
+        if (integration != null && integration.get("worker_config_json") instanceof String legacy
+                && !legacy.isBlank()) return destination;
+        Map<String, Object> capture = new LinkedHashMap<>();
+        for (String key : List.of("version", "frame", "cameras", "capture_source", "capture_trigger_mode",
+                "line0_trigger_activation", "line0_line_inverter", "frame_timeout_ms", "detector",
+                "gige_switch_count", "gige_cameras_per_switch", "gige_switch_buffer_kb",
+                "gige_inter_packet_delay", "gige_frame_transfer_delay_step", "gige_ftd_cameras_per_link")) {
+            if (root.containsKey(key)) capture.put(key, root.get(key));
+        }
+        Files.createDirectories(destination.toAbsolutePath().getParent());
+        Path temporary = Files.createTempFile(destination.toAbsolutePath().getParent(), ".camera-worker-", ".tmp");
+        try {
+            new ObjectMapper().writerWithDefaultPrettyPrinter().writeValue(temporary.toFile(), capture);
+            try {
+                Files.move(temporary, destination, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException ex) {
+                Files.move(temporary, destination, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
+        return destination;
     }
 
     public static List<String> pickIntegrationCommandList(

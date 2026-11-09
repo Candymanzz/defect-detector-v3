@@ -56,6 +56,14 @@ if(BUILD_TESTING)
   target_link_libraries(label_roi_test PRIVATE
     opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
   add_test(NAME label_roi_test COMMAND label_roi_test)
+  add_executable(exclusion_test tests/exclusion_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp src/core/seam.cpp
+    src/core/shm_io.cpp src/service/service.cpp)
+  target_include_directories(exclusion_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(exclusion_test PRIVATE
+    opencv_core opencv_imgproc opencv_video opencv_imgcodecs nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME exclusion_test COMMAND exclusion_test)
+
   add_executable(alignment_preprocessing_test tests/alignment_preprocessing_test.cpp
     src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
   target_include_directories(alignment_preprocessing_test PRIVATE src ${OpenCV_INCLUDE_DIRS})

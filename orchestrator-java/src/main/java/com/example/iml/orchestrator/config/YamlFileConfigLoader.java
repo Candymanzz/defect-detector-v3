@@ -20,7 +20,9 @@ public final class YamlFileConfigLoader {
 
     @SuppressWarnings("unchecked")
     public Map<String, Object> load(Path path) throws IOException {
-        return loadWithImports(path.toAbsolutePath().normalize(), new HashSet<>());
+        Path absolute = path.toAbsolutePath().normalize();
+        Map<String, Object> root = loadWithImports(absolute, new HashSet<>());
+        return IpConfigReferences.resolve(root, absolute.getParent());
     }
 
     @SuppressWarnings("unchecked")

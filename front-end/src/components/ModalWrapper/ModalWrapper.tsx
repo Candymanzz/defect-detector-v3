@@ -15,6 +15,7 @@ import { HeatmapViewer } from "../HeatmapViewer";
 import { loadHeatmapForCamera } from "../HeatmapViewer/HeatmapController";
 import { cropLearningFrame, learnedRegionBounds, loadLearningFrame } from "../../shared/learnedRegion";
 import type { PixelRoi } from "../../shared/ws";
+import { InspectionExclusionsResult } from "../InspectionExclusions/InspectionExclusionsResult";
 import "./ModalWrapper.css";
 
 type ModalWrapperProps = {
@@ -33,6 +34,7 @@ type ModalWrapperProps = {
   dangerHeaderAction?: ReactNode;
   headerActions?: ReactNode;
   analysisSettingsContent?: ReactNode;
+  analysisSettingsActions?: ReactNode;
   onInspectionSelect?: (frameId: string) => void;
   onClose: () => void;
 };
@@ -76,13 +78,16 @@ export function ModalWrapper({
   dangerHeaderAction,
   headerActions,
   analysisSettingsContent,
+  analysisSettingsActions,
   onInspectionSelect,
   onClose,
 }: ModalWrapperProps) {
   const displayedCurrentImageUrl = inspectResult ? cameraImageUrl : undefined;
   const inspectResultSyncState = getInspectResultSyncState(inspectResult, displayedCurrentImageUrl, inspectHeatmapUrl);
   const inspectionResultState = resolveInspectionResultState(inspectResult);
-  const modalClassName = inspectionResultState ? `modal modal--${inspectionResultState}` : "modal";
+  const isTestSettings = Boolean(analysisSettingsContent);
+  const modalClassName = ["modal", inspectionResultState ? `modal--${inspectionResultState}` : "",
+    isTestSettings ? "modal--test-settings" : ""].filter(Boolean).join(" ");
   const geometrySnapshot = useGeometrySnapshot(
     isOpen,
     cameraId,
@@ -111,9 +116,22 @@ export function ModalWrapper({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
+  useEffect(() => {
+    if (!isOpen || !isTestSettings) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [isOpen, isTestSettings]);
+
   if (!isOpen) {
     return null;
   }
+
+  const frameSyncContent = inspectResultSyncState && (
+    <div className="modal__frame-sync" data-state={inspectResultSyncState.state}>
+      {inspectResultSyncState.label}
+    </div>
+  );
 
   return (
     <div
@@ -228,13 +246,13 @@ export function ModalWrapper({
           />
         )}
 
-        {inspectResultSyncState && (
-          <div
-            className="modal__frame-sync"
-            data-state={inspectResultSyncState.state}
-          >
-            {inspectResultSyncState.label}
-          </div>
+        {!isTestSettings && frameSyncContent}
+
+        {isTestSettings && (
+          <footer className="modal__test-footer" aria-label="Действия с тестовым кадром">
+            {frameSyncContent}
+            {analysisSettingsActions}
+          </footer>
         )}
 
       </section>
@@ -757,6 +775,7 @@ function InspectResultPanel({ inspectResult }: { inspectResult?: InspectResultPa
         <div className="modal-inspect-result__empty">Синхронизированного результата инспекции ещё нет</div>
       )}
       <LearningDiagnosticsPanel learning={inspectResult?.learning} />
+      <InspectionExclusionsResult exclusions={inspectResult?.inspection_exclusions} />
     </section>
   );
 }

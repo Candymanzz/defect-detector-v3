@@ -291,6 +291,7 @@ export type LearningDetails = {
 
 export type InspectResultPayload = {
   learning?: LearningDetails;
+  inspection_exclusions?: import("../inspectionExclusions").InspectionExclusions;
   camera_id: number;
   frame_id: string;
   inspection_id?: string;

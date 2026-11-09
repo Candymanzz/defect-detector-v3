@@ -19,11 +19,22 @@ public record InspectionDecision(
         /** Компактный geometry header для UI (WS/archive); может быть пустым. */
         Map<String, Object> geometry,
         /** Frame-bound detector learning diagnostics; empty for old/Python responses. */
-        Map<String, Object> learning
+        Map<String, Object> learning,
+        /** Exclusion mask actually used for this frame, separate from learned normal samples. */
+        Map<String, Object> inspectionExclusions
 ) {
     public InspectionDecision {
+        inspectionExclusions = InspectionExclusionDiagnostics.snapshot(inspectionExclusions);
         learning = learning == null || learning.isEmpty() ? Map.of() : Map.copyOf(learning);
         geometry = geometry == null || geometry.isEmpty() ? Map.of() : Map.copyOf(geometry);
+    }
+
+    /** Compatibility for existing producers without inspection exclusion diagnostics. */
+    public InspectionDecision(int cameraId, long frameId, boolean overallPass, String action, double anomalyScore,
+            String pythonStatus, String geometryStatus, boolean jointCamera, double jointParallelismDeg,
+            double jointWidthMm, double jointVisibility, boolean jointPass, Map<String,Object> geometry, Map<String,Object> learning) {
+        this(cameraId,frameId,overallPass,action,anomalyScore,pythonStatus,geometryStatus,jointCamera,
+            jointParallelismDeg,jointWidthMm,jointVisibility,jointPass,geometry,learning,Map.of());
     }
 
     /** Compatibility for existing producers without learning diagnostics. */

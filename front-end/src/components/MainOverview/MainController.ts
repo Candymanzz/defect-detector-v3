@@ -416,6 +416,7 @@ export function archivedFrameToInspectResult(cameraId: number, frame: FrameArchi
     geometry_status: frame.geometry_status,
     geometry: frame.geometry,
     learning: frame.learning,
+    inspection_exclusions: frame.inspection_exclusions,
     fp_zones: [],
     fp_coordinate_space:
       heatmapWidth > 0 && heatmapHeight > 0
@@ -483,6 +484,7 @@ export function latestSnapshotToInspectResult(snapshot: UiLatestSnapshot): Inspe
     anomaly_score: snapshot.anomaly_score ?? undefined,
     python_status: snapshot.python_status ?? undefined,
     geometry_status: snapshot.geometry_status ?? undefined,
+    inspection_exclusions: snapshot.inspection_exclusions,
     fp_zones: [],
     server_ts_ms: snapshot.updatedAtMs,
   };
