@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   compareInspectResults,
+  archivedFrameToInspectResult,
   isPreviewFrameNewerOrEqual,
   selectModalInspection,
   upsertInspectionHistoryItem,
 } from "./MainController";
 import type { InspectResultPayload } from "../../shared/ws";
+import type { FrameArchiveHistoryFrame } from "../../shared/api/types";
 
 function inspectResult(frameId: string, serverTs: number): InspectResultPayload {
   return {
@@ -33,6 +35,21 @@ function inspectResult(frameId: string, serverTs: number): InspectResultPayload 
 }
 
 describe("MainController helpers", () => {
+  it("preserves each archived frame's own exclusion snapshot and supports old history", () => {
+    const frame: FrameArchiveHistoryFrame = {
+      frame_id: "42", inspection_id: "42", overall_pass: false, action: "REJECT", anomaly_score: 0,
+      python_status: "PASS", geometry_status: "FAIL", product_type: "test", detector_id: "cpp",
+      saved_at_ms: 100, has_heatmap: false, frame_url: "/frame.jpg", result_url: "/result.json",
+      inspection_exclusions: { polygons: [[[0, 0], [1, 0], [0, 1]]],
+        coordinate_space: "normalized", surface_skipped: true, remaining_area_work_px: 0 },
+    };
+    const result = archivedFrameToInspectResult(3, frame);
+    expect(result.inspection_exclusions).toEqual(frame.inspection_exclusions);
+    expect(result.overall_pass).toBe(false);
+    expect(result.geometry_status).toBe("FAIL");
+    const legacy = archivedFrameToInspectResult(3, { ...frame, inspection_exclusions: undefined });
+    expect(legacy.inspection_exclusions).toBeUndefined();
+  });
   it("compareInspectResults sorts by frame id then timestamp", () => {
     const left = inspectResult("10", 100);
     const right = inspectResult("9", 200);

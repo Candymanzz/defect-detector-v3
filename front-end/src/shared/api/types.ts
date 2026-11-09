@@ -1,3 +1,5 @@
+import type { Exclusions, InspectionExclusions } from "../inspectionExclusions";
+
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonObject | JsonValue[];
 export type JsonObject = {
@@ -105,6 +107,7 @@ export type UiImageArtifact = UiCaptureSize & {
 };
 
 export type UiLatestSnapshot = {
+  inspection_exclusions?: InspectionExclusions;
   cameraId: CameraId;
   frameId: FrameId;
   productType: string;
@@ -275,6 +278,7 @@ export type FrameArchiveSettingsUpdateResponse = {
 };
 
 export type FrameArchiveHistoryFrame = {
+  inspection_exclusions?: InspectionExclusions;
   frame_id: string;
   inspection_id: string;
   overall_pass: boolean;
@@ -568,6 +572,8 @@ export type SeamSettings = {
 };
 
 export type DetectorSettings = {
+  /** Полный список исключений в координатах эталона (0..1); отсутствует у старого backend. */
+  exclusions?: Exclusions;
   /** 0..1, выше — строже (мельче отличия считаются дефектом). */
   sensitivity: number;
   /** (0..1], брак при anomaly_score >= threshold (score = доля аномальной площади ROI / 0.2%). */

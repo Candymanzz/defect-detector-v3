@@ -23,7 +23,7 @@ function parseHttpErrorMessage(responseBody: string) {
     const parsed = JSON.parse(responseBody) as unknown;
 
     if (typeof parsed === "object" && parsed !== null) {
-      const message = "detail" in parsed ? parsed.detail : "error" in parsed ? parsed.error : "";
+      const message = ("detail" in parsed ? parsed.detail : undefined) ?? ("error" in parsed ? parsed.error : "");
       return typeof message === "string" ? message : JSON.stringify(message);
     }
   } catch {

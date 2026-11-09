@@ -178,7 +178,6 @@ export function MainOverview({
     try {
       if (action === "save") {
         await Promise.all([geometrySettingsRef.current?.save(), analysisSettingsRef.current?.save()]);
-        notifyAnalysisSettingsChanged(snapshot.cameraId);
       }
       const analysisDraft = analysisSettingsRef.current?.getDraft();
       const analysis =
@@ -187,6 +186,8 @@ export function MainOverview({
           : {
               settings: { ...analysisDraft.settings } as Record<string, unknown>,
             };
+      // Capture the confirmed draft before listeners start reloading the editor.
+      if (action === "save") notifyAnalysisSettingsChanged(snapshot.cameraId);
       controller.setPendingTestJob(null);
       const accepted = await orchestratorApi.testAnalyzePinnedFrame(snapshot.cameraId, pinId, frameId, {
         geometry: geometrySettingsRef.current?.getDraft(),
@@ -370,11 +371,10 @@ export function MainOverview({
                     {testAnalyzeMessage}
                   </p>
                 )}
-                <p className="modal__test-settings-hint">
-                  Анализ и дообучение только для этого frameId (JPEG из архива → pin на диске). При выборе другого кадра
-                  pin перезаписывается.
-                </p>
-                <div className="modal__test-settings-grid">
+                <div className="modal__test-settings-grid" role="region" aria-label="Тестовые настройки кадра" tabIndex={0}>
+                  <p className="modal__test-settings-hint">
+                    Настройки проверяются на выбранном кадре. При выборе другого кадра изображение для теста обновится.
+                  </p>
                   <details className="modal__test-settings-section modal__test-settings-section--collapsible">
                     <summary>
                       <span>Геометрия / стык</span>
@@ -403,31 +403,33 @@ export function MainOverview({
                     />
                   </section>
                 </div>
-                <div className="modal__test-settings-actions">
-                  <button
-                    type="button"
-                    className="modal__action"
-                    disabled={!analysisSettingsReady || !geometrySettingsReady || testAnalyzeState === "submitting" || testAnalyzeState === "awaiting"}
-                    onClick={() => void applySettingsAndInspect("check")}
-                  >
-                    {testAnalyzeState === "submitting"
-                      ? "Применение…"
-                      : testAnalyzeState === "awaiting"
-                        ? "Ожидание результата…"
-                        : "Проверить"}
-                  </button>
-                  <button
-                    type="button"
-                    className="modal__action"
-                    disabled={!analysisSettingsReady || !geometrySettingsReady || testAnalyzeState === "submitting" || testAnalyzeState === "awaiting"}
-                    onClick={() => void applySettingsAndInspect("save")}
-                  >
-                    Сохранить
-                  </button>
-                </div>
               </div>
             ) : undefined
           }
+          analysisSettingsActions={showModalAnalysisSettings ? (
+            <div className="modal__test-settings-actions">
+              <button
+                type="button"
+                className="modal__action"
+                disabled={!analysisSettingsReady || !geometrySettingsReady || testAnalyzeState === "submitting" || testAnalyzeState === "awaiting"}
+                onClick={() => void applySettingsAndInspect("check")}
+              >
+                {testAnalyzeState === "submitting"
+                  ? "Применение…"
+                  : testAnalyzeState === "awaiting"
+                    ? "Ожидание результата…"
+                    : "Проверить"}
+              </button>
+              <button
+                type="button"
+                className="modal__action"
+                disabled={!analysisSettingsReady || !geometrySettingsReady || testAnalyzeState === "submitting" || testAnalyzeState === "awaiting"}
+                onClick={() => void applySettingsAndInspect("save")}
+              >
+                Сохранить
+              </button>
+            </div>
+          ) : undefined}
           dangerHeaderAction={
             <button
               className={

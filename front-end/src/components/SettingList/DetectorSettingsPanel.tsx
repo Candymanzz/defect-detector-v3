@@ -6,6 +6,8 @@ import { subscribeAnalysisSettingsChanged } from "./analysisSettingsEvents";
 import { errorMessage } from "../../shared/lib/errors";
 import { Button } from "../../shared/ui/Button";
 import { SeamSettingsSection } from "./SeamSettingsSection";
+import { InspectionExclusionsSection } from "../InspectionExclusions/InspectionExclusionsSection";
+import type { InspectionExclusionsHandle } from "../InspectionExclusions/InspectionExclusionsSection";
 import "./SeamSettingsSection.css";
 
 /**
@@ -149,12 +151,14 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
   const hydratedRef = useRef(false);
   const loadErrorRef = useRef<Error | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [exclusionsReady, setExclusionsReady] = useState(false);
 
   useEffect(() => {
-    onReadyChange?.(loaded);
+    onReadyChange?.(loaded && (selectedCameraId === null || exclusionsReady));
     return () => onReadyChange?.(false);
-  }, [loaded, onReadyChange]);
+  }, [loaded, exclusionsReady, selectedCameraId, onReadyChange]);
   const userEditedRef = useRef(false);
+  const exclusionsRef = useRef<InspectionExclusionsHandle>(null);
 
   useEffect(() => {
     return subscribeAnalysisSettingsChanged((changedCameraId) => {
@@ -166,6 +170,7 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
 
   useEffect(() => {
     let active = true;
+    previewRequestIdRef.current += 1;
     hydratedRef.current = false;
     loadErrorRef.current = null;
     setLoaded(false);
@@ -248,9 +253,15 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
       previewTimerRef.current = null;
     }
     previewRequestIdRef.current += 1;
+    const requestId = previewRequestIdRef.current;
     setStatus({ kind: "saving", text: "Сохранение…" });
     try {
+      // Validate the whole draft before writing any settings. Zones have their own partial PUT.
+      const exclusionsEditor = exclusionsRef.current;
+      exclusionsEditor?.getDraft();
       const saved = await saveSettings(selectedCameraId, settings);
+      await exclusionsEditor?.save();
+      if (requestId !== previewRequestIdRef.current) throw new Error("Камера изменилась во время сохранения. Проверьте настройки выбранной камеры.");
       if (saved) {
         setSettings(withSharedRelaxation(saved.settings));
       }
@@ -268,7 +279,7 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
         text: selectedCameraId === null ? "Настройки применены ко всем камерам" : `Настройки применены к камере ${selectedCameraId}`,
       });
     } catch (error) {
-      setStatus({ kind: "error", text: errorMessage(error) });
+      if (requestId === previewRequestIdRef.current) setStatus({ kind: "error", text: errorMessage(error) });
       throw error;
     }
   };
@@ -276,18 +287,31 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
   useImperativeHandle(ref, () => ({
     save: persist,
     // линия стыка принадлежит конкретной камере: в режиме «все камеры» она в настройки не попадает
-    getDraft: () => ({ settings: editableSettings(settings, selectedCameraId !== null) }),
+    getDraft: () => {
+      if (!hydratedRef.current) throw new Error("Дождитесь загрузки настроек анализа.");
+      return { settings: selectedCameraId === null ? editableSettings(settings, false) : {
+        ...editableSettings(settings, true), exclusions: exclusionsRef.current?.getDraft() ?? [],
+      } };
+    },
   }));
 
   const reset = () => {
+    if (previewTimerRef.current !== null) window.clearTimeout(previewTimerRef.current);
+    const requestId = ++previewRequestIdRef.current;
+    const exclusionsEditor = exclusionsRef.current;
+    userEditedRef.current = false;
     setStatus({ kind: "saving", text: "Сброс к значениям по умолчанию…" });
     resetSettings(selectedCameraId)
-      .then((response) => {
+      .then(async (response) => {
+        await exclusionsEditor?.reload();
+        if (requestId !== previewRequestIdRef.current) return;
         setSettings(withSharedRelaxation(response?.settings ?? {}));
         userEditedRef.current = false;
         setStatus({ kind: "success", text: "Настройки сброшены к значениям по умолчанию" });
       })
-      .catch((error) => setStatus({ kind: "error", text: errorMessage(error) }));
+      .catch((error) => {
+        if (requestId === previewRequestIdRef.current) setStatus({ kind: "error", text: errorMessage(error) });
+      });
   };
 
   const busy = !loaded || status.kind === "loading" || status.kind === "saving";
@@ -297,7 +321,7 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
       <p className="analysis-presets__intro">
         <span>Параметры сравнения кадра с эталоном. ROI (область контроля) задаётся отдельно на эталоне камеры.</span>
         <button type="button" className="analysis-presets__lock-button" disabled={busy} onClick={reset}>
-          Сбросить
+          Сбросить весь профиль
         </button>
       </p>
 
@@ -403,12 +427,17 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
         />
       )}
 
+      {selectedCameraId !== null && <InspectionExclusionsSection
+        key={selectedCameraId} ref={exclusionsRef} cameraId={selectedCameraId} hideSaveAction={hideSaveAction}
+        onReadyChange={setExclusionsReady}
+      />}
+
       <div className="analysis-presets__footer">
         <span data-kind={status.kind} aria-live="polite">{status.text}</span>
         {!loaded && status.kind === "error" && (
           <Button type="button" onClick={() => setRefreshVersion((version) => version + 1)}>Повторить загрузку</Button>
         )}
-        {!hideSaveAction && <Button type="button" disabled={busy} onClick={() => void persist()}>Сохранить</Button>}
+        {!hideSaveAction && <Button type="button" disabled={busy} onClick={() => { void persist().catch(() => undefined); }}>Сохранить</Button>}
       </div>
     </div>
   );

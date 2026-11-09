@@ -6,6 +6,7 @@ import { getReferenceImage } from "../../shared/referenceImages";
 import { PreviewImage } from "../../shared/ui/PreviewImage";
 import type { HeatmapDescriptor, InspectResultPayload } from "../../shared/ws";
 import { HeatmapViewer } from "../HeatmapViewer";
+import { InspectionExclusionsResult } from "../InspectionExclusions/InspectionExclusionsResult";
 import type { InspectionHistoryItem } from "../MainOverview/type";
 import "./InspectionHistoryModal.css";
 
@@ -115,7 +116,6 @@ function InspectionResultCard({
   const result = item.inspectResult;
   const imageUrl = resolveInspectionImageUrl(result);
   const referenceImageUrl = getReferenceImage(result.camera_id)?.imageUrl;
-  const comparisonImageUrl = referenceImageUrl ?? imageUrl;
   const heatmap = resolveInspectionHeatmap(result);
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
     if (event.key === "Enter" || event.key === " ") {
@@ -143,27 +143,36 @@ function InspectionResultCard({
           <figcaption>Эталон</figcaption>
           <div className="inspection-history-modal__image-wrap">
             <PreviewImage
-              alt={`Инспекция ${item.inspectionId}, камера ${result.camera_id}`}
+              alt={`Эталон камеры ${result.camera_id}`}
               className="inspection-history-modal__image"
               emptyLabel="Эталон недоступен"
               placeholderClassName="inspection-history-modal__placeholder"
-              src={comparisonImageUrl}
+              src={referenceImageUrl}
             />
           </div>
         </figure>
 
         <figure>
-          <figcaption>Тепловая карта</figcaption>
+          <figcaption>{heatmap ? "Кадр инспекции с тепловой картой" : "Кадр инспекции"}</figcaption>
           {heatmap ? (
             <HeatmapViewer
               cameraId={result.camera_id}
               heatmap={heatmap}
-              backgroundImageUrl={comparisonImageUrl}
+              backgroundImageUrl={imageUrl}
               excludedNormalZones={result.excluded_normal_zones}
             />
           ) : (
-            <div className="inspection-history-modal__placeholder">Тепловая карта отсутствует</div>
+            <div className="inspection-history-modal__image-wrap">
+              <PreviewImage
+                alt={`Инспекция ${item.inspectionId}, камера ${result.camera_id}, кадр ${result.frame_id}`}
+                className="inspection-history-modal__image"
+                emptyLabel="Кадр инспекции недоступен"
+                placeholderClassName="inspection-history-modal__placeholder"
+                src={imageUrl}
+              />
+            </div>
           )}
+          {heatmap && !imageUrl && <span>Кадр инспекции недоступен</span>}
         </figure>
       </div>
 
@@ -177,6 +186,7 @@ function InspectionResultCard({
           value={formatAnomalyPercent(result.anomaly_score)}
         />
       </dl>
+      <InspectionExclusionsResult exclusions={result.inspection_exclusions} />
     </article>
   );
 }
