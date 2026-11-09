@@ -24,7 +24,7 @@ light_hardware:
       model_prefixes: [MV-LE]
       brightness_min: 0
       brightness_max: 255
-      ip: "169.254.220.3"
+      ip: "${ip:light_mv-le-1}"
       serial: "DA8793671"
       channels: 4
     - id: mv-le-2
@@ -33,7 +33,7 @@ light_hardware:
       model_prefixes: [MV-LE]
       brightness_min: 0
       brightness_max: 255
-      ip: "169.254.220.4"
+      ip: "${ip:light_mv-le-2}"
       serial: "DA8793676"
       channels: 4
     - id: mv-le-3
@@ -42,7 +42,7 @@ light_hardware:
       model_prefixes: [MV-LE]
       brightness_min: 0
       brightness_max: 255
-      ip: "169.254.220.2"
+      ip: "${ip:light_mv-le-3}"
       serial: "DA8793670"
       channels: 4
     - id: mv-le-4
@@ -51,7 +51,7 @@ light_hardware:
       model_prefixes: [MV-LE]
       brightness_min: 0
       brightness_max: 255
-      ip: "169.254.220.1"
+      ip: "${ip:light_mv-le-4}"
       serial: "DA8793669"
       channels: 4
 

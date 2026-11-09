@@ -106,7 +106,7 @@ python_detector:
   base_url: "http://127.0.0.1:8000"
 ```
 
-`config/blocks/01-core.yaml` (см. `config.exemple`): `analis_surface_autostart.working_dir: cppAnalisSurface`,
+`config/blocks/01-core.yaml` (см. `config`): `analis_surface_autostart.working_dir: cppAnalisSurface`,
 `analis_surface_command_linux` (путь к бинарнику, `--port`, `--data-dir data`),
 `python_parallelism: 10` (потоков стадии детектора = камер одновременно; НЕ 1), `python_server_pool_size: 1`, `python_request_parallelism: 10`.
 

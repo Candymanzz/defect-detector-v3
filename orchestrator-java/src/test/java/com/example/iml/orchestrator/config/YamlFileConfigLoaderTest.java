@@ -89,4 +89,48 @@ class YamlFileConfigLoaderTest {
         IOException ex = assertThrows(IOException.class, () -> loader.load(a));
         assertTrue(ex.getMessage().contains("циклический imports"));
     }
+    @Test
+    void resolvesIpReferencesAfterImportsIncludingUrlsAndCommandLists() throws Exception {
+        Files.writeString(tempDir.resolve("ips.yaml"), "camera_0: '192.0.2.12'\nloopback: '127.0.0.1'\n");
+        Files.writeString(tempDir.resolve("block.yaml"), "cameras: [{id: 0, ip: '${ip:camera_0}'}]\n");
+        Files.writeString(tempDir.resolve("config.yaml"), """
+                imports: [block.yaml]
+                ip_config: ips.yaml
+                url: http://${ip:loopback}:8000/health
+                command: [server, '${ip:loopback}']
+                """);
+        var root = loader.load(tempDir.resolve("config.yaml"));
+        assertEquals("http://127.0.0.1:8000/health", root.get("url"));
+        assertEquals(List.of("server", "127.0.0.1"), root.get("command"));
+        assertEquals("192.0.2.12", ((Map<?, ?>)((List<?>)root.get("cameras")).get(0)).get("ip"));
+    }
+
+    @Test
+    void rejectsMissingFileMissingKeyAndInvalidAddress() throws Exception {
+        Path config = tempDir.resolve("config.yaml");
+        Files.writeString(config, "ip_config: ips.yaml\nip: '${ip:camera_0}'\n");
+        assertTrue(assertThrows(IOException.class, () -> loader.load(config)).getMessage().contains("IP config"));
+        Files.writeString(tempDir.resolve("ips.yaml"), "other: '127.0.0.1'\n");
+        assertTrue(assertThrows(IOException.class, () -> loader.load(config)).getMessage().contains("camera_0"));
+        Files.writeString(tempDir.resolve("ips.yaml"), "camera_0: '999.1.2.3'\n");
+        assertTrue(assertThrows(IOException.class, () -> loader.load(config)).getMessage().contains("Invalid IPv4"));
+    }
+
+    @Test
+    void shippedYamlExportsOneResolvedNativeCameraConfiguration() throws Exception {
+        Path directory = ShippedConfigFixture.copyTo(tempDir.resolve("config"));
+        var root = loader.load(directory.resolve("config.yaml"));
+        Path output = com.example.iml.orchestrator.integration.config.CameraWorkerPaths.prepareWorkerConfig(tempDir, root);
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(output.toFile());
+        assertEquals(10, json.get("cameras").size());
+        assertEquals("127.0.0.1", json.get("cameras").get(0).get("ip").asText());
+        assertEquals("Bayer RG 12 Packed", json.get("frame").get("format").asText());
+        assertEquals("line0", json.get("capture_trigger_mode").asText());
+        assertTrue(!Files.readString(output).contains("${ip:"));
+        assertTrue(!json.has("integration"));
+        root.put("frame_timeout_ms", 12345);
+        com.example.iml.orchestrator.integration.config.CameraWorkerPaths.prepareWorkerConfig(tempDir, root);
+        assertEquals(12345, new com.fasterxml.jackson.databind.ObjectMapper().readTree(output.toFile()).get("frame_timeout_ms").asInt());
+    }
+
 }

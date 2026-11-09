@@ -22,6 +22,9 @@ static void test_pixel_formats(void) {
     }
     assert(cw_parse_pixel_format_pref("bayer8") == CW_PIXEL_PREF_BAYER8);
     assert(cw_parse_pixel_format_pref("BAYERrg8") == CW_PIXEL_PREF_BAYER_RG8);
+    assert(cw_parse_pixel_format_pref("Bayer RG 12 Packed") == CW_PIXEL_PREF_BAYER_RG12_PACKED);
+    assert(cw_parse_pixel_format_pref("BayerRG12Packed") == CW_PIXEL_PREF_BAYER_RG12_PACKED);
+    assert(strcmp(cw_pixel_format_pref_name(CW_PIXEL_PREF_BAYER_RG12_PACKED), "BayerRG12Packed") == 0);
 }
 
 static void test_u32_endian(void) {

@@ -24,16 +24,25 @@ Linux использует SDK в `/opt/MVS` или заданном `MVS_ROOT`.
 Расположение можно задать через `integration.camera_native_library` в YAML
 или `-Diml.camera.native.library=/absolute/path/to/library`. По умолчанию
 ищутся стандартные каталоги CMake `build`, `build/Release`, `build/RelWithDebInfo`,
-`build/Debug`, `build-linux`. JSON камер по-прежнему задаёт
-`integration.worker_config_json` (по умолчанию `config/config.json`).
+`build/Debug`, `build-linux`. Настройки камер читаются из общего YAML. Java автоматически создаёт
+`config/.camera-worker.generated.json` для JNI. Явный `integration.worker_config_json`
+сохранён только для совместимости со старыми установками.
 `worker_command_timeout_ms` и `worker_startup_stagger_ms` сохраняют назначение.
 Старые `worker_ipc_mode` и `worker_named_pipe_*` не влияют на рабочий путь JNI.
+
+## Bayer RG 12 Packed
+
+`frame.format: Bayer RG 12 Packed` (также `BayerRG12Packed`) явно выбирает
+12-битную упакованную мозаику RG. SDK преобразует её в BGR8 для существующего
+SHM/детектора; сетевой payload 1.5 байта/пиксель. Не поддерживающая этот формат
+камера возвращает ошибку открытия. Синтетическая проверка SDK пройдена;
+работа на физических камерах этим изменением не проверялась.
 
 ## Цвет Bayer8 при трафике Mono8
 
 Для цветных MVS-камер доступны `frame.format: Bayer8` (автоматический выбор
 поддерживаемого порядка), а также `BayerRG8`, `BayerGR8`, `BayerGB8`, `BayerBG8`.
-Указать формат нужно в рабочем JSON камер и YAML, затем перезапустить JVM
+Указать формат нужно в `config/blocks/01-core.yaml`, затем перезапустить JVM
 с новой JNI-библиотекой. Камера передаёт мозаику по одному байту на пиксель;
 `MV_CC_ConvertPixelTypeEx` восстанавливает BGR8 в существующем кольце SHM.
 Фактический формат возвращается в `pixel_format` настроек и `capture_pixel_format`
@@ -55,7 +64,7 @@ Linux использует SDK в `/opt/MVS` или заданном `MVS_ROOT`.
 `Width`, `Height`: камера передаёт только выбранный прямоугольник.
 Координаты относятся к изображению после binning; допустимые границы и шаги
 читаются из MVS SDK. Максимальная ширина и высота ограничены исходным размером
-кадра из `config.json`, чтобы сохранять размеры выделенного SHM-кольца.
+кадра из YAML, чтобы сохранять размеры выделенного SHM-кольца.
 
 API: `PATCH /api/camera/{id}/settings` с `roi_x`, `roi_y`, `roi_width`, `roi_height`.
 Текущие значения и ограничения возвращаются через `GET` того же endpoint.

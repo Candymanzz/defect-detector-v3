@@ -1,5 +1,10 @@
 # Local configuration and runtime data
-/config/
+/config/ips.yaml
+/config/.camera-worker.generated.json
+/config/.camera-worker-*.tmp
+/config/data/
+/config/logs/
+/config/MvSdkLog/
 /logs/
 /testimage/
 **/logs/

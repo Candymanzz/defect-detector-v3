@@ -1,6 +1,6 @@
 ui_http:
   enabled: true
-  host: "127.0.0.1"
+  host: "${ip:loopback}"
   port: 8099
   visuals_async_enabled: true
   # Parallel UI artifact preparation across cameras. Keep this below the detector worker capacity.
@@ -33,12 +33,12 @@ frame_archive:
 # geometry-runtime: GET/PUT/DELETE порогов и ROI для следующих вызовов java-geometry (поверх java_geometry в YAML).
 client_api:
   enabled: true
-  kopcheni_base_url: "http://127.0.0.1:8000"
+  kopcheni_base_url: "http://${ip:loopback}:8000"
 
 # WebSocket UI (Фаза 1): hello + session_state; один клиент; ping по RFC6455; таймаут без входящих сообщений/pong.
 client_ws:
   enabled: true
-  host: "127.0.0.1"
+  host: "${ip:loopback}"
   port: 8765
   path: "/"
   replace_existing_session: true
@@ -48,7 +48,7 @@ client_ws:
   kopcheni_bundle_sync_enabled: true
 
 client:
-  url: "ws://127.0.0.1:8765"
+  url: "ws://${ip:loopback}:8765"
   # Используется только если в integration.live_preview не задан interval_ms
   preview_max_fps: 1
 

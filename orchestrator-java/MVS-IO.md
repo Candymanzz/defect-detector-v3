@@ -41,8 +41,8 @@ callback: входы должны быть заранее настроены, и
 
 ## Конфигурация
 
-Настройки DI/DO вынесены в `config.exemple/blocks/52-io.yaml`, который
-подключён через `config.exemple/config.yaml`. Там находятся SDK и подписки
+Настройки DI/DO вынесены в `config/blocks/52-io.yaml`, который
+подключён через `config/config.yaml`. Там находятся SDK и подписки
 DI, правила получения кадров, аппаратный режим Line0 и DI-подсветка.
 Параметры подключения находятся в `integration.inspection_trigger.mvs_io`.
 Следующий пример относится к альтернативному backend событий на Windows
@@ -172,7 +172,7 @@ tools/java/bin/java -Diml.log.dir=/tmp/mvs-timer-smoke \
 Порт заменить на имя SDK своей машины (`MvsIoDiagnosticMain --list`).
 `--library` задаёт путь SDK; по умолчанию Linux `/opt/MVS/lib/64/libMvCameraControl.so`,
 Windows `MvCameraControl`. Можно вместо этих параметров использовать
-`--config config.exemple/config.yaml --group 0`: подключение и Timer6/Out6
+`--config config/config.yaml --group 0`: подключение и Timer6/Out6
 берутся из конфига. Программа запускает один импульс. Сообщение `ONE pulse accepted`
 означает успешную команду SDK; физическое загорание проверяется по лампочке.
 При неверном маршруте или источнике команда не отправляется, настройки не исправляются.

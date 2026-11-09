@@ -244,6 +244,32 @@ class NativeCameraClientTest {
     }
 
     @Test
+    void yamlOnlyBootstrapGeneratesNativeInputAndCapturesFrames() throws Exception {
+        Path folder = Files.createDirectories(directory.resolve("config"));
+        Files.writeString(folder.resolve("ips.yaml"), "camera: '127.0.0.1'\n");
+        Files.writeString(folder.resolve("config.yaml"), """
+                ip_config: ips.yaml
+                capture_source: fake
+                frame: {width: 8, height: 6, format: BGR8}
+                cameras:
+                  - {id: 30001, enabled: true, ip: '${ip:camera}', exposure_us: 1234}
+                integration: {}
+                """);
+        var root = new com.example.iml.orchestrator.config.YamlFileConfigLoader().load(folder.resolve("config.yaml"));
+        var log = LogManager.getLogger(NativeCameraClientTest.class);
+        var context = new IntegrationRuntimeContext(log, root, directory, System.getProperty("os.name").startsWith("Windows"));
+        try {
+            assertTrue(new IntegrationPreflightService(log).run(context));
+            assertTrue(Files.isRegularFile(folder.resolve(".camera-worker.generated.json")));
+            assertTrue(new CameraWorkerBootstrapService(log).startWorkers(context));
+            var response = context.workersByCamera().get(30001).command(Map.of("op", "capture", "sync", true));
+            assertEquals(BinaryProtocol.MSG_RESPONSE, response.type());
+            assertEquals(8, number(response.header(), "width"));
+            assertEquals(6, number(response.header(), "height"));
+        } finally { context.workersByCamera().values().forEach(WorkerProcessSupervisor::close); }
+    }
+
+    @Test
     void closesAnActiveStreamBeforeReopeningTheCamera() throws Exception {
         NativeCameraClient camera = camera(30001);
         try {

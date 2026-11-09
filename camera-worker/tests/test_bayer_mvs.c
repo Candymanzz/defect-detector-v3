@@ -184,14 +184,54 @@ static void conversion(void) {
     assert(MV_CC_DestroyHandle(handle) == MV_OK);
 }
 
+static void packed12_conversion(void) {
+    int active = -1;
+    set_result = MV_OK;
+    assert(hik_apply_pixel_format(NULL, 0, CW_PIXEL_PREF_BAYER_RG12_PACKED, &active) == 0);
+    assert(selected == PixelType_Gvsp_BayerRG12_Packed && active == CW_PIXEL_PREF_BAYER_RG12_PACKED);
+    set_result = MV_E_PARAMETER;
+    assert(hik_apply_pixel_format(NULL, 0, CW_PIXEL_PREF_BAYER_RG12_PACKED, &active) != 0);
+    set_result = MV_OK;
+    MV_CC_DEVICE_INFO device = {0};
+    device.nTLayerType = MV_GIGE_DEVICE;
+    void *handle = NULL;
+    assert(MV_CC_CreateHandle(&handle, &device) == MV_OK);
+    for (int padded = 0; padded < 2; ++padded) {
+        unsigned char raw[16 * 27], output[16 * 53 + 16];
+        const int source_stride = 24 + padded * 3, destination_stride = 48 + padded * 5;
+        memset(raw, 0xFF, sizeof(raw));
+        memset(output, 0xDD, sizeof(output));
+        worker_state_t state = {0};
+        state.hik_handle = handle; state.hik_raw_frame = raw; state.hik_raw_capacity = sizeof(raw);
+        state.width = 16; state.height = 16; state.stride = destination_stride;
+        state.frame_bytes = 16 * destination_stride;
+        state.hik_pixel_format_active = CW_PIXEL_PREF_BAYER_RG12_PACKED;
+        MV_FRAME_OUT_INFO_EX info = {0};
+        info.nWidth = 16; info.nHeight = 16; info.nFrameLen = 16 * source_stride;
+        info.enPixelType = PixelType_Gvsp_BayerRG12_Packed;
+        assert(hik_copy_frame_to_bgr(&state, &info, output) == 0);
+        for (int y = 2; y < 14; ++y) for (int x = 6; x < 42; ++x)
+            assert(output[y * destination_stride + x] >= 254);
+        for (int y = 0; y < 16; ++y) for (int x = 48; x < destination_stride; ++x)
+            assert(output[y * destination_stride + x] == 0);
+        for (size_t i = state.frame_bytes; i < sizeof(output); ++i) assert(output[i] == 0xDD);
+        info.nFrameLen = 383;
+        memset(output, 0xDD, sizeof(output));
+        assert(hik_copy_frame_to_bgr(&state, &info, output) != 0);
+        for (size_t i = 0; i < sizeof(output); ++i) assert(output[i] == 0xDD);
+        assert(hik_apply_gamma(&state, 0.7f) == MV_OK);
+    }
+    assert(MV_CC_DestroyHandle(handle) == MV_OK);
+}
+
 int main(void) {
-    negotiation(); conversion();
+    negotiation(); conversion(); packed12_conversion();
     float ratio = 0;
     assert(hik_read_balance_ratio_channel(NULL, "Red", "BalanceRatioRed", &ratio) == MV_OK);
     assert(fabsf(ratio - 1690.0f / 1024.0f) < 0.0001f);
     balance_is_float = 1;
     assert(hik_read_balance_ratio_channel(NULL, "Red", "BalanceRatioRed", &ratio) == MV_OK);
     assert(fabsf(ratio - 1.65f) < 0.0001f);
-    puts("Bayer8 negotiation, SDK colors, strides and truncated-frame checks passed");
+    puts("Bayer8/12 negotiation, SDK colors, strides and truncated-frame checks passed");
     return 0;
 }

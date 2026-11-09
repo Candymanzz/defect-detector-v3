@@ -121,7 +121,7 @@ integration:
     - "uvicorn"
     - "app.main:app"
     - "--host"
-    - "127.0.0.1"
+    - "${ip:loopback}"
     - "--port"
     - "8000"
   analis_surface_command_linux:
@@ -130,7 +130,7 @@ integration:
     - "uvicorn"
     - "app.main:app"
     - "--host"
-    - "127.0.0.1"
+    - "${ip:loopback}"
     - "--port"
     - "8000"
   geometry_command_windows:

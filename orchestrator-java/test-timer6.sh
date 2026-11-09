@@ -9,6 +9,6 @@ if [[ ! -f "$JAR" ]]; then
   echo "Build orchestrator-java first; see orchestrator-java/MVS-IO.md" >&2
   exit 1
 fi
-if [[ $# -eq 0 ]]; then set -- --config config.exemple/config.yaml --group 0; fi
+if [[ $# -eq 0 ]]; then set -- --config config/config.yaml --group 0; fi
 exec "$JAVA_BIN" -Diml.log.dir=/tmp/mvs-timer-smoke -cp "$JAR" \
   com.example.iml.orchestrator.integration.io.mvs.MvsTimerSmokeMain "$@"

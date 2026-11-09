@@ -68,12 +68,12 @@ integration:
         # In3 аппаратно запускает Timer5/DO5; Java ждёт кадр в окне In2.
     udp:
       enabled: false
-      bind_host: "0.0.0.0"
+      bind_host: "${ip:any}"
       bind_port: 9100
       # io_input: generic UDP DI notifications {"di":N,"value":0|1}; DI1=работа, DI2=направление, DI3=триггер, DI4=shutdown
       format: io_input
       debounce_ms: 0
-      # allowed_remote_hosts: ["127.0.0.1"]
+      # allowed_remote_hosts: ["${ip:loopback}"]
     io_input:
       work_port: 1
       direction_port: 2
