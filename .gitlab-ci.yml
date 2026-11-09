@@ -171,7 +171,12 @@ package-release:
         cp camera-worker/build-mvs/libcamera_jni.so release/core-dev/camera-worker/build/ 
         cp -a front-end/dist front-end/electron front-end/package.json front-end/package-lock.json release/defect-detector-ui/ 
         printf 'pipeline=%s\ncommit=%s\n' "$CI_PIPELINE_IID" "$CI_COMMIT_SHA" > release/version.txt
+
+        mkdir -p release/core-dev/config 
+        cp config/config.yaml release/core-dev/config/config.yaml 
+        cp -a config/blocks release/core-dev/config/blocks 
  
+        find release/core-dev/config -name ips.yaml -type f -delete 
         tar -czf "${RELEASE}.tar.gz" -C release . 
         sha256sum "${RELEASE}.tar.gz" > "${RELEASE}.tar.gz.sha256" 
     artifacts: 
