@@ -43,6 +43,13 @@ target_link_libraries(cpp_analis_surface PRIVATE
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(settings_store_test tests/settings_store_test.cpp src/core/settings.cpp)
+  target_include_directories(settings_store_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(settings_store_test PRIVATE opencv_core nlohmann_json::nlohmann_json Threads::Threads)
+  if(MSVC)
+    target_compile_options(settings_store_test PRIVATE /utf-8)
+  endif()
+  add_test(NAME settings_store_test COMMAND settings_store_test "${CMAKE_CURRENT_BINARY_DIR}/settings-store-test-data")
   add_executable(exclusion_test tests/exclusion_test.cpp
     src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp src/core/seam.cpp
     src/core/shm_io.cpp src/service/service.cpp)

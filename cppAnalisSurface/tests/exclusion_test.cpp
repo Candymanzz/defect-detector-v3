@@ -94,6 +94,42 @@ void inspectionAndConcurrency() {
         require(!self.reject&&self.anomalyScore==0&&cv::countNonZero(self.diff)==0,"odd-size masked self-comparison preserves shared preprocessing");
     }
 }
+void learnedCacheReuse() {
+    auto base=reference();cas::Reference ref(base.clone());
+    ref.setRoi({{.05,.05},{.95,.05},{.95,.95},{.05,.95}});
+    const cv::Rect crop(210,170,70,70);
+    ref.setLearned({{"cache-normal",crop,base(crop).clone()}});
+    const cas::NormPolygons top{{{0,0},{1,0},{1,.3},{0,.3}}};
+    for(const auto& zones:std::vector<cas::NormPolygons>{{},hole,top}) {
+        for(double scale:{.21,.5,.73,1.}) {
+            cas::Settings s;s.inspectScale=scale;s.exclusions=zones;
+            const auto prepared=ref.prepared(scale,zones);
+            const auto original=prepared->refGray.clone();
+            for(double sensitivity:{.5,.8})for(int repeat=0;repeat<3;++repeat) {
+                s.sensitivity=sensitivity;
+                const auto result=cas::inspectFrame(ref,base,s,false);
+                require(!result.reject&&result.anomalyScore==0,"learned masked self-comparison changed verdict");
+                const auto after=ref.prepared(scale,zones);
+                require(after==prepared&&after->alignment==prepared->alignment,
+                    "learned comparison replaced the inspection's prepared/cache variant");
+            }
+            require(cv::norm(original,prepared->refGray,cv::NORM_INF)==0,
+                "learned comparison mutated the shared reference image");
+        }
+    }
+    // Different scales with the same zones share one native alignment preparation.
+    const auto half=ref.prepared(.5,hole), full=ref.prepared(1,hole);
+    require(half->alignment==full->alignment,"same zones do not share native alignment");
+    auto run=[&](double scale){
+        cas::Settings s;s.inspectScale=scale;s.exclusions=hole;
+        for(int repeat=0;repeat<8;++repeat)
+            require(!cas::inspectFrame(ref,base,s,false).reject,"parallel learned inspection changed verdict");
+    };
+    auto one=std::async(std::launch::async,run,.5),two=std::async(std::launch::async,run,1.);
+    one.get();two.get();
+    require(ref.prepared(.5,hole)==half&&ref.prepared(1,hole)==full,
+        "parallel learned inspection evicted same-zone preparations");
+}
 void seamAndService(const std::filesystem::path& dir) {
     cv::Mat image(320,384,CV_8UC3,cv::Scalar(40,40,40));
     for(int y=20;y<300;++y)cv::line(image,{180+(y>=135&&y<155?5:0),y},{183+(y>=135&&y<155?5:0),y},{240,240,240},1);
@@ -123,7 +159,7 @@ int main(int argc,char** argv) {
     }
     const auto dir=std::filesystem::temp_directory_path()/("cas-exclusion-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
     try {
-        std::filesystem::create_directories(dir);validateAndPersist(dir);inspectionAndConcurrency();seamAndService(dir);
+        std::filesystem::create_directories(dir);validateAndPersist(dir);inspectionAndConcurrency();learnedCacheReuse();seamAndService(dir);
         require(std::filesystem::weakly_canonical(dir).parent_path()==std::filesystem::weakly_canonical(std::filesystem::temp_directory_path()),"safe cleanup path");
         std::filesystem::remove_all(dir);std::cout<<"Exclusion settings, scoring, concurrency, translation, heatmap, seam and persistence passed\n";return 0;
     }catch(const std::exception& e){std::cerr<<e.what()<<" (data: "<<dir.string()<<")\n";return 1;}

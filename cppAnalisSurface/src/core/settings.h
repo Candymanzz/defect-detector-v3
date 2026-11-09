@@ -77,8 +77,8 @@ struct SettingsPatch {
     void applyTo(Settings& s) const;
 };
 
-// Persistent profile -> Settings map (JSON file). Re-reads the file when it changed on disk,
-// so several processes sharing one data dir stay consistent.
+// Persistent profile -> Settings map (JSON file). Re-reads external changes.
+// A save replaces the whole file atomically; separate processes' updates are not serialised.
 class SettingsStore {
 public:
     explicit SettingsStore(std::filesystem::path file);
@@ -89,7 +89,7 @@ public:
 
 private:
     void reloadIfStale();
-    void save();
+    void save(const std::map<std::string, Settings>& next);
     std::filesystem::path file_;
     std::filesystem::file_time_type stamp_{};
     bool haveStamp_ = false;

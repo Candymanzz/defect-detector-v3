@@ -241,7 +241,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     }
     if (s.learningRobustEnabled && !learnedRegions.empty()) {
         const auto started=Clock::now();
-        compareLearned(ref,curR,diff,region,scale,s,out,
+        compareLearned(ref,*prep,curR,diff,region,scale,s,out,
             {s.learningRobustEnabled,s.learningShadowEnabled,s.learningSearchRadius},out.learningDiagnostics);
         out.learningMs=msSince(started);
         requestTiming.add("learning_ms",out.learningMs);
