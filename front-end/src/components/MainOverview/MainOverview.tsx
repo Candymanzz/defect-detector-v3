@@ -26,6 +26,7 @@ const CAMERAS_PER_OVERVIEW = 5;
 
 type MainOverviewProps = {
   inspectionResetVersion: number;
+  statisticsResetVersion?: number;
   selectedSettingsCameraId: number | null;
   onSettingsCameraToggle: (cameraId: number) => void;
   onAnalysisSettingsOpen: (cameraId: number) => Promise<void>;
@@ -35,13 +36,14 @@ type MainOverviewProps = {
 
 export function MainOverview({
   inspectionResetVersion,
+  statisticsResetVersion = 0,
   selectedSettingsCameraId,
   onSettingsCameraToggle,
   onAnalysisSettingsOpen,
   onInspectionStatsChange,
   rootRef,
 }: MainOverviewProps) {
-  const controller = useMainOverview(inspectionResetVersion);
+  const controller = useMainOverview(inspectionResetVersion, statisticsResetVersion);
   const [showModalAnalysisSettings, setShowModalAnalysisSettings] = useState(false);
   const [testFrameId, setTestFrameId] = useState<string | undefined>(undefined);
   const [testAnalyzeState, setTestAnalyzeState] = useState<"idle" | "submitting" | "awaiting" | "complete" | "error">(

@@ -193,6 +193,7 @@ void ANALYSIS_SETTING_FIELDS;
 type SettingListProps = {
   selectedCameraId: number | null;
   inspectionStats: InspectionStats;
+  onStatisticsReset?: () => void;
   maxHeightPx?: number;
   onInspectionReset?: () => void;
 };
@@ -215,7 +216,7 @@ type AnalysisTooltip = {
   placement: "above" | "below";
 };
 
-export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, onInspectionReset }: SettingListProps) {
+export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, onInspectionReset, onStatisticsReset }: SettingListProps) {
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
   const [saveFeedback, setSaveFeedback] = useState<SaveFeedback | null>(null);
   const [resetFeedback, setResetFeedback] = useState<ResetFeedback | null>(null);
@@ -503,7 +504,7 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
       style={createSettingListStyle(maxHeightPx)}
       onScrollCapture={() => setAnalysisTooltip(null)}
     >
-      <InspectionStatsPanel stats={inspectionStats} />
+      <InspectionStatsPanel stats={inspectionStats} onReset={onStatisticsReset} />
 
       <form
         className="setting-list__form"
@@ -874,7 +875,7 @@ function resolveSettingActionIconUrl(name: "stream" | "reference" | "camera" | "
   return undefined;
 }
 
-function InspectionStatsPanel({ stats }: { stats: InspectionStats }) {
+function InspectionStatsPanel({ stats, onReset }: { stats: InspectionStats; onReset?: () => void }) {
   return (
     <section
       className="setting-list__inspection-stats"
@@ -882,7 +883,7 @@ function InspectionStatsPanel({ stats }: { stats: InspectionStats }) {
     >
       <div className="setting-list__inspection-stats-header">
         <h2>Статистика инспекций</h2>
-        <span>онлайн</span>
+        <span>за запуск</span>
       </div>
       {stats.groups && stats.groups.length > 0 && (
         <div className="setting-list__inspection-groups">
@@ -921,6 +922,9 @@ function InspectionStatsPanel({ stats }: { stats: InspectionStats }) {
           <strong>{formatStatsTime(stats.inspectionStoppedAtMs)}</strong>
         </div>
       </div>
+      {onReset && <button type="button" className="setting-list__statistics-reset" onClick={onReset}>
+        Сбросить статистику
+      </button>}
     </section>
   );
 }

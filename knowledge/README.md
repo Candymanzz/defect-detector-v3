@@ -1,5 +1,7 @@
 # Frontend инспекции — 2026-11-09
 
+Статистика **2026-11-09**: [накопление за запуск независимо от архива и кнопка сброса](ui/inspection-statistics.md).
+
 Добавлены [редактор исключающих зон](analis-surface/inspection-exclusions-ui.md),
 [фактические кадры в общем результате](ui/inspection-history.md) и
 [фиксированное TEST-окно](ui/test-frame-settings.md).

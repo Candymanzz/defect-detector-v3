@@ -59,6 +59,20 @@
   background: rgba(9, 14, 22, 0.76);
 }
 
+.setting-list__statistics-reset {
+  justify-self: end;
+  padding: 5px 8px;
+  border: 1px solid #4b596a;
+  border-radius: 6px;
+  color: #cbd5e1;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.setting-list__statistics-reset:hover { border-color: #8bf0b4; color: #8bf0b4; }
+
 .setting-list__inspection-stats-header {
   display: flex;
   align-items: center;
