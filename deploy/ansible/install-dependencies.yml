@@ -1,0 +1,18 @@
+--- 
+  - name: Установить библиотеки для C++-анализатора 
+    hosts: machines 
+    gather_facts: false 
+    become: true 
+ 
+    tasks: 
+      - name: Установить библиотеки выполнения 
+        ansible.builtin.apt: 
+          name: 
+            - libopencv-core406t64 
+            - libopencv-imgproc406t64 
+            - libopencv-imgcodecs406t64 
+            - libopencv-video406t64 
+            - libcpp-httplib0.14t64 
+          state: present 
+          update_cache: true 
+          cache_valid_time: 3600
