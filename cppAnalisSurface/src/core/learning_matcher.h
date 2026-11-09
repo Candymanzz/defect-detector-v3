@@ -9,8 +9,9 @@ struct LearningOptions {
     int searchRadius = 24; // original pixels; independent of camera alignment
 };
 
-// Robust learned-region comparison, selected by the camera settings.
-void compareLearned(const cas::Reference& reference, const cv::Mat& current,
+// Use the inspection's immutable preparation, including its exclusions and ROI.
+// Looking it up again can replace the shared cache with a different mask variant.
+void compareLearned(const cas::Reference& reference, const cas::Prepared& prepared, const cv::Mat& current,
                     cv::Mat& diff, cv::Rect region, double scale, const cas::Settings& settings,
                     cas::InspectOutcome& outcome, const LearningOptions& options,
                     nlohmann::json& diagnostics, const cv::Mat& primaryOverride = {});

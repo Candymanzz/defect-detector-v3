@@ -21,12 +21,13 @@ void placedMask(cv::Rect region,bool shadows) {
     moved(cv::Rect(0,65,180,10)).setTo(cv::Scalar::all(120));
     cv::Mat current;cv::cvtColor(moved,current,cv::COLOR_BGR2GRAY);cv::GaussianBlur(current,current,{5,5},0);
     current=current(region).clone();
-    const auto primary=reference.prepared(1)->refGray(region);
+    const auto prepared=reference.prepared(1);
+    const auto primary=prepared->refGray(region);
     cv::Mat diff;cv::absdiff(primary,current,diff);
     cas::Settings settings;settings.shiftToleranceX=settings.shiftToleranceY=0;
     const auto before=diff.clone();
     cas::InspectOutcome result;nlohmann::json diagnostics;
-    cas::compareLearned(reference,current,diff,region,1,settings,result,{true,shadows,12},diagnostics);
+    cas::compareLearned(reference,*prepared,current,diff,region,1,settings,result,{true,shadows,12},diagnostics);
     require(diagnostics[0]["pattern_aligned"]==true,"fixture must match the translated sample");
     require(diagnostics[0]["shift"][0]==5 && diagnostics[0]["shift"][1]==0,"known five pixel placement");
     const cv::Rect placed(box.x+5-region.x,box.y-region.y,box.width,box.height);
@@ -38,7 +39,7 @@ void placedMask(cv::Rect region,bool shadows) {
     const cv::Rect mark(47-region.x,40-region.y,3,14);
     defect(mark).setTo(0);
     cv::absdiff(primary,defect,diff);
-    cas::compareLearned(reference,defect,diff,region,1,settings,result,{true,shadows,12},diagnostics);
+    cas::compareLearned(reference,*prepared,defect,diff,region,1,settings,result,{true,shadows,12},diagnostics);
     require(cv::countNonZero(diff(mark)>21)>0,"new defect inside the learned support remains visible");
 }
 }
