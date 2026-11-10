@@ -1,4 +1,5 @@
 #include "routes.h"
+#include "core/comparison_mask.h"
 #include "performance_http.h"
 #include "core/logger.h"
 #include "core/exclusion_zones.h"
@@ -200,6 +201,14 @@ void addMetricDiagnostics(json& j, const Inspected& r) {
     j["mm_per_pixel"] = {units.x, units.y};
     j["shift_mm"] = {r.out.shift.x * units.x, r.out.shift.y * units.y};
     j["shift_raw_mm"] = {r.out.rawShift.x * units.x, r.out.rawShift.y * units.y};
+    j["shift_compensation"] = {{"active", r.out.comparisonCropped}, {"status", r.out.comparisonStatus},
+        {"crop_original_px", {r.out.comparisonCropNative.x, r.out.comparisonCropNative.y}},
+        {"crop_mm", {r.out.comparisonCropNative.x * units.x, r.out.comparisonCropNative.y * units.y}},
+        {"filter_guard_work_px", {r.out.comparisonFilterGuardWork.width, r.out.comparisonFilterGuardWork.height}},
+        {"sampling_guard_original_px", r.out.comparisonSamplingGuardNative},
+        {"original_area_work_px", r.out.originalRoiArea}, {"inspected_area_work_px", r.out.roiArea},
+        {"inspected_fraction", r.out.inspectedFraction}, {"minimum_fraction", kMinimumComparisonCoverage},
+        {"shift_deadband_original_px", kComparisonShiftDeadbandNative}};
     j["shift_limit_mm"] = {r.out.shiftLimit.x * units.x, r.out.shiftLimit.y * units.y};
     j["metric_scale_source"] = r.settings.calibration.ready() ? "calibrated" : "estimated";
     j["horizontal_shift_tolerance_mm"] = r.settings.horizontalShiftMm ? json(*r.settings.horizontalShiftMm) : json(nullptr);

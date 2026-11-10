@@ -1,4 +1,5 @@
 #include "learning_matcher.h"
+#include "comparison_mask.h"
 #include <opencv2/imgproc.hpp>
 #include <algorithm>
 #include <cmath>
@@ -42,10 +43,11 @@ int apply(cv::Mat& diff,cv::Rect box,const cv::Mat& alternate,const cv::Mat& mas
 
 void compareLearned(const cas::Reference& reference,const cas::Prepared& prepared,const cv::Mat& current,cv::Mat& diff,
                     cv::Rect region,double scale,const cas::Settings& s,cas::InspectOutcome& out,
-                    const LearningOptions& options,nlohmann::json& diagnostics) {
+                    const LearningOptions& options,nlohmann::json& diagnostics,const cv::Mat& comparisonMask) {
     diagnostics=nlohmann::json::array();
     const double sensitivity = std::clamp(s.sensitivity, 0.0, 1.0);
-    const bool hasCorners = prepared.upperCornerArea > 0;
+    const bool hasCorners = comparisonMask.empty() ? prepared.upperCornerArea > 0
+        : cv::countNonZero(prepared.upperCornerMask & comparisonMask) > 0;
     const int threshold = cvRound(80 - 75 * (hasCorners
         ? std::min(1.0, sensitivity * kUpperCornerSensitivityMultiplier) : sensitivity));
     const int radius=std::max(0,cvRound(options.searchRadius*scale));
@@ -64,6 +66,16 @@ void compareLearned(const cas::Reference& reference,const cas::Prepared& prepare
         if((box & bounds)!=box) {diagnostics.push_back(d);continue;}
         cv::Rect search=box;
         search.x-=radius;search.y-=radius;search.width+=2*radius;search.height+=2*radius;search &= bounds;
+        // A crop/search/shadow fit must not use an unobserved strip as evidence
+        // for suppressing a real anomaly in the retained middle.
+        if (!comparisonMask.empty()) {
+            const int halo = (options.shadows ? cvCeil(4*sigma) : 0) + 2 +
+                std::max((kernel.width-1)/2, (kernel.height-1)/2);
+            cv::Rect evidence(search.x-halo,search.y-halo,search.width+2*halo,search.height+2*halo);
+            if (!comparisonContains(comparisonMask,evidence)) {
+                d["status"]="outside_comparison_area";diagnostics.push_back(d);continue;
+            }
+        }
         d["candidate_pixels"]=flagged(diff(search),threshold);
         if(!d["candidate_pixels"].get<int>()) {d["status"]="no_anomaly";diagnostics.push_back(d);continue;}
         if(box.width<8 || box.height<8) {d["status"]="crop_too_small";diagnostics.push_back(d);continue;}

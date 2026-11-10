@@ -24,7 +24,7 @@ struct InspectOutcome {
     bool surfaceSkipped = false;
     NormPolygons exclusions; // exact mask configuration used by this inspection
     bool reject = false;
-    std::string reason;              // "", "score_over_threshold", "shift_exceeded", "inspection_excluded"
+    std::string reason;              // decision/skip reason, including "insufficient_comparison_area"
     cv::Point2d shift;               // detected translation, original-frame pixels
     cv::Point2d rawShift;            // estimate before the limit/ignore rules (diagnostics)
     double shiftResponse = 0.0;      // accepted ECC correlation, otherwise coarse phase response
@@ -34,6 +34,13 @@ struct InspectOutcome {
     double alignMs = 0, diffMs = 0, anomalyMs = 0, totalMs = 0;
     // diagnostics for tuning (logged, not part of the API response)
     double roiArea = 0.0;            // ROI pixels at work resolution
+    double originalRoiArea = 0.0;
+    double inspectedFraction = 1.0;
+    cv::Point comparisonCropNative;
+    cv::Size comparisonFilterGuardWork{0, 0};
+    int comparisonSamplingGuardNative = 0;
+    bool comparisonCropped = false;
+    std::string comparisonStatus;
     double scale = 1.0;              // work scale (inspect_scale after clamping)
     int pixelThreshold = 0;          // diff level that counts as anomalous, derived from sensitivity
     cv::Size envelopeKernel{1, 1};   // shift-tolerance kernel width (X) and height (Y) at work resolution
@@ -60,6 +67,7 @@ struct InspectOutcome {
     cv::Mat kept;                    // CV_8U 0/255, region-sized (accepted anomaly blobs)
     cv::Mat aligned;                 // CV_8U, region-sized
     cv::Mat scoredEnergy;            // CV_8U, region-sized; includes the local visibility threshold
+    cv::Mat comparisonMask;          // region-sized, reference coordinates; only when auto crop is active
 };
 
 // Throws std::invalid_argument when the frame size differs from the reference size.

@@ -1,3 +1,13 @@
+# Дополнение 2026-11-10 — Learning с динамической маской
+
+В paint/c3b77bbf compareLearned получает неизменяемый Prepared и локальную
+маску сравнения. Если crop/search/необходимый контекст тени пересекает
+недостоверный край, кандидат пропускается с outside_comparison_area.
+Legacy matcher тоже ограничен новой областью. Без автокропа остаётся прежний
+путь. Native deadband 0.15 px предотвращает включение маски от микросдвига,
+вызванного слабым learned-пятном; прежний upper_corner_test проходит.
+[Алгоритм, проверки и границы](2026-11-10-shift-interior-compensation.md).
+
 # Дополнение 2026-11-09 — Prepared текущей инспекции
 
 В boobs+pasha на базе 9b080256 compareLearned получает const Prepared& от

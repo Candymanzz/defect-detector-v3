@@ -22,6 +22,7 @@ struct LearnedRegion {
 
 // Native-frame positioning cache, shared by all inspection scales for one ROI.
 struct AlignmentPrepared {
+    cv::Mat nativeRoiMask;    // explicit ROI geometry before holes, for per-frame interior masks
     NormPolygons exclusions; // immutable identity shared only by inspections with the same zones
     cv::Rect region;          // original-frame coordinates
     cv::Size smallSize;       // coarse phase-correlation thumbnail, at most 256 px
@@ -39,6 +40,7 @@ struct Prepared {
     cv::Size workSize;        // frame size at this scale
     cv::Mat refGray;          // CV_8U blurred gray of the reference at work size
     cv::Mat roiMask;          // CV_8U 0/255 at work size (full frame when no ROI)
+    cv::Mat baseRoiMask;      // explicit ROI geometry before user exclusions (empty for full-frame mode)
     int roiArea = 0;          // pixels in roiMask
     cv::Rect region;          // ROI bounding box + padding (analysis is limited to it)
     cv::Mat upperCornerMask;  // CV_8U, region-sized; top 1/7, outer 15% on each side of explicit ROI

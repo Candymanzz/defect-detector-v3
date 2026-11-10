@@ -43,6 +43,12 @@ target_link_libraries(cpp_analis_surface PRIVATE
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(shift_compensation_test tests/shift_compensation_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
+  target_include_directories(shift_compensation_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(shift_compensation_test PRIVATE
+    opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME shift_compensation_test COMMAND shift_compensation_test)
   add_executable(settings_store_test tests/settings_store_test.cpp src/core/settings.cpp)
   target_include_directories(settings_store_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
   target_link_libraries(settings_store_test PRIVATE opencv_core nlohmann_json::nlohmann_json Threads::Threads)

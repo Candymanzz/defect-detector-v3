@@ -2,6 +2,7 @@
 #include "exclusion_zones.h"
 #include "learning_matcher.h"
 #include "preprocessing.h"
+#include "comparison_mask.h"
 #include "request_timing.h"
 #include <opencv2/imgproc.hpp>
 #include <opencv2/video/tracking.hpp>
@@ -107,10 +108,13 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     out.exclusions = s.exclusions;
     out.workSize = prep->workSize;
     out.region = prep->region;
+    out.originalRoiArea = out.roiArea = prep->roiArea;
+    out.scale = prep->scale;
     const double scale = prep->scale;
     const cv::Rect region = prep->region;
 
     if (prep->roiArea == 0) {
+        out.comparisonStatus = "inspection_excluded"; out.inspectedFraction = 0;
         out.scale = scale; out.reason = "inspection_excluded"; out.surfaceSkipped = true;
         out.diff = cv::Mat::zeros(region.size(), CV_8U);
         out.kept = out.diff.clone(); out.scoredEnergy = out.diff.clone();
@@ -133,7 +137,8 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     out.rawShift = estimate.pixels;
     auto applied = estimate.pixels;
     out.shiftLimit = {s.maxAlignmentShiftX, s.maxAlignmentShiftY};
-    if (std::abs(applied.x) > s.maxAlignmentShiftX || std::abs(applied.y) > s.maxAlignmentShiftY) {
+    const bool outsideShiftLimits = std::abs(applied.x) > s.maxAlignmentShiftX || std::abs(applied.y) > s.maxAlignmentShiftY;
+    if (outsideShiftLimits) {
         if (estimate.response >= kRejectShiftResponse) {
             out.reject = true;
             out.reason = "shift_exceeded";
@@ -145,8 +150,31 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     const cv::Point2d sh(applied.x * prep->workSize.width / bgr.cols,
                          applied.y * prep->workSize.height / bgr.rows);
 
+    const cv::Size kernelSize(2 * tolWorkX + 1, 2 * tolWorkY + 1);
+    const auto comparison = comparisonMask(*prep, applied, estimate.response, kernelSize);
+    out.comparisonStatus = outsideShiftLimits ? "shift_above_limit" : comparison.status;
+    out.comparisonCropped = comparison.active;
+    out.comparisonCropNative = comparison.cropNative;
+    out.comparisonFilterGuardWork = comparison.filterGuardWork;
+    out.comparisonSamplingGuardNative = comparison.samplingGuardNative;
+    out.roiArea = comparison.area;
+    out.inspectedFraction = comparison.coverage;
+    if (comparison.active) out.comparisonMask = comparison.mask(region);
+    if (comparison.active && comparison.status == "insufficient_comparison_area") {
+        out.reject = s.sensitivity > 0.0;
+        out.reason = out.reject ? "insufficient_comparison_area" : "";
+        out.surfaceSkipped = true;
+        if (keepVisuals) {
+            out.diff = cv::Mat::zeros(region.size(), CV_8U);
+            out.kept = out.diff.clone(); out.scoredEnergy = out.diff.clone();
+        }
+        out.alignMs = msSince(tAlign);
+        requestTiming.add("align_ms", out.alignMs);
+        out.totalMs = msSince(tStart); return out;
+    }
+
     cv::Mat cur;
-    if (std::abs(sh.x) >= 0.15 || std::abs(sh.y) >= 0.15) {
+    if (comparison.active || std::abs(sh.x) >= 0.15 || std::abs(sh.y) >= 0.15) {
         // Warp the full source: pixels outside the ROI are still valid context.
         // Blurring before this warp can carry a newly exposed bright strip into
         // the comparison even when the translation itself is compensated.
@@ -164,7 +192,11 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     // ---- difference map with brightness normalisation and shift-tolerant envelope ----
     const auto tDiff = Clock::now();
     cv::Mat refR = prep->refGray(region);
-    cv::Mat maskR = prep->roiMask(region);
+    const cv::Mat maskR = comparison.mask(region);
+    cv::Mat cornerMask;
+    if (comparison.active) cv::bitwise_and(prep->upperCornerMask, maskR, cornerMask);
+    else cornerMask = prep->upperCornerMask;
+    out.upperCornerArea = cv::countNonZero(cornerMask);
     cv::Scalar mr, sr, mc, sc;
     cv::meanStdDev(refR, mr, sr, maskR);
     cv::meanStdDev(curR, mc, sc, maskR);
@@ -172,7 +204,6 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     cv::Mat aligned;
     curR.convertTo(aligned, CV_8U, gain, mr[0] - mc[0] * gain);
 
-    const cv::Size kernelSize(2 * tolWorkX + 1, 2 * tolWorkY + 1);
     cv::Mat diff;
     if (kernelSize.width > 1 || kernelSize.height > 1) {
         cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, kernelSize);
@@ -187,7 +218,6 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     }
     diff.setTo(0, ~maskR);
     out.scale = scale;
-    out.roiArea = prep->roiArea;
     out.envelopeKernel = kernelSize;
     out.gain = gain;
     out.refMean = mr[0];
@@ -219,7 +249,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     const double sensitivity = std::clamp(s.sensitivity, 0.0, 1.0);
     const int thr = cvRound(80.0 - 75.0 * sensitivity);
     const auto learnedRegions = ref.learned();
-    const int learningThreshold = prep->upperCornerArea > 0
+    const int learningThreshold = out.upperCornerArea > 0
         ? cvRound(80.0 - 75.0 * std::min(1.0, sensitivity * kUpperCornerSensitivityMultiplier)) : thr;
     int originalFlagged = 0;
     if (!learnedRegions.empty()) {
@@ -235,14 +265,14 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
                     originalKept.setTo(255, labels == label);
         };
         collect(thr, {});
-        if (sensitivity > 0.0 && sensitivity < 1.0 && prep->upperCornerArea > 0)
-            collect(learningThreshold, prep->upperCornerMask);
+        if (sensitivity > 0.0 && sensitivity < 1.0 && out.upperCornerArea > 0)
+            collect(learningThreshold, cornerMask);
         originalFlagged = cv::countNonZero(originalKept);
     }
     if (s.learningRobustEnabled && !learnedRegions.empty()) {
         const auto started=Clock::now();
         compareLearned(ref,*prep,curR,diff,region,scale,s,out,
-            {s.learningRobustEnabled,s.learningShadowEnabled,s.learningSearchRadius},out.learningDiagnostics);
+            {s.learningRobustEnabled,s.learningShadowEnabled,s.learningSearchRadius},out.learningDiagnostics,out.comparisonMask);
         out.learningMs=msSince(started);
         requestTiming.add("learning_ms",out.learningMs);
     } else for (const auto& learned : learnedRegions) {
@@ -251,6 +281,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         const cv::Rect overlap = box & region;
         if (overlap.empty()) continue;
         const cv::Rect local(overlap.x - region.x, overlap.y - region.y, overlap.width, overlap.height);
+        if (!comparisonContains(out.comparisonMask, local)) continue;
         if (!cv::countNonZero(anomalyEnergy(diff(local), learningThreshold))) continue;
         cv::Mat gray;
         cv::cvtColor(learned.bgr, gray, cv::COLOR_BGR2GRAY);
@@ -288,6 +319,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         if (cv::countNonZero(anomalyEnergy(diff(local), learningThreshold)) < before)
             out.matchedCaseIds.push_back(learned.id);
     }
+    if (comparison.active) diff.setTo(0, ~maskR);
     cv::Mat energy = anomalyEnergy(diff, thr);
     cv::Mat labels, stats, centroids;
     const int components = cv::connectedComponentsWithStats(energy > 0, labels, stats, centroids, 8, CV_32S);
@@ -321,7 +353,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     }
     out.blobsKept = static_cast<int>(out.zones.size());
     int flagged = cv::countNonZero(kept);
-    out.areaPercent = prep->roiArea > 0 ? 100.0 * flagged / prep->roiArea : 0.0;
+    out.areaPercent = out.roiArea > 0 ? 100.0 * flagged / out.roiArea : 0.0;
     // Piecewise linear scale preserves the existing score at the default sensitivity.
     const double n = scoreNormalizer(sensitivity);
     out.anomalyScore = std::min(1.0, out.areaPercent / n);
@@ -331,10 +363,9 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     // component area remain those configured for the entire ROI. No extra local-density score.
     out.upperCornerSensitivity = std::min(1.0, sensitivity * kUpperCornerSensitivityMultiplier);
     out.upperCornerPixelThreshold = cvRound(80.0 - 75.0 * out.upperCornerSensitivity);
-    out.upperCornerArea = prep->upperCornerArea;
-    if (sensitivity > 0.0 && sensitivity < 1.0 && prep->upperCornerArea > 0) {
+    if (sensitivity > 0.0 && sensitivity < 1.0 && out.upperCornerArea > 0) {
         cv::Mat cornerEnergy = anomalyEnergy(diff, out.upperCornerPixelThreshold);
-        cornerEnergy.setTo(0, prep->upperCornerMask == 0);
+        cornerEnergy.setTo(0, cornerMask == 0);
         cv::Mat cornerLabels, cornerStats, cornerCentroids;
         const int cornerComponents = cv::connectedComponentsWithStats(cornerEnergy > 0,
             cornerLabels, cornerStats, cornerCentroids, 8, CV_32S);
@@ -351,12 +382,12 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
             kept(bb).setTo(255, blob);
         }
         flagged = cv::countNonZero(kept);
-        out.areaPercent = prep->roiArea > 0 ? 100.0 * flagged / prep->roiArea : 0.0;
+        out.areaPercent = out.roiArea > 0 ? 100.0 * flagged / out.roiArea : 0.0;
         // Keep n tied to the global setting. A local sensitivity crossing 0.5 must not
         // introduce the sharp score-scale change independently of the rest of the ROI.
         out.anomalyScore = std::max(out.mainRoiScore, std::min(1.0, out.areaPercent / n));
         out.upperCornerExtraScore = out.anomalyScore - out.mainRoiScore;
-        cornerEnergy.copyTo(energy, prep->upperCornerMask);
+        cornerEnergy.copyTo(energy, cornerMask);
         if (addedPixels) {
             // Rebuild components from the union: overlapping detections count exactly once.
             out.zones.clear(); out.keptBlobAreas.clear(); out.keptBlobMaxDiff.clear();
@@ -377,7 +408,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         }
     }
     if (learnedRegions.empty()) originalFlagged = flagged;
-    out.rawAnomalyScore = prep->roiArea > 0 ? std::min(1.0, 100.0 * originalFlagged / prep->roiArea / n) : 0.0;
+    out.rawAnomalyScore = out.roiArea > 0 ? std::min(1.0, 100.0 * originalFlagged / out.roiArea / n) : 0.0;
     if (sensitivity == 0.0) out.rawAnomalyScore = 0.0;
     if (sensitivity == 1.0) out.rawAnomalyScore = 1.0;
     // Division alone cannot guarantee the endpoints (e.g. zero anomalous pixels).
@@ -447,6 +478,12 @@ cv::Mat buildHeatmap(const InspectOutcome& out, const NormPolygon& roi, int maxW
         heat = masked;
     }
     if (!out.exclusions.empty()) heat.setTo(0, exclusionMask(out.exclusions, heat.size()));
+    if (!out.comparisonMask.empty()) {
+        cv::Mat valid = placeInCanvas(out, out.comparisonMask), coverage;
+        valid.convertTo(coverage, CV_32F, 1.0 / 255.0);
+        if (coverage.size() != heat.size()) cv::resize(coverage, coverage, heat.size(), 0, 0, cv::INTER_AREA);
+        heat.setTo(0, coverage < 1.0f - 1e-6f);
+    }
     return heat;
 }
 

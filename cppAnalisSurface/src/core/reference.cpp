@@ -19,6 +19,7 @@ cv::Size thumbnailSize(cv::Size source, int maxSide) {
 
 std::shared_ptr<const AlignmentPrepared> buildAlignment(const Prepared& native) {
     auto a = std::make_shared<AlignmentPrepared>();
+    a->nativeRoiMask = native.baseRoiMask;
     a->region = native.region;
     a->exclusions = native.exclusions;
     const auto gray = native.refGray(a->region);
@@ -169,6 +170,7 @@ std::shared_ptr<Prepared> Reference::build(double scale, const NormPolygon& roi,
         p->roiMask.setTo(255);
     }
     p->region = box;
+    if (roi.size() >= 3) p->baseRoiMask = p->roiMask.clone();
     p->upperCornerMask = roi.size() >= 3 ? upperCornerMask(p->roiMask(box))
                                        : cv::Mat::zeros(box.size(), CV_8U);
     // Keep the original upper-edge geometry, then subtract holes from both masks.
