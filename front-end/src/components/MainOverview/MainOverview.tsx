@@ -396,6 +396,12 @@ export function MainOverview({
                     <h4>Анализ поверхности</h4>
                     <DetectorSettingsPanel
                       key={`analysis-settings-${controller.modalSnapshot.cameraId}`}
+                      showExclusionsEditor
+                      exclusionsHeatmap={String(controller.modalSnapshot.inspectResult?.frame_id) === String(testFrameId ?? controller.modalSnapshot.pinnedTestFrameId)
+                        ? controller.modalSnapshot.inspectResult?.heatmap : null}
+                      exclusionsFrameId={testFrameId ?? controller.modalSnapshot.pinnedTestFrameId}
+                      exclusionsReferenceImageUrl={controller.modalSnapshot.referenceImageUrl}
+                      exclusionsCurrentImageUrl={controller.modalSnapshot.pinnedTestImageUrl ?? controller.modalSnapshot.cameraImageUrl}
                       onReadyChange={setAnalysisSettingsReady}
                       ref={analysisSettingsRef}
                       selectedCameraId={controller.modalSnapshot.cameraId}
@@ -458,7 +464,11 @@ export function MainOverview({
             </button>
           }
           headerActions={
-            showModalAnalysisSettings ? undefined : (
+            showModalAnalysisSettings ? (
+              <button type="button" className="modal__action" onClick={() => analysisSettingsRef.current?.openExclusions()}>
+                Зоны исключения
+              </button>
+            ) : (
               <>
                 <button
                   className="modal__action"

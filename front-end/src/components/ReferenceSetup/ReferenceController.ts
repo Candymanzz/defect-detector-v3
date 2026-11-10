@@ -308,7 +308,7 @@ export function useReferenceSetupController(onClose: () => void, initialCameraId
       }
       // Frame capture updates only the image. Keep both stored geometry and
       // the operator's unsaved ROI/perspective edits until bundle submission.
-      setMessage(`Кадр камеры ${cameraId} обновлён. ROI и линия перспективы сохранены. Нажмите «Подтвердить изменения».`);
+      setMessage(`Кадр камеры ${cameraId} обновлён. ROI сохранён. Нажмите «Подтвердить изменения».`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     } finally {

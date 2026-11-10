@@ -1,0 +1,46 @@
+.analysis-presets__learning {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 10px 0 0;
+  padding: 10px;
+  border: 1px solid rgba(117, 143, 164, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.analysis-presets__learning legend {
+  padding: 0 5px;
+  color: #edf4f7;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.analysis-presets__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #c9d6dc;
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.analysis-presets__toggle input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #00d96b;
+}
+
+.analysis-presets__learning small {
+  color: #9eafbc;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.analysis-presets__learning:disabled .analysis-presets__toggle {
+  cursor: default;
+  opacity: 0.6;
+}
