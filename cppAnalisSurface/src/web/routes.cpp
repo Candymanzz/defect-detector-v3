@@ -441,7 +441,8 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
         sendJson(res, {{"status", "ok"}, {"service", "cppAnalisSurface"}}, svc);
     });
     svr.Get("/detector/health", [&](const httplib::Request&, httplib::Response& res) {
-        sendJson(res, {{"status", "ok"}, {"service", "cppAnalisSurface"}, {"workers", svc.workers()}}, svc);
+        sendJson(res, {{"status", "ok"}, {"service", "cppAnalisSurface"}, {"workers", svc.workers()},
+                       {"inspect_cpus", svc.inspectCpus()}}, svc);
     });
 
     svr.Post("/clear-inspection-context", [&](const httplib::Request&, httplib::Response& res) {
