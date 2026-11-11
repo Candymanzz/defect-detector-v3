@@ -67,30 +67,11 @@ double msSince(std::chrono::steady_clock::time_point t) {
 
 }
 
-// Counting limiter: at most `workers` inspections run at the same time.
-class Service::Slot {
-public:
-    explicit Slot(Service& s) : s_(s) {
-        std::unique_lock<std::mutex> lk(s_.limitM_);
-        s_.limitCv_.wait(lk, [&] { return s_.freeSlots_ > 0; });
-        --s_.freeSlots_;
-    }
-    ~Slot() {
-        { std::lock_guard<std::mutex> lk(s_.limitM_); ++s_.freeSlots_; }
-        s_.limitCv_.notify_one();
-    }
-    Slot(const Slot&) = delete;
-    Slot& operator=(const Slot&) = delete;
-
-private:
-    Service& s_;
-};
-
-Service::Service(fs::path dataDir, int workers)
+Service::Service(fs::path dataDir, int workers, const std::string& inspectCpus)
     : learningDir_(dataDir / "learned-regions"), detectorId_(makeDetectorId()),
       workers_(std::max(1, workers)),
       settings_(dataDir / "settings.json"),
-      freeSlots_(std::max(1, workers)) {
+      slots_(workers_, inspectCpus) {
     fs::create_directories(learningDir_);
     std::ifstream input(learningDir_ / "cases.json");
     if (input) {
@@ -289,7 +270,8 @@ Inspected Service::run(const InspectJob& job, const cv::Mat& frame, bool keepVis
 
 Inspected Service::inspectShm(const InspectJob& job, const ShmFrame& frame, bool keepVisuals) {
     const auto tWait = std::chrono::steady_clock::now();
-    Slot slot(*this);
+    InspectionSlots::Lease slot(slots_);
+    if (requestTiming.active && slot.cpu() >= 0) requestTiming.context["inspect_cpu"] = slot.cpu();
     const double waitMs = msSince(tWait);
     requestTiming.add("wait_ms", waitMs);
     const auto checkStarted = std::chrono::steady_clock::now();
@@ -307,7 +289,8 @@ Inspected Service::inspectShm(const InspectJob& job, const ShmFrame& frame, bool
 
 Inspected Service::inspectMat(const InspectJob& job, const cv::Mat& frame, bool keepVisuals) {
     const auto tWait = std::chrono::steady_clock::now();
-    Slot slot(*this);
+    InspectionSlots::Lease slot(slots_);
+    if (requestTiming.active && slot.cpu() >= 0) requestTiming.context["inspect_cpu"] = slot.cpu();
     const double waitMs = msSince(tWait);
     requestTiming.add("wait_ms", waitMs);
     Inspected r = run(job, frame, keepVisuals);

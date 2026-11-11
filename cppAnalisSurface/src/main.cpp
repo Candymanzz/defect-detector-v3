@@ -1,5 +1,5 @@
 // cppAnalisSurface: reference-based surface inspection service (replacement of the Python analisSurface).
-// Usage: cpp_analis_surface [--host 127.0.0.1] [--port 8000] [--workers N] [--data-dir DIR] [--log-dir DIR]
+// Usage: cpp_analis_surface [--host 127.0.0.1] [--port 8000] [--workers N] [--inspect-cpus 3-5] [--data-dir DIR] [--log-dir DIR]
 // Logs go to <app root>/logs by default (see core/logger.h).
 // The orchestrator appends/replaces "--port N" when it starts a pool of instances.
 #include "core/logger.h"
@@ -20,10 +20,12 @@ int main(int argc, char** argv) {
     std::string dataDir = "data";
     int workers = 0;   // 0 = auto
     std::string logDir;
+    std::string inspectCpus;
 
     if (const char* env = std::getenv("ANALIS_INSPECT_WORKERS")) {
         try { workers = std::stoi(env); } catch (...) {}
     }
+    if (const char* env = std::getenv("ANALIS_INSPECT_CPUS")) inspectCpus = env;
     for (int i = 1; i < argc; ++i) {
         std::string k = argv[i];
         auto next = [&]() -> std::string { return i + 1 < argc ? argv[++i] : ""; };
@@ -31,6 +33,10 @@ int main(int argc, char** argv) {
             if (k == "--host") host = next();
             else if (k == "--port") port = std::stoi(next());
             else if (k == "--workers") workers = std::stoi(next());
+            else if (k == "--inspect-cpus") {
+                inspectCpus = next();
+                if (inspectCpus.empty()) throw std::invalid_argument("missing CPU list");
+            }
             else if (k == "--data-dir") dataDir = next();
             else if (k == "--log-dir") logDir = next();
         } catch (...) {
@@ -55,7 +61,14 @@ int main(int argc, char** argv) {
         } catch (const std::exception& error) { std::cerr << "[performance] init failed: " << error.what() << '\n'; }
     }
 
-    cas::Service service(dataDir, workers);
+    std::unique_ptr<cas::Service> servicePtr;
+    try { servicePtr = std::make_unique<cas::Service>(dataDir, workers, inspectCpus); }
+    catch (const std::exception& error) {
+        log.error("cannot start inspection service: " + std::string(error.what()));
+        std::cerr << "cannot start inspection service: " << error.what() << '\n';
+        return 2;
+    }
+    auto& service = *servicePtr;
     httplib::Server svr;
     // One HTTP thread serves one keep-alive connection, so the pool must exceed the number of concurrent
     // client connections; CPU concurrency is bounded separately by the `workers` limiter in the service.
@@ -65,8 +78,10 @@ int main(int argc, char** argv) {
     cas::registerRoutes(svr, service);
 
     std::cout << "cppAnalisSurface detector_id=" << service.detectorId() << " workers=" << workers
+              << " inspect_cpus=" << (inspectCpus.empty() ? "inherited" : inspectCpus)
               << " data=" << dataDir << " listening on " << host << ":" << port << std::endl;
     log.info("start detector_id=" + service.detectorId() + " workers=" + std::to_string(workers) + " data=" + dataDir +
+             " inspect_cpus=" + (inspectCpus.empty() ? "inherited" : inspectCpus) +
              " listen=" + host + ":" + std::to_string(port) + " logs=" + log.dir().string());
     if (!svr.listen(host, port)) {
         log.error("cannot listen on " + host + ":" + std::to_string(port));

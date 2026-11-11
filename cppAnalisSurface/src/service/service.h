@@ -3,6 +3,7 @@
 #include "core/reference.h"
 #include "core/settings.h"
 #include "core/shm_io.h"
+#include "core/inspection_slots.h"
 #include <condition_variable>
 #include <filesystem>
 #include <map>
@@ -54,10 +55,11 @@ struct Inspected {
 
 class Service {
 public:
-    Service(std::filesystem::path dataDir, int workers);
+    Service(std::filesystem::path dataDir, int workers, const std::string& inspectCpus = "");
 
     const std::string& detectorId() const { return detectorId_; }
     int workers() const { return workers_; }
+    const std::vector<int>& inspectCpus() const { return slots_.cpus(); }
     SettingsStore& settings() { return settings_; }
 
     void setReference(const std::string& product, cv::Mat bgr);
@@ -86,7 +88,6 @@ public:
     Written writeVisuals(const Inspected& r, const VisualOutputs& outputs);
 
 private:
-    class Slot;   // RAII concurrency slot
     Inspected run(const InspectJob& job, const cv::Mat& frame, bool keepVisuals);
     static NormPolygon validated(NormPolygon pts);
 
@@ -103,9 +104,7 @@ private:
     std::mutex regM_;
     std::map<std::string, std::shared_ptr<Reference>> refs_;
 
-    std::mutex limitM_;
-    std::condition_variable limitCv_;
-    int freeSlots_;
+    InspectionSlots slots_;
 
     std::mutex testM_;
     std::map<std::tuple<std::string, std::string, std::string>, cv::Mat> testCache_;
