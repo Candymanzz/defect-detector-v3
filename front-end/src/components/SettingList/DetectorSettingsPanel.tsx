@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import type { ChangeEvent } from "react";
 import { orchestratorApi } from "../../shared/api";
 import type { DetectorSettings, SeamSettings } from "../../shared/api";
+import type { HeatmapDescriptor } from "../../shared/ws";
 import { subscribeAnalysisSettingsChanged } from "./analysisSettingsEvents";
 import { errorMessage } from "../../shared/lib/errors";
 import { Button } from "../../shared/ui/Button";
@@ -9,6 +10,7 @@ import { SeamSettingsSection } from "./SeamSettingsSection";
 import { InspectionExclusionsSection } from "../InspectionExclusions/InspectionExclusionsSection";
 import type { InspectionExclusionsHandle } from "../InspectionExclusions/InspectionExclusionsSection";
 import "./SeamSettingsSection.css";
+import "./AnalysisLearningSettings.css";
 
 /**
  * Настройки анализа поверхности (cppAnalisSurface): реальные параметры детектора.
@@ -89,13 +91,13 @@ const FIELDS: readonly Field[] = [
     name: "horizontal_shift_tolerance_mm",
     label: "Допуск проворота",
     hint: "Допустимое горизонтальное перемещение этикетки при провороте ведра, в мм. Превышение при достоверном измерении — брак. Пересчёт учитывает разрешение кадра.",
-    min: 0, max: 15, step: 0.05, factor: 1, unit: "мм", decimals: 2,
+    min: 0, max: 30, step: 0.05, factor: 1, unit: "мм", decimals: 2,
   },
   {
     name: "vertical_shift_tolerance_mm",
     label: "Допуск вертикального смещения",
     hint: "Допустимое вертикальное перемещение этикетки, в мм. Превышение при достоверном измерении — брак. Пересчёт учитывает разрешение кадра.",
-    min: 0, max: 15, step: 0.05, factor: 1, unit: "мм", decimals: 2,
+    min: 0, max: 30, step: 0.05, factor: 1, unit: "мм", decimals: 2,
   },
   {
     name: "shift_tolerance_x",
@@ -119,6 +121,12 @@ const FIELDS: readonly Field[] = [
 
 type Props = {
   selectedCameraId: number | null;
+  applyToAllCameras?: boolean;
+  showExclusionsEditor?: boolean;
+  exclusionsHeatmap?: HeatmapDescriptor | null;
+  exclusionsFrameId?: string;
+  exclusionsReferenceImageUrl?: string;
+  exclusionsCurrentImageUrl?: string;
   profile?: string;
   testFrameId?: string;
   testPinId?: string;
@@ -130,10 +138,17 @@ type Props = {
 export type DetectorSettingsPanelHandle = {
   save: () => Promise<void>;
   getDraft: () => { settings: Partial<DetectorSettings> };
+  openExclusions: () => void;
 };
 
 export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Props>(function DetectorSettingsPanel({
   selectedCameraId,
+  applyToAllCameras = false,
+  showExclusionsEditor = false,
+  exclusionsHeatmap,
+  exclusionsFrameId,
+  exclusionsReferenceImageUrl,
+  exclusionsCurrentImageUrl,
   testFrameId,
   testPinId,
   onSaveComplete,
@@ -154,11 +169,12 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
   const [exclusionsReady, setExclusionsReady] = useState(false);
 
   useEffect(() => {
-    onReadyChange?.(loaded && (selectedCameraId === null || exclusionsReady));
+    onReadyChange?.(loaded && (!showExclusionsEditor || selectedCameraId === null || exclusionsReady));
     return () => onReadyChange?.(false);
-  }, [loaded, exclusionsReady, selectedCameraId, onReadyChange]);
+  }, [loaded, exclusionsReady, selectedCameraId, showExclusionsEditor, onReadyChange]);
   const userEditedRef = useRef(false);
   const exclusionsRef = useRef<InspectionExclusionsHandle>(null);
+  const exclusionsSectionRef = useRef<HTMLDetailsElement>(null);
 
   useEffect(() => {
     return subscribeAnalysisSettingsChanged((changedCameraId) => {
@@ -211,7 +227,7 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
         text: preview ? `Сохранение и проверка на кадре ${testFrameId}…` : "Сохранение…",
       });
       void Promise.resolve()
-        .then(() => saveSettings(selectedCameraId, settings))
+        .then(() => saveSettings(selectedCameraId, settings, applyToAllCameras))
         .then(() => (preview && testPinId
           ? orchestratorApi.testAnalyzePinnedFrame(selectedCameraId, testPinId, testFrameId!)
           : undefined))
@@ -222,7 +238,7 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
               kind: "success",
               text: preview
                 ? `Настройки сохранены, кадр ${testFrameId} пересчитан`
-                : selectedCameraId === null
+                : selectedCameraId === null || applyToAllCameras
                   ? "Настройки сохранены для всех камер"
                   : `Настройки камеры ${selectedCameraId} сохранены`,
             });
@@ -240,7 +256,7 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
         previewTimerRef.current = null;
       }
     };
-  }, [hideSaveAction, selectedCameraId, settings, testFrameId, testPinId]);
+  }, [hideSaveAction, selectedCameraId, applyToAllCameras, settings, testFrameId, testPinId]);
 
   const persist = async () => {
     if (!hydratedRef.current) {
@@ -259,7 +275,7 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
       // Validate the whole draft before writing any settings. Zones have their own partial PUT.
       const exclusionsEditor = exclusionsRef.current;
       exclusionsEditor?.getDraft();
-      const saved = await saveSettings(selectedCameraId, settings);
+      const saved = await saveSettings(selectedCameraId, settings, applyToAllCameras);
       await exclusionsEditor?.save();
       if (requestId !== previewRequestIdRef.current) throw new Error("Камера изменилась во время сохранения. Проверьте настройки выбранной камеры.");
       if (saved) {
@@ -276,7 +292,7 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
       }
       setStatus({
         kind: "success",
-        text: selectedCameraId === null ? "Настройки применены ко всем камерам" : `Настройки применены к камере ${selectedCameraId}`,
+        text: selectedCameraId === null || applyToAllCameras ? "Настройки применены ко всем камерам" : `Настройки применены к камере ${selectedCameraId}`,
       });
     } catch (error) {
       if (requestId === previewRequestIdRef.current) setStatus({ kind: "error", text: errorMessage(error) });
@@ -286,12 +302,22 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
 
   useImperativeHandle(ref, () => ({
     save: persist,
+    openExclusions: () => {
+      const section = exclusionsSectionRef.current;
+      if (!section) return;
+      section.open = true;
+      section.scrollIntoView({ block: "start" });
+      section.querySelector("summary")?.focus({ preventScroll: true });
+    },
     // линия стыка принадлежит конкретной камере: в режиме «все камеры» она в настройки не попадает
     getDraft: () => {
       if (!hydratedRef.current) throw new Error("Дождитесь загрузки настроек анализа.");
-      return { settings: selectedCameraId === null ? editableSettings(settings, false) : {
-        ...editableSettings(settings, true), exclusions: exclusionsRef.current?.getDraft() ?? [],
-      } };
+      const draft = editableSettings(settings, selectedCameraId !== null);
+      if (showExclusionsEditor && selectedCameraId !== null) {
+        if (!exclusionsRef.current) throw new Error("Дождитесь загрузки зон исключения.");
+        draft.exclusions = exclusionsRef.current.getDraft();
+      }
+      return { settings: draft };
     },
   }));
 
@@ -326,6 +352,9 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
       </p>
 
       <p className="analysis-presets__intro">В верхних углах ROI порог контраста соответствует чувствительности на 10% выше общей: по 15% ширины с каждой стороны и 1/7 высоты. Ослабление сравнения и формула score общие для всего ROI.</p>
+      {selectedCameraId !== null && applyToAllCameras && (
+        <p className="analysis-presets__intro">Параметры поверхности и образцов нормы применяются ко всем камерам. Стык, зоны исключения и сброс профиля относятся к выбранной камере.</p>
+      )}
 
       <div className="analysis-presets__fields">
         {FIELDS.map((field) => {
@@ -398,13 +427,13 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
       {settings.metric_scale_source !== "calibrated" && (
         <p className="analysis-presets__intro">Миллиметры пока приблизительные. Масштаб уточняется на машине для каждой камеры.</p>
       )}
-      <fieldset disabled={busy}>
+      <fieldset className="analysis-presets__learning" disabled={busy}>
         <legend>Дополнительные образцы нормы</legend>
         {([
           ["learning_robust_enabled", "Устойчивое сопоставление образцов"],
           ["learning_shadow_enabled", "Учитывать смещение плавной тени"],
         ] as const).map(([key,label]) => (
-          <label key={key}>
+          <label className="analysis-presets__toggle" key={key}>
             <input type="checkbox" checked={settings[key]} onChange={(event) => {
               const checked=event.target.checked;
               userEditedRef.current=true;
@@ -412,7 +441,7 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
             }} /> {label}
           </label>
         ))}
-        <p>Для сравнения с прежним алгоритмом отключите устойчивое сопоставление. Сохранённые образцы останутся.</p>
+        <small>Для сравнения с прежним алгоритмом отключите устойчивое сопоставление. Сохранённые образцы останутся.</small>
       </fieldset>
 
       {selectedCameraId !== null && (
@@ -427,10 +456,17 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
         />
       )}
 
-      {selectedCameraId !== null && <InspectionExclusionsSection
-        key={selectedCameraId} ref={exclusionsRef} cameraId={selectedCameraId} hideSaveAction={hideSaveAction}
-        onReadyChange={setExclusionsReady}
-      />}
+      {showExclusionsEditor && selectedCameraId !== null && (
+        <details className="inspection-exclusions-editor" ref={exclusionsSectionRef}>
+          <summary>Зоны исключения инспекции</summary>
+          <InspectionExclusionsSection
+            key={selectedCameraId} ref={exclusionsRef} cameraId={selectedCameraId} hideSaveAction={hideSaveAction}
+            heatmap={exclusionsHeatmap} frameId={exclusionsFrameId} referenceImageUrl={exclusionsReferenceImageUrl}
+            currentImageUrl={exclusionsCurrentImageUrl}
+            onReadyChange={setExclusionsReady}
+          />
+        </details>
+      )}
 
       <div className="analysis-presets__footer">
         <span data-kind={status.kind} aria-live="polite">{status.text}</span>
@@ -470,12 +506,18 @@ export function editableSettings(settings: DetectorSettings, includeSeam: boolea
   return result;
 }
 
-async function saveSettings(cameraId: number | null, settings: DetectorSettings) {
-  if (cameraId !== null) return orchestratorApi.setCameraDetectorSettings(cameraId, editableSettings(settings, true));
+async function saveSettings(cameraId: number | null, settings: DetectorSettings, applyToAllCameras = false) {
+  if (cameraId !== null && !applyToAllCameras) return orchestratorApi.setCameraDetectorSettings(cameraId, editableSettings(settings, true));
   // стык задаётся отдельно для каждой камеры — общее сохранение его не трогает
   const common = editableSettings(settings, false);
-  const responses = await Promise.all((await allCameras()).map((id) => orchestratorApi.setCameraDetectorSettings(id, common)));
-  return responses[0];
+  const cameras = await allCameras();
+  if (cameraId !== null && !cameras.includes(cameraId)) {
+    throw new Error("Выбранная камера отсутствует в списке камер — настройки не сохранены");
+  }
+  const responses = await Promise.all(cameras.map((id) => orchestratorApi.setCameraDetectorSettings(
+    id, id === cameraId ? editableSettings(settings, true) : common,
+  )));
+  return responses[cameraId === null ? 0 : cameras.indexOf(cameraId)];
 }
 
 async function resetSettings(cameraId: number | null) {

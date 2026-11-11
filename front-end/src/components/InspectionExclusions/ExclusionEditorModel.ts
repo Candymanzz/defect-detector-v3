@@ -17,17 +17,19 @@ type EditorState = {
   message: string;
   error: boolean;
   undo: Exclusions[];
+  dragging: boolean;
 };
 
 /** One instance belongs to one camera; late replies can only update that instance. */
 export class ExclusionEditorModel {
   private state: EditorState = {
     saved: [], draft: [], points: null, selected: null, ready: false, busy: false,
-    message: "Загрузка зон…", error: false, undo: [],
+    message: "Загрузка зон…", error: false, undo: [], dragging: false,
   };
   private listeners = new Set<() => void>();
   private loadVersion = 0;
   private hasLoaded = false;
+  private vertexDrag: { index: number; zone: number | null; before: Exclusions; points: ExclusionPoint[] | null } | null = null;
 
   constructor(private api: ExclusionApi) {}
 
@@ -44,6 +46,7 @@ export class ExclusionEditorModel {
   }
 
   async load(preserveDraft = false) {
+    this.endVertexDrag(true);
     const version = ++this.loadVersion;
     this.update({ busy: true, ready: false, message: "Загрузка зон…", error: false });
     try {
@@ -65,53 +68,99 @@ export class ExclusionEditorModel {
 
   getDraft(): Exclusions {
     if (!this.state.ready || this.state.busy) throw new Error("Дождитесь загрузки или сохранения зон.");
-    if (this.state.points !== null) throw new Error("Завершите рисование зоны или нажмите «Отмена рисования».");
+    if (this.state.dragging) throw new Error("Завершите перемещение вершины зоны.");
+    if (this.state.points !== null) throw new Error("Подтвердите зону или нажмите «Отменить рисование».");
     const error = validateExclusions(this.state.draft);
     if (error) throw new Error(error);
     return copyExclusions(this.state.draft);
   }
 
   start = () => {
-    if (!this.state.ready || this.state.busy || this.state.draft.length >= 32) return;
-    this.update({ points: [], selected: null, message: "Отмечайте вершины на эталоне; затем завершите зону.", error: false });
+    if (!this.state.ready || this.state.busy || this.state.dragging || this.state.draft.length >= 32) return;
+    this.update({ points: [], selected: null, message: "Отмечайте вершины: контур замыкается автоматически. Точки можно перетаскивать.", error: false });
   };
   addPoint(point: ExclusionPoint) {
-    if (this.state.busy || this.state.points === null) return;
+    if (this.state.busy || this.state.dragging || this.state.points === null) return;
     if (this.state.points.length >= 128) {
       this.update({ error: true, message: "В зоне допускается не более 128 точек." });
       return;
     }
     this.update({ points: [...this.state.points, point] });
   }
+  beginVertexDrag(index: number) {
+    if (!this.state.ready || this.state.busy || this.state.dragging) return false;
+    const zone = this.state.points === null ? this.state.selected : null;
+    const points = this.state.points ?? (zone === null ? undefined : this.state.draft[zone]);
+    if (!points?.[index]) return false;
+    this.vertexDrag = { index, zone, before: copyExclusions(this.state.draft),
+      points: this.state.points?.map(([x, y]) => [x, y]) ?? null };
+    this.update({ dragging: true });
+    return true;
+  }
+  dragVertex(point: ExclusionPoint) {
+    const drag = this.vertexDrag;
+    if (!drag || point.some(n => !Number.isFinite(n) || n < 0 || n > 1)) return;
+    if (drag.zone === null && this.state.points !== null) {
+      this.update({ points: this.state.points.map((p, i) => i === drag.index ? point : p) });
+    } else if (drag.zone !== null) {
+      const draft = copyExclusions(this.state.draft);
+      draft[drag.zone][drag.index] = point;
+      this.update({ draft });
+    }
+  }
+  endVertexDrag(cancel = false) {
+    const drag = this.vertexDrag;
+    if (!drag) return;
+    this.vertexDrag = null;
+    const error = drag.zone !== null ? validateExclusions(this.state.draft) : null;
+    if (cancel || error) {
+      this.update({ dragging: false, draft: drag.before, points: drag.points,
+        ...(error ? { error: true, message: error } : {}) });
+    } else {
+      const changed = JSON.stringify(drag.before) !== JSON.stringify(this.state.draft);
+      this.update({ dragging: false, error: false, ...(changed ? {
+        undo: [...this.state.undo, drag.before].slice(-50), message: "Контур изменён. Сохраните зоны или проверьте кадр.",
+      } : {}) });
+    }
+  }
   removePoint = () => {
-    if (!this.state.busy && this.state.points) this.update({ points: this.state.points.slice(0, -1) });
+    if (!this.state.busy && !this.state.dragging && this.state.points) this.update({ points: this.state.points.slice(0, -1), error: false });
   };
-  cancelDrawing = () => { if (!this.state.busy) this.update({ points: null, message: "Рисование отменено.", error: false }); };
+  cancelDrawing = () => { this.endVertexDrag(true); if (!this.state.busy) this.update({ points: null, message: "Рисование отменено.", error: false }); };
   finish = () => {
-    if (this.state.busy || this.state.points === null) return;
+    if (this.state.busy || this.state.dragging || this.state.points === null) return;
     const error = validateExclusions([this.state.points]);
     if (error) { this.update({ message: error, error: true }); return; }
     const next = [...this.state.draft, this.state.points];
     this.change(next);
-    this.update({ points: null, selected: next.length - 1 });
+    this.update({ points: null, selected: next.length - 1, message: "Зона подтверждена. Сохраните настройки или проверьте кадр." });
   };
   select(index: number) { if (!this.state.busy && this.state.points === null) this.update({ selected: index }); }
   removeSelected = () => {
     if (this.state.selected !== null) this.change(this.state.draft.filter((_, i) => i !== this.state.selected));
   };
-  clear = () => { this.change([]); };
+  clear = () => {
+    if (!this.state.ready || this.state.busy || this.state.dragging) return;
+    if (this.state.points !== null) {
+      this.update({ points: [], message: "Точки новой зоны удалены. Добавьте новый контур или отмените рисование.", error: false });
+    } else {
+      this.change([]);
+    }
+  };
   private change(draft: Exclusions) {
-    if (!this.state.ready || this.state.busy) return;
+    if (!this.state.ready || this.state.busy || this.state.dragging) return;
     this.update({ draft: copyExclusions(draft), selected: null, undo: [...this.state.undo, this.state.draft].slice(-50),
       message: "Черновик изменён. Сохраните зоны или проверьте кадр.", error: false });
   }
   undo = () => {
+    this.endVertexDrag(true);
     const previous = this.state.undo[this.state.undo.length - 1];
     if (this.state.busy || !previous) return;
     this.update({ draft: previous, undo: this.state.undo.slice(0, -1), selected: null, points: null,
       message: "Изменение отменено.", error: false });
   };
   cancel = () => {
+    this.endVertexDrag(true);
     if (!this.state.busy) this.update({ draft: copyExclusions(this.state.saved), undo: [], selected: null, points: null,
       message: "Черновик отменён.", error: false });
   };
