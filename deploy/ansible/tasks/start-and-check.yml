@@ -1,0 +1,64 @@
+---
+- name: Запустить backend
+  ansible.builtin.systemd:
+    name: "{{ service_name }}"
+    state: started
+
+- name: Дождаться HTTP-ответов Java и C++
+  ansible.builtin.uri:
+    url: "{{ item }}"
+    status_code: 200
+    use_proxy: false
+    timeout: 5
+  loop: "{{ health_urls }}"
+  register: backend_health
+  until: backend_health.status | default(0) == 200
+  retries: 60
+  delay: 3
+
+- name: Проверить состояние службы backend
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - "{{ service_name }}"
+  changed_when: false
+
+- name: Проверить доступность буферов камер до запуска интерфейса
+  ansible.builtin.import_tasks: check-shm.yml
+
+- name: Возобновить цикл киоска
+  ansible.builtin.command:
+    argv:
+      - bash
+      - "{{ app_root }}/stop-dev.sh"
+      - --resume-kiosk
+
+- name: Дождаться процесса Electron
+  ansible.builtin.command:
+    argv:
+      - pgrep
+      - -u
+      - kiosk
+      - -x
+      - electron
+  register: electron_process
+  until: electron_process.rc == 0
+  retries: 15
+  delay: 2
+  changed_when: false
+
+- name: Повторно проверить HTTP после запуска интерфейса
+  ansible.builtin.uri:
+    url: "{{ item }}"
+    status_code: 200
+    use_proxy: false
+    timeout: 5
+  loop: "{{ health_urls }}"
+  register: final_health
+  until: final_health.status | default(0) == 200
+  retries: 5
+  delay: 3
+
+- name: Повторно проверить SHM после запуска интерфейса
+  ansible.builtin.import_tasks: check-shm.yml

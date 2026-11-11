@@ -1,0 +1,52 @@
+---
+- name: Создать каталог настроек logind
+  ansible.builtin.file:
+    path: /etc/systemd/logind.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Сохранять IPC при завершении пользовательских сессий
+  ansible.builtin.copy:
+    dest: /etc/systemd/logind.conf.d/90-defect-detector-ipc.conf
+    content: |
+      # Camera JNI and C++ share POSIX SHM outside SSH login sessions.
+      [Login]
+      RemoveIPC=no
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  register: ipc_config
+
+- name: Прочитать действующее значение RemoveIPC
+  ansible.builtin.command:
+    argv:
+      - busctl
+      - get-property
+      - org.freedesktop.login1
+      - /org/freedesktop/login1
+      - org.freedesktop.login1.Manager
+      - RemoveIPC
+  register: ipc_before
+  changed_when: false
+
+- name: Перечитать logind без перезапуска сессий
+  ansible.builtin.systemd:
+    name: systemd-logind.service
+    state: reloaded
+  when: ipc_config.changed or ipc_before.stdout | trim != 'b false'
+
+- name: Проверить действующее значение RemoveIPC после применения
+  ansible.builtin.command:
+    argv:
+      - busctl
+      - get-property
+      - org.freedesktop.login1
+      - /org/freedesktop/login1
+      - org.freedesktop.login1.Manager
+      - RemoveIPC
+  register: ipc_after
+  changed_when: false
+  failed_when: ipc_after.rc != 0 or ipc_after.stdout | trim != 'b false'

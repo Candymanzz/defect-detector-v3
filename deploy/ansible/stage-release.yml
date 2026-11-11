@@ -1,67 +1,9 @@
---- 
-  - name: Подготовить выпуск без установки 
-    hosts: machines 
-    gather_facts: false 
- 
-    vars: 
-      release_name: defect-detector-22-32b59656 
-      local_release_dir: /home/oleg/Загрузки/artefact 
-      stage_dir: "/tmp/{{ release_name }}" 
- 
-    tasks: 
-      - name: Создать временную папку выпуска 
-        ansible.builtin.file: 
-          path: "{{ stage_dir }}" 
-          state: directory 
-          mode: "0700" 
- 
-      - name: Скопировать архив 
-        ansible.builtin.copy: 
-          src: "{{ local_release_dir }}/{{ release_name }}.tar.gz" 
-          dest: "{{ stage_dir }}/{{ release_name }}.tar.gz" 
-          mode: "0600" 
- 
-      - name: Скопировать контрольную сумму 
-        ansible.builtin.copy: 
-          src: "{{ local_release_dir }}/{{ release_name }}.tar.gz.sha256" 
-          dest: "{{ stage_dir }}/{{ release_name }}.tar.gz.sha256" 
-          mode: "0600" 
- 
-      - name: Проверить целостность архива на станочном ПК 
-        ansible.builtin.command: 
-          argv: 
-            - sha256sum 
-            - -c 
-            - "{{ release_name }}.tar.gz.sha256" 
-          chdir: "{{ stage_dir }}" 
-        changed_when: false
-
-      - name: Распаковать выпуск во временную папку 
-        ansible.builtin.unarchive: 
-          src: "{{ stage_dir }}/{{ release_name }}.tar.gz" 
-          dest: "{{ stage_dir }}" 
-          remote_src: true 
- 
-      - name: Проверить зависимости C++ и JNI 
-        ansible.builtin.command: 
-          argv: 
-            - ldd 
-            - "{{ item }}" 
-        environment: 
-          LD_LIBRARY_PATH: /opt/MVS/lib/64:/opt/MVS/bin 
-        loop: 
-          - "{{ stage_dir }}/core-dev/cppAnalisSurface/build/cpp_analis_surface" 
-          - "{{ stage_dir }}/core-dev/camera-worker/build/libcamera_jni.so" 
-        register: dependency_checks 
-        changed_when: false 
-        failed_when: >- 
-          dependency_checks.rc != 0 or 
-          'not found' in dependency_checks.stdout or 
-          'not found' in dependency_checks.stderr 
- 
-      - name: Показать результаты проверки библиотек 
-        ansible.builtin.debug: 
-          msg: "{{ item.stdout_lines }}" 
-        loop: "{{ dependency_checks.results }}" 
-        loop_control: 
-          label: "{{ item.item }}"
+---
+- name: Подготовить выпуск без установки
+  hosts: machines
+  gather_facts: false
+  vars_files:
+  - release-vars.yml
+  tasks:
+  - name: Подготовить выпуск без установки
+    ansible.builtin.import_tasks: tasks/stage.yml

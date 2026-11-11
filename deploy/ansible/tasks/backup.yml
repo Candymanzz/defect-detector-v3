@@ -1,0 +1,74 @@
+---
+- name: Создать уникальный каталог резервной копии
+  ansible.builtin.tempfile:
+    state: directory
+    path: "{{ backup_root }}"
+    prefix: "defect-detector-{{ release_name }}-"
+  register: backup_dir
+
+- name: Проверить существование сохраняемых файлов
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: "{{ backup_paths }}"
+  register: old_files
+
+- name: Сохранить существующие пути
+  ansible.builtin.set_fact:
+    existing_backup_paths: >-
+      {{
+        old_files.results
+        | selectattr('stat.exists')
+        | map(attribute='item')
+        | map('regex_replace', '^/', '')
+        | list
+      }}
+
+- name: Проверить список резервного копирования
+  ansible.builtin.assert:
+    that:
+      - existing_backup_paths | length > 0
+    fail_msg: "Не найдены файлы для резервной копии."
+
+- name: Создать архив предыдущей версии
+  ansible.builtin.command:
+    argv: >-
+      {{
+        ['tar', '-cpf', backup_dir.path + '/before.tar', '-C', '/']
+        + existing_backup_paths
+      }}
+
+- name: Проверить читаемость архива
+  ansible.builtin.command:
+    argv:
+      - tar
+      - -tf
+      - "{{ backup_dir.path }}/before.tar"
+  changed_when: false
+  no_log: true
+
+- name: Сохранить список исходно существовавших путей
+  ansible.builtin.copy:
+    content: "{{ existing_backup_paths | to_nice_json }}"
+    dest: "{{ backup_dir.path }}/paths.json"
+    mode: "0600"
+
+- name: Получить контрольную сумму резервной копии
+  ansible.builtin.command:
+    argv: [sha256sum, before.tar]
+    chdir: "{{ backup_dir.path }}"
+  register: backup_digest
+  changed_when: false
+
+- name: Сохранить контрольную сумму резервной копии
+  ansible.builtin.copy:
+    content: "{{ backup_digest.stdout }}\n"
+    dest: "{{ backup_dir.path }}/before.tar.sha256"
+    mode: "0600"
+
+- name: Отметить готовность резервной копии
+  ansible.builtin.set_fact:
+    backup_ready: true
+
+- name: Показать расположение резервной копии
+  ansible.builtin.debug:
+    msg: "Резервная копия: {{ backup_dir.path }}/before.tar"

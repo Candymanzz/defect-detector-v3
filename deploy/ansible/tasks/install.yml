@@ -1,0 +1,46 @@
+---
+- name: Проверить готовность резервной копии
+  ansible.builtin.assert:
+    that:
+      - backup_ready | default(false) | bool
+    fail_msg: "Установка запрещена: резервная копия не подготовлена."
+
+- name: Повторно проверить остановку перед заменой файлов
+  ansible.builtin.script:
+    cmd: '{{ playbook_dir }}/check-kiosk.py "{{ app_root }}" stopped'
+    executable: python3
+  changed_when: false
+
+- name: Получить основную группу пользователя приложения
+  ansible.builtin.command:
+    argv:
+      - id
+      - -gn
+      - "{{ app_user }}"
+  register: app_group
+  changed_when: false
+
+- name: Отметить начало изменения установленной версии
+  ansible.builtin.set_fact:
+    installation_started: true
+
+- name: Удалить заменяемые каталоги предыдущей версии
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ app_root }}/config/blocks"
+    - "{{ ui_root }}/dist"
+    - "{{ ui_root }}/electron"
+
+- name: Установить файлы нового выпуска
+  ansible.builtin.copy:
+    src: "{{ stage_dir }}/{{ item.src }}"
+    dest: "{{ item.dest }}"
+    remote_src: true
+    owner: "{{ item.owner }}"
+    group: "{{ (app_group.stdout | trim) if item.owner == app_user else 'root' }}"
+    mode: "{{ item.mode }}"
+  loop: "{{ install_items }}"
+  loop_control:
+    label: "{{ item.dest }}"

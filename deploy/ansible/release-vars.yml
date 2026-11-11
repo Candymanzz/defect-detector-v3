@@ -1,0 +1,88 @@
+---
+release_name: defect-detector-22-32b59656
+
+# Папка с архивом на вашем компьютере.
+local_release_dir: /home/oleg/Загрузки/artefact
+
+# Временная папка выпуска на станочном ПК.
+stage_dir: "/tmp/{{ release_name }}"
+stage_root: "{{ stage_dir }}/core-dev"
+
+# Рабочие каталоги на станочном ПК.
+app_root: /home/o/Документы/core-dev
+ui_root: /opt/defect-detector-ui
+
+app_user: o
+service_name: defect-detector.service
+backup_root: /var/backups
+lock_dir: /var/lib/defect-detector-deploy.lock
+
+health_urls:
+  - http://127.0.0.1:8099/health
+  - http://127.0.0.1:8000/health
+
+install_items:
+  - src: core-dev/orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar
+    dest: "{{ app_root }}/orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar"
+    owner: "{{ app_user }}"
+    mode: "0644"
+
+  - src: core-dev/cppAnalisSurface/build/cpp_analis_surface
+    dest: "{{ app_root }}/cppAnalisSurface/build/cpp_analis_surface"
+    owner: "{{ app_user }}"
+    mode: "0755"
+
+  - src: core-dev/camera-worker/build/libcamera_jni.so
+    dest: "{{ app_root }}/camera-worker/build/libcamera_jni.so"
+    owner: "{{ app_user }}"
+    mode: "0644"
+
+  - src: core-dev/config/config.yaml
+    dest: "{{ app_root }}/config/config.yaml"
+    owner: "{{ app_user }}"
+    mode: "0644"
+
+  - src: core-dev/config/blocks/
+    dest: "{{ app_root }}/config/blocks/"
+    owner: "{{ app_user }}"
+    mode: "u=rwX,go=rX"
+
+  - src: defect-detector-ui/dist/
+    dest: "{{ ui_root }}/dist/"
+    owner: root
+    mode: "u=rwX,go=rX"
+
+  - src: defect-detector-ui/electron/
+    dest: "{{ ui_root }}/electron/"
+    owner: root
+    mode: "u=rwX,go=rX"
+
+  - src: defect-detector-ui/package.json
+    dest: "{{ ui_root }}/package.json"
+    owner: root
+    mode: "0644"
+
+  - src: defect-detector-ui/package-lock.json
+    dest: "{{ ui_root }}/package-lock.json"
+    owner: root
+    mode: "0644"
+
+  - src: version.txt
+    dest: "{{ app_root }}/deployed-version.txt"
+    owner: "{{ app_user }}"
+    mode: "0644"
+
+backup_paths:
+  - "{{ app_root }}/cppAnalisSurface/data"
+  - "{{ app_root }}/config"
+  - "{{ app_root }}/orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar"
+  - "{{ app_root }}/cppAnalisSurface/build/cpp_analis_surface"
+  - "{{ app_root }}/camera-worker/build/libcamera_jni.so"
+  - "{{ ui_root }}/dist"
+  - "{{ ui_root }}/electron"
+  - "{{ ui_root }}/package.json"
+  - "{{ ui_root }}/package-lock.json"
+  - "{{ app_root }}/deployed-version.txt"
+
+# Данные C++ могут изменяться при запуске (в том числе сброс норм).
+# Для данного конфига --data-dir data относительно cppAnalisSurface.

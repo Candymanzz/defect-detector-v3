@@ -1,0 +1,72 @@
+---
+- name: Проверить существующее состояние приостановки киоска
+  ansible.builtin.stat:
+    path: "{{ app_root }}/.kiosk-paused.json"
+  register: existing_kiosk_pause
+
+- name: Остановить приложение
+  ansible.builtin.command:
+    argv: >-
+      {{
+        ['bash', app_root + '/stop-dev.sh']
+        +
+        (['--skip-kiosk'] if existing_kiosk_pause.stat.exists else [])
+      }}
+
+- name: Завершить оставшиеся процессы Electron пользователя kiosk
+  ansible.builtin.command:
+    argv:
+      - /usr/local/sbin/defect-detector-restart-ui
+
+- name: Дождаться завершения Electron
+  ansible.builtin.command:
+    argv:
+      - pgrep
+      - -u
+      - kiosk
+      - -x
+      - electron
+  register: stopped_electron
+  until: stopped_electron.rc == 1
+  retries: 15
+  delay: 2
+  changed_when: false
+  failed_when: stopped_electron.rc not in [0, 1]
+
+- name: Получить состояние службы после остановки
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - show
+      - "{{ service_name }}"
+      - --property=ActiveState
+      - --property=MainPID
+  register: stopped_service
+  changed_when: false
+
+- name: Убедиться, что служба остановлена
+  ansible.builtin.assert:
+    that:
+      - "'MainPID=0' in stopped_service.stdout_lines"
+      - >-
+        'ActiveState=inactive' in stopped_service.stdout_lines or
+        'ActiveState=failed' in stopped_service.stdout_lines
+    fail_msg: "Служба не остановлена: {{ stopped_service.stdout }}"
+
+- name: Проверить файл состояния приостановленного киоска
+  ansible.builtin.stat:
+    path: "{{ app_root }}/.kiosk-paused.json"
+  register: kiosk_pause
+
+- name: Убедиться, что состояние киоска сохранено
+  ansible.builtin.assert:
+    that:
+      - kiosk_pause.stat.exists
+      - kiosk_pause.stat.isreg | default(false)
+    fail_msg: "Нет файла состояния приостановленного киоска."
+
+- name: Проверить реальные процессы после остановки
+  ansible.builtin.script:
+    cmd: '{{ playbook_dir }}/check-kiosk.py "{{ app_root }}" stopped'
+    executable: python3
+  changed_when: false
