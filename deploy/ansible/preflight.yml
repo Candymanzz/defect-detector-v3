@@ -1,0 +1,36 @@
+--- 
+  - name: Проверить установленное приложение 
+    hosts: machines 
+    gather_facts: false 
+ 
+    vars: 
+      app_root: /home/o/Документы/core-dev 
+      ui_root: /opt/defect-detector-ui 
+ 
+    tasks: 
+      - name: Проверить необходимые файлы 
+        ansible.builtin.stat: 
+          path: "{{ item }}"
+          follow: true 
+        loop: 
+          - "{{ app_root }}/config/config.yaml" 
+          - "{{ app_root }}/config/ips.yaml" 
+          - "{{ app_root }}/orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar" 
+          - "{{ app_root }}/cppAnalisSurface/build/cpp_analis_surface" 
+          - "{{ app_root }}/camera-worker/build/libcamera_jni.so" 
+          - "{{ ui_root }}/package.json" 
+          - "{{ ui_root }}/node_modules/electron/dist/electron" 
+          - /usr/local/bin/defect-detector-kiosk 
+          - /opt/MVS/lib/64/libMvCameraControl.so 
+        register: required_files 
+ 
+      - name: Убедиться, что все файлы существуют 
+        ansible.builtin.assert: 
+          that: 
+            - item.stat.exists 
+            - item.stat.isreg | default(false) 
+          fail_msg: "Отсутствует файл: {{ item.item }}" 
+          success_msg: "Найден: {{ item.item }}" 
+        loop: "{{ required_files.results }}" 
+        loop_control: 
+          label: "{{ item.item }}"

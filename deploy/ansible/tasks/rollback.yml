@@ -1,0 +1,21 @@
+---
+- name: Запомнить причину ошибки обновления
+  ansible.builtin.set_fact:
+    deployment_error: '{{ ansible_failed_result.msg | default(''Ошибка обновления'') }}'
+- name: Проверить возможность восстановления файлов
+  ansible.builtin.assert:
+    that:
+    - not (installation_started | default(false) | bool) or (backup_ready | default(false) | bool)
+    fail_msg: Файлы могли измениться, но готовая резервная копия не подтверждена. Автоматическое восстановление
+      остановлено.
+- name: Остановить приложение перед восстановлением
+  ansible.builtin.import_tasks: stop.yml
+- name: Восстановить файлы предыдущей версии
+  ansible.builtin.import_tasks: restore.yml
+  when: installation_started | default(false) | bool
+- name: Запустить и проверить предыдущую версию
+  ansible.builtin.import_tasks: start-and-check.yml
+- name: Сообщить об отменённом обновлении
+  ansible.builtin.fail:
+    msg: 'Обновление отменено. Запуск предыдущей версии восстановлен. Причина: {{ deployment_error }}. Резервная
+      копия: {{ (backup_dir | default({})).get(''path'', ''не создавалась'') }}'

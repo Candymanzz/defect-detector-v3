@@ -236,6 +236,7 @@ json inspectJson(const std::string& product, const Inspected& r, const Service::
     j["learned_normal_adjustment"] = std::max(0.0, o.rawAnomalyScore - o.anomalyScore);
     j["matched_accepted_case_ids"] = o.matchedCaseIds;
     j["excluded_normal_zones"] = json::array();
+    j["label_tracking"] = {{"enabled",o.labelEnabled},{"coverage",o.labelCoverage},{"boundary_support",o.labelBoundarySupport}};
     j["inspection_exclusions"] = {{"polygons", exclusionsJson(o.exclusions)}, {"coordinate_space", "normalized"},
         {"surface_skipped", o.surfaceSkipped}, {"remaining_area_work_px", o.roiArea}};
     j["fp_zone_scores"] = json::array();
@@ -411,6 +412,7 @@ void logInspection(const char* endpoint, const InspectJob& job, const Inspected&
     j["diff_p99"] = o.diffP99;
     j["diff_max"] = o.diffMax;
     j["blobs_total"] = o.blobsTotal;
+    j["label_tracking"] = {{"enabled",o.labelEnabled},{"coverage",o.labelCoverage},{"boundary_support",o.labelBoundarySupport}};
     j["inspection_exclusions"] = {{"polygons", exclusionsJson(o.exclusions)}, {"coordinate_space", "normalized"},
         {"surface_skipped", o.surfaceSkipped}, {"remaining_area_work_px", o.roiArea}};
     j["blobs_kept"] = o.blobsKept;
@@ -441,7 +443,8 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
         sendJson(res, {{"status", "ok"}, {"service", "cppAnalisSurface"}}, svc);
     });
     svr.Get("/detector/health", [&](const httplib::Request&, httplib::Response& res) {
-        sendJson(res, {{"status", "ok"}, {"service", "cppAnalisSurface"}, {"workers", svc.workers()}}, svc);
+        sendJson(res, {{"status", "ok"}, {"service", "cppAnalisSurface"}, {"workers", svc.workers()},
+                       {"inspect_cpus", svc.inspectCpus()}}, svc);
     });
 
     svr.Post("/clear-inspection-context", [&](const httplib::Request&, httplib::Response& res) {
@@ -666,6 +669,18 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
                 const auto parsed = json::parse(exclusions, nullptr, false);
                 if (parsed.is_discarded()) throw std::invalid_argument("exclusions must be valid JSON");
                 overrides["exclusions"] = parsed;
+            }
+            for(const char* key:{"label_outline","label_tracking_enabled"}) {
+                const auto value=formField(req,key,0);
+                if(!value.empty()) {
+                    auto parsed=json::parse(value,nullptr,false);
+                    if(parsed.is_discarded()) throw std::invalid_argument(std::string(key)+" must be valid JSON");
+                    overrides[key]=parsed;
+                }
+            }
+            for(const char* key:{"label_reference_fingerprint","label_confirmation_id"}) {
+                const auto value=formField(req,key,0);
+                if(!value.empty()) overrides[key]=value;
             }
             job.profile = formField(req, "analysis_profile", 0);
             job.patch = SettingsPatch::fromJson(overrides);

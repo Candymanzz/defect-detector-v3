@@ -1,0 +1,10 @@
+---
+- import_playbook: stage-release.yml
+- import_playbook: check-release-config.yml
+- name: Проверить выпуск без остановки приложения
+  hosts: machines
+  gather_facts: false
+  become: true
+  vars_files: [release-vars.yml]
+  tasks:
+    - ansible.builtin.import_tasks: tasks/preflight.yml

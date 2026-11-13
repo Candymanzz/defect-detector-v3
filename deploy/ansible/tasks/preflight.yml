@@ -1,0 +1,104 @@
+---
+- name: Проверить границы установки
+  ansible.builtin.assert:
+    that:
+      - app_root == '/home/o/Документы/core-dev'
+      - ui_root == '/opt/defect-detector-ui'
+      - release_name is match('^defect-detector-[0-9]+-[0-9a-f]{8,40}$')
+      - stage_dir == '/tmp/' + release_name
+      - service_name == 'defect-detector.service'
+    fail_msg: "Неожиданные пути или имя выпуска: требуется отдельная проверка новой схемы установки."
+
+- name: Прочитать идентификатор выпуска
+  ansible.builtin.slurp:
+    src: "{{ stage_dir }}/version.txt"
+  register: release_version
+
+- name: Проверить соответствие архива выбранному выпуску
+  ansible.builtin.assert:
+    that:
+      - "('pipeline=' + release_name.split('-')[2]) in (release_version.content | b64decode).splitlines()"
+      - "(release_version.content | b64decode) is search('(?m)^commit=' + release_name.split('-')[3])"
+
+- name: Проверить рабочий каталог службы
+  ansible.builtin.command:
+    argv: [systemctl, show, "{{ service_name }}", --property=WorkingDirectory, --value]
+  register: service_directory
+  changed_when: false
+  failed_when: service_directory.rc != 0 or service_directory.stdout | trim != app_root
+
+- name: Проверить цикл киоска до остановки
+  ansible.builtin.script:
+    cmd: '{{ playbook_dir }}/check-kiosk.py "{{ app_root }}" running'
+    executable: python3
+  changed_when: false
+
+- name: Получить сведения о файлах выпуска
+  ansible.builtin.stat:
+    path: "{{ stage_dir }}/{{ item.src | regex_replace('/$', '') }}"
+    follow: true
+  loop: "{{ install_items }}"
+  loop_control:
+    label: "{{ item.src }}"
+  register: release_files
+
+- name: Убедиться, что все файлы выпуска существуют
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - (item.stat.isreg | default(false)) or (item.stat.isdir | default(false))
+    fail_msg: "Отсутствует файл или каталог выпуска: {{ item.item.src }}"
+    success_msg: "Найден: {{ item.item.src }}"
+  loop: "{{ release_files.results }}"
+  loop_control:
+    label: "{{ item.item.src }}"
+
+- name: Запретить установку в режиме check
+  ansible.builtin.assert:
+    that:
+      - not ansible_check_mode
+    fail_msg: "Используйте --syntax-check для проверки синтаксиса."
+
+- name: Проверить исходное состояние backend
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - "{{ service_name }}"
+  changed_when: false
+
+- name: Проверить наличие состояния приостановленного киоска
+  ansible.builtin.stat:
+    path: "{{ app_root }}/.kiosk-paused.json"
+  register: initial_kiosk_pause
+
+- name: Убедиться, что киоск не был приостановлен ранее
+  ansible.builtin.assert:
+    that:
+      - not initial_kiosk_pause.stat.exists
+    fail_msg: >-
+      Киоск уже приостановлен. Установка не начата.
+      Сначала нужно выяснить причину существования .kiosk-paused.json.
+
+- name: Проверить исходное наличие Electron
+  ansible.builtin.command:
+    argv:
+      - pgrep
+      - -u
+      - kiosk
+      - -x
+      - electron
+  changed_when: false
+
+- name: Проверить исходную доступность Java и C++
+  ansible.builtin.uri:
+    url: "{{ item }}"
+    status_code: 200
+    use_proxy: false
+    timeout: 5
+  loop: "{{ health_urls }}"
+
+- name: Инициализировать состояние обновления
+  ansible.builtin.set_fact:
+    backup_ready: false
+    installation_started: false

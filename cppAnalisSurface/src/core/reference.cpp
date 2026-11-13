@@ -22,6 +22,7 @@ std::shared_ptr<const AlignmentPrepared> buildAlignment(const Prepared& native) 
     a->region = native.region;
     a->nativeRoiMask = native.nativeRoiMask;
     a->exclusions = native.exclusions;
+    a->labelOutline = native.labelOutline;
     const auto gray = native.refGray(a->region);
     a->smallSize = thumbnailSize(gray.size(), kShiftEstimateMaxSide);
     cv::Mat small;
@@ -33,6 +34,12 @@ std::shared_ptr<const AlignmentPrepared> buildAlignment(const Prepared& native) 
         cv::Mat smallExcluded;
         cv::resize(excluded(a->region), smallExcluded, a->smallSize, 0, 0, cv::INTER_AREA);
         a->hann.setTo(0, smallExcluded > 0);
+    }
+    if (native.labelEnabled) {
+        cv::Mat interior, smallMask;
+        cv::erode(native.roiMask(a->region),interior,cv::getStructuringElement(cv::MORPH_RECT,{9,9}));
+        cv::resize(interior,smallMask,a->smallSize,0,0,cv::INTER_AREA);
+        a->hann.setTo(0,smallMask<255);
     }
     const auto dftSize = shiftDftSize(a->smallSize);
     padShiftInput(a->refSmall, dftSize);
@@ -82,9 +89,10 @@ cv::Mat upperCornerMask(const cv::Mat& roi) {
 
 }
 
-Reference::Reference(cv::Mat bgr) : bgr_(std::move(bgr)) {}
+Reference::Reference(cv::Mat bgr) : bgr_(std::move(bgr)) { fingerprint_=fingerprint(); }
 
 std::string Reference::fingerprint() const {
+    if(!fingerprint_.empty()) return fingerprint_;
     uint64_t hash = 14695981039346656037ull;
     for (int y = 0; y < bgr_.rows; ++y) for (size_t x = 0; x < bgr_.cols * bgr_.elemSize(); ++x) {
         hash ^= bgr_.ptr<uchar>(y)[x]; hash *= 1099511628211ull;
@@ -116,39 +124,41 @@ NormPolygon Reference::roi() const {
     return roi_;
 }
 
-std::shared_ptr<const Prepared> Reference::prepared(double scale, const NormPolygons& exclusions) const {
+std::shared_ptr<const Prepared> Reference::prepared(double scale, const NormPolygons& exclusions, const NormPolygon& label) const {
     const int key = static_cast<int>(std::lround(scale * 1000.0));
     NormPolygon roi;
     std::shared_ptr<const AlignmentPrepared> alignment;
     {
         std::lock_guard<std::mutex> lk(m_);
         auto it = cache_.find(key);
-        if (it != cache_.end() && it->second->exclusions == exclusions) return it->second;
+        if (it != cache_.end() && it->second->exclusions == exclusions && it->second->labelOutline == label) return it->second;
         roi = roi_;
-        if (alignment_ && alignment_->exclusions == exclusions) alignment = alignment_;
+        if (alignment_ && alignment_->exclusions == exclusions && alignment_->labelOutline == label) alignment = alignment_;
     }
     // Build the positioning data once from native pixels, never from the inspection thumbnail.
     // Keep the same ROI snapshot for positioning and comparison, even if it changes during a build.
     std::shared_ptr<Prepared> native;
     if (!alignment) {
-        native = build(1.0, roi, exclusions);
+        native = build(1.0, roi, exclusions, label);
         alignment = buildAlignment(*native);
     }
-    auto built = key == 1000 && native ? native : build(key / 1000.0, roi, exclusions);
+    auto built = key == 1000 && native ? native : build(key / 1000.0, roi, exclusions, label);
     built->alignment = alignment;
     built->nativeRoiMask = alignment->nativeRoiMask;
     std::lock_guard<std::mutex> lk(m_);
     // the ROI may have changed while building: only cache when it is still the same
     if (roi == roi_) {
-        if (!alignment_ || alignment_->exclusions != exclusions) alignment_ = alignment;
+        if (!alignment_ || alignment_->exclusions != exclusions || alignment_->labelOutline != label) alignment_ = alignment;
         built->alignment = alignment_;
         cache_[key] = built;
     }
     return built;
 }
 
-std::shared_ptr<Prepared> Reference::build(double scale, const NormPolygon& roi, const NormPolygons& exclusions) const {
+std::shared_ptr<Prepared> Reference::build(double scale, const NormPolygon& roi, const NormPolygons& exclusions, const NormPolygon& label) const {
     auto p = std::make_shared<Prepared>();
+    p->labelOutline = label;
+    p->labelEnabled = label.size() >= 3;
     p->scale = scale;
     p->exclusions = exclusions;
     p->workSize = inspectionWorkSize(bgr_.size(), scale);
@@ -166,6 +176,13 @@ std::shared_ptr<Prepared> Reference::build(double scale, const NormPolygon& roi,
         p->refComparisonGray = p->refGray;
     }
 
+    if (p->labelEnabled) {
+        const auto labelMask=exclusionMask({label},bgr_.size());
+        if(p->nativeRoiMask.empty()) p->nativeRoiMask=labelMask;
+        else p->nativeRoiMask &= labelMask;
+        p->roiWeights=prepareRoiWeights(p->nativeRoiMask,p->workSize);
+        p->refComparisonGray=prepareRoiInspectionGray(bgr_,p->workSize,p->nativeRoiMask,p->roiWeights);
+    }
     p->roiMask = cv::Mat::zeros(p->workSize, CV_8U);
     cv::Rect box(0, 0, p->workSize.width, p->workSize.height);
     if (roi.size() >= 3) {
@@ -182,6 +199,7 @@ std::shared_ptr<Prepared> Reference::build(double scale, const NormPolygon& roi,
     } else {
         p->roiMask.setTo(255);
     }
+    if(p->labelEnabled) p->roiMask &= exclusionMask({label},p->workSize);
     p->region = box;
     p->upperCornerMask = roi.size() >= 3 ? upperCornerMask(p->roiMask(box))
                                        : cv::Mat::zeros(box.size(), CV_8U);

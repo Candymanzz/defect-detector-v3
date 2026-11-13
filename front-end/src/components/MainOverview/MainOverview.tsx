@@ -26,6 +26,7 @@ const CAMERAS_PER_OVERVIEW = 5;
 
 type MainOverviewProps = {
   inspectionResetVersion: number;
+  statisticsResetVersion?: number;
   selectedSettingsCameraId: number | null;
   onSettingsCameraToggle: (cameraId: number) => void;
   onAnalysisSettingsOpen: (cameraId: number) => Promise<void>;
@@ -35,13 +36,14 @@ type MainOverviewProps = {
 
 export function MainOverview({
   inspectionResetVersion,
+  statisticsResetVersion = 0,
   selectedSettingsCameraId,
   onSettingsCameraToggle,
   onAnalysisSettingsOpen,
   onInspectionStatsChange,
   rootRef,
 }: MainOverviewProps) {
-  const controller = useMainOverview(inspectionResetVersion);
+  const controller = useMainOverview(inspectionResetVersion, statisticsResetVersion);
   const [showModalAnalysisSettings, setShowModalAnalysisSettings] = useState(false);
   const [testFrameId, setTestFrameId] = useState<string | undefined>(undefined);
   const [testAnalyzeState, setTestAnalyzeState] = useState<"idle" | "submitting" | "awaiting" | "complete" | "error">(
@@ -394,6 +396,12 @@ export function MainOverview({
                     <h4>Анализ поверхности</h4>
                     <DetectorSettingsPanel
                       key={`analysis-settings-${controller.modalSnapshot.cameraId}`}
+                      showExclusionsEditor
+                      exclusionsHeatmap={String(controller.modalSnapshot.inspectResult?.frame_id) === String(testFrameId ?? controller.modalSnapshot.pinnedTestFrameId)
+                        ? controller.modalSnapshot.inspectResult?.heatmap : null}
+                      exclusionsFrameId={testFrameId ?? controller.modalSnapshot.pinnedTestFrameId}
+                      exclusionsReferenceImageUrl={controller.modalSnapshot.referenceImageUrl}
+                      exclusionsCurrentImageUrl={controller.modalSnapshot.pinnedTestImageUrl ?? controller.modalSnapshot.cameraImageUrl}
                       onReadyChange={setAnalysisSettingsReady}
                       ref={analysisSettingsRef}
                       selectedCameraId={controller.modalSnapshot.cameraId}
@@ -456,7 +464,11 @@ export function MainOverview({
             </button>
           }
           headerActions={
-            showModalAnalysisSettings ? undefined : (
+            showModalAnalysisSettings ? (
+              <button type="button" className="modal__action" onClick={() => analysisSettingsRef.current?.openExclusions()}>
+                Зоны исключения
+              </button>
+            ) : (
               <>
                 <button
                   className="modal__action"

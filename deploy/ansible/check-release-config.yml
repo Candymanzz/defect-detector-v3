@@ -1,0 +1,9 @@
+---
+- name: Проверить конфигурацию нового выпуска
+  hosts: machines
+  gather_facts: false
+  vars_files:
+  - release-vars.yml
+  tasks:
+  - name: Проверить конфигурацию нового выпуска
+    ansible.builtin.import_tasks: tasks/check-config.yml

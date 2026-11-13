@@ -1,6 +1,7 @@
 stages: 
     - test 
     - package
+    - deploy
 
 test-runner: 
     image: ubuntu:24.04 
@@ -148,6 +149,8 @@ package-release:
     tags: 
       - oleg-furer 
     needs: 
+      - job: check-ansible
+        artifacts: false
       - job: checkout-front-end 
         artifacts: true 
       - job: checkout-java 
@@ -171,7 +174,12 @@ package-release:
         cp camera-worker/build-mvs/libcamera_jni.so release/core-dev/camera-worker/build/ 
         cp -a front-end/dist front-end/electron front-end/package.json front-end/package-lock.json release/defect-detector-ui/ 
         printf 'pipeline=%s\ncommit=%s\n' "$CI_PIPELINE_IID" "$CI_COMMIT_SHA" > release/version.txt
+
+        mkdir -p release/core-dev/config 
+        cp config/config.yaml release/core-dev/config/config.yaml 
+        cp -a config/blocks release/core-dev/config/blocks 
  
+        find release/core-dev/config -name ips.yaml -type f -delete 
         tar -czf "${RELEASE}.tar.gz" -C release . 
         sha256sum "${RELEASE}.tar.gz" > "${RELEASE}.tar.gz.sha256" 
     artifacts: 
@@ -179,3 +187,51 @@ package-release:
       paths: 
         - defect-detector-*.tar.gz 
         - defect-detector-*.tar.gz.sha256
+
+# Validate all task files and rehearse file rollback without contacting machines.
+check-ansible:
+  stage: test
+  image: python:3.12-bookworm
+  tags:
+    - oleg-furer
+  variables:
+    ANSIBLE_LOCAL_TEMP: /tmp/ansible-local
+  before_script:
+    - pip install --disable-pip-version-check ansible-core==2.16.3 PyYAML==6.0.2
+  script:
+    - ansible-playbook -i deploy/ansible/inventory.ini deploy/ansible/deploy-release.yml --syntax-check
+    - ansible-playbook -i deploy/ansible/inventory.ini deploy/ansible/validate-release.yml --syntax-check
+    - ansible-playbook -i deploy/ansible/inventory.ini deploy/ansible/fix-ipc.yml --syntax-check
+    - python3 deploy/ansible/test_release.py
+
+# Automatically deploy only successful push pipelines on the protected default branch.
+deploy-femboy36:
+  stage: deploy
+  image: python:3.12-bookworm
+  tags:
+    - oleg-furer
+  needs:
+    - job: package-release
+      artifacts: true
+  resource_group: factory-deployment
+  interruptible: false
+  timeout: 45m
+  environment:
+    name: factory/femboy36
+  variables:
+    DEPLOY_TARGET: femboy36
+    ANSIBLE_LOCAL_TEMP: /tmp/ansible-local
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && $CI_PIPELINE_SOURCE == "push"'
+      when: on_success
+      allow_failure: false
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && $CI_PIPELINE_SOURCE == "web"'
+      when: manual
+      allow_failure: false
+    - when: never
+  before_script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends openssh-client git
+    - pip install --disable-pip-version-check ansible-core==2.16.3
+  script:
+    - python3 deploy/ansible/ci-deploy.py

@@ -1,0 +1,9 @@
+---
+- name: Подготовить выпуск без установки
+  hosts: machines
+  gather_facts: false
+  vars_files:
+  - release-vars.yml
+  tasks:
+  - name: Подготовить выпуск без установки
+    ansible.builtin.import_tasks: tasks/stage.yml

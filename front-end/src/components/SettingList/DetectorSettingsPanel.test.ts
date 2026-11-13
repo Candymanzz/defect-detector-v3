@@ -5,6 +5,18 @@ import { DetectorSettingsPanel, editableSettings } from "./DetectorSettingsPanel
 import type { DetectorSettings } from "../../shared/api";
 
 describe("DetectorSettingsPanel metric limits", () => {
+  it("only renders inspection exclusions in the frame settings editor", () => {
+    const sidebar = renderToStaticMarkup(createElement(DetectorSettingsPanel, { selectedCameraId: 1 }));
+    expect(sidebar).not.toContain('aria-label="Зоны исключения инспекции"');
+    const frameSettings = renderToStaticMarkup(createElement(DetectorSettingsPanel, {
+      selectedCameraId: 1, showExclusionsEditor: true, hideSaveAction: true,
+    }));
+    expect(frameSettings).toContain('aria-label="Зоны исключения инспекции"');
+    const allCameras = renderToStaticMarkup(createElement(DetectorSettingsPanel, {
+      selectedCameraId: null, showExclusionsEditor: true,
+    }));
+    expect(allCameras).not.toContain('aria-label="Зоны исключения инспекции"');
+  });
   it("shows rotation and vertical limits in mm, with separate pixel comparison relaxation", () => {
     const html = renderToStaticMarkup(createElement(DetectorSettingsPanel, { selectedCameraId: null }));
     expect(html).toContain('aria-label="Ослабление сравнения, px"');
@@ -14,7 +26,7 @@ describe("DetectorSettingsPanel metric limits", () => {
     for (const label of ["Допуск проворота", "Допуск вертикального смещения"]) {
       const input = html.match(new RegExp(`<input[^>]*aria-label="${label}, мм"[^>]*>`))?.[0];
       expect(input).toBeDefined();
-      for (const attribute of ['type="number"', 'min="0"', 'max="15"', 'step="0.05"']) {
+      for (const attribute of ['type="number"', 'min="0"', 'max="30"', 'step="0.05"']) {
         expect(input).toContain(attribute);
       }
     }

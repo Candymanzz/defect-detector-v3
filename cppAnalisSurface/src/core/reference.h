@@ -22,6 +22,7 @@ struct LearnedRegion {
 
 // Native-frame positioning cache, shared by all inspection scales for one ROI.
 struct AlignmentPrepared {
+    NormPolygon labelOutline; // immutable contour cache identity
     NormPolygons exclusions; // immutable identity shared only by inspections with the same zones
     cv::Rect region;          // original-frame coordinates
     cv::Mat nativeRoiMask;    // shared source-pixel ROI snapshot for comparison
@@ -35,6 +36,7 @@ struct AlignmentPrepared {
 
 // Reference data prepared for one analysis scale and the current ROI (immutable, shared between threads).
 struct Prepared {
+    NormPolygon labelOutline; // immutable contour cache identity
     NormPolygons exclusions; // immutable per-inspection mask cache identity
     double scale = 1.0;
     cv::Size workSize;        // frame size at this scale
@@ -43,6 +45,7 @@ struct Prepared {
     cv::Mat roiWeights;       // cached resize/Gaussian weights; never changed by inspection
     cv::Mat refComparisonGray; // ROI-aware smoothing for comparison; positioning keeps refGray
     cv::Mat roiMask;          // CV_8U 0/255 at work size (full frame when no ROI)
+    bool labelEnabled = false;
     int roiArea = 0;          // pixels in roiMask
     cv::Rect region;          // ROI bounding box + padding (analysis is limited to it)
     cv::Mat upperCornerMask;  // CV_8U, region-sized; top 1/7, outer 15% on each side of explicit ROI
@@ -65,12 +68,13 @@ public:
     bool setRoi(NormPolygon pts);
     NormPolygon roi() const;
 
-    std::shared_ptr<const Prepared> prepared(double scale, const NormPolygons& exclusions = {}) const;
+    std::shared_ptr<const Prepared> prepared(double scale, const NormPolygons& exclusions = {}, const NormPolygon& label = {}) const;
 
 private:
-    std::shared_ptr<Prepared> build(double scale, const NormPolygon& roi, const NormPolygons& exclusions) const;
+    std::shared_ptr<Prepared> build(double scale, const NormPolygon& roi, const NormPolygons& exclusions, const NormPolygon& label) const;
 
     cv::Mat bgr_;
+    std::string fingerprint_; // immutable cached reference identity
     mutable std::mutex m_;
     NormPolygon roi_;
     std::vector<LearnedRegion> learned_;

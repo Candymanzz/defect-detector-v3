@@ -193,6 +193,7 @@ void ANALYSIS_SETTING_FIELDS;
 type SettingListProps = {
   selectedCameraId: number | null;
   inspectionStats: InspectionStats;
+  onStatisticsReset?: () => void;
   maxHeightPx?: number;
   onInspectionReset?: () => void;
 };
@@ -215,7 +216,7 @@ type AnalysisTooltip = {
   placement: "above" | "below";
 };
 
-export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, onInspectionReset }: SettingListProps) {
+export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, onInspectionReset, onStatisticsReset }: SettingListProps) {
   const [settingData, setSettingData] = useState(INITIAL_SETTING_DATA);
   const [saveFeedback, setSaveFeedback] = useState<SaveFeedback | null>(null);
   const [resetFeedback, setResetFeedback] = useState<ResetFeedback | null>(null);
@@ -225,6 +226,15 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
   const [isCameraSettingsOpen, setIsCameraSettingsOpen] = useState(false);
   const [isReferenceSetupOpen, setIsReferenceSetupOpen] = useState(false);
   const [isServerStreamOpen, setIsServerStreamOpen] = useState(false);
+  const [analysisExpanded, setAnalysisExpanded] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const analysisPanelRef = useRef<HTMLElement>(null);
+  const previousSidebarScrollRef = useRef(0);
+  const [analysisScope, setAnalysisScope] = useState({ cameraId: selectedCameraId, all: false });
+  if (analysisScope.cameraId !== selectedCameraId) {
+    setAnalysisScope({ cameraId: selectedCameraId, all: false });
+  }
+  const applyAnalysisToAll = analysisScope.cameraId === selectedCameraId && analysisScope.all;
   const requestIdRef = useRef(0);
 
   const isBusy = settingData.status.state === "loading" || settingData.status.state === "saving";
@@ -232,6 +242,22 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
   const brightnessScopeText = selectedCameraId === null ? "Все камеры" : `Камера ${selectedCameraId}`;
   const analysisScopeText = selectedCameraId === null ? "Все изделия камер" : `Изделие камеры ${selectedCameraId}`;
   const streamCameraId = selectedCameraId ?? SETTINGS_STREAM_CAMERA_ID;
+
+  useLayoutEffect(() => {
+    const sidebar = sidebarRef.current;
+    const panel = analysisPanelRef.current;
+    if (!sidebar || !panel) return;
+    sidebar.style.setProperty("--analysis-scroll-space", "0px");
+    if (!analysisExpanded) {
+      sidebar.scrollTop = previousSidebarScrollRef.current;
+      return;
+    }
+    const target = sidebar.scrollTop + panel.getBoundingClientRect().top - sidebar.getBoundingClientRect().top
+      - Number.parseFloat(getComputedStyle(sidebar).paddingTop);
+    const extra = Math.max(0, target + sidebar.clientHeight - sidebar.scrollHeight);
+    sidebar.style.setProperty("--analysis-scroll-space", `${extra}px`);
+    sidebar.scrollTop = target;
+  }, [analysisExpanded, maxHeightPx]);
 
   useEffect(() => {
     let active = true;
@@ -498,12 +524,13 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
 
   return (
     <aside
+      ref={sidebarRef}
       className="setting-list"
       aria-label="Настройки"
       style={createSettingListStyle(maxHeightPx)}
       onScrollCapture={() => setAnalysisTooltip(null)}
     >
-      <InspectionStatsPanel stats={inspectionStats} />
+      <InspectionStatsPanel stats={inspectionStats} onReset={onStatisticsReset} />
 
       <form
         className="setting-list__form"
@@ -668,14 +695,38 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
               </Button>
             </div>
           </details>
+        </section>
 
-          <details id="analysis-settings" className="setting-list__collapsible-setting setting-list__analysis">
-            <summary className="setting-list__section-header" tabIndex={-1}>
+        <section ref={analysisPanelRef} className="setting-list__panel setting-list__analysis-panel" data-pinned={analysisExpanded}>
+          <details id="analysis-settings" className="setting-list__collapsible-setting setting-list__analysis"
+            onToggle={(event) => {
+              const expanded = event.currentTarget.open;
+              if (expanded === analysisExpanded) return;
+              const sidebar = sidebarRef.current;
+              if (!sidebar) return;
+              if (expanded) previousSidebarScrollRef.current = sidebar.scrollTop;
+              setAnalysisExpanded(expanded);
+            }}>
+            <summary className="setting-list__section-header setting-list__section-header--analysis" tabIndex={-1}>
               <h3>Настройки анализа</h3>
-              <strong>{analysisScopeText}</strong>
+              <strong className="setting-list__analysis-scope">{analysisScopeText}</strong>
+              {selectedCameraId !== null && (
+                <label className="setting-list__analysis-all" onClick={(event) => event.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={applyAnalysisToAll}
+                    onChange={(event) => setAnalysisScope({ cameraId: selectedCameraId, all: event.target.checked })}
+                  />
+                  <span className="setting-list__analysis-check" aria-hidden="true">
+                    <svg viewBox="0 0 16 16"><path d="m3.5 8 3 3 6-6" /></svg>
+                  </span>
+                  <span>Применять ко всем камерам</span>
+                </label>
+              )}
             </summary>
             <DetectorSettingsPanel
               selectedCameraId={selectedCameraId}
+              applyToAllCameras={applyAnalysisToAll}
               profile={settingData.analysisProductTypes[0]}
             />
           </details>
@@ -699,6 +750,7 @@ export function SettingList({ selectedCameraId, inspectionStats, maxHeightPx, on
             </span>
           )}
         </div>
+        {analysisExpanded && <div className="setting-list__analysis-scroll-space" aria-hidden="true" />}
       </form>
 
       {isCameraSettingsOpen && (
@@ -753,7 +805,7 @@ function createSettingListStyle(maxHeightPx: number | undefined): CSSProperties 
   }
 
   const height = `${Math.round(maxHeightPx)}px`;
-  return { height, maxHeight: height };
+  return { height, maxHeight: height, "--setting-list-height": height } as CSSProperties;
 }
 
 function SettingActionIcon({
@@ -874,7 +926,7 @@ function resolveSettingActionIconUrl(name: "stream" | "reference" | "camera" | "
   return undefined;
 }
 
-function InspectionStatsPanel({ stats }: { stats: InspectionStats }) {
+function InspectionStatsPanel({ stats, onReset }: { stats: InspectionStats; onReset?: () => void }) {
   return (
     <section
       className="setting-list__inspection-stats"
@@ -882,7 +934,7 @@ function InspectionStatsPanel({ stats }: { stats: InspectionStats }) {
     >
       <div className="setting-list__inspection-stats-header">
         <h2>Статистика инспекций</h2>
-        <span>онлайн</span>
+        <span>за запуск</span>
       </div>
       {stats.groups && stats.groups.length > 0 && (
         <div className="setting-list__inspection-groups">
@@ -921,6 +973,9 @@ function InspectionStatsPanel({ stats }: { stats: InspectionStats }) {
           <strong>{formatStatsTime(stats.inspectionStoppedAtMs)}</strong>
         </div>
       </div>
+      {onReset && <button type="button" className="setting-list__statistics-reset" onClick={onReset}>
+        Сбросить статистику
+      </button>}
     </section>
   );
 }

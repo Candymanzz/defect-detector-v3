@@ -1,0 +1,16 @@
+---
+- name: Проверить SHM всех настроенных камер от пользователя приложения
+  ansible.builtin.script:
+    cmd: "{{ playbook_dir }}/check-shm.py"
+    executable: python3
+  become: true
+  become_user: "{{ app_user }}"
+  register: shm_check
+  until: shm_check.rc == 0
+  retries: 30
+  delay: 2
+  changed_when: false
+
+- name: Показать результат проверки SHM
+  ansible.builtin.debug:
+    msg: "{{ shm_check.stdout_lines }}"

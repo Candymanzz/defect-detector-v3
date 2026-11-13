@@ -58,6 +58,7 @@ export function App() {
   const [handleModeError, setHandleModeError] = useState<string | null>(null);
   const [inspectionStats, setInspectionStats] = useState<InspectionStats>(EMPTY_INSPECTION_STATS);
   const [inspectionResetVersion, setInspectionResetVersion] = useState(0);
+  const [statisticsResetVersion, setStatisticsResetVersion] = useState(0);
   const [settingsMaxHeightPx, setSettingsMaxHeightPx] = useState<number | undefined>(undefined);
   const cameraOverviewsRef = useRef<HTMLDivElement | null>(null);
   const backendStatus = useBackendStatus();
@@ -204,6 +205,7 @@ export function App() {
         <MainOverview
           rootRef={cameraOverviewsRef}
           inspectionResetVersion={inspectionResetVersion}
+          statisticsResetVersion={statisticsResetVersion}
           selectedSettingsCameraId={selectedSettingsCameraId}
           onSettingsCameraToggle={handleSettingsCameraToggle}
           onAnalysisSettingsOpen={handleAnalysisSettingsOpen}
@@ -212,6 +214,7 @@ export function App() {
         <SettingList
           selectedCameraId={selectedSettingsCameraId}
           inspectionStats={inspectionStats}
+          onStatisticsReset={() => setStatisticsResetVersion(version => version + 1)}
           maxHeightPx={settingsMaxHeightPx}
           onInspectionReset={() => {
             setInspectionResetVersion((version) => version + 1);

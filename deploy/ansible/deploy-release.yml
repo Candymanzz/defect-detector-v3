@@ -1,0 +1,49 @@
+---
+- name: Установить выпуск с восстановлением при ошибке
+  hosts: machines
+  serial: 1
+  any_errors_fatal: true
+  gather_facts: false
+  become: true
+  vars_files:
+    - release-vars.yml
+  tasks:
+    - name: Запретить режим check до любых действий
+      ansible.builtin.assert:
+        that: [not ansible_check_mode]
+        fail_msg: "Используйте validate-release.yml или --syntax-check."
+
+    - name: Заблокировать параллельное обновление
+      ansible.builtin.command:
+        argv: [mkdir, "{{ lock_dir }}"]
+
+    - name: Выполнить подготовку и установку под блокировкой
+      block:
+        - name: Защитить IPC от очистки при выходе из SSH
+          ansible.builtin.import_tasks: tasks/preserve-ipc.yml
+        - name: Подготовить выпуск
+          ansible.builtin.import_tasks: tasks/stage.yml
+          become: false
+        - name: Проверить конфигурацию
+          ansible.builtin.import_tasks: tasks/check-config.yml
+          become: false
+        - name: Проверить исходное состояние
+          ansible.builtin.import_tasks: tasks/preflight.yml
+        - name: Обновить с откатом
+          block:
+            - ansible.builtin.import_tasks: tasks/stop.yml
+            - ansible.builtin.import_tasks: tasks/backup.yml
+            - ansible.builtin.import_tasks: tasks/install.yml
+            - ansible.builtin.import_tasks: tasks/start-and-check.yml
+          rescue:
+            - ansible.builtin.import_tasks: tasks/rollback.yml
+        - name: Показать результат
+          ansible.builtin.debug:
+            msg:
+              - "Установлен выпуск {{ release_name }}"
+              - "Резервная копия: {{ backup_dir.path }}/before.tar"
+              - "Проверьте интерфейс, камеры, свет, IO и контрольную инспекцию."
+      always:
+        - name: Освободить блокировку обновления
+          ansible.builtin.command:
+            argv: [rmdir, "{{ lock_dir }}"]

@@ -1084,6 +1084,18 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
         Object polygons = com.example.iml.orchestrator.integration.pipeline.InspectionExclusionDiagnostics
                 .snapshot(Map.of("polygons", exclusions == null ? java.util.List.of() : exclusions)).get("polygons");
         snapshot.put("exclusions", polygons);
+        Object labelOutline = settings.get("label_outline");
+        if (labelOutline != null && !(labelOutline instanceof java.util.List<?>)) return false;
+        Object labelPolygons = com.example.iml.orchestrator.integration.pipeline.InspectionExclusionDiagnostics
+                .snapshot(Map.of("polygons", labelOutline instanceof java.util.List<?> list && !list.isEmpty()
+                        ? java.util.List.of(labelOutline) : java.util.List.of())).get("polygons");
+        java.util.List<?> labelList = labelPolygons instanceof java.util.List<?> list ? list : java.util.List.of();
+        snapshot.put("label_outline", labelList.isEmpty() ? java.util.List.of() : labelList.get(0));
+        snapshot.put("label_tracking_enabled", Boolean.TRUE.equals(settings.get("label_tracking_enabled")));
+        if (settings.get("label_confirmation_id") instanceof String labelConfirmation)
+            snapshot.put("label_confirmation_id", labelConfirmation);
+        if (settings.get("label_reference_fingerprint") instanceof String labelReference)
+            snapshot.put("label_reference_fingerprint", labelReference);
         request.put("settings", Map.copyOf(snapshot));
         // The original effective seam coordinates already include the reference line override.
         request.remove("seam_line_norm");

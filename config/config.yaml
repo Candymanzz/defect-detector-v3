@@ -21,12 +21,15 @@ integration:
   python_server_pool_size: 1
   analis_surface_autostart:
     enabled: true
-    inspect_workers: 4
+    inspect_workers: 3
     working_dir: cppAnalisSurface
     startup_timeout_ms: 30000
     health_path: /health
   analis_surface_command_linux:
   - cppAnalisSurface/build/cpp_analis_surface
+  # CPU2/8 remain available for Java/IO; one inspection per physical core.
+  - --inspect-cpus
+  - 3-5
   - --host
   - ${ip:loopback}
   - --port

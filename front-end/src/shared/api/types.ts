@@ -572,6 +572,10 @@ export type SeamSettings = {
 };
 
 export type DetectorSettings = {
+  label_confirmation_id?: string;
+  label_reference_fingerprint?: string;
+  label_outline?: [number, number][];
+  label_tracking_enabled?: boolean;
   /** Полный список исключений в координатах эталона (0..1); отсутствует у старого backend. */
   exclusions?: Exclusions;
   /** 0..1, выше — строже (мельче отличия считаются дефектом). */

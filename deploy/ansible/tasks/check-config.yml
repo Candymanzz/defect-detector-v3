@@ -1,0 +1,25 @@
+- name: Скопировать адреса станка во временный выпуск
+  ansible.builtin.copy:
+    src: '{{ app_root }}/config/ips.yaml'
+    dest: '{{ stage_root }}/config/ips.yaml'
+    remote_src: true
+    mode: '0600'
+- name: Загрузить проверочную программу
+  ansible.builtin.copy:
+    src: '{{ playbook_dir }}/CheckConfig.java'
+    dest: '{{ stage_root }}/CheckConfig.java'
+    mode: '0600'
+- name: Проверить конфиги загрузчиком из нового JAR
+  ansible.builtin.command:
+    argv:
+    - java
+    - --class-path
+    - '{{ stage_root }}/orchestrator-java/target/orchestrator-0.1.0-SNAPSHOT.jar'
+    - '{{ stage_root }}/CheckConfig.java'
+    - '{{ stage_root }}/config/config.yaml'
+    chdir: '{{ stage_root }}'
+  register: config_check
+  changed_when: false
+- name: Показать результат
+  ansible.builtin.debug:
+    msg: '{{ config_check.stdout_lines }}'

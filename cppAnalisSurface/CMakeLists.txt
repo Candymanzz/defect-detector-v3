@@ -18,6 +18,10 @@ endif()
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 
+add_library(cas_inspection_slots src/core/inspection_slots.cpp)
+target_include_directories(cas_inspection_slots PUBLIC src)
+target_link_libraries(cas_inspection_slots PUBLIC Threads::Threads)
+
 add_executable(cpp_analis_surface
   src/main.cpp
   src/core/settings.cpp
@@ -39,10 +43,14 @@ else()
 endif()
 target_link_libraries(cpp_analis_surface PRIVATE
   opencv_core opencv_imgproc opencv_video opencv_imgcodecs
-  httplib::httplib nlohmann_json::nlohmann_json Threads::Threads)
+  httplib::httplib nlohmann_json::nlohmann_json Threads::Threads cas_inspection_slots)
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(inspection_slots_test tests/inspection_slots_test.cpp)
+  target_link_libraries(inspection_slots_test PRIVATE cas_inspection_slots)
+  add_test(NAME inspection_slots_test COMMAND inspection_slots_test)
+  set_tests_properties(inspection_slots_test PROPERTIES TIMEOUT 30)
   add_executable(settings_store_test tests/settings_store_test.cpp src/core/settings.cpp)
   target_include_directories(settings_store_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
   target_link_libraries(settings_store_test PRIVATE opencv_core nlohmann_json::nlohmann_json Threads::Threads)
@@ -133,4 +141,16 @@ if(BUILD_TESTING)
     target_compile_options(upper_corner_test PRIVATE /utf-8)
   endif()
   add_test(NAME upper_corner_test COMMAND upper_corner_test)
+  foreach(service_test exclusion_test learned_region_test metric_tolerance_test)
+    target_link_libraries(${service_test} PRIVATE cas_inspection_slots)
+  endforeach()
+endif()
+
+if(BUILD_TESTING)
+  add_executable(label_tracking_test tests/label_tracking_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
+  target_include_directories(label_tracking_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(label_tracking_test PRIVATE
+    opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME label_tracking_test COMMAND label_tracking_test)
 endif()

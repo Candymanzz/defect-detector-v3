@@ -15,6 +15,7 @@ import {
 import type { ArchivedReferenceGroup, StoredLearnedCase } from "../../shared/referenceImages";
 import { Button } from "../../shared/ui/Button";
 import { useReferenceSetupController } from "./ReferenceController";
+import { LearnedFramesDropdown } from "./LearnedFramesDropdown";
 
 type ReferenceSetupProps = {
   initialCameraId: number | null;
@@ -29,7 +30,6 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     activeGroupIndex,
     setActiveGroupIndex,
     jointCameraId,
-    hasJointRoi,
     canSendAllReferences,
     hasAnyStoredReferenceForActiveGroup,
     isNewReferenceMode,
@@ -54,16 +54,16 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
     selectedRoiMode,
     jointRoiPolygon,
     roiPolygonsByCameraId,
-    perspectiveLinesByCameraId,
     seamLinesByCameraId,
     setJointRoiPolygon,
     setRoiPolygonForCamera,
-    setPerspectiveLineForCamera,
     setSeamLineForCamera,
     fpZonesByCameraId,
   } = useReferenceSetupController(onClose, initialCameraId);
   const [selectedArchiveId, setSelectedArchiveId] = useState<string | null>(null);
   const [selectedLearnedCaseId, setSelectedLearnedCaseId] = useState<string | null>(null);
+  const [dismissedSubmission, setDismissedSubmission] = useState<string | null>(null);
+  const submissionKey = referenceSubmission ? `${referenceSubmission.submittedAtMs}:${referenceSubmission.state}` : null;
   const selectedSlot = cameraSlots.find((slot) => slot.cameraId === selectedCameraId);
   const editorKey = `${selectedRoiMode}-${selectedCameraId}`;
   const selectedEditorPoints =
@@ -163,8 +163,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
           </button>
         </header>
 
-        <div className="reference-setup__body">
-          {referenceSubmission && (
+          {referenceSubmission && submissionKey !== dismissedSubmission && (
             <section
               className="reference-setup__submission"
               data-state={referenceSubmission.state}
@@ -179,6 +178,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                       : "Сервер отклонил эталон. Проверьте кадры и ROI контроля"}
                 </strong>
                 <time>{new Date(referenceSubmission.submittedAtMs).toLocaleTimeString()}</time>
+                <button type="button" className="reference-setup__submission-close" aria-label="Скрыть уведомление об эталоне" onClick={() => setDismissedSubmission(submissionKey)}>×</button>
               </div>
               <div className="reference-setup__submission-frames">
                 {referenceSubmission.cameraIds.map((cameraId) => (
@@ -190,6 +190,7 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
             </section>
           )}
 
+        <div className="reference-setup__body">
           <div className="reference-setup__layout">
             <aside className="reference-setup__sidebar reference-setup__sidebar--cameras">
               <h3>Группа камер</h3>
@@ -348,8 +349,6 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                     exclusionZones={fpZonesByCameraId[selectedSlot.cameraId] ?? []}
                     shapeMode={selectedRoiMode === "joint" ? "oriented-rect" : "polygon"}
                     allowRadiusMode={selectedRoiMode !== "joint"}
-                    perspectiveLine={perspectiveLinesByCameraId[selectedSlot.cameraId] ?? []}
-                    onPerspectiveLineChange={(points) => setPerspectiveLineForCamera(selectedSlot.cameraId, points)}
                     seamLine={seamLinesByCameraId[selectedSlot.cameraId] ?? []}
                     onSeamLineChange={(points) => setSeamLineForCamera(selectedSlot.cameraId, points)}
                     onChange={(points) => {
@@ -414,57 +413,9 @@ export function ReferenceSetup({ onClose, initialCameraId }: ReferenceSetupProps
                   <span>{selectedEditorPoints.length >= 3 ? "задан" : "не задан"}</span>
                 </button>
               </section>
-              <section className="reference-setup__object-section">
-                <header>
-                  <span>Доп. кадры анализа</span>
-                  <i data-kind="fp" />
-                </header>
-                {learnedNormals.loading && <div className="reference-setup__learned-empty">Загрузка…</div>}
-                {learnedNormals.error && (
-                  <div className="reference-setup__learned-empty" role="alert">{learnedNormals.error}</div>
-                )}
-                {!learnedNormals.loading && !learnedNormals.error && learnedNormals.cases.length === 0 && (
-                  <div className="reference-setup__learned-empty">Для камеры пока нет добавленных кадров</div>
-                )}
-                <div className="reference-setup__learned-grid">
-                  {learnedNormals.cases.map((item, index) => (
-                    <figure key={item.id} className="reference-setup__learned-card">
-                      <button
-                        className="reference-setup__learned-delete"
-                        type="button"
-                        aria-label={`Удалить дополнительный фрагмент ${index + 1}`}
-                        title="Удалить из анализа"
-                        disabled={learnedNormals.deletingId === item.id}
-                        onClick={() => void learnedNormals.remove(item.id)}
-                      >
-                        {learnedNormals.deletingId === item.id ? "…" : "×"}
-                      </button>
-                      <button
-                        className="reference-setup__learned-open"
-                        type="button"
-                        aria-label={`Увеличить дополнительный фрагмент ${index + 1}`}
-                        onClick={() => setSelectedLearnedCaseId(item.id)}
-                      >
-                        <img
-                          src={item.imageUrl}
-                          alt={`Дополнительный фрагмент ${index + 1}`}
-                        />
-                      </button>
-                      <figcaption>{item.note || `Фрагмент ${index + 1}`}</figcaption>
-                    </figure>
-                  ))}
-                </div>
-              </section>
-              <section className="reference-setup__object-section">
-                <header>
-                  <span>Шов этикетки</span>
-                  <i data-kind="joint" />
-                </header>
-                <div className="reference-setup__object-row">
-                  <i data-kind="joint" /> Камера {jointCameraId}
-                  <span>{hasJointRoi ? "ROI задан" : "шов не проверяется: ROI не задан"}</span>
-                </div>
-              </section>
+              <LearnedFramesDropdown key={selectedCameraId} cases={learnedNormals.cases}
+                loading={learnedNormals.loading} error={learnedNormals.error} deletingId={learnedNormals.deletingId}
+                onRemove={id => { void learnedNormals.remove(id); }} onOpen={setSelectedLearnedCaseId} />
               <p className="reference-setup__hint">
                 <strong>Что такое ROI?</strong> Область изображения, в которой выполняется контроль. Всё за её пределами
                 не учитывается при проверке.

@@ -29,6 +29,11 @@ class UiArtifactsSidecarPublishGateTest {
         var exclusions = new java.util.ArrayList<>(java.util.List.of(java.util.List.of(
                 java.util.List.of(.2,.3), java.util.List.of(.4,.3), java.util.List.of(.3,.6))));
         original.put("exclusions", exclusions);
+        var label = new java.util.ArrayList<>(java.util.List.of(
+                java.util.List.of(.1,.1),java.util.List.of(.9,.1),java.util.List.of(.5,.9)));
+        original.put("label_outline",label);
+        original.put("label_tracking_enabled",true);
+        original.put("label_reference_fingerprint","reference");
         Map<String, Object> request = new LinkedHashMap<>(Map.of("settings", Map.of("sensitivity", 0.1),
                 "seam_line_norm", java.util.List.of()));
         assertTrue(UiArtifactsSidecar.applyOriginalHeatmapSettings(request, Map.of("settings", original)));
@@ -37,8 +42,12 @@ class UiArtifactsSidecarPublishGateTest {
         original.put("sensitivity", 0.2);
         seam.put("band", 100);
         exclusions.clear();
+        label.clear();
         Map<?, ?> snapshot = (Map<?, ?>) request.get("settings");
         assertEquals(0.8, snapshot.get("sensitivity"));
+        assertEquals(3,((java.util.List<?>)snapshot.get("label_outline")).size());
+        assertEquals(true,snapshot.get("label_tracking_enabled"));
+        assertEquals("reference",snapshot.get("label_reference_fingerprint"));
         assertEquals(30, ((Map<?, ?>) snapshot.get("seam")).get("band"));
         assertEquals(1, ((java.util.List<?>) snapshot.get("exclusions")).size());
         original.remove("exclusions");

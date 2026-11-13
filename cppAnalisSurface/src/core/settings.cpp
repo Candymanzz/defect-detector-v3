@@ -139,11 +139,11 @@ Settings Settings::withMetricDefaults(int cameraId) const {
     const auto units = s.mmPerPixel({1224, 1024});
     // Migrate the existing global limits, independently of local comparison relaxation.
     if (!s.horizontalShiftMm) {
-        s.horizontalShiftMm = std::min(15.0, s.maxAlignmentShiftX * units.x);
+        s.horizontalShiftMm = std::min(30.0, s.maxAlignmentShiftX * units.x);
         s.maxAlignmentShiftX = *s.horizontalShiftMm / units.x;
     }
     if (!s.verticalShiftMm) {
-        s.verticalShiftMm = std::min(15.0, s.maxAlignmentShiftY * units.y);
+        s.verticalShiftMm = std::min(30.0, s.maxAlignmentShiftY * units.y);
         s.maxAlignmentShiftY = *s.verticalShiftMm / units.y;
     }
     return s;
@@ -168,6 +168,10 @@ json Settings::toJson() const {
             {"max_alignment_shift_x", maxAlignmentShiftX}, {"max_alignment_shift_y", maxAlignmentShiftY},
             {"learning_robust_enabled", learningRobustEnabled}, {"learning_shadow_enabled", learningShadowEnabled},
             {"learning_search_radius", learningSearchRadius}, {"min_blob_area", minBlobArea}, {"inspect_scale", inspectScale}, {"seam", seam.toJson()}};
+    j["label_confirmation_id"] = labelConfirmationId;
+    j["label_reference_fingerprint"] = labelReferenceFingerprint;
+    j["label_tracking_enabled"] = labelTrackingEnabled;
+    j["label_outline"] = exclusionsJson({labelOutline})[0];
     j["exclusions"] = exclusionsJson(exclusions);
     j["horizontal_shift_tolerance_mm"] = horizontalShiftMm ? json(*horizontalShiftMm) : json(nullptr);
     j["vertical_shift_tolerance_mm"] = verticalShiftMm ? json(*verticalShiftMm) : json(nullptr);
@@ -274,7 +278,7 @@ std::string Settings::applyJson(const json& j) {
         if (j[field.first].is_null()) field.second->reset();
         else {
             double value = 0;
-            if (!readNumber(j, field.first, 0, 15, false, value, err)) return err;
+            if (!readNumber(j, field.first, 0, 30, false, value, err)) return err;
             *field.second = value;
         }
     }
@@ -320,6 +324,32 @@ std::string Settings::applyJson(const json& j) {
         try { tmp.exclusions = parseExclusions(j["exclusions"]); }
         catch (const std::invalid_argument& e) { return e.what(); }
     }
+    if (j.contains("label_tracking_enabled")) {
+        if(!j["label_tracking_enabled"].is_boolean()) return "label_tracking_enabled must be boolean";
+        tmp.labelTrackingEnabled=j["label_tracking_enabled"].get<bool>();
+    }
+    if(j.contains("label_outline")) {
+        const auto& value=j["label_outline"];
+        if(!value.is_array()) return "label_outline must be an array";
+        if(value.empty()) tmp.labelOutline.clear();
+        else { try { tmp.labelOutline=parseExclusions(json::array({value})).front(); }
+            catch(const std::invalid_argument& e) { return e.what(); } }
+    }
+    const bool labelChanged=tmp.labelOutline!=labelOutline;
+    bool confirmed=false;
+    if(j.contains("label_confirmation_id")) {
+        if(!j["label_confirmation_id"].is_string() || j["label_confirmation_id"].get<std::string>().size()>128)
+            return "invalid label_confirmation_id";
+        tmp.labelConfirmationId=j["label_confirmation_id"].get<std::string>();
+        confirmed=tmp.labelConfirmationId!=labelConfirmationId;
+    }
+    if(labelChanged || confirmed) tmp.labelReferenceFingerprint.clear();
+    if(j.contains("label_reference_fingerprint")) {
+        if(!j["label_reference_fingerprint"].is_string() || j["label_reference_fingerprint"].get<std::string>().size()>128)
+            return "invalid label_reference_fingerprint";
+        const auto fingerprint=j["label_reference_fingerprint"].get<std::string>();
+        if(!fingerprint.empty() || labelChanged || confirmed) tmp.labelReferenceFingerprint=fingerprint;
+    }
     *this = tmp;
     return "";
 }
@@ -357,6 +387,11 @@ SettingsPatch SettingsPatch::fromJson(const json& j) {
         SeamSettings probeSeam;
         if (probeSeam.applyJson(j["seam"]).empty()) p.seam = j["seam"];   // invalid seam override is ignored as a whole
     }
+    for(const char* key : {"label_tracking_enabled","label_outline","label_reference_fingerprint","label_confirmation_id"}) if(j.contains(key)) {
+        Settings candidate; const auto error=candidate.applyJson({{key,j[key]}});
+        if(!error.empty()) throw std::invalid_argument(error);
+        p.label[key]=j[key];
+    }
     if (j.contains("exclusions")) p.exclusions = parseExclusions(j["exclusions"]);
     return p;
 }
@@ -373,6 +408,7 @@ void SettingsPatch::applyTo(Settings& s) const {
     if(learningRobustEnabled) s.learningRobustEnabled=*learningRobustEnabled;
     if(learningShadowEnabled) s.learningShadowEnabled=*learningShadowEnabled;
     if(learningSearchRadius) s.learningSearchRadius=*learningSearchRadius;
+    if (label.is_object()) s.applyJson(label);
     if (exclusions) s.exclusions = *exclusions;
     if (seam.is_object()) s.seam.applyJson(seam);
     if (metric.is_object()) s.applyJson(metric);

@@ -51,6 +51,9 @@ struct Settings {
     bool learningRobustEnabled = true;
     bool learningShadowEnabled = true;
     int learningSearchRadius = 24; // original pixels, independent from global alignment
+    bool labelTrackingEnabled = true;
+    std::string labelReferenceFingerprint, labelConfirmationId;
+    NormPolygon labelOutline; // normalized, confirmed reference contour
     NormPolygons exclusions; // normalized polygon holes, persisted per analysis profile
     SeamSettings seam;            // seam straightness check
 
@@ -71,6 +74,7 @@ struct SettingsPatch {
     std::optional<bool> learningRobustEnabled, learningShadowEnabled;
     std::optional<int> learningSearchRadius;
     std::optional<NormPolygons> exclusions;
+    json label; // validated contour overrides
     json seam;                                       // partial seam settings (null = none)
     // Invalid legacy controls are ignored; invalid explicit exclusions throw std::invalid_argument.
     static SettingsPatch fromJson(const json& j);

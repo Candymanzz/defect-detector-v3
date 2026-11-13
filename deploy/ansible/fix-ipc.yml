@@ -1,0 +1,45 @@
+---
+- name: Исправить сохранение IPC и пересоздать буферы камер
+  hosts: machines
+  serial: 1
+  any_errors_fatal: true
+  gather_facts: false
+  become: true
+  vars_files:
+    - release-vars.yml
+  tasks:
+    - name: Запретить неполное выполнение в check mode
+      ansible.builtin.assert:
+        that: [not ansible_check_mode]
+
+    - name: Заблокировать параллельное обновление
+      ansible.builtin.command:
+        argv: [mkdir, "{{ lock_dir }}"]
+
+    - name: Применить исправление под блокировкой
+      block:
+        - ansible.builtin.import_tasks: tasks/preserve-ipc.yml
+
+        - name: Перезапустить backend для создания новых SHM-буферов
+          ansible.builtin.systemd:
+            name: "{{ service_name }}"
+            state: restarted
+
+        - name: Дождаться HTTP Java и C++
+          ansible.builtin.uri:
+            url: "{{ item }}"
+            status_code: 200
+            use_proxy: false
+            timeout: 5
+          loop: "{{ health_urls }}"
+          register: fixed_health
+          until: fixed_health.status | default(0) == 200
+          retries: 60
+          delay: 3
+
+        - ansible.builtin.import_tasks: tasks/check-shm.yml
+
+      always:
+        - name: Освободить блокировку
+          ansible.builtin.command:
+            argv: [rmdir, "{{ lock_dir }}"]

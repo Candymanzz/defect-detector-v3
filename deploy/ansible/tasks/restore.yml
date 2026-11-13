@@ -1,0 +1,28 @@
+---
+- name: Проверить готовность резервной копии перед восстановлением
+  ansible.builtin.assert:
+    that:
+      - backup_ready | default(false) | bool
+      - backup_dir.path is defined
+
+- name: Проверить читаемость резервной копии
+  ansible.builtin.command:
+    argv: [tar, -tf, "{{ backup_dir.path }}/before.tar"]
+  changed_when: false
+  no_log: true
+
+- name: Проверить целостность резервной копии до удаления файлов
+  ansible.builtin.command:
+    argv: [sha256sum, -c, before.tar.sha256]
+    chdir: "{{ backup_dir.path }}"
+  changed_when: false
+
+- name: Удалить заменяемые пути перед восстановлением
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ backup_paths }}"
+
+- name: Восстановить прежние файлы и права
+  ansible.builtin.command:
+    argv: [tar, -xpf, "{{ backup_dir.path }}/before.tar", -C, /]
