@@ -3,6 +3,10 @@
   <component name="ChangeListManager">
     <list default="true" id="a59ee270-9d17-438b-ab4e-bbf5a3d6dd99" name="Changes" comment="отдельный рои для каждой камеры">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/deploy/linux/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/deploy/linux/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/knowledge/decisions.md" beforeDir="false" afterPath="$PROJECT_DIR$/knowledge/decisions.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/knowledge/deploy-ops/overview.md" beforeDir="false" afterPath="$PROJECT_DIR$/knowledge/deploy-ops/overview.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/knowledge/global_changelog.md" beforeDir="false" afterPath="$PROJECT_DIR$/knowledge/global_changelog.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -12,7 +16,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="core-dev" />
+        <entry key="$PROJECT_DIR$" value="линукс+кресты" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -49,7 +53,7 @@
     &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
     &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
     &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;линукс+кресты&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;boobs+pasha&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;D:/Native&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
