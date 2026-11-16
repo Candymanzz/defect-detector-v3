@@ -236,9 +236,15 @@ json inspectJson(const std::string& product, const Inspected& r, const Service::
     j["learned_normal_adjustment"] = std::max(0.0, o.rawAnomalyScore - o.anomalyScore);
     j["matched_accepted_case_ids"] = o.matchedCaseIds;
     j["excluded_normal_zones"] = json::array();
-    j["label_tracking"] = {{"enabled",o.labelEnabled},{"coverage",o.labelCoverage},{"boundary_support",o.labelBoundarySupport}};
+    j["label_tracking"] = {{"enabled",o.labelEnabled},{"coverage",o.labelCoverage},{"boundary_support",o.labelBoundarySupport},
+        {"boundary_status",o.labelBoundaryStatus},{"boundary_refined",o.labelBoundaryStatus=="refined"},
+        {"boundary_candidates",o.labelBoundaryCandidates},{"boundary_inliers",o.labelBoundaryInliers},
+        {"boundary_max_inset_px",o.labelBoundaryMaxInset}};
     j["inspection_exclusions"] = {{"polygons", exclusionsJson(o.exclusions)}, {"coordinate_space", "normalized"},
         {"surface_skipped", o.surfaceSkipped}, {"remaining_area_work_px", o.roiArea}};
+    if(o.labelEnabled) j["inspection_exclusions"]["label_boundary"] = {
+        {"status",o.labelBoundaryStatus},{"max_inset_px",o.labelBoundaryMaxInset},
+        {"candidates",o.labelBoundaryCandidates},{"inliers",o.labelBoundaryInliers}};
     j["fp_zone_scores"] = json::array();
     j["py_align_ms"] = round3(o.alignMs);
     j["py_diff_ms"] = round3(o.diffMs);
@@ -412,9 +418,15 @@ void logInspection(const char* endpoint, const InspectJob& job, const Inspected&
     j["diff_p99"] = o.diffP99;
     j["diff_max"] = o.diffMax;
     j["blobs_total"] = o.blobsTotal;
-    j["label_tracking"] = {{"enabled",o.labelEnabled},{"coverage",o.labelCoverage},{"boundary_support",o.labelBoundarySupport}};
+    j["label_tracking"] = {{"enabled",o.labelEnabled},{"coverage",o.labelCoverage},{"boundary_support",o.labelBoundarySupport},
+        {"boundary_status",o.labelBoundaryStatus},{"boundary_refined",o.labelBoundaryStatus=="refined"},
+        {"boundary_candidates",o.labelBoundaryCandidates},{"boundary_inliers",o.labelBoundaryInliers},
+        {"boundary_max_inset_px",o.labelBoundaryMaxInset}};
     j["inspection_exclusions"] = {{"polygons", exclusionsJson(o.exclusions)}, {"coordinate_space", "normalized"},
         {"surface_skipped", o.surfaceSkipped}, {"remaining_area_work_px", o.roiArea}};
+    if(o.labelEnabled) j["inspection_exclusions"]["label_boundary"] = {
+        {"status",o.labelBoundaryStatus},{"max_inset_px",o.labelBoundaryMaxInset},
+        {"candidates",o.labelBoundaryCandidates},{"inliers",o.labelBoundaryInliers}};
     j["blobs_kept"] = o.blobsKept;
     if (o.seamEnabled)
         j["seam"] = {{"found", o.seamFound}, {"reject", o.seamReject}, {"ratio", round3(o.seamRatio)},

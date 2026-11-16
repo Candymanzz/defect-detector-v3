@@ -3,6 +3,7 @@ export type ExclusionPolygon = ExclusionPoint[];
 export type Exclusions = ExclusionPolygon[];
 
 export type InspectionExclusions = {
+  label_boundary?: { status: string; max_inset_px: number; candidates: number; inliers: number };
   polygons: Exclusions;
   coordinate_space: "normalized";
   surface_skipped: boolean;

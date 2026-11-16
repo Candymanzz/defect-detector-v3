@@ -5,6 +5,20 @@ import { InspectionExclusionsResult } from "./InspectionExclusionsResult";
 import type { InspectionExclusions } from "../../shared/inspectionExclusions";
 
 describe("inspection exclusion result", () => {
+  it("shows the actual refinement result and a non-rejecting fallback status", () => {
+    const exclusions: InspectionExclusions = {
+      polygons: [], coordinate_space: "normalized", surface_skipped: false, remaining_area_work_px: 100,
+      label_boundary: { status: "refined", max_inset_px: 2.4, candidates: 100, inliers: 90 },
+    };
+    const success=renderToStaticMarkup(createElement(InspectionExclusionsResult,{exclusions}));
+    expect(success).toContain("Граница этикетки уточнена");
+    expect(success).toContain("2.4 px");
+    exclusions.label_boundary!.status="insufficient_edges";
+    const fallback=renderToStaticMarkup(createElement(InspectionExclusionsResult,{exclusions}));
+    expect(fallback).toContain("используется подтверждённый контур");
+    expect(fallback).not.toContain("БРАК");
+    expect(fallback).not.toContain("ГОДЕН");
+  });
   it("tolerates old results and distinguishes empty zones from a fully excluded surface", () => {
     expect(renderToStaticMarkup(createElement(InspectionExclusionsResult))).toBe("");
     const exclusions: InspectionExclusions = {

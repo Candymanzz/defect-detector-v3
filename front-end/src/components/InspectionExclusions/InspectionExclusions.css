@@ -42,5 +42,7 @@
 .inspection-exclusions [data-error="true"] { color: #ffb4b4; }
 .inspection-exclusions-result { font-size: 12px; line-height: 1.5; }
 .inspection-exclusions-result summary { cursor: pointer; }
+.inspection-label-boundary-result { margin: 8px 0; color: #b9dae0; font-size: 12px; line-height: 1.5; }
+.inspection-label-boundary-result[data-fallback="true"] { color: #e7ca88; }
 .inspection-exclusions-result__map { display: block; width: min(100%, 240px); background: #15191e; border: 1px solid #6e788a; }
 .inspection-exclusions-result__map polygon { fill: #34d3ed25; stroke: #56e3fa; stroke-width: 2; vector-effect: non-scaling-stroke; }

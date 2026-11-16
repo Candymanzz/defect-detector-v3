@@ -154,3 +154,12 @@ if(BUILD_TESTING)
     opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
   add_test(NAME label_tracking_test COMMAND label_tracking_test)
 endif()
+
+if(BUILD_TESTING)
+  add_executable(boundary_refinement_test tests/boundary_refinement_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
+  target_include_directories(boundary_refinement_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(boundary_refinement_test PRIVATE
+    opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME boundary_refinement_test COMMAND boundary_refinement_test)
+endif()

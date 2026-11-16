@@ -68,9 +68,10 @@ inline cv::Mat prepareRoiInspectionGray(const cv::Mat& frame, cv::Size workSize,
 // Both images use the same restored support and normalised smoothing weights.
 inline cv::Mat alignRoiInspectionGray(const cv::Mat& frame, const cv::Mat& reference,
                                      cv::Size workSize, const cv::Mat& nativeMask,
-                                     cv::Point2d shift, cv::Mat& referenceGray) {
+                                     cv::Point2d shift, cv::Mat& referenceGray, bool supportAlreadyInset = false) {
     cv::Mat inner, movedMask;
-    cv::erode(nativeMask, inner, cv::getStructuringElement(cv::MORPH_RECT, {3, 3}),
+    if(supportAlreadyInset) inner=nativeMask;
+    else cv::erode(nativeMask, inner, cv::getStructuringElement(cv::MORPH_RECT, {3, 3}),
               {-1, -1}, 1, cv::BORDER_CONSTANT, 0);
     // A very narrow ROI must not turn into two empty images and pass silently.
     const bool hasInterior = cv::countNonZero(inner) != 0;

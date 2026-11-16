@@ -23,6 +23,9 @@ struct InspectOutcome {
     int upperCornerArea = 0;         // selected ROI pixels at work resolution
     bool labelEnabled = false;
     double labelCoverage = 1, labelBoundarySupport = 0;
+    std::string labelBoundaryStatus = "disabled";
+    int labelBoundaryCandidates = 0, labelBoundaryInliers = 0;
+    double labelBoundaryMaxInset = 0;
     cv::Mat inspectionMask;
     bool surfaceSkipped = false;
     NormPolygons exclusions; // exact mask configuration used by this inspection

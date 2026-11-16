@@ -114,7 +114,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     if (prep->roiArea == 0) {
         out.scale = scale; out.reason = "inspection_excluded"; out.surfaceSkipped = true;
         if (prep->labelEnabled) {
-            out.labelEnabled=true; out.labelCoverage=0; out.reject=s.sensitivity>0;
+            out.labelEnabled=true; out.labelBoundaryStatus="not_evaluated"; out.labelCoverage=0; out.reject=s.sensitivity>0;
             out.reason=out.reject ? "label_coverage_insufficient" : "";
             out.anomalyScore=out.reject ? 1. : 0.;
         }
@@ -147,8 +147,10 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         applied = cv::Point2d(0, 0);   // a shift this large cannot be compensated reliably
     }
     out.shift = applied;
+    bool boundarySamplingInset=false;
     if (prep->labelEnabled) {
         out.labelEnabled = true;
+        out.labelBoundaryStatus = "not_evaluated";
         auto failure = [&](const char* reason) {
             out.reject=s.sensitivity>0;
             if(out.reason.empty()) out.reason=out.reject ? reason : "";
@@ -166,7 +168,29 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         out.labelBoundarySupport=labelBoundarySupport(ref.bgr(),bgr,s.labelOutline,applied);
         // Boundary color support is diagnostic. Let the shared comparison tolerance
         // and anomaly score decide surface defects, as in boobs+pasha.
+        const auto excluded = s.exclusions.empty() ? cv::Mat{} : exclusionMask(s.exclusions,bgr.size());
+        const auto boundary = refineLabelBoundary(ref.bgr(),bgr,s.labelOutline,applied,excluded);
+        out.labelBoundaryStatus=boundary.status;
+        out.labelBoundaryCandidates=boundary.candidates;
+        out.labelBoundaryInliers=boundary.inliers;
+        out.labelBoundaryMaxInset=boundary.nativeMask.empty() ? 0. : boundary.maxInset;
         auto effective=std::make_shared<Prepared>(*prep);
+        effective->roiMask=prep->roiMask.clone();
+        if(!boundary.nativeMask.empty()) {
+            // Use the same one-native-pixel protection for sampling and scoring.
+            // Build into a fresh matrix: Prepared is a shallow copy of an immutable cache.
+            cv::Mat support=boundary.nativeMask.clone();
+            if(!prep->nativeRoiMask.empty()) support &= prep->nativeRoiMask;
+            cv::erode(support,support,cv::getStructuringElement(cv::MORPH_RECT,{3,3}),{-1,-1},1,cv::BORDER_CONSTANT,0);
+            effective->nativeRoiMask=support;
+            boundarySamplingInset=true;
+            effective->roiWeights=prepareRoiWeights(effective->nativeRoiMask,prep->workSize);
+            effective->refComparisonGray=prepareRoiInspectionGray(ref.bgr(),prep->workSize,effective->nativeRoiMask,effective->roiWeights);
+            cv::Mat boundaryWork;
+            cv::resize(boundary.nativeMask,boundaryWork,prep->workSize,0,0,cv::INTER_AREA);
+            cv::threshold(boundaryWork,boundaryWork,254,255,cv::THRESH_BINARY);
+            effective->roiMask &= boundaryWork;
+        }
         cv::Mat visible=cv::Mat::ones(prep->workSize,CV_8U)*255;
         const auto roi=ref.roi();
         if(roi.size()>=3) {
@@ -177,7 +201,6 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         const cv::Mat transform=(cv::Mat_<double>(2,3)<<1,0,-applied.x*visible.cols/bgr.cols,0,1,-applied.y*visible.rows/bgr.rows);
         cv::warpAffine(visible,visible,transform,visible.size(),cv::INTER_LINEAR,cv::BORDER_CONSTANT,0);
         cv::threshold(visible,visible,254,255,cv::THRESH_BINARY);
-        effective->roiMask=prep->roiMask.clone();
         effective->roiMask &= visible;
         // Fixed 1 native-pixel inset, independent of comparison tolerance.
         // Round each axis to the nearest analysis pixel at reduced scales.
@@ -202,7 +225,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     cv::Mat cur, comparisonReference = prep->refComparisonGray;
     if (std::abs(sh.x) >= 0.15 || std::abs(sh.y) >= 0.15) {
         if (!prep->nativeRoiMask.empty()) {
-            cur = alignRoiInspectionGray(bgr, ref.bgr(), prep->workSize, prep->nativeRoiMask, applied, comparisonReference);
+            cur = alignRoiInspectionGray(bgr, ref.bgr(), prep->workSize, prep->nativeRoiMask, applied, comparisonReference, boundarySamplingInset);
         } else {
             // Full-frame inspection retains its existing border handling.
             cv::Mat m = (cv::Mat_<double>(2, 3) << 1, 0, -applied.x, 0, 1, -applied.y);

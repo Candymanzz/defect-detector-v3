@@ -49,6 +49,17 @@ class CppExclusionsIntegrationTest {
                 new BinaryProtocol.Message(BinaryProtocol.MSG_RESPONSE,Map.of("status","SKIPPED"),new byte[0]));
     }
 
+    @Test void preservesBoundaryRefinementDiagnosticsAsAnImmutableFrameSnapshot() throws Exception {
+        Map<String,Object> boundary=new LinkedHashMap<>(Map.of("status","refined","max_inset_px",2.5,
+                "candidates",100,"inliers",90));
+        Map<String,Object> mask=new LinkedHashMap<>(snapshot());mask.put("label_boundary",boundary);
+        var decision=decode(mask);
+        boundary.put("status","insufficient_edges");
+        Map<?,?> captured=(Map<?,?>)decision.inspectionExclusions().get("label_boundary");
+        assertEquals("refined",captured.get("status"));
+        assertEquals(2.5,captured.get("max_inset_px"));
+    }
+
     @Test void bindsAnImmutableMaskToTheActualFrame() throws Exception {
         List<Object> mutable = new ArrayList<>(POLYGONS);
         Map<String,Object> source = new LinkedHashMap<>(snapshot());source.put("polygons",mutable);

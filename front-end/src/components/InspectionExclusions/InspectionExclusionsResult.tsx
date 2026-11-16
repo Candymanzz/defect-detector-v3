@@ -5,7 +5,17 @@ import "./InspectionExclusions.css";
 /** This is the inspection's snapshot, never the current profile or editor draft. */
 export function InspectionExclusionsResult({ exclusions }: { exclusions?: InspectionExclusions }) {
   if (!exclusions || exclusions.coordinate_space !== "normalized" || validateExclusions(exclusions.polygons)) return null;
+  const boundary=exclusions.label_boundary;
+  const fallback=boundary && ["insufficient_edges","inconsistent_edges","excessive_crop"].includes(boundary.status);
+  const inset=boundary && Number.isFinite(boundary.max_inset_px) ? boundary.max_inset_px.toFixed(1) : "—";
+  const boundaryText=boundary?.status==="refined"
+    ? `Граница этикетки уточнена. Коррекция контура: до ${inset} px исходного кадра; защитный запас — 1 px.`
+    : boundary?.status==="unchanged" ? "Граница этикетки совпадает с ожидаемой; дополнительная обрезка не требуется."
+    : fallback ? "Границу этикетки уточнить не удалось — используется подтверждённый контур."
+    : null;
   return (
+    <>
+    {boundaryText && <p className="inspection-label-boundary-result" data-fallback={!!fallback} role="status">{boundaryText}</p>}
     <details className="inspection-exclusions-result">
       <summary>{exclusions.surface_skipped ? "Вся поверхность исключена из проверки" : `Исключающих зон: ${exclusions.polygons.length}`}</summary>
       <p>Проверяемая площадь: {exclusions.remaining_area_work_px} пикселей рабочего масштаба.
@@ -19,5 +29,6 @@ export function InspectionExclusionsResult({ exclusions }: { exclusions?: Inspec
         <p>Схема зон в координатах эталона этой инспекции.</p>
       </>}
     </details>
+    </>
   );
 }

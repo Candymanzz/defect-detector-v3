@@ -36,7 +36,7 @@ export function LabelTrackingSection({ cameraId, settings, disabled, imageUrl: s
       <span className="label-tracking__badge" aria-hidden="true">{enabled ? "Включена" : "Выключена"}</span>
     </label>
     <p id={`label-tracking-mode-${cameraId}`} className="label-tracking__mode">{enabled
-      ? "После позиционирования проверяется общая видимая часть этикетки. Открывающиеся участки ведра исключаются из сравнения; запас по краю — 1 px исходного кадра."
+      ? "После позиционирования проверяется общая видимая часть этикетки. Граница автоматически уточняется рядом с сохранённым контуром. Открывающиеся участки ведра исключаются из сравнения; запас по краю — 1 px исходного кадра."
       : "Обычное позиционирование и сравнение ROI. Вырезание по контуру этикетки и запас по краю отключены."}</p>
     <small className="label-tracking__save-hint">Настройка сохраняется для выбранной камеры вместе с остальными настройками анализа.</small>
     {error && <p className="label-tracking__error" role="alert">{error}</p>}
