@@ -7,6 +7,8 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+
+
 find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs video)
 find_package(httplib CONFIG QUIET)
 if(NOT TARGET httplib::httplib)
@@ -162,4 +164,13 @@ if(BUILD_TESTING)
   target_link_libraries(boundary_refinement_test PRIVATE
     opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
   add_test(NAME boundary_refinement_test COMMAND boundary_refinement_test)
+endif()
+
+if(BUILD_TESTING)
+  add_executable(reference_roi_sampling_test tests/reference_roi_sampling_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
+  target_include_directories(reference_roi_sampling_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(reference_roi_sampling_test PRIVATE
+    opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME reference_roi_sampling_test COMMAND reference_roi_sampling_test)
 endif()

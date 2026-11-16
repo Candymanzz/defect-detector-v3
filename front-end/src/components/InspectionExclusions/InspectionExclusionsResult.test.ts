@@ -5,6 +5,15 @@ import { InspectionExclusionsResult } from "./InspectionExclusionsResult";
 import type { InspectionExclusions } from "../../shared/inspectionExclusions";
 
 describe("inspection exclusion result", () => {
+  it("explains when required label pixels are outside the camera image", () => {
+    const exclusions: InspectionExclusions = {
+      polygons: [], coordinate_space: "normalized", surface_skipped: false, remaining_area_work_px: 0,
+      label_boundary: { status: "out_of_frame", max_inset_px: 0, candidates: 0, inliers: 0 },
+    };
+    const result=renderToStaticMarkup(createElement(InspectionExclusionsResult,{exclusions}));
+    expect(result).toContain("Контролируемая часть этикетки вышла за кадр");
+    expect(result).toContain('data-fallback="true"');
+  });
   it("shows the actual refinement result and a non-rejecting fallback status", () => {
     const exclusions: InspectionExclusions = {
       polygons: [], coordinate_space: "normalized", surface_skipped: false, remaining_area_work_px: 100,

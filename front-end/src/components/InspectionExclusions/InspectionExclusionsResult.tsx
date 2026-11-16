@@ -11,11 +11,12 @@ export function InspectionExclusionsResult({ exclusions }: { exclusions?: Inspec
   const boundaryText=boundary?.status==="refined"
     ? `Граница этикетки уточнена. Коррекция контура: до ${inset} px исходного кадра; защитный запас — 1 px.`
     : boundary?.status==="unchanged" ? "Граница этикетки совпадает с ожидаемой; дополнительная обрезка не требуется."
+    : boundary?.status==="out_of_frame" ? "Контролируемая часть этикетки вышла за кадр — полная проверка невозможна."
     : fallback ? "Границу этикетки уточнить не удалось — используется подтверждённый контур."
     : null;
   return (
     <>
-    {boundaryText && <p className="inspection-label-boundary-result" data-fallback={!!fallback} role="status">{boundaryText}</p>}
+    {boundaryText && <p className="inspection-label-boundary-result" data-fallback={!!fallback || boundary?.status==="out_of_frame"} role="status">{boundaryText}</p>}
     <details className="inspection-exclusions-result">
       <summary>{exclusions.surface_skipped ? "Вся поверхность исключена из проверки" : `Исключающих зон: ${exclusions.polygons.length}`}</summary>
       <p>Проверяемая площадь: {exclusions.remaining_area_work_px} пикселей рабочего масштаба.

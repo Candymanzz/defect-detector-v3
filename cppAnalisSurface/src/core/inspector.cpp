@@ -165,6 +165,23 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         if(out.reject || estimate.response<.8 || !estimate.refined) {
             failure("label_position_unreliable"); return out;
         }
+        // Visibility is defined by the source frame, not by a second, fixed ROI.
+        // The inspection domain remains the ROI/label on the reference.
+        const cv::Mat sourceFrame(prep->workSize,CV_8U,cv::Scalar(255));
+        cv::Mat visible;
+        const cv::Mat transform=(cv::Mat_<double>(2,3)<<1,0,-applied.x*prep->workSize.width/bgr.cols,0,1,-applied.y*prep->workSize.height/bgr.rows);
+        cv::warpAffine(sourceFrame,visible,transform,prep->workSize,cv::INTER_LINEAR,cv::BORDER_CONSTANT,0);
+        cv::threshold(visible,visible,254,255,cv::THRESH_BINARY);
+        const int guardX=cvRound(1.0*prep->workSize.width/bgr.cols);
+        const int guardY=cvRound(1.0*prep->workSize.height/bgr.rows);
+        cv::Mat required;
+        cv::erode(prep->roiMask,required,cv::getStructuringElement(cv::MORPH_RECT,{2*guardX+1,2*guardY+1}),
+            {-1,-1},1,cv::BORDER_CONSTANT,0);
+        if(cv::countNonZero(required & ~visible)>0) {
+            out.labelCoverage=double(cv::countNonZero(required & visible))/prep->roiArea;
+            out.labelBoundaryStatus="out_of_frame";
+            failure("label_out_of_frame");return out;
+        }
         out.labelBoundarySupport=labelBoundarySupport(ref.bgr(),bgr,s.labelOutline,applied);
         // Boundary color support is diagnostic. Let the shared comparison tolerance
         // and anomaly score decide surface defects, as in boobs+pasha.
@@ -191,24 +208,15 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
             cv::threshold(boundaryWork,boundaryWork,254,255,cv::THRESH_BINARY);
             effective->roiMask &= boundaryWork;
         }
-        cv::Mat visible=cv::Mat::ones(prep->workSize,CV_8U)*255;
-        const auto roi=ref.roi();
-        if(roi.size()>=3) {
-            visible.setTo(0);std::vector<cv::Point> points;
-            for(const auto& q:roi) points.emplace_back(cvRound(q.x*(visible.cols-1)),cvRound(q.y*(visible.rows-1)));
-            cv::fillPoly(visible,std::vector<std::vector<cv::Point>>{points},255);
-        }
-        const cv::Mat transform=(cv::Mat_<double>(2,3)<<1,0,-applied.x*visible.cols/bgr.cols,0,1,-applied.y*visible.rows/bgr.rows);
-        cv::warpAffine(visible,visible,transform,visible.size(),cv::INTER_LINEAR,cv::BORDER_CONSTANT,0);
-        cv::threshold(visible,visible,254,255,cv::THRESH_BINARY);
-        effective->roiMask &= visible;
         // Fixed 1 native-pixel inset, independent of comparison tolerance.
         // Round each axis to the nearest analysis pixel at reduced scales.
-        const int guardX=cvRound(1.0*prep->workSize.width/bgr.cols);
-        const int guardY=cvRound(1.0*prep->workSize.height/bgr.rows);
+
         cv::erode(effective->roiMask,effective->roiMask,
             cv::getStructuringElement(cv::MORPH_RECT,{2*guardX+1,2*guardY+1}),
             {-1,-1},1,cv::BORDER_CONSTANT,0);
+        // Do not erode the camera footprint: the single guard belongs to the
+        // reference domain, and its required pixels were checked above.
+        effective->roiMask &= visible;
         effective->roiArea=cv::countNonZero(effective->roiMask);
         out.labelCoverage=double(effective->roiArea)/prep->roiArea;
         if(effective->roiArea<64 || out.labelCoverage<.5) { failure("label_coverage_insufficient");return out; }
