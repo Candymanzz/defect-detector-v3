@@ -457,13 +457,10 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
         />
       )}
 
-      {showExclusionsEditor && selectedCameraId !== null && (
-        <details className="inspection-exclusions-editor">
-          <summary>?????? ???????? ? ??????????? ????? ??????</summary>
+      {selectedCameraId !== null && (
           <LabelTrackingSection key={selectedCameraId} cameraId={selectedCameraId} settings={settings}
             disabled={!loaded || status.kind === "saving"} imageUrl={exclusionsReferenceImageUrl}
             onChange={patch => { userEditedRef.current = true; setSettings(current => ({...current,...patch})); }} />
-        </details>
       )}
       {showExclusionsEditor && selectedCameraId !== null && (
         <details className="inspection-exclusions-editor" ref={exclusionsSectionRef}>

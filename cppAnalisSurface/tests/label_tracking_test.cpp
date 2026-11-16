@@ -48,6 +48,23 @@ int main() {
     auto baseline=cas::inspectFrame(ref,reference,original,true);
     require(!off.labelEnabled&&off.anomalyScore==baseline.anomalyScore,"disabled matches original inspection");
     require(!settings.labelOutline.empty(),"disable retains contour");
+    // A disabled contour must neither cut pixels nor disable ordinary positioning,
+    // even when it was confirmed for a different reference.
+    settings.labelReferenceFingerprint="stale-reference";
+    for(double scale:{1.,.5}) {
+        auto disabled=settings;disabled.inspectScale=scale;
+        auto plain=disabled;plain.labelOutline.clear();
+        cv::Mat shifted,warp=(cv::Mat_<double>(2,3)<<1,0,4,0,1,-3);
+        cv::warpAffine(reference,shifted,warp,reference.size(),cv::INTER_LINEAR,cv::BORDER_REPLICATE);
+        const auto actual=cas::inspectFrame(ref,shifted,disabled,true);
+        const auto expected=cas::inspectFrame(ref,shifted,plain,true);
+        require(!actual.labelEnabled && actual.inspectionMask.empty(),"disabled contour creates no cutting mask");
+        require(cv::norm(actual.rawShift-cv::Point2d(4,-3))<.5 && cv::norm(actual.shift)>1.,
+            "ordinary positioning remains active with cutting disabled");
+        require(actual.reason==expected.reason && actual.reject==expected.reject && actual.roiArea==expected.roiArea &&
+            actual.anomalyScore==expected.anomalyScore && cv::norm(actual.diff,expected.diff,cv::NORM_INF)==0,
+            "disabled cutting is identical to the ordinary ROI comparison");
+    }
     settings.labelTrackingEnabled=true;settings.labelReferenceFingerprint="different-reference";
     require(cas::inspectFrame(ref,reference,settings,true).reason=="label_reference_changed","reference replacement requires confirmation");
     settings.sensitivity=0;require(!cas::inspectFrame(ref,reference,settings,true).reject,"zero sensitivity disables rejection");

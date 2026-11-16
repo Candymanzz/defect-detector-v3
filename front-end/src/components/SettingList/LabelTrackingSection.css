@@ -1,0 +1,68 @@
+.inspection-exclusions.label-tracking {
+  margin-top: 12px;
+  padding: 12px;
+  gap: 8px;
+  border: 1px solid #31555f;
+  border-radius: 8px;
+  background: #131f24;
+}
+
+.label-tracking__toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.label-tracking__toggle input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #00d96b;
+}
+
+.label-tracking__toggle input:focus-visible {
+  outline: 2px solid #98e8f5;
+  outline-offset: 3px;
+}
+
+.label-tracking__title {
+  flex: 1;
+  min-width: 0;
+  color: #edf4f7;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.label-tracking__badge {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: #29313d;
+  color: #bdc9d0;
+  font-size: 10px;
+}
+
+.label-tracking[data-enabled="true"] .label-tracking__badge {
+  background: #173f2c;
+  color: #9be7b7;
+}
+
+.label-tracking__toggle[data-disabled="true"] {
+  opacity: .6;
+  cursor: default;
+}
+
+.label-tracking__mode { color: #c9d6dc; }
+.label-tracking__save-hint { color: #9eafbc; font-size: 11px; line-height: 1.4; }
+.label-tracking .label-tracking__error { color: #ffb4b4; }
+.label-tracking__editor { padding-top: 8px; border-top: 1px solid #31555f; }
+.label-tracking__editor > summary { color: #98e8f5; font-size: 12px; cursor: pointer; }
+.label-tracking__editor > summary:focus-visible { outline: 2px solid #98e8f5; outline-offset: 3px; }
+.label-tracking__editor > :not(summary) { margin-top: 10px; }
+
+@media (max-width: 420px) {
+  .label-tracking__badge { display: none; }
+}

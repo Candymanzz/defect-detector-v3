@@ -7,6 +7,7 @@ import type { DetectorSettings } from "../../shared/api";
 describe("DetectorSettingsPanel metric limits", () => {
   it("only renders inspection exclusions in the frame settings editor", () => {
     const sidebar = renderToStaticMarkup(createElement(DetectorSettingsPanel, { selectedCameraId: 1 }));
+    expect(sidebar).toContain('aria-label="Компенсация с вырезанием краёв"');
     expect(sidebar).not.toContain('aria-label="Зоны исключения инспекции"');
     const frameSettings = renderToStaticMarkup(createElement(DetectorSettingsPanel, {
       selectedCameraId: 1, showExclusionsEditor: true, hideSaveAction: true,
@@ -16,6 +17,7 @@ describe("DetectorSettingsPanel metric limits", () => {
       selectedCameraId: null, showExclusionsEditor: true,
     }));
     expect(allCameras).not.toContain('aria-label="Зоны исключения инспекции"');
+    expect(allCameras).not.toContain('aria-label="Компенсация с вырезанием краёв"');
   });
   it("shows rotation and vertical limits in mm, with separate pixel comparison relaxation", () => {
     const html = renderToStaticMarkup(createElement(DetectorSettingsPanel, { selectedCameraId: null }));

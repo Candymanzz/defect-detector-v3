@@ -1,3 +1,11 @@
+# 2026-11-16: Visible cutting compensation checkbox
+
+Camera settings now show a dedicated cutting checkbox; the contour editor stays collapsible.
+Off uses ordinary positioning/ROI comparison with no contour cutting or extra inset.
+Native algorithm unchanged; regression verifies active positioning and baseline equivalence.
+TypeScript/Vite, 128 frontend tests and the focused C++ regression passed.
+[Details and validation](ui/2026-11-16-cutting-compensation-checkbox.md).
+
 # 2026-11-13 — Merge compensation и контур этикетки
 
 Текущий merge 79483801/bd9f704e разрешён. Сохранены ROI-aware обработка края,
