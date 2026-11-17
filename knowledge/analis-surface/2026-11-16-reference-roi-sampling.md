@@ -1,3 +1,5 @@
+[Independent bucket surface mode, settings and validation](2026-11-17-bucket-visible-surface.md).
+
 # Выборка этикетки из полного кадра — 2026-11-16
 
 Проект `detector-/defect-detector-v3`, ветка `comp+`. В начале задачи рабочее

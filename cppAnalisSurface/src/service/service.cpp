@@ -260,15 +260,20 @@ Inspected Service::run(const InspectJob& job, const cv::Mat& frame, bool keepVis
     r.roi = ref->roi();
     r.frameSize = frame.size();
     requestTiming.add("service_setup_ms", msSince(setupStarted));
-    if(r.settings.labelTrackingEnabled && !r.settings.labelOutline.empty() && r.settings.labelReferenceFingerprint.empty()) {
+    if(r.settings.labelTrackingEnabled && !r.settings.labelOutline.empty()) {
         const auto fingerprint=ref->fingerprint();
-        if(!job.patch.label.is_object()) {
-            Settings bound;
-            const auto error=settings_.set(job.profile.empty() ? job.product : job.profile,
-                {{"label_reference_fingerprint",fingerprint}},bound,cameraId);
-            if(!error.empty()) throw std::runtime_error(error);
+        nlohmann::json bindings=nlohmann::json::object();
+        if(r.settings.labelReferenceFingerprint.empty()) bindings["label_reference_fingerprint"]=fingerprint;
+        if(!r.settings.bucketOutline.empty() && r.settings.bucketReferenceFingerprint.empty()) bindings["bucket_reference_fingerprint"]=fingerprint;
+        if(!bindings.empty()) {
+            if(!job.patch.label.is_object()) {
+                Settings bound;
+                const auto error=settings_.set(job.profile.empty() ? job.product : job.profile,bindings,bound,cameraId);
+                if(!error.empty()) throw std::runtime_error(error);
+            }
+            if(bindings.contains("label_reference_fingerprint")) r.settings.labelReferenceFingerprint=fingerprint;
+            if(bindings.contains("bucket_reference_fingerprint")) r.settings.bucketReferenceFingerprint=fingerprint;
         }
-        r.settings.labelReferenceFingerprint=fingerprint;
     }
     r.out = inspectFrame(*ref, frame, r.settings, keepVisuals);
     {

@@ -4,6 +4,7 @@ import type { ExclusionPoint } from "../../shared/inspectionExclusions";
 import { validateExclusions } from "../../shared/inspectionExclusions";
 import { getReferenceImage, subscribeReferenceImages } from "../../shared/referenceImages";
 import { ExclusionImageEditor } from "../InspectionExclusions/ExclusionImageEditor";
+import { BucketSurfaceSection } from "./BucketSurfaceSection";
 import "./LabelTrackingSection.css";
 
 export function LabelTrackingSection({ cameraId, settings, disabled, imageUrl: suppliedImage, onChange }: {
@@ -36,7 +37,9 @@ export function LabelTrackingSection({ cameraId, settings, disabled, imageUrl: s
       <span className="label-tracking__badge" aria-hidden="true">{enabled ? "Включена" : "Выключена"}</span>
     </label>
     <p id={`label-tracking-mode-${cameraId}`} className="label-tracking__mode">{enabled
-      ? "После позиционирования проверяется общая видимая часть этикетки. Граница автоматически уточняется рядом с сохранённым контуром. Открывающиеся участки ведра исключаются из сравнения; запас по краю — 1 px исходного кадра."
+      ? (settings.bucket_outline?.length ?? 0)>=3
+        ? "Ведро и этикетка позиционируются отдельно. Проверяется общая видимая поверхность; контур этикетки не подстраивается под её повреждения. Допуски в мм относятся к смещению этикетки относительно ведра; запас по краю — 1 px исходного кадра."
+        : "После позиционирования проверяется общая видимая часть этикетки. Граница автоматически уточняется рядом с сохранённым контуром. Открывающиеся участки ведра исключаются из сравнения; запас по краю — 1 px исходного кадра."
       : "Обычное позиционирование и сравнение ROI. Вырезание по контуру этикетки и запас по краю отключены."}</p>
     <small className="label-tracking__save-hint">Настройка сохраняется для выбранной камеры вместе с остальными настройками анализа.</small>
     {error && <p className="label-tracking__error" role="alert">{error}</p>}
@@ -63,5 +66,7 @@ export function LabelTrackingSection({ cameraId, settings, disabled, imageUrl: s
     {points !== null && <p>Контур ещё не подтверждён. Точек: {points.length}/128.</p>}
     <p>После смены эталона подтвердите контур заново.</p>
     </details>
+    <BucketSurfaceSection key={`${cameraId}:${imageUrl ?? ""}`} cameraId={cameraId} settings={settings}
+      disabled={disabled} imageUrl={imageUrl} onChange={onChange} />
   </section>;
 }

@@ -198,7 +198,18 @@ void addMetricDiagnostics(json& j, const Inspected& r) {
     j["shift_coarse_response"] = r.out.coarseShiftResponse;
     j["shift_response"] = r.out.shiftResponse;
     j["mm_per_pixel"] = {units.x, units.y};
-    j["shift_mm"] = {r.out.shift.x * units.x, r.out.shift.y * units.y};
+    const bool relativeValid=r.out.bucketTracked && r.out.shiftRefined;
+    const auto measured=relativeValid ? r.out.relativeLabelShift : r.out.shift;
+    j["shift_mm"] = {measured.x * units.x, measured.y * units.y};
+    j["shift_relative_to_bucket"] = relativeValid;
+    const auto& body=r.out;
+    const json bucket={{"enabled",body.bucketEnabled},{"status",body.bucketStatus},
+        {"shift_px",{body.bucketShift.x,body.bucketShift.y}},{"relative_label_shift_px",{body.relativeLabelShift.x,body.relativeLabelShift.y}},
+        {"relative_label_shift_valid",relativeValid},{"fallback_used",body.bucketFallbackUsed},
+        {"warning",body.bucketFallbackUsed ? "bucket_position_unreliable" : ""},
+        {"support",body.bucketSupport},{"residual_px",body.bucketResidual},{"candidates",body.bucketCandidates},{"inliers",body.bucketInliers}};
+    j["bucket_tracking"]=bucket;
+    if(body.bucketEnabled) j["inspection_exclusions"]["bucket_tracking"]=bucket;
     j["shift_raw_mm"] = {r.out.rawShift.x * units.x, r.out.rawShift.y * units.y};
     j["shift_limit_mm"] = {r.out.shiftLimit.x * units.x, r.out.shiftLimit.y * units.y};
     j["metric_scale_source"] = r.settings.calibration.ready() ? "calibrated" : "estimated";
@@ -682,7 +693,7 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
                 if (parsed.is_discarded()) throw std::invalid_argument("exclusions must be valid JSON");
                 overrides["exclusions"] = parsed;
             }
-            for(const char* key:{"label_outline","label_tracking_enabled"}) {
+            for(const char* key:{"label_outline","label_tracking_enabled","bucket_outline"}) {
                 const auto value=formField(req,key,0);
                 if(!value.empty()) {
                     auto parsed=json::parse(value,nullptr,false);
@@ -690,7 +701,7 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
                     overrides[key]=parsed;
                 }
             }
-            for(const char* key:{"label_reference_fingerprint","label_confirmation_id"}) {
+            for(const char* key:{"label_reference_fingerprint","label_confirmation_id","bucket_reference_fingerprint","bucket_confirmation_id"}) {
                 const auto value=formField(req,key,0);
                 if(!value.empty()) overrides[key]=value;
             }

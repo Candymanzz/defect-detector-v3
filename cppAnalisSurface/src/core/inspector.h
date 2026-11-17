@@ -21,6 +21,11 @@ struct InspectOutcome {
     double upperCornerExtraScore = 0.0; // final score minus mainRoiScore (after saturation)
     int upperCornerPixelThreshold = 0;
     int upperCornerArea = 0;         // selected ROI pixels at work resolution
+    bool bucketEnabled = false, bucketTracked = false, bucketFallbackUsed = false;
+    cv::Point2d bucketShift, relativeLabelShift;
+    double bucketSupport = 0, bucketResidual = 0;
+    int bucketCandidates = 0, bucketInliers = 0;
+    std::string bucketStatus = "disabled";
     bool labelEnabled = false;
     double labelCoverage = 1, labelBoundarySupport = 0;
     std::string labelBoundaryStatus = "disabled";

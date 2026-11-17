@@ -174,3 +174,12 @@ if(BUILD_TESTING)
     opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
   add_test(NAME reference_roi_sampling_test COMMAND reference_roi_sampling_test)
 endif()
+
+if(BUILD_TESTING)
+  add_executable(bucket_visibility_test tests/bucket_visibility_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
+  target_include_directories(bucket_visibility_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(bucket_visibility_test PRIVATE
+    opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME bucket_visibility_test COMMAND bucket_visibility_test)
+endif()

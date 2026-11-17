@@ -6,6 +6,14 @@ import "./InspectionExclusions.css";
 export function InspectionExclusionsResult({ exclusions }: { exclusions?: InspectionExclusions }) {
   if (!exclusions || exclusions.coordinate_space !== "normalized" || validateExclusions(exclusions.polygons)) return null;
   const boundary=exclusions.label_boundary;
+  const bucket=exclusions.bucket_tracking;
+  const bucketText=bucket?.enabled
+    ? bucket.status==="tracked"
+      ? `Положение ведра подтверждено. Сдвиг ведра: ${bucket.shift_px.map(value=>Number.isFinite(value) ? value.toFixed(2) : "—").join("; ")} px.`
+      : bucket.status==="reference_changed" ? "Контур ведра относится к другому эталону. Подтвердите его заново."
+      : bucket.fallback_used ? "Положение ведра не определено. Использовано обычное позиционирование этикетки без обрезки по движению ведра. Смещение этикетки относительно ведра не измерено; допуск проверяется по общему сдвигу."
+      : "Положение ведра не подтверждено. Сравнение поверхности остановлено."
+    : null;
   const fallback=boundary && ["insufficient_edges","inconsistent_edges","excessive_crop"].includes(boundary.status);
   const inset=boundary && Number.isFinite(boundary.max_inset_px) ? boundary.max_inset_px.toFixed(1) : "—";
   const boundaryText=boundary?.status==="refined"
@@ -16,6 +24,7 @@ export function InspectionExclusionsResult({ exclusions }: { exclusions?: Inspec
     : null;
   return (
     <>
+    {bucketText && <p className="inspection-label-boundary-result" data-fallback={bucket?.status!=="tracked"} role="status">{bucketText}</p>}
     {boundaryText && <p className="inspection-label-boundary-result" data-fallback={!!fallback || boundary?.status==="out_of_frame"} role="status">{boundaryText}</p>}
     <details className="inspection-exclusions-result">
       <summary>{exclusions.surface_skipped ? "Вся поверхность исключена из проверки" : `Исключающих зон: ${exclusions.polygons.length}`}</summary>

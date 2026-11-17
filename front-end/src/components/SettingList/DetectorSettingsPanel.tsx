@@ -509,6 +509,8 @@ export function editableSettings(settings: DetectorSettings, includeSeam: boolea
   if (includeSeam) {
     if(settings.label_confirmation_id !== undefined) result.label_confirmation_id=settings.label_confirmation_id;
     if(settings.label_outline !== undefined) result.label_outline=settings.label_outline;
+    if(settings.bucket_outline !== undefined) result.bucket_outline=settings.bucket_outline;
+    if(settings.bucket_confirmation_id !== undefined) result.bucket_confirmation_id=settings.bucket_confirmation_id;
     if(settings.label_tracking_enabled !== undefined) result.label_tracking_enabled=settings.label_tracking_enabled;
   }
   result.learning_robust_enabled = settings.learning_robust_enabled;

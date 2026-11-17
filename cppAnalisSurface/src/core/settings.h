@@ -53,6 +53,8 @@ struct Settings {
     int learningSearchRadius = 24; // original pixels, independent from global alignment
     bool labelTrackingEnabled = true;
     std::string labelReferenceFingerprint, labelConfirmationId;
+    NormPolygon bucketOutline; // physical visible surface, independent of the inspection ROI
+    std::string bucketReferenceFingerprint, bucketConfirmationId;
     NormPolygon labelOutline; // normalized, confirmed reference contour
     NormPolygons exclusions; // normalized polygon holes, persisted per analysis profile
     SeamSettings seam;            // seam straightness check

@@ -54,6 +54,8 @@ struct Prepared {
 };
 
 // One reference frame of one camera-scoped product plus its ROI.
+struct BucketTrackingPrepared;
+
 class Reference {
 public:
     explicit Reference(cv::Mat bgr);
@@ -67,6 +69,7 @@ public:
     // Empty polygon = whole frame. Returns true when the ROI actually changed (cache is dropped then).
     bool setRoi(NormPolygon pts);
     NormPolygon roi() const;
+    std::shared_ptr<const BucketTrackingPrepared> bucketPrepared(const NormPolygon& outline) const;
 
     std::shared_ptr<const Prepared> prepared(double scale, const NormPolygons& exclusions = {}, const NormPolygon& label = {}) const;
 
@@ -80,6 +83,7 @@ private:
     std::vector<LearnedRegion> learned_;
     mutable std::map<int, std::shared_ptr<const Prepared>> cache_;
     mutable std::shared_ptr<const AlignmentPrepared> alignment_;
+    mutable std::shared_ptr<const BucketTrackingPrepared> bucketCache_;
 };
 
 }

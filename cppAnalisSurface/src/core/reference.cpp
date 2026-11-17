@@ -1,4 +1,5 @@
 #include "reference.h"
+#include "bucket_visibility.h"
 #include "exclusion_zones.h"
 #include "preprocessing.h"
 #include <opencv2/imgproc.hpp>
@@ -104,6 +105,14 @@ void Reference::setLearned(std::vector<LearnedRegion> regions) {
 }
 std::vector<LearnedRegion> Reference::learned() const {
     std::lock_guard<std::mutex> lk(m_); return learned_;
+}
+
+std::shared_ptr<const BucketTrackingPrepared> Reference::bucketPrepared(const NormPolygon& outline) const {
+    { std::lock_guard<std::mutex> lock(m_);if(bucketCache_ && bucketCache_->outline==outline) return bucketCache_; }
+    auto built=prepareBucketTracking(bgr_,outline);
+    std::lock_guard<std::mutex> lock(m_);
+    if(!bucketCache_ || bucketCache_->outline!=outline) bucketCache_=built;
+    return bucketCache_;
 }
 
 bool Reference::setRoi(NormPolygon pts) {

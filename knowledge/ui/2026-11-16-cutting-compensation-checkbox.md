@@ -1,3 +1,5 @@
+[Independent bucket surface mode, settings and validation](../analis-surface/2026-11-17-bucket-visible-surface.md).
+
 Включённый checkbox теперь также запускает [плавное уточнение границы](../analis-surface/2026-11-16-boundary-refinement.md). При выключении этот этап также обходится; запас остаётся 1 px.
 
 # Checkbox компенсации с вырезанием — 2026-11-16

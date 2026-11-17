@@ -1091,11 +1091,22 @@ public final class UiArtifactsSidecar implements AfterInspectionSidecar {
                         ? java.util.List.of(labelOutline) : java.util.List.of())).get("polygons");
         java.util.List<?> labelList = labelPolygons instanceof java.util.List<?> list ? list : java.util.List.of();
         snapshot.put("label_outline", labelList.isEmpty() ? java.util.List.of() : labelList.get(0));
+        Object bucketOutline = settings.get("bucket_outline");
+        if (bucketOutline != null && !(bucketOutline instanceof java.util.List<?>)) return false;
+        Object bucketPolygons = com.example.iml.orchestrator.integration.pipeline.InspectionExclusionDiagnostics
+                .snapshot(Map.of("polygons", bucketOutline instanceof java.util.List<?> list && !list.isEmpty()
+                        ? java.util.List.of(bucketOutline) : java.util.List.of())).get("polygons");
+        java.util.List<?> bucketList = bucketPolygons instanceof java.util.List<?> list ? list : java.util.List.of();
+        snapshot.put("bucket_outline", bucketList.isEmpty() ? java.util.List.of() : bucketList.get(0));
         snapshot.put("label_tracking_enabled", Boolean.TRUE.equals(settings.get("label_tracking_enabled")));
         if (settings.get("label_confirmation_id") instanceof String labelConfirmation)
             snapshot.put("label_confirmation_id", labelConfirmation);
         if (settings.get("label_reference_fingerprint") instanceof String labelReference)
             snapshot.put("label_reference_fingerprint", labelReference);
+        if (settings.get("bucket_confirmation_id") instanceof String bucketConfirmation)
+            snapshot.put("bucket_confirmation_id", bucketConfirmation);
+        if (settings.get("bucket_reference_fingerprint") instanceof String bucketReference)
+            snapshot.put("bucket_reference_fingerprint", bucketReference);
         request.put("settings", Map.copyOf(snapshot));
         // The original effective seam coordinates already include the reference line override.
         request.remove("seam_line_norm");

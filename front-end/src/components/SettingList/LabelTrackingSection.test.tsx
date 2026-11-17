@@ -40,3 +40,18 @@ it("keeps the contour camera-specific when applying common settings", () => {
   expect(common).not.toHaveProperty("label_tracking_enabled");
   expect(common).not.toHaveProperty("label_reference_fingerprint");
 });
+
+it("shows the independent bucket mode and never copies its geometry to other cameras", () => {
+  const settings={label_outline:[[.1,.1],[.9,.1],[.5,.9]],label_tracking_enabled:true,
+    bucket_outline:[[.05,.05],[.95,.05],[.95,.95],[.05,.95]],bucket_confirmation_id:"bucket-confirmation",
+    bucket_reference_fingerprint:"reference"} as unknown as DetectorSettings;
+  const html=renderToStaticMarkup(<LabelTrackingSection cameraId={1} settings={settings} disabled={false} onChange={()=>undefined} />);
+  expect(html).toContain("Ведро и этикетка позиционируются отдельно");
+  expect(html).toContain("Обвести поверхность ведра");
+  expect(html).not.toContain("Граница автоматически уточняется");
+  expect(editableSettings(settings,true).bucket_outline).toEqual(settings.bucket_outline);
+  expect(editableSettings(settings,true).bucket_confirmation_id).toBe("bucket-confirmation");
+  expect(editableSettings(settings,true)).not.toHaveProperty("bucket_reference_fingerprint");
+  expect(editableSettings(settings,false)).not.toHaveProperty("bucket_outline");
+  expect(editableSettings(settings,false)).not.toHaveProperty("bucket_confirmation_id");
+});

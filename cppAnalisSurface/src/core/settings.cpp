@@ -172,6 +172,9 @@ json Settings::toJson() const {
     j["label_reference_fingerprint"] = labelReferenceFingerprint;
     j["label_tracking_enabled"] = labelTrackingEnabled;
     j["label_outline"] = exclusionsJson({labelOutline})[0];
+    j["bucket_outline"] = exclusionsJson({bucketOutline})[0];
+    j["bucket_reference_fingerprint"] = bucketReferenceFingerprint;
+    j["bucket_confirmation_id"] = bucketConfirmationId;
     j["exclusions"] = exclusionsJson(exclusions);
     j["horizontal_shift_tolerance_mm"] = horizontalShiftMm ? json(*horizontalShiftMm) : json(nullptr);
     j["vertical_shift_tolerance_mm"] = verticalShiftMm ? json(*verticalShiftMm) : json(nullptr);
@@ -350,6 +353,28 @@ std::string Settings::applyJson(const json& j) {
         const auto fingerprint=j["label_reference_fingerprint"].get<std::string>();
         if(!fingerprint.empty() || labelChanged || confirmed) tmp.labelReferenceFingerprint=fingerprint;
     }
+    if(j.contains("bucket_outline")) {
+        const auto& value=j["bucket_outline"];
+        if(!value.is_array()) return "bucket_outline must be an array";
+        if(value.empty()) tmp.bucketOutline.clear();
+        else { try { tmp.bucketOutline=parseExclusions(json::array({value})).front(); }
+            catch(const std::invalid_argument& e) { return e.what(); } }
+    }
+    const bool bucketChanged=tmp.bucketOutline!=bucketOutline;
+    bool bucketConfirmed=false;
+    if(j.contains("bucket_confirmation_id")) {
+        if(!j["bucket_confirmation_id"].is_string() || j["bucket_confirmation_id"].get<std::string>().size()>128)
+            return "invalid bucket_confirmation_id";
+        tmp.bucketConfirmationId=j["bucket_confirmation_id"].get<std::string>();
+        bucketConfirmed=tmp.bucketConfirmationId!=bucketConfirmationId;
+    }
+    if(bucketChanged || bucketConfirmed) tmp.bucketReferenceFingerprint.clear();
+    if(j.contains("bucket_reference_fingerprint")) {
+        if(!j["bucket_reference_fingerprint"].is_string() || j["bucket_reference_fingerprint"].get<std::string>().size()>128)
+            return "invalid bucket_reference_fingerprint";
+        const auto fingerprint=j["bucket_reference_fingerprint"].get<std::string>();
+        if(!fingerprint.empty() || bucketChanged || bucketConfirmed) tmp.bucketReferenceFingerprint=fingerprint;
+    }
     *this = tmp;
     return "";
 }
@@ -387,7 +412,7 @@ SettingsPatch SettingsPatch::fromJson(const json& j) {
         SeamSettings probeSeam;
         if (probeSeam.applyJson(j["seam"]).empty()) p.seam = j["seam"];   // invalid seam override is ignored as a whole
     }
-    for(const char* key : {"label_tracking_enabled","label_outline","label_reference_fingerprint","label_confirmation_id"}) if(j.contains(key)) {
+    for(const char* key : {"label_tracking_enabled","label_outline","label_reference_fingerprint","label_confirmation_id","bucket_outline","bucket_reference_fingerprint","bucket_confirmation_id"}) if(j.contains(key)) {
         Settings candidate; const auto error=candidate.applyJson({{key,j[key]}});
         if(!error.empty()) throw std::invalid_argument(error);
         p.label[key]=j[key];
