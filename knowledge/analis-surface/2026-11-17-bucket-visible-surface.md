@@ -1,3 +1,7 @@
+> 2026-11-17: the older comp+ timing below predates the exact ROI performance optimization. See [ten-frame batch timing, changes and validation](../audits/2026-11-17-ten-frame-performance.md).
+
+[2026-11-17: comparison of comp+ 5f8ca896 and compensation 8e86663b, quality and timing](../audits/2026-11-17-comp-plus-vs-compensation.md).
+
 > 2026-11-17: `bucket_position_unreliable` now continues surface inspection with a warning and ordinary label positioning. The fail-closed behavior below is historical. See [current fallback behavior and validation](2026-11-17-bucket-position-fallback.md).
 
 [Extended independent-jitter validation and remaining tracking failures](../audits/2026-11-17-independent-jitter-validation.md).

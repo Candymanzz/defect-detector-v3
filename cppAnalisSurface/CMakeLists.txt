@@ -182,4 +182,8 @@ if(BUILD_TESTING)
   target_link_libraries(bucket_visibility_test PRIVATE
     opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
   add_test(NAME bucket_visibility_test COMMAND bucket_visibility_test)
+  add_executable(preprocessing_window_test tests/preprocessing_window_test.cpp)
+  target_include_directories(preprocessing_window_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(preprocessing_window_test PRIVATE opencv_core opencv_imgproc)
+  add_test(NAME preprocessing_window_test COMMAND preprocessing_window_test)
 endif()

@@ -155,6 +155,8 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         applied = cv::Point2d(0, 0);   // a shift this large cannot be compensated reliably
     }
     out.shift = applied;
+    const bool needsAlignment=std::abs(applied.x*prep->workSize.width/bgr.cols)>=.15
+        || std::abs(applied.y*prep->workSize.height/bgr.rows)>=.15;
     bool boundarySamplingInset=false;
     if (prep->labelEnabled) {
         out.labelEnabled = true;
@@ -234,8 +236,13 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
             cv::Mat support;
             cv::erode(common,support,cv::getStructuringElement(cv::MORPH_RECT,{3,3}),{-1,-1},1,cv::BORDER_CONSTANT,0);
             effective->nativeRoiMask=support;
-            effective->roiWeights=prepareRoiWeights(effective->nativeRoiMask,prep->workSize);
-            effective->refComparisonGray=prepareRoiInspectionGray(ref.bgr(),prep->workSize,effective->nativeRoiMask,effective->roiWeights);
+            // Alignment builds both comparison images from the restored support.
+            // Its weights differ from these unwarped weights: do not compute an
+            // intermediate reference image that would immediately be replaced.
+            if(!needsAlignment) {
+                effective->roiWeights=prepareRoiWeights(effective->nativeRoiMask,prep->workSize);
+                effective->refComparisonGray=prepareRoiInspectionGray(ref.bgr(),prep->workSize,effective->nativeRoiMask,effective->roiWeights);
+            }
             boundarySamplingInset=true;out.labelBoundaryStatus="bucket_geometry";
         } else {
         out.labelBoundarySupport=labelBoundarySupport(ref.bgr(),bgr,s.labelOutline,applied);
@@ -261,8 +268,10 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
             cv::erode(support,support,cv::getStructuringElement(cv::MORPH_RECT,{3,3}),{-1,-1},1,cv::BORDER_CONSTANT,0);
             effective->nativeRoiMask=support;
             boundarySamplingInset=true;
-            effective->roiWeights=prepareRoiWeights(effective->nativeRoiMask,prep->workSize);
-            effective->refComparisonGray=prepareRoiInspectionGray(ref.bgr(),prep->workSize,effective->nativeRoiMask,effective->roiWeights);
+            if(!needsAlignment) {
+                effective->roiWeights=prepareRoiWeights(effective->nativeRoiMask,prep->workSize);
+                effective->refComparisonGray=prepareRoiInspectionGray(ref.bgr(),prep->workSize,effective->nativeRoiMask,effective->roiWeights);
+            }
             cv::Mat boundaryWork;
             cv::resize(boundary.nativeMask,boundaryWork,prep->workSize,0,0,cv::INTER_AREA);
             cv::threshold(boundaryWork,boundaryWork,254,255,cv::THRESH_BINARY);
@@ -287,12 +296,8 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         out.inspectionMask=effective->roiMask(region).clone();
         prep=effective;
     }
-    // Rounded work dimensions may have slightly different X/Y ratios on odd-size frames.
-    const cv::Point2d sh(applied.x * prep->workSize.width / bgr.cols,
-                         applied.y * prep->workSize.height / bgr.rows);
-
     cv::Mat cur, comparisonReference = prep->refComparisonGray;
-    if (std::abs(sh.x) >= 0.15 || std::abs(sh.y) >= 0.15) {
+    if (needsAlignment) {
         if (!prep->nativeRoiMask.empty()) {
             cur = alignRoiInspectionGray(bgr, ref.bgr(), prep->workSize, prep->nativeRoiMask, applied, comparisonReference, boundarySamplingInset);
         } else {
