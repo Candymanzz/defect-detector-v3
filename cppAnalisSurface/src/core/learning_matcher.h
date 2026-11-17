@@ -10,9 +10,9 @@ struct LearningOptions {
 };
 
 // Use the inspection's immutable preparation, including its exclusions and ROI.
-// Do not look it up again: a default mask variant can replace the shared cache.
+// Looking it up again can replace the shared cache with a different mask variant.
 void compareLearned(const cas::Reference& reference, const cas::Prepared& prepared, const cv::Mat& current,
                     cv::Mat& diff, cv::Rect region, double scale, const cas::Settings& settings,
                     cas::InspectOutcome& outcome, const LearningOptions& options,
-                    nlohmann::json& diagnostics);
+                    nlohmann::json& diagnostics, const cv::Mat& primaryOverride = {});
 }

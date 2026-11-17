@@ -1,3 +1,5 @@
+#include "label_tracking.h"
+#include "bucket_visibility.h"
 #include "inspector.h"
 #include "exclusion_zones.h"
 #include "learning_matcher.h"
@@ -48,7 +50,7 @@ struct ShiftEstimate {
     bool refined = false;
 };
 
-ShiftEstimate estimateShift(const AlignmentPrepared& a, const cv::Mat& nativeGray) {
+ShiftEstimate estimateShift(const AlignmentPrepared& a, const cv::Mat& nativeGray, const cv::Point2d* bucketPrior=nullptr) {
     ShiftEstimate result;
     const auto current = nativeGray(a.region);
     cv::Mat small, smallFloat;
@@ -63,27 +65,26 @@ ShiftEstimate estimateShift(const AlignmentPrepared& a, const cv::Mat& nativeGra
         result.response = result.coarseResponse = 0;
         return result;
     }
-    if (result.response < kMinShiftResponse) return result;
+    if (result.response < kMinShiftResponse && !bucketPrior) return result;
     result.pixels = {coarse.x * a.coarseToNative.x, coarse.y * a.coarseToNative.y};
 
     if (a.canRefine) {
         cv::Mat fine;
         cv::resize(current, fine, a.fineGray.size(), 0, 0, cv::INTER_AREA);
-        cv::Mat warp = (cv::Mat_<float>(2, 3) << 1, 0, float(result.pixels.x / a.fineToNative.x),
-                                                  0, 1, float(result.pixels.y / a.fineToNative.y));
-        try {
-            const double confidence = cv::findTransformECC(a.fineGray, fine, warp, cv::MOTION_TRANSLATION,
-                cv::TermCriteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS, 30, 1e-6), a.fineMask, 5);
-            const cv::Point2d refined(warp.at<float>(0, 2) * a.fineToNative.x,
-                                     warp.at<float>(1, 2) * a.fineToNative.y);
-            if (std::isfinite(confidence) && confidence >= .8 && std::isfinite(refined.x)
-                    && std::isfinite(refined.y) && cv::norm(refined - result.pixels) <= 8.0) {
-                result.pixels = refined;
-                result.response = confidence;
-                result.refined = true;
-            }
-        } catch (const cv::Exception&) {
-            // Non-convergence, low texture or poor overlap: retain the coarse estimate and confidence.
+        std::vector<cv::Point2d> starts{result.pixels};
+        if(bucketPrior && cv::norm(*bucketPrior-result.pixels)>.5) starts.push_back(*bucketPrior);
+        double best=-1;
+        for(auto initial:starts) {
+            cv::Mat warp=(cv::Mat_<float>(2,3)<<1,0,float(initial.x/a.fineToNative.x),0,1,float(initial.y/a.fineToNative.y));
+            try {
+                const double confidence=cv::findTransformECC(a.fineGray,fine,warp,cv::MOTION_TRANSLATION,
+                    cv::TermCriteria(cv::TermCriteria::COUNT|cv::TermCriteria::EPS,30,1e-6),a.fineMask,5);
+                const cv::Point2d refined(warp.at<float>(0,2)*a.fineToNative.x,warp.at<float>(1,2)*a.fineToNative.y);
+                if(std::isfinite(confidence) && confidence>=.8 && confidence>best && std::isfinite(refined.x)
+                        && std::isfinite(refined.y) && cv::norm(refined-initial)<=8.) {
+                    result.pixels=refined;result.response=confidence;result.refined=true;best=confidence;
+                }
+            } catch(const cv::Exception&) { /* retain the other candidate / coarse estimate */ }
         }
     }
     if (std::abs(result.pixels.x) < kShiftNumericalEpsilon) result.pixels.x = 0;
@@ -103,7 +104,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     }
     InspectOutcome out;
     const Settings s = configured.forFrame(bgr.size());
-    auto prep = ref.prepared(s.inspectScale, s.exclusions);
+    auto prep = ref.prepared(s.inspectScale, s.exclusions, s.labelTrackingEnabled ? s.labelOutline : NormPolygon{});
     out.exclusions = s.exclusions;
     out.workSize = prep->workSize;
     out.region = prep->region;
@@ -112,6 +113,11 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
 
     if (prep->roiArea == 0) {
         out.scale = scale; out.reason = "inspection_excluded"; out.surfaceSkipped = true;
+        if (prep->labelEnabled) {
+            out.labelEnabled=true; out.labelBoundaryStatus="not_evaluated"; out.labelCoverage=0; out.reject=s.sensitivity>0;
+            out.reason=out.reject ? "label_coverage_insufficient" : "";
+            out.anomalyScore=out.reject ? 1. : 0.;
+        }
         out.diff = cv::Mat::zeros(region.size(), CV_8U);
         out.kept = out.diff.clone(); out.scoredEnergy = out.diff.clone();
         out.totalMs = msSince(tStart); return out;
@@ -126,14 +132,22 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     const auto tAlign = Clock::now();
     const int tolWorkX = std::max(0, static_cast<int>(std::lround(s.shiftToleranceX * scale)));
     const int tolWorkY = std::max(0, static_cast<int>(std::lround(s.shiftToleranceY * scale)));
-    const auto estimate = estimateShift(*prep->alignment, nativeGray);
+    const bool bucketMode=prep->labelEnabled && s.bucketOutline.size()>=3;
+    std::shared_ptr<const BucketTrackingPrepared> bucket;
+    BucketTranslation bucketMotion;
+    if(bucketMode) {
+        bucket=ref.bucketPrepared(s.bucketOutline);
+        if(s.bucketReferenceFingerprint.empty() || s.bucketReferenceFingerprint==ref.fingerprint())
+            bucketMotion=estimateBucketTranslation(*bucket,nativeGray);
+    }
+    const auto estimate=estimateShift(*prep->alignment,nativeGray,bucketMotion.trusted ? &bucketMotion.shift : nullptr);
     out.shiftResponse = estimate.response;
     out.coarseShiftResponse = estimate.coarseResponse;
     out.shiftRefined = estimate.refined;
     out.rawShift = estimate.pixels;
     auto applied = estimate.pixels;
     out.shiftLimit = {s.maxAlignmentShiftX, s.maxAlignmentShiftY};
-    if (std::abs(applied.x) > s.maxAlignmentShiftX || std::abs(applied.y) > s.maxAlignmentShiftY) {
+    if (!(bucketMode && bucketMotion.trusted) && (std::abs(applied.x) > s.maxAlignmentShiftX || std::abs(applied.y) > s.maxAlignmentShiftY)) {
         if (estimate.response >= kRejectShiftResponse) {
             out.reject = true;
             out.reason = "shift_exceeded";
@@ -141,21 +155,161 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
         applied = cv::Point2d(0, 0);   // a shift this large cannot be compensated reliably
     }
     out.shift = applied;
-    // Rounded work dimensions may have slightly different X/Y ratios on odd-size frames.
-    const cv::Point2d sh(applied.x * prep->workSize.width / bgr.cols,
-                         applied.y * prep->workSize.height / bgr.rows);
+    const bool needsAlignment=std::abs(applied.x*prep->workSize.width/bgr.cols)>=.15
+        || std::abs(applied.y*prep->workSize.height/bgr.rows)>=.15;
+    bool boundarySamplingInset=false;
+    if (prep->labelEnabled) {
+        out.labelEnabled = true;
+        out.labelBoundaryStatus = "not_evaluated";
+        auto failure = [&](const char* reason) {
+            out.reject=s.sensitivity>0;
+            if(out.reason.empty()) out.reason=out.reject ? reason : "";
+            if(!out.reject) out.reason.clear();
+            out.anomalyScore=out.rawAnomalyScore=out.reject ? 1. : 0.;
+            out.diff=cv::Mat::zeros(region.size(),CV_8U);out.kept=out.diff.clone();out.scoredEnergy=out.diff.clone();
+            out.totalMs=msSince(tStart);
+        };
+        if(!s.labelReferenceFingerprint.empty() && s.labelReferenceFingerprint!=ref.fingerprint()) {
+            failure("label_reference_changed");return out;
+        }
+        if(bucketMode) {
+            out.bucketEnabled=true;out.bucketStatus="unreliable";
+            if(!s.bucketReferenceFingerprint.empty() && s.bucketReferenceFingerprint!=ref.fingerprint()) {
+                out.bucketStatus="reference_changed";failure("bucket_reference_changed");return out;
+            }
+            out.bucketCandidates=bucketMotion.candidates;out.bucketInliers=bucketMotion.inliers;
+            out.bucketSupport=bucketMotion.support;out.bucketResidual=bucketMotion.residual;
+            if(bucketMotion.trusted) {
+                out.bucketTracked=true;out.bucketShift=bucketMotion.shift;out.bucketStatus="tracked";
+            } else {
+                // Unknown bucket motion is a warning, not a surface defect. Never
+                // use the untrusted transform (or a fabricated zero) for cropping.
+                out.bucketFallbackUsed=true;
+            }
+        }
+        if(out.reject || estimate.response<.8 || !estimate.refined) {
+            failure("label_position_unreliable"); return out;
+        }
+        if(out.bucketTracked) {
+            out.relativeLabelShift=applied-bucketMotion.shift;
+            if(std::abs(out.relativeLabelShift.x)>s.maxAlignmentShiftX || std::abs(out.relativeLabelShift.y)>s.maxAlignmentShiftY) {
+                out.reason="shift_exceeded";failure("shift_exceeded");return out;
+            }
+        }
+        // Visibility is defined by the source frame, not by a second, fixed ROI.
+        // The inspection domain remains the ROI/label on the reference.
+        const cv::Mat sourceFrame(prep->workSize,CV_8U,cv::Scalar(255));
+        cv::Mat visible;
+        const cv::Mat transform=(cv::Mat_<double>(2,3)<<1,0,-applied.x*prep->workSize.width/bgr.cols,0,1,-applied.y*prep->workSize.height/bgr.rows);
+        cv::warpAffine(sourceFrame,visible,transform,prep->workSize,cv::INTER_LINEAR,cv::BORDER_CONSTANT,0);
+        cv::threshold(visible,visible,254,255,cv::THRESH_BINARY);
+        const int guardX=cvRound(1.0*prep->workSize.width/bgr.cols);
+        const int guardY=cvRound(1.0*prep->workSize.height/bgr.rows);
+        cv::Mat required;
+        cv::erode(prep->roiMask,required,cv::getStructuringElement(cv::MORPH_RECT,{2*guardX+1,2*guardY+1}),
+            {-1,-1},1,cv::BORDER_CONSTANT,0);
+        if(cv::countNonZero(required & ~visible)>0) {
+            out.labelCoverage=double(cv::countNonZero(required & visible))/prep->roiArea;
+            out.labelBoundaryStatus="out_of_frame";
+            failure("label_out_of_frame");return out;
+        }
+        std::shared_ptr<Prepared> effective;
+        if(out.bucketTracked) {
+            // Reference ROI and physical visibility are independent domains.
+            // The current surface is moved by the bucket, not by the print.
+            const auto relative=bucketMotion.shift-applied;
+            cv::Mat currentSurface;
+            const cv::Mat map=(cv::Mat_<double>(2,3)<<1,0,relative.x,0,1,relative.y);
+            cv::warpAffine(bucket->mask,currentSurface,map,bgr.size(),cv::INTER_LINEAR,cv::BORDER_CONSTANT,0);
+            cv::threshold(currentSurface,currentSurface,254,255,cv::THRESH_BINARY);
+            cv::Mat common=prep->nativeRoiMask.empty() ? bucket->mask.clone() : prep->nativeRoiMask.clone();
+            common &= bucket->mask;common &= currentSurface;
+            if(!s.exclusions.empty()) common.setTo(0,exclusionMask(s.exclusions,bgr.size()));
+            effective=std::make_shared<Prepared>(*prep);
+            cv::Mat commonWork;
+            cv::resize(common,commonWork,prep->workSize,0,0,cv::INTER_AREA);
+            cv::threshold(commonWork,commonWork,254,255,cv::THRESH_BINARY);
+            effective->roiMask=prep->roiMask.clone();effective->roiMask &= commonWork;
+            cv::erode(effective->roiMask,effective->roiMask,
+                cv::getStructuringElement(cv::MORPH_RECT,{2*guardX+1,2*guardY+1}),{-1,-1},1,cv::BORDER_CONSTANT,0);
+            effective->roiMask &= visible;
+            cv::Mat support;
+            cv::erode(common,support,cv::getStructuringElement(cv::MORPH_RECT,{3,3}),{-1,-1},1,cv::BORDER_CONSTANT,0);
+            effective->nativeRoiMask=support;
+            // Alignment builds both comparison images from the restored support.
+            // Its weights differ from these unwarped weights: do not compute an
+            // intermediate reference image that would immediately be replaced.
+            if(!needsAlignment) {
+                effective->roiWeights=prepareRoiWeights(effective->nativeRoiMask,prep->workSize);
+                effective->refComparisonGray=prepareRoiInspectionGray(ref.bgr(),prep->workSize,effective->nativeRoiMask,effective->roiWeights);
+            }
+            boundarySamplingInset=true;out.labelBoundaryStatus="bucket_geometry";
+        } else {
+        out.labelBoundarySupport=labelBoundarySupport(ref.bgr(),bgr,s.labelOutline,applied);
+        // Boundary color support is diagnostic. Let the shared comparison tolerance
+        // and anomaly score decide surface defects, as in boobs+pasha.
+        const auto excluded = s.exclusions.empty() ? cv::Mat{} : exclusionMask(s.exclusions,bgr.size());
+        // In bucket mode retain the confirmed label contour on tracking failure:
+        // switching to automatic edge refinement could hide a real edge defect.
+        auto boundary = bucketMode ? LabelBoundaryRefinement{}
+            : refineLabelBoundary(ref.bgr(),bgr,s.labelOutline,applied,excluded);
+        if(bucketMode) boundary.status="bucket_position_fallback";
+        out.labelBoundaryStatus=boundary.status;
+        out.labelBoundaryCandidates=boundary.candidates;
+        out.labelBoundaryInliers=boundary.inliers;
+        out.labelBoundaryMaxInset=boundary.nativeMask.empty() ? 0. : boundary.maxInset;
+        effective=std::make_shared<Prepared>(*prep);
+        effective->roiMask=prep->roiMask.clone();
+        if(!boundary.nativeMask.empty()) {
+            // Use the same one-native-pixel protection for sampling and scoring.
+            // Build into a fresh matrix: Prepared is a shallow copy of an immutable cache.
+            cv::Mat support=boundary.nativeMask.clone();
+            if(!prep->nativeRoiMask.empty()) support &= prep->nativeRoiMask;
+            cv::erode(support,support,cv::getStructuringElement(cv::MORPH_RECT,{3,3}),{-1,-1},1,cv::BORDER_CONSTANT,0);
+            effective->nativeRoiMask=support;
+            boundarySamplingInset=true;
+            if(!needsAlignment) {
+                effective->roiWeights=prepareRoiWeights(effective->nativeRoiMask,prep->workSize);
+                effective->refComparisonGray=prepareRoiInspectionGray(ref.bgr(),prep->workSize,effective->nativeRoiMask,effective->roiWeights);
+            }
+            cv::Mat boundaryWork;
+            cv::resize(boundary.nativeMask,boundaryWork,prep->workSize,0,0,cv::INTER_AREA);
+            cv::threshold(boundaryWork,boundaryWork,254,255,cv::THRESH_BINARY);
+            effective->roiMask &= boundaryWork;
+        }
+        // Fixed 1 native-pixel inset, independent of comparison tolerance.
+        // Round each axis to the nearest analysis pixel at reduced scales.
 
-    cv::Mat cur;
-    if (std::abs(sh.x) >= 0.15 || std::abs(sh.y) >= 0.15) {
-        // Warp the full source: pixels outside the ROI are still valid context.
-        // Blurring before this warp can carry a newly exposed bright strip into
-        // the comparison even when the translation itself is compensated.
-        cv::Mat m = (cv::Mat_<double>(2, 3) << 1, 0, -applied.x, 0, 1, -applied.y);
-        cv::Mat warped;
-        cv::warpAffine(bgr, warped, m, bgr.size(), cv::INTER_LINEAR, cv::BORDER_REPLICATE);
-        cur = prepareInspectionGray(warped, prep->workSize);
+        cv::erode(effective->roiMask,effective->roiMask,
+            cv::getStructuringElement(cv::MORPH_RECT,{2*guardX+1,2*guardY+1}),
+            {-1,-1},1,cv::BORDER_CONSTANT,0);
+        // Do not erode the camera footprint: the single guard belongs to the
+        // reference domain, and its required pixels were checked above.
+        effective->roiMask &= visible;
+        }
+        effective->roiArea=cv::countNonZero(effective->roiMask);
+        out.labelCoverage=double(effective->roiArea)/prep->roiArea;
+        if(effective->roiArea<64 || out.labelCoverage<.5) { failure("label_coverage_insufficient");return out; }
+        effective->upperCornerMask=prep->upperCornerMask.clone();
+        effective->upperCornerMask &= effective->roiMask(region);
+        effective->upperCornerArea=cv::countNonZero(effective->upperCornerMask);
+        out.inspectionMask=effective->roiMask(region).clone();
+        prep=effective;
+    }
+    cv::Mat cur, comparisonReference = prep->refComparisonGray;
+    if (needsAlignment) {
+        if (!prep->nativeRoiMask.empty()) {
+            cur = alignRoiInspectionGray(bgr, ref.bgr(), prep->workSize, prep->nativeRoiMask, applied, comparisonReference, boundarySamplingInset);
+        } else {
+            // Full-frame inspection retains its existing border handling.
+            cv::Mat m = (cv::Mat_<double>(2, 3) << 1, 0, -applied.x, 0, 1, -applied.y);
+            cv::Mat warped;
+            cv::warpAffine(bgr, warped, m, bgr.size(), cv::INTER_LINEAR, cv::BORDER_REPLICATE);
+            cur = prepareInspectionGray(warped, prep->workSize);
+        }
     } else {
-        cur = prep->workSize == bgr.size() ? nativeGray : prepareInspectionGray(bgr, prep->workSize);
+        cur = prep->nativeRoiMask.empty() && prep->workSize == bgr.size() ? nativeGray
+            : prepareRoiInspectionGray(bgr, prep->workSize, prep->nativeRoiMask, prep->roiWeights);
     }
     const cv::Mat curR = cur(region);
     out.alignMs = msSince(tAlign);
@@ -163,7 +317,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
 
     // ---- difference map with brightness normalisation and shift-tolerant envelope ----
     const auto tDiff = Clock::now();
-    cv::Mat refR = prep->refGray(region);
+    cv::Mat refR = comparisonReference(region);
     cv::Mat maskR = prep->roiMask(region);
     cv::Scalar mr, sr, mc, sc;
     cv::meanStdDev(refR, mr, sr, maskR);
@@ -177,8 +331,11 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     if (kernelSize.width > 1 || kernelSize.height > 1) {
         cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, kernelSize);
         cv::Mat refMin, refMax, lo, hi;
-        cv::erode(refR, refMin, kernel);
-        cv::dilate(refR, refMax, kernel);
+        // Comparison relaxation must use label pixels, not background outside ROI.
+        cv::Mat lower = refR.clone(), upper = refR.clone();
+        lower.setTo(255, ~maskR); upper.setTo(0, ~maskR);
+        cv::erode(lower, refMin, kernel);
+        cv::dilate(upper, refMax, kernel);
         cv::subtract(refMin, aligned, lo);
         cv::subtract(aligned, refMax, hi);
         cv::max(lo, hi, diff);
@@ -242,7 +399,7 @@ InspectOutcome inspectFrame(const Reference& ref, const cv::Mat& bgr, const Sett
     if (s.learningRobustEnabled && !learnedRegions.empty()) {
         const auto started=Clock::now();
         compareLearned(ref,*prep,curR,diff,region,scale,s,out,
-            {s.learningRobustEnabled,s.learningShadowEnabled,s.learningSearchRadius},out.learningDiagnostics);
+            {s.learningRobustEnabled,s.learningShadowEnabled,s.learningSearchRadius},out.learningDiagnostics, refR);
         out.learningMs=msSince(started);
         requestTiming.add("learning_ms",out.learningMs);
     } else for (const auto& learned : learnedRegions) {
@@ -447,6 +604,11 @@ cv::Mat buildHeatmap(const InspectOutcome& out, const NormPolygon& roi, int maxW
         heat = masked;
     }
     if (!out.exclusions.empty()) heat.setTo(0, exclusionMask(out.exclusions, heat.size()));
+    if (!out.inspectionMask.empty()) {
+        cv::Mat valid=placeInCanvas(out,out.inspectionMask);
+        cv::resize(valid,valid,heat.size(),0,0,cv::INTER_NEAREST);
+        heat.setTo(0,valid==0);
+    }
     return heat;
 }
 

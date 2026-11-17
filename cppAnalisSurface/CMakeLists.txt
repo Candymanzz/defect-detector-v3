@@ -7,6 +7,8 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+
+
 find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs video)
 find_package(httplib CONFIG QUIET)
 if(NOT TARGET httplib::httplib)
@@ -58,6 +60,12 @@ if(BUILD_TESTING)
     target_compile_options(settings_store_test PRIVATE /utf-8)
   endif()
   add_test(NAME settings_store_test COMMAND settings_store_test "${CMAKE_CURRENT_BINARY_DIR}/settings-store-test-data")
+  add_executable(label_roi_test tests/label_roi_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
+  target_include_directories(label_roi_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(label_roi_test PRIVATE
+    opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME label_roi_test COMMAND label_roi_test)
   add_executable(exclusion_test tests/exclusion_test.cpp
     src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp src/core/seam.cpp
     src/core/shm_io.cpp src/service/service.cpp)
@@ -138,4 +146,44 @@ if(BUILD_TESTING)
   foreach(service_test exclusion_test learned_region_test metric_tolerance_test)
     target_link_libraries(${service_test} PRIVATE cas_inspection_slots)
   endforeach()
+endif()
+
+if(BUILD_TESTING)
+  add_executable(label_tracking_test tests/label_tracking_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
+  target_include_directories(label_tracking_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(label_tracking_test PRIVATE
+    opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME label_tracking_test COMMAND label_tracking_test)
+endif()
+
+if(BUILD_TESTING)
+  add_executable(boundary_refinement_test tests/boundary_refinement_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
+  target_include_directories(boundary_refinement_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(boundary_refinement_test PRIVATE
+    opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME boundary_refinement_test COMMAND boundary_refinement_test)
+endif()
+
+if(BUILD_TESTING)
+  add_executable(reference_roi_sampling_test tests/reference_roi_sampling_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
+  target_include_directories(reference_roi_sampling_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(reference_roi_sampling_test PRIVATE
+    opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME reference_roi_sampling_test COMMAND reference_roi_sampling_test)
+endif()
+
+if(BUILD_TESTING)
+  add_executable(bucket_visibility_test tests/bucket_visibility_test.cpp
+    src/core/settings.cpp src/core/reference.cpp src/core/inspector.cpp src/core/learning_matcher.cpp)
+  target_include_directories(bucket_visibility_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(bucket_visibility_test PRIVATE
+    opencv_core opencv_imgproc opencv_video nlohmann_json::nlohmann_json Threads::Threads)
+  add_test(NAME bucket_visibility_test COMMAND bucket_visibility_test)
+  add_executable(preprocessing_window_test tests/preprocessing_window_test.cpp)
+  target_include_directories(preprocessing_window_test PRIVATE src ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(preprocessing_window_test PRIVATE opencv_core opencv_imgproc)
+  add_test(NAME preprocessing_window_test COMMAND preprocessing_window_test)
 endif()

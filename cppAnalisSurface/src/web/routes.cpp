@@ -198,7 +198,18 @@ void addMetricDiagnostics(json& j, const Inspected& r) {
     j["shift_coarse_response"] = r.out.coarseShiftResponse;
     j["shift_response"] = r.out.shiftResponse;
     j["mm_per_pixel"] = {units.x, units.y};
-    j["shift_mm"] = {r.out.shift.x * units.x, r.out.shift.y * units.y};
+    const bool relativeValid=r.out.bucketTracked && r.out.shiftRefined;
+    const auto measured=relativeValid ? r.out.relativeLabelShift : r.out.shift;
+    j["shift_mm"] = {measured.x * units.x, measured.y * units.y};
+    j["shift_relative_to_bucket"] = relativeValid;
+    const auto& body=r.out;
+    const json bucket={{"enabled",body.bucketEnabled},{"status",body.bucketStatus},
+        {"shift_px",{body.bucketShift.x,body.bucketShift.y}},{"relative_label_shift_px",{body.relativeLabelShift.x,body.relativeLabelShift.y}},
+        {"relative_label_shift_valid",relativeValid},{"fallback_used",body.bucketFallbackUsed},
+        {"warning",body.bucketFallbackUsed ? "bucket_position_unreliable" : ""},
+        {"support",body.bucketSupport},{"residual_px",body.bucketResidual},{"candidates",body.bucketCandidates},{"inliers",body.bucketInliers}};
+    j["bucket_tracking"]=bucket;
+    if(body.bucketEnabled) j["inspection_exclusions"]["bucket_tracking"]=bucket;
     j["shift_raw_mm"] = {r.out.rawShift.x * units.x, r.out.rawShift.y * units.y};
     j["shift_limit_mm"] = {r.out.shiftLimit.x * units.x, r.out.shiftLimit.y * units.y};
     j["metric_scale_source"] = r.settings.calibration.ready() ? "calibrated" : "estimated";
@@ -236,8 +247,15 @@ json inspectJson(const std::string& product, const Inspected& r, const Service::
     j["learned_normal_adjustment"] = std::max(0.0, o.rawAnomalyScore - o.anomalyScore);
     j["matched_accepted_case_ids"] = o.matchedCaseIds;
     j["excluded_normal_zones"] = json::array();
+    j["label_tracking"] = {{"enabled",o.labelEnabled},{"coverage",o.labelCoverage},{"boundary_support",o.labelBoundarySupport},
+        {"boundary_status",o.labelBoundaryStatus},{"boundary_refined",o.labelBoundaryStatus=="refined"},
+        {"boundary_candidates",o.labelBoundaryCandidates},{"boundary_inliers",o.labelBoundaryInliers},
+        {"boundary_max_inset_px",o.labelBoundaryMaxInset}};
     j["inspection_exclusions"] = {{"polygons", exclusionsJson(o.exclusions)}, {"coordinate_space", "normalized"},
         {"surface_skipped", o.surfaceSkipped}, {"remaining_area_work_px", o.roiArea}};
+    if(o.labelEnabled) j["inspection_exclusions"]["label_boundary"] = {
+        {"status",o.labelBoundaryStatus},{"max_inset_px",o.labelBoundaryMaxInset},
+        {"candidates",o.labelBoundaryCandidates},{"inliers",o.labelBoundaryInliers}};
     j["fp_zone_scores"] = json::array();
     j["py_align_ms"] = round3(o.alignMs);
     j["py_diff_ms"] = round3(o.diffMs);
@@ -411,8 +429,15 @@ void logInspection(const char* endpoint, const InspectJob& job, const Inspected&
     j["diff_p99"] = o.diffP99;
     j["diff_max"] = o.diffMax;
     j["blobs_total"] = o.blobsTotal;
+    j["label_tracking"] = {{"enabled",o.labelEnabled},{"coverage",o.labelCoverage},{"boundary_support",o.labelBoundarySupport},
+        {"boundary_status",o.labelBoundaryStatus},{"boundary_refined",o.labelBoundaryStatus=="refined"},
+        {"boundary_candidates",o.labelBoundaryCandidates},{"boundary_inliers",o.labelBoundaryInliers},
+        {"boundary_max_inset_px",o.labelBoundaryMaxInset}};
     j["inspection_exclusions"] = {{"polygons", exclusionsJson(o.exclusions)}, {"coordinate_space", "normalized"},
         {"surface_skipped", o.surfaceSkipped}, {"remaining_area_work_px", o.roiArea}};
+    if(o.labelEnabled) j["inspection_exclusions"]["label_boundary"] = {
+        {"status",o.labelBoundaryStatus},{"max_inset_px",o.labelBoundaryMaxInset},
+        {"candidates",o.labelBoundaryCandidates},{"inliers",o.labelBoundaryInliers}};
     j["blobs_kept"] = o.blobsKept;
     if (o.seamEnabled)
         j["seam"] = {{"found", o.seamFound}, {"reject", o.seamReject}, {"ratio", round3(o.seamRatio)},
@@ -667,6 +692,18 @@ void registerRoutes(httplib::Server& svr, Service& svc) {
                 const auto parsed = json::parse(exclusions, nullptr, false);
                 if (parsed.is_discarded()) throw std::invalid_argument("exclusions must be valid JSON");
                 overrides["exclusions"] = parsed;
+            }
+            for(const char* key:{"label_outline","label_tracking_enabled","bucket_outline"}) {
+                const auto value=formField(req,key,0);
+                if(!value.empty()) {
+                    auto parsed=json::parse(value,nullptr,false);
+                    if(parsed.is_discarded()) throw std::invalid_argument(std::string(key)+" must be valid JSON");
+                    overrides[key]=parsed;
+                }
+            }
+            for(const char* key:{"label_reference_fingerprint","label_confirmation_id","bucket_reference_fingerprint","bucket_confirmation_id"}) {
+                const auto value=formField(req,key,0);
+                if(!value.empty()) overrides[key]=value;
             }
             job.profile = formField(req, "analysis_profile", 0);
             job.patch = SettingsPatch::fromJson(overrides);

@@ -1,3 +1,4 @@
+import { LabelTrackingSection } from "./LabelTrackingSection";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { orchestratorApi } from "../../shared/api";
@@ -456,6 +457,11 @@ export const DetectorSettingsPanel = forwardRef<DetectorSettingsPanelHandle, Pro
         />
       )}
 
+      {selectedCameraId !== null && (
+          <LabelTrackingSection key={selectedCameraId} cameraId={selectedCameraId} settings={settings}
+            disabled={!loaded || status.kind === "saving"} imageUrl={exclusionsReferenceImageUrl}
+            onChange={patch => { userEditedRef.current = true; setSettings(current => ({...current,...patch})); }} />
+      )}
       {showExclusionsEditor && selectedCameraId !== null && (
         <details className="inspection-exclusions-editor" ref={exclusionsSectionRef}>
           <summary>Зоны исключения инспекции</summary>
@@ -500,6 +506,13 @@ export function editableSettings(settings: DetectorSettings, includeSeam: boolea
   const result: Partial<DetectorSettings> = {};
   for (const field of FIELDS) result[field.name] = settings[field.name];
   result.shift_tolerance_y = settings.shift_tolerance_x;
+  if (includeSeam) {
+    if(settings.label_confirmation_id !== undefined) result.label_confirmation_id=settings.label_confirmation_id;
+    if(settings.label_outline !== undefined) result.label_outline=settings.label_outline;
+    if(settings.bucket_outline !== undefined) result.bucket_outline=settings.bucket_outline;
+    if(settings.bucket_confirmation_id !== undefined) result.bucket_confirmation_id=settings.bucket_confirmation_id;
+    if(settings.label_tracking_enabled !== undefined) result.label_tracking_enabled=settings.label_tracking_enabled;
+  }
   result.learning_robust_enabled = settings.learning_robust_enabled;
   result.learning_shadow_enabled = settings.learning_shadow_enabled;
   if (includeSeam) result.seam = settings.seam;

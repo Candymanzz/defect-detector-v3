@@ -3,6 +3,8 @@ export type ExclusionPolygon = ExclusionPoint[];
 export type Exclusions = ExclusionPolygon[];
 
 export type InspectionExclusions = {
+  bucket_tracking?: { enabled: boolean; status: string; shift_px: [number, number]; relative_label_shift_px: [number, number]; relative_label_shift_valid?: boolean; fallback_used?: boolean; warning?: string; support: number; residual_px: number; candidates: number; inliers: number };
+  label_boundary?: { status: string; max_inset_px: number; candidates: number; inliers: number };
   polygons: Exclusions;
   coordinate_space: "normalized";
   surface_skipped: boolean;

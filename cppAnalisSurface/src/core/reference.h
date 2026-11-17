@@ -22,8 +22,10 @@ struct LearnedRegion {
 
 // Native-frame positioning cache, shared by all inspection scales for one ROI.
 struct AlignmentPrepared {
+    NormPolygon labelOutline; // immutable contour cache identity
     NormPolygons exclusions; // immutable identity shared only by inspections with the same zones
     cv::Rect region;          // original-frame coordinates
+    cv::Mat nativeRoiMask;    // shared source-pixel ROI snapshot for comparison
     cv::Size smallSize;       // coarse phase-correlation thumbnail, at most 256 px
     cv::Mat refSmall, hann;   // CV_32F, padded to the same even DFT size
     cv::Mat fineGray;         // CV_8U, ECC template, at most 512 px
@@ -34,11 +36,16 @@ struct AlignmentPrepared {
 
 // Reference data prepared for one analysis scale and the current ROI (immutable, shared between threads).
 struct Prepared {
+    NormPolygon labelOutline; // immutable contour cache identity
     NormPolygons exclusions; // immutable per-inspection mask cache identity
     double scale = 1.0;
     cv::Size workSize;        // frame size at this scale
     cv::Mat refGray;          // CV_8U blurred gray of the reference at work size
+    cv::Mat nativeRoiMask;    // explicit label ROI in source pixels; empty for whole-frame inspection
+    cv::Mat roiWeights;       // cached resize/Gaussian weights; never changed by inspection
+    cv::Mat refComparisonGray; // ROI-aware smoothing for comparison; positioning keeps refGray
     cv::Mat roiMask;          // CV_8U 0/255 at work size (full frame when no ROI)
+    bool labelEnabled = false;
     int roiArea = 0;          // pixels in roiMask
     cv::Rect region;          // ROI bounding box + padding (analysis is limited to it)
     cv::Mat upperCornerMask;  // CV_8U, region-sized; top 1/7, outer 15% on each side of explicit ROI
@@ -47,6 +54,8 @@ struct Prepared {
 };
 
 // One reference frame of one camera-scoped product plus its ROI.
+struct BucketTrackingPrepared;
+
 class Reference {
 public:
     explicit Reference(cv::Mat bgr);
@@ -60,18 +69,21 @@ public:
     // Empty polygon = whole frame. Returns true when the ROI actually changed (cache is dropped then).
     bool setRoi(NormPolygon pts);
     NormPolygon roi() const;
+    std::shared_ptr<const BucketTrackingPrepared> bucketPrepared(const NormPolygon& outline) const;
 
-    std::shared_ptr<const Prepared> prepared(double scale, const NormPolygons& exclusions = {}) const;
+    std::shared_ptr<const Prepared> prepared(double scale, const NormPolygons& exclusions = {}, const NormPolygon& label = {}) const;
 
 private:
-    std::shared_ptr<Prepared> build(double scale, const NormPolygon& roi, const NormPolygons& exclusions) const;
+    std::shared_ptr<Prepared> build(double scale, const NormPolygon& roi, const NormPolygons& exclusions, const NormPolygon& label) const;
 
     cv::Mat bgr_;
+    std::string fingerprint_; // immutable cached reference identity
     mutable std::mutex m_;
     NormPolygon roi_;
     std::vector<LearnedRegion> learned_;
     mutable std::map<int, std::shared_ptr<const Prepared>> cache_;
     mutable std::shared_ptr<const AlignmentPrepared> alignment_;
+    mutable std::shared_ptr<const BucketTrackingPrepared> bucketCache_;
 };
 
 }

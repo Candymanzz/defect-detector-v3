@@ -104,7 +104,7 @@ void learnedCacheReuse() {
         for(double scale:{.21,.5,.73,1.}) {
             cas::Settings s;s.inspectScale=scale;s.exclusions=zones;
             const auto prepared=ref.prepared(scale,zones);
-            const auto original=prepared->refGray.clone();
+            const auto original=prepared->refComparisonGray.clone();
             for(double sensitivity:{.5,.8})for(int repeat=0;repeat<3;++repeat) {
                 s.sensitivity=sensitivity;
                 const auto result=cas::inspectFrame(ref,base,s,false);
@@ -113,7 +113,7 @@ void learnedCacheReuse() {
                 require(after==prepared&&after->alignment==prepared->alignment,
                     "learned comparison replaced the inspection's prepared/cache variant");
             }
-            require(cv::norm(original,prepared->refGray,cv::NORM_INF)==0,
+            require(cv::norm(original,prepared->refComparisonGray,cv::NORM_INF)==0,
                 "learned comparison mutated the shared reference image");
         }
     }
